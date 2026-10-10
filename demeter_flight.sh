@@ -4,7 +4,7 @@ umask 027
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD="${DEMETER_BUILD_DIR:-$ROOT/.build}"
-SD_ROOT="${DEMETER_RECORDINGS_DIR:-/home/admin/grabaciones_raw}"
+SD_ROOT="${DEMETER_RECORDINGS_DIR:-/home/admin/demeter_recording/scientific_rec/raw}"
 SD_DIR="$SD_ROOT/$(date +%Y%m%d_%H%M%S)"
 RAM_DIR="/mnt/ramcam"
 RECORDER_BIN="$BUILD/bin/demeter_rec"

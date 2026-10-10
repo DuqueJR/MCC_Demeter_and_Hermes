@@ -70,8 +70,19 @@ if [[ ! -f "$B/libcamera-pydeps/ply/__init__.py" ]]; then
 fi
 export PYTHONPATH="$B/libcamera-pydeps${PYTHONPATH:+:$PYTHONPATH}"
 
+meson_source_matches() {
+	local build_dir="$1" source_dir="$2"
+	[[ -f "$build_dir/meson-info/meson-info.json" ]] && \
+		grep -Fq "\"source\": \"$source_dir\"" "$build_dir/meson-info/meson-info.json"
+}
+
+# Meson embeds absolute source paths, so regenerate its build dirs after a checkout move.
 if [[ ! -f "$LIBCAMERA_BUILD/build.ninja" ]]; then
 	meson setup "$LIBCAMERA_BUILD" "$LIBCAMERA_SRC" -Dpipelines=rpi/pisp -Dipas=rpi/pisp -Dtest=false \
+		-Ddocumentation=disabled -Dcam=disabled -Dqcam=disabled -Dgstreamer=disabled -Dpycamera=disabled \
+		-Dudev=disabled -Dtracing=disabled -Dlibdw=disabled -Dlibunwind=disabled -Drpi-awb-nn=disabled
+elif ! meson_source_matches "$LIBCAMERA_BUILD" "$LIBCAMERA_SRC"; then
+	meson setup --wipe "$LIBCAMERA_BUILD" "$LIBCAMERA_SRC" -Dpipelines=rpi/pisp -Dipas=rpi/pisp -Dtest=false \
 		-Ddocumentation=disabled -Dcam=disabled -Dqcam=disabled -Dgstreamer=disabled -Dpycamera=disabled \
 		-Dudev=disabled -Dtracing=disabled -Dlibdw=disabled -Dlibunwind=disabled -Drpi-awb-nn=disabled
 fi
@@ -80,6 +91,8 @@ ninja -C "$LIBCAMERA_BUILD" src/ipa/rpi/controller/librpi_ipa_controller.a \
 
 if [[ ! -f "$LIBPISP_BUILD/build.ninja" ]]; then
 	meson setup "$LIBPISP_BUILD" "$LIBPISP_SRC" -Dexamples=true -Dgstreamer=disabled
+elif ! meson_source_matches "$LIBPISP_BUILD" "$LIBPISP_SRC"; then
+	meson setup --wipe "$LIBPISP_BUILD" "$LIBPISP_SRC" -Dexamples=true -Dgstreamer=disabled
 else
 	meson configure "$LIBPISP_BUILD" -Dexamples=true -Dgstreamer=disabled
 fi

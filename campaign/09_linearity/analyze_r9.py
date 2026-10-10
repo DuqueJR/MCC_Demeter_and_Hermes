@@ -2,6 +2,7 @@
 """Develop all fixed-exposure R9 captures and quantify Bayer16 and RGB-replay response."""
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,8 +10,10 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-PRAW = Path("/home/admin/libpisp/build/src/examples/praw2rgb")
-REPLAY = Path("/home/admin/.cache/demeter_build/bin/controller_replay")
+ROOT = HERE.parents[1]
+BUILD = Path(os.environ.get("DEMETER_BUILD_DIR", ROOT / ".build"))
+PRAW = BUILD / "libpisp-build/src/examples/praw2rgb"
+REPLAY = BUILD / "bin/controller_replay"
 TUNE = Path("/usr/share/libcamera/ipa/rpi/pisp/imx708.json")
 BLACK = 2048
 ROI = {0: (730, 339, 1072, 723), 1: (624, 320, 1073, 728)}  # green-plane coordinates from R5

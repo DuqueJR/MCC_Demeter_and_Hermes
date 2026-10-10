@@ -16,7 +16,9 @@ from urllib.parse import urlparse
 HERE = Path(__file__).resolve().parent
 RUNS = HERE / "runs"
 PORT = int(os.environ.get("R9_PORT", "8770"))
-CAPTURE = Path(os.environ.get("DEMETER_CAPTURE", "/home/admin/.cache/demeter_build/bin/capture_pisp_stats"))
+ROOT = Path(__file__).resolve().parents[2]
+BUILD = Path(os.environ.get("DEMETER_BUILD_DIR", ROOT / ".build"))
+CAPTURE = Path(os.environ.get("DEMETER_CAPTURE", BUILD / "bin/capture_pisp_stats"))
 SHUTTER_US = 15000
 GAIN = 1.1228
 SETTLE_FRAMES = 3

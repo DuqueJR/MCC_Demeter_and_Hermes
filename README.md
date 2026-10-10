@@ -80,9 +80,9 @@ El proceso termina al recibir `SIGTERM` o `SIGINT`. Cada `chunk_NNNN/` contiene 
 
 ## Vuelo y revelado
 
-Configura `/mnt/ramcam` como `tmpfs` en `fstab` (3 GiB probados) y verifica `findmnt -T /mnt/ramcam`. Ejecuta `./demeter_flight.sh`: valida el montaje antes de limpiarlo, captura durante un maximo de 160 s o hasta `/tmp/touchdown_event.flag`, copia chunks cerrados a `/home/admin/grabaciones_raw/<timestamp>` y lanza el revelado en segundo plano. Retira un flag de touchdown antiguo antes de iniciar otra mision.
+Configura `/mnt/ramcam` como `tmpfs` en `fstab` (3 GiB probados) y verifica `findmnt -T /mnt/ramcam`. Ejecuta `./demeter_flight.sh`: valida el montaje antes de limpiarlo, captura durante un maximo de 160 s o hasta `/tmp/touchdown_event.flag`, copia chunks cerrados a `/home/admin/demeter_recording/scientific_rec/raw/<timestamp>` y lanza el revelado en segundo plano. Retira un flag de touchdown antiguo antes de iniciar otra mision.
 
-Para revelar manualmente: `python3 ./demeter_postprocess.py /ruta/a/la/mision`. Las imagenes quedan bajo `PROCESADO/` como `camX_frame_YYYYYY.jpg` y `.png`. `build.sh` y ambos entrypoints aceptan `DEMETER_BUILD_DIR`; ver `DEMETER_PROYECTO.txt` para montaje, paquetes y diagnostico.
+Para revelar manualmente: `python3 ./demeter_postprocess.py /home/admin/demeter_recording/scientific_rec/raw/<mision>`. Las imagenes quedan en `/home/admin/demeter_recording/scientific_rec/jpeg/<mision>/` y `png/<mision>/` como `camX_frame_YYYYYY.jpg` y `.png`. `build.sh` y ambos entrypoints aceptan `DEMETER_BUILD_DIR`; ver `DEMETER_PROYECTO.txt` para montaje, paquetes y diagnostico.
 
 Los RAW, videos, imagenes de prueba y directorios de ejecucion son datos generados: `.gitignore` los conserva en el disco local, pero evita subirlos al repositorio. Los scripts, perfiles, configuraciones y reportes textuales permanecen versionables.
 

@@ -14,9 +14,11 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+BUILD = Path(os.environ.get("DEMETER_BUILD_DIR", ROOT / ".build"))
 OUT = HERE / "scene"
-BIN = Path("/home/admin/.cache/demeter_build/bin/capture_pisp_stats")
-PRAW = "/home/admin/libpisp/build/src/examples/praw2rgb"
+BIN = BUILD / "bin/capture_pisp_stats"
+PRAW = BUILD / "libpisp-build/src/examples/praw2rgb"
 CEIL = 61440.0
 ENV = dict(os.environ, LIBCAMERA_LOG_LEVELS="*:ERROR", LIBPISP_LOG_LEVELS="*:ERROR")
 REPEATS = 2

@@ -3,8 +3,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 OUT=${1:-probe}
-B=/home/admin/.cache/demeter_build/bin
-P=/home/admin/libpisp/build/src/examples/praw2rgb
+ROOT="$(cd ../.. && pwd)"
+BUILD="${DEMETER_BUILD_DIR:-$ROOT/.build}"
+B="$BUILD/bin"
+P="$BUILD/libpisp-build/src/examples/praw2rgb"
 mkdir -p "$OUT" && cd "$OUT"
 echo '{"exposure":{"mode":"auto"},"white_balance":{"mode":"auto"},"focus":{"mode":"infinity"}}' > auto.json
 for c in 0 1; do

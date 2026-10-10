@@ -13,9 +13,11 @@ import cv2
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+BUILD = Path(os.environ.get("DEMETER_BUILD_DIR", ROOT / ".build"))
 OUT = HERE / "sweep"
-BIN = Path("/home/admin/.cache/demeter_build/bin/capture_pisp_stats")
-PRAW = "/home/admin/libpisp/build/src/examples/praw2rgb"
+BIN = BUILD / "bin/capture_pisp_stats"
+PRAW = BUILD / "libpisp-build/src/examples/praw2rgb"
 BLACK = 2048
 FILE_MAX = 63488  # 61440 DN sobre el negro, medido en probe/
 CH = {"B": (0, 0), "Gb": (0, 1), "Gr": (1, 0), "R": (1, 1)}  # BGGR

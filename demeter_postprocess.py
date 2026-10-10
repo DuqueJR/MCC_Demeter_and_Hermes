@@ -56,7 +56,13 @@ def run_checked(command: list[str], step: str) -> None:
         raise RuntimeError(f"{step} terminó con {result.returncode}: {detail}")
 
 
-def save_images(rgb_path: Path, processed_dir: Path, camera: int, frame_id: int) -> None:
+def save_images(
+    rgb_path: Path,
+    jpeg_dir: Path,
+    png_dir: Path,
+    camera: int,
+    frame_id: int,
+) -> None:
     expected_bytes = WIDTH * HEIGHT * 3
     if rgb_path.stat().st_size != expected_bytes:
         raise ValueError(
@@ -66,10 +72,10 @@ def save_images(rgb_path: Path, processed_dir: Path, camera: int, frame_id: int)
     rgb = np.fromfile(rgb_path, dtype=np.uint8).reshape((HEIGHT, WIDTH, 3))
     bgr = np.ascontiguousarray(rgb[..., ::-1])
     stem = f"cam{camera}_frame_{frame_id:06d}"
-    jpg_path = processed_dir / f"{stem}.jpg"
-    png_path = processed_dir / f"{stem}.png"
-    jpg_tmp = processed_dir / f".{stem}.tmp.jpg"
-    png_tmp = processed_dir / f".{stem}.tmp.png"
+    jpg_path = jpeg_dir / f"{stem}.jpg"
+    png_path = png_dir / f"{stem}.png"
+    jpg_tmp = jpeg_dir / f".{stem}.tmp.jpg"
+    png_tmp = png_dir / f".{stem}.tmp.png"
 
     try:
         if not cv2.imwrite(str(jpg_tmp), bgr, [cv2.IMWRITE_JPEG_QUALITY, 95]):
@@ -89,7 +95,8 @@ def develop_frame(
     stats_stream: BinaryIO,
     raw_size: int,
     stats_size: int,
-    processed_dir: Path,
+    jpeg_dir: Path,
+    png_dir: Path,
     camera: int,
 ) -> None:
     width = integer_field(row, "width", positive=True)
@@ -146,10 +153,15 @@ def develop_frame(
             ],
             "controller_replay",
         )
-        save_images(Path(f"{output_prefix}.rgb888.raw"), processed_dir, camera, frame_id)
+        save_images(Path(f"{output_prefix}.rgb888.raw"), jpeg_dir, png_dir, camera, frame_id)
 
 
-def process_camera(chunk_dir: Path, processed_dir: Path, camera: int) -> tuple[int, int]:
+def process_camera(
+    chunk_dir: Path,
+    jpeg_dir: Path,
+    png_dir: Path,
+    camera: int,
+) -> tuple[int, int]:
     metadata_path = chunk_dir / f"cam{camera}_metadata.jsonl"
     raw_path = chunk_dir / f"cam{camera}_frames.raw"
     stats_path = chunk_dir / f"cam{camera}_stats.bin"
@@ -178,7 +190,8 @@ def process_camera(chunk_dir: Path, processed_dir: Path, camera: int) -> tuple[i
                         stats_stream,
                         raw_size,
                         stats_size,
-                        processed_dir,
+                        jpeg_dir,
+                        png_dir,
                         camera,
                     )
                     successes += 1
@@ -216,19 +229,27 @@ def main() -> int:
         print(f"ERROR: no hay directorios chunk_NNNN en {mission_dir}", file=sys.stderr)
         return 2
 
-    processed_dir = mission_dir / "PROCESADO"
-    processed_dir.mkdir(parents=True, exist_ok=True)
+    if mission_dir.parent.name == "raw":
+        recording_root = mission_dir.parent.parent
+        jpeg_dir = recording_root / "jpeg" / mission_dir.name
+        png_dir = recording_root / "png" / mission_dir.name
+    else:
+        processed_dir = mission_dir / "PROCESADO"
+        jpeg_dir = processed_dir / "jpeg"
+        png_dir = processed_dir / "png"
+    jpeg_dir.mkdir(parents=True, exist_ok=True)
+    png_dir.mkdir(parents=True, exist_ok=True)
     total_successes = 0
     total_failures = 0
     for chunk_dir in chunks:
         for camera in (0, 1):
-            successes, failures = process_camera(chunk_dir, processed_dir, camera)
+            successes, failures = process_camera(chunk_dir, jpeg_dir, png_dir, camera)
             total_successes += successes
             total_failures += failures
 
     print(
         f"Revelado terminado: {total_successes} imágenes, "
-        f"{total_failures} errores. Salida: {processed_dir}"
+        f"{total_failures} errores. JPEG: {jpeg_dir}; PNG: {png_dir}"
     )
     return 1 if total_failures else 0
 

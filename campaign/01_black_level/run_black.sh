@@ -2,8 +2,10 @@
 # Campaña 01: frames oscuros (objetivos tapados) en una matriz exposición x ganancia por cámara.
 set -euo pipefail
 cd "$(dirname "$0")"
-B=/home/admin/.cache/demeter_build/bin
-P=/home/admin/libpisp/build/src/examples/praw2rgb
+ROOT="$(cd ../.. && pwd)"
+BUILD="${DEMETER_BUILD_DIR:-$ROOT/.build}"
+B="$BUILD/bin"
+P="$BUILD/libpisp-build/src/examples/praw2rgb"
 mkdir -p frames
 for c in 0 1; do
   for e in 1000 10000 100000; do

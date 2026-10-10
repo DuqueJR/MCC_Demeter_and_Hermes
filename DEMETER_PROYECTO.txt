@@ -41,8 +41,8 @@ MAPA DE COMPONENTES
   detiene el recorder con SIGINT y dispara el postproceso sin bloquear.
 - demeter_postprocess.py: recorre chunks y filas JSONL; extrae el frame y sus
   stats por offset, ejecuta praw2rgb y controller_replay, y escribe JPEG calidad
-  95 y PNG dentro de PROCESADO/. Los temporales por frame se eliminan incluso
-  cuando el procesamiento falla.
+  95 y PNG en scientific_rec/jpeg/<mision>/ y scientific_rec/png/<mision>/.
+  Los temporales por frame se eliminan incluso cuando el procesamiento falla.
 - build.sh: prepara fuentes fijadas dentro de .build/, superpone el ejemplo
   mantenido por Demeter y compila todos los ejecutables.
 - dependencies.lock: pins de fuentes, paquetes y subproyectos relevantes.
@@ -96,7 +96,8 @@ OPERACION DE VUELO
   El operador/servicio de telemetria crea ese archivo al tocar tierra.
 - Iniciar la captura:
       ./demeter_flight.sh
-- La mision se guarda en /home/admin/grabaciones_raw/<YYYYMMDD_HHMMSS> por
+- La mision se guarda en
+  /home/admin/demeter_recording/scientific_rec/raw/<YYYYMMDD_HHMMSS> por
   defecto. DEMETER_RECORDINGS_DIR permite cambiar la carpeta destino.
 - El orquestador termina por touchdown o al llegar a 160 segundos. Solo mueve
   nombres chunk_NNNN cerrados; excluye directorios temporales. Copia mediante
@@ -111,14 +112,16 @@ REVELADO
 --------
 El revelado automatico empieza al cerrar una mision. Tambien se puede repetir
 manualmente:
-  python3 ./demeter_postprocess.py /home/admin/grabaciones_raw/<mision>
+  python3 ./demeter_postprocess.py \
+    /home/admin/demeter_recording/scientific_rec/raw/<mision>
 
 Por cada camara y fila JSONL, el revelador valida dimensiones, offsets y longitudes,
 extrae COMP1/stats a temporales unicos bajo /tmp, escribe la metadata de frame,
 y ejecuta:
   praw2rgb: PISP_COMP1 -> BAYER16
   controller_replay: stats + metadata + tune IMX708 + Bayer16 -> RGB888
-OpenCV convierte RGB a BGR y escribe PROCESADO/camX_frame_YYYYYY.jpg y .png.
+OpenCV convierte RGB a BGR y escribe camX_frame_YYYYYY.jpg/.png en los
+directorios hermanos scientific_rec/jpeg/<mision>/ y scientific_rec/png/<mision>/.
 Una fila defectuosa se registra y no impide intentar las siguientes. Exit status
 cero significa que todas las filas fueron procesadas sin errores.
 

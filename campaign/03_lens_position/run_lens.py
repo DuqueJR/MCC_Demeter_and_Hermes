@@ -14,9 +14,11 @@ import cv2
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+BUILD = Path(os.environ.get("DEMETER_BUILD_DIR", ROOT / ".build"))
 OUT = HERE / "sweep"
-BIN = Path("/home/admin/.cache/demeter_build/bin/capture_pisp_stats")
-PRAW = "/home/admin/libpisp/build/src/examples/praw2rgb"
+BIN = BUILD / "bin/capture_pisp_stats"
+PRAW = BUILD / "libpisp-build/src/examples/praw2rgb"
 POSITIONS = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.25, 1.5, 2.0]
 EXPOSURE_US = {0: 430, 1: 640}  # ~2x la exposición automática de la vista previa
 GAIN = 1.1228
