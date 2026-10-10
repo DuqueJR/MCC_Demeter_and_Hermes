@@ -25,6 +25,11 @@ archivo predeterminado `/mnt/ramcam/current_telemetry.json`. Los chunks de la
 prueba `loopback_sync_20261010` contienen `flight_telemetry: null` y el error
 `cannot open /mnt/ramcam/current_telemetry.json`. Esta interfaz es solo un
 snapshot por chunk, no una captura temporal de telemetría.
+Cuando VisionPack implemente el productor, debe publicar snapshots completos de
+forma atómica (archivo temporal + rename), incluir `mission_id` y timestamps
+UTC/monotónicos, y conservar el flujo íntegro por separado como CSV/JSONL. Así el
+recorder no leerá un JSON parcial y el resumen por chunk seguirá siendo una
+referencia de estado, no el archivo de telemetría original.
 
 `demeter-sync.service` configura multicast en `lo` y la ruta
 `239.255.255.250/32 dev lo` para el protocolo `rpi.sync` entre cámaras. No es un

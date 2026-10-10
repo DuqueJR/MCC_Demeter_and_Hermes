@@ -18,6 +18,16 @@
 /.wget-hsts
 /.cache/
 
+# Secrets for future telemetry and radio integrations.
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
 # Generated builds, caches, and compiled utilities.
 **/.build/
 **/build/

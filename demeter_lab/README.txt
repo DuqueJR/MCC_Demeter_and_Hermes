@@ -12,6 +12,7 @@ scripts/flight/       Scripts de captura e ingestión históricos.
 scripts/develop/      Reveladores OpenCV y análisis de Bayer.
 tools/source/         Fuentes auxiliares pisp_formats y praw_probe.
 tools/bin/            Utilidad pisp_formats compilada.
+host/                 Plantillas no secretas de systemd y configuración del Pi.
 data/calibration/     Archivos PISP de calibración.
 data/raw/             Capturas PISP/RAW y muestras de prueba.
 data/rendered/        PNG de prueba y salidas de los experimentos.
