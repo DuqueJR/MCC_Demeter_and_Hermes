@@ -29,6 +29,8 @@
 
 # Capture streams, Bayer intermediates, and other binary analysis arrays.
 *.[rR][aA][wW]
+*.[dD][nN][gG]
+*.[yY][uU][vV]
 *.[pP][iI][sS][pP]
 *.bin
 *.npy
@@ -49,6 +51,11 @@
 *.[mM][kK][vV]
 *.[aA][vV][iI]
 *.[wW][eE][bB][mM]
+*.[mM]4[vV]
+*.[hH]265
+*.[hH]e[iI][cC]
+*.[hH]e[iI][iI][fF]
+*.[3][gG][pP]
 *.[hH]264
 *.[mM][pP][eE][gG]
 *.[mM][pP][gG]

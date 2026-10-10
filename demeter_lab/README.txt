@@ -29,8 +29,8 @@ eyes_of_demeter/      Proyecto principal versionado en GitHub; contiene el
 demeter_recording/    Salidas operacionales: normal_rec y scientific_rec.
 libpisp/              Checkout externo retirado; build.sh obtiene las fuentes
                       fijadas dentro de eyes_of_demeter/.build/sources.
-pi/ y fotos/          No se encontraron en /home, /mnt ni /media durante la
-                      auditoría del 2026-10-10; su ubicación no está confirmada.
+pi/ y fotos/          Eliminados permanentemente de forma manual por el usuario
+                      el 2026-10-10; no forman parte del respaldo.
 
 COMANDOS HABITUALES
 -------------------
