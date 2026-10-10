@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demeter R9 Linealidad</title>
+<style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+#screen { position: fixed; inset: 0; background: #000; }
+#start { position: fixed; inset: 0; display: grid; place-items: center; border: 0;
+         background: #000; color: #fff; font: 24px monospace; cursor: pointer; }
+#start[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<button id="start" type="button">INICIAR R9</button>
+<script>
+"use strict";
+const LEVEL_TIME_MS = 10000;
+const levels = [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 1.00];
+const screen = document.getElementById("screen");
+const startButton = document.getElementById("start");
+
+function linearToSRGB(value) {
+    if (value <= 0.0031308) return 12.92 * value;
+    return 1.055 * Math.pow(value, 1 / 2.4) - 0.055;
+}
+
+function grayColor(linear) {
+    const code = Math.round(linearToSRGB(linear) * 255);
+    return { css: `rgb(${code},${code},${code})`, code };
+}
+
+async function post(path, body) {
+    const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify(body) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+}
+
+async function runSequence(sequenceId) {
+    for (let i = 0; i < levels.length; ++i) {
+        const linear = levels[i];
+        const color = grayColor(linear);
+        const displayStart = performance.now();
+        screen.style.backgroundColor = color.css;
+        await post("/api/level", { sequence_id: sequenceId, index: i, linear_luminance: linear,
+                                  srgb_code: color.code, browser_epoch_ms: Date.now(),
+                                  browser_performance_ms: displayStart });
+        const remaining = LEVEL_TIME_MS - (performance.now() - displayStart);
+        if (remaining > 0) await new Promise(resolve => window.setTimeout(resolve, remaining));
+    }
+    screen.style.backgroundColor = "#000000";
+    await post("/api/finish", { sequence_id: sequenceId, browser_epoch_ms: Date.now(),
+                                browser_performance_ms: performance.now() });
+}
+
+startButton.addEventListener("click", async () => {
+    startButton.disabled = true;
+    startButton.textContent = "INICIANDO...";
+    try { await document.documentElement.requestFullscreen(); } catch (_) { }
+    try {
+        const result = await post("/api/start", { browser_epoch_ms: Date.now(),
+                                                   browser_performance_ms: performance.now() });
+        startButton.hidden = true;
+        await runSequence(result.sequence_id);
+    } catch (error) {
+        screen.style.backgroundColor = "#000000";
+        startButton.hidden = false;
+        startButton.disabled = false;
+        startButton.textContent = `ERROR: ${error.message}`;
+    }
+}, { once: true });
+
+async function updateReady() {
+    if (startButton.hidden || startButton.disabled) return;
+    try {
+        const response = await fetch("/api/status", { cache: "no-store" });
+        const status = await response.json();
+        startButton.disabled = !status.ready || status.started;
+        startButton.textContent = status.ready ? "INICIAR R9" : "ESPERANDO CONFIGURACIÓN";
+    } catch (_) {
+        startButton.disabled = true;
+        startButton.textContent = "SIN CONEXIÓN CON LA PI";
+    }
+}
+window.setInterval(updateReady, 500);
+updateReady();
+</script>
+</body>
+</html>

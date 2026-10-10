@@ -1,0 +1,10 @@
+{
+  "name": "prueba_todo_auto",
+  "description": "Banco de pruebas: AE, AWB y autofoco automaticos (referencia equivalente a rpicam por defecto).",
+  "cameras": [0, 1],
+  "capture": { "width": 4608, "height": 2592, "settle_frames": 30 },
+  "exposure": { "mode": "auto", "exposure_mode": "normal", "metering": "centre-weighted", "constraint": "normal", "ev": 0.0 },
+  "white_balance": { "mode": "auto" },
+  "focus": { "mode": "auto", "range": "full" },
+  "develop": { "black_level": "tune", "white_level": null }
+}
