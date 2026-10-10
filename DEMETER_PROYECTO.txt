@@ -147,9 +147,8 @@ RESULTADOS VERIFICADOS Y LIMITES
 - El Controller y las interfaces internas de libcamera deben reconstruirse con
   los commits fijados. La salida actual es RGB888 y no es un master RAW de 16 bit.
 
-DOCUMENTOS RELACIONADOS
------------------------
-README.md: mapa y comandos rapidos.
-DEMETER_ONBOARDING_CONTEXT.md: contexto tecnico/handoff del trabajo.
-DEMETER_PRODUCTION_REVIEW.md: riesgos y checklist de produccion.
-DEMETER_OFFLINE_ISP_ARQUITECTURA.md: decisiones de arquitectura del pipeline.
+DOCUMENTACION
+-------------
+README.md: mapa y comandos rapidos de operacion.
+Este archivo: arquitectura, dependencias, reconstruccion, vuelo, revelado,
+datos versionados y limites conocidos.
