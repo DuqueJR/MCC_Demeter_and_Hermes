@@ -1,0 +1,42 @@
+{
+  "session_id": "20261007_181637",
+
+  "script_start_unix": "1791414997.321157999",
+  "script_start_utc": "2026-10-07T23:16:37.322081106Z",
+
+  "capture_start_unix": "1791414997.570781102",
+  "capture_end_unix": "1791415018.302902572",
+
+  "capture_start_utc": "2026-10-07T23:16:37.571900560Z",
+  "capture_end_utc": "2026-10-07T23:16:58.303879345Z",
+
+  "time_script_to_capture_start_s": ".249623103",
+
+  "width": 4608,
+  "height": 2592,
+
+  "fps_target": 10,
+  "duration_ms": 10000,
+
+  "frames_cam0": 195,
+  "frames_cam1": 194,
+
+  "fps_real_cam0": 9.405,
+  "fps_real_cam1": 9.357,
+
+  "bytes_frame_cam0": 6125095,
+  "bytes_frame_cam1": 6095101,
+
+  "size_cam0": 1194393600,
+  "size_cam1": 1182449664,
+
+  "sync_delta_us": "46",
+
+  "sync_cam0": "[1:31:54.106119540] [34332]  INFO RPiSync sync.cpp:232 *** Sync achieved! Difference 0us",
+  "sync_cam1": "[1:31:54.106055577] [34333]  INFO RPiSync sync.cpp:281 *** Sync achieved! Difference 46us",
+
+  "transfer_verified": true,
+  "ramdisk_cleanup_verified": true,
+
+  "telemetry_file": "telemetry.csv"
+}

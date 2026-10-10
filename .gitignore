@@ -1,0 +1,54 @@
+# The product has its own Git repository and remote.
+/eyes_of_demeter/
+
+# Linux, VS Code, and user-specific state; never include credentials/config.
+/.bash_history
+/.bash_logout
+/.bashrc
+/.config/
+/.copilot/
+/.dotnet/
+/.gitconfig
+/.lesshst
+/.local/
+/.profile
+/.ssh/
+/.sudo_as_admin_successful
+/.vscode-server/
+/.wget-hsts
+/.cache/
+
+# Generated builds, caches, and compiled utilities.
+**/.build/
+**/build/
+**/__pycache__/
+**/.venv/
+**/venv/
+**/node_modules/
+/demeter_lab/tools/bin/
+
+# Capture streams, Bayer intermediates, and other binary analysis arrays.
+*.[rR][aA][wW]
+*.[pP][iI][sS][pP]
+*.bin
+*.npy
+*.npz
+*.deb
+
+# Images and video are retained locally, not stored in Git.
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[bB][mM][pP]
+*.[gG][iI][fF]
+*.[tT][iI][fF]
+*.[tT][iI][fF][fF]
+*.[wW][eE][bB][pP]
+*.[mM][pP]4
+*.[mM][oO][vV]
+*.[mM][kK][vV]
+*.[aA][vV][iI]
+*.[wW][eE][bB][mM]
+*.[hH]264
+*.[mM][pP][eE][gG]
+*.[mM][pP][gG]
