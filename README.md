@@ -1,6 +1,6 @@
 # Eyes of Demeter
 
-Pipeline de captura dual para Raspberry Pi 5 / BCM2712 D0 con dos IMX708. Registra `BGGR_PISP_COMP1` y `PISP_FE_STATS`, ejecuta el `RPiController::Controller` de libcamera fuera del pipeline de captura y revela JPEG/PNG usando el PiSP Back End.
+Pipeline de captura dual para Raspberry Pi 5 / BCM2712 D0 con dos IMX708. Registra `BGGR_PISP_COMP1` y `PISP_FE_STATS`, ejecuta el `RPiController::Controller` de libcamera fuera del pipeline de captura y revela JPEG/PNG usando el PiSP Back End. El sistema está pensado para registrar vuelos de cohete y generar medios para caracterización arbórea y mapeo 3D.
 
 Versiones fijadas: libcamera `0.7.2+rpt20260817` (`6c1dd9d55573010f710c9e190a73e7e76f0d9432`) y libpisp `1.7.0` (`f8a5eb2af4c5dea76442785ef42b2fb1aa9e62f9`). `dependencies.lock` contiene los pins; `build.sh` reconstruye las fuentes y binarios bajo `.build/`.
 
