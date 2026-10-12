@@ -49,7 +49,7 @@ de touchdown. Conserva `mission.json` y `sys_chk*.log`.
 El recorder de producción experimental `eyes_of_demeter/src/demeter_rec.cpp`
 registra simultáneamente dos streams `BGGR_PISP_COMP1` y `PISP_FE_STATS`,
 metadata JSONL con offsets/timestamps y chunks cerrados. La sincronización usa
-`rpi.sync` por multicast de loopback. `demeter_flight.sh` finaliza por touchdown
+`rpi.sync` por multicast de loopback. `demeter_ingestd.sh` finaliza por touchdown
 o timeout, hace ingesta de chunks y dispara el revelado offline.
 
 Estructura de misión objetivo:

@@ -44,7 +44,7 @@ Probar modos del descompresor libpisp:
 Pipeline de vuelo/revelado actual:
   cd /home/admin/eyes_of_demeter
   ./build.sh
-  ./demeter_flight.sh
+  ./demeter_ingestd.sh
 
 Compatibilidad de rutas: los scripts demeter_compare.sh y test_modes.sh se
 actualizaron para leer data/raw y escribir data/rendered. Los demás scripts

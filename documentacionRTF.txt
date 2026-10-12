@@ -1,0 +1,115 @@
+# DEMETER VISIONPACK: ARQUITECTURA IMPLEMENTADA, OPERACIÓN Y LÍMITES
+
+Estado documental: revisión del código, scripts, pruebas y registros locales disponibles al 11-10-2026.
+
+## 1. Alcance y criterio de verificación
+
+Este documento describe el software que existe en el workspace. Distingue entre comportamiento configurado en código, resultados experimentales registrados y requisitos de integración que no pueden comprobarse aquí. Los parámetros pueden cambiar por argumentos de línea de comandos o variables de entorno; los valores indicados son los defaults actuales.
+
+Demeter VisionPack es una carga de captura para Raspberry Pi 5 con dos cámaras IMX708. La Pi recibe órdenes y telemetría por UART, inicia video durante ascenso, registra pares RAW más estadísticas durante descenso, copia chunks desde tmpfs a almacenamiento persistente y revela imágenes después de la captura. El código actual no reconstruye nubes de puntos ni mapas 3D: el postprocesador produce JPEG/PNG y sidecars de telemetría.
+
+La separación entre una LilyGO y la Pi es parte del contrato de integración, pero el firmware LilyGO no está en este workspace. Por tanto, GPS, LoRa, detección de apogeo, control de alimentación, PSU, pines y comportamiento de la estación terrena no se presentan como verificados por el software de la Pi.
+
+## 2. Componentes
+
+- `demeter_telemetryd.py`: abre UART (default `/dev/serial0`, 115200 baud), decodifica tramas, registra telemetría, actualiza el FPS objetivo y reenvía comandos mediante sockets Unix datagram.
+- `demeter_missiond.py`: supervisor de procesos y FSM; publica estados, persiste eventos, mide recursos y aplica watchdogs monotónicos.
+- `eyes_of_demeter/demeter_ingestd.sh`: valida dependencias y montajes, inicia `demeter_rec`, ingiere chunks al almacenamiento persistente y lanza el postprocesamiento.
+- `eyes_of_demeter/src/demeter_rec.cpp`: captura dos streams RAW y `PISP_FE_STATS`, empareja frames de ambas cámaras y escribe chunks temporales en `/mnt/ramcam`.
+- `eyes_of_demeter/demeter_postprocess.py`: convierte COMP1 a Bayer16, ejecuta `controller_replay`, y escribe JPEG/PNG con OpenCV.
+- `lilygo_emulator.py`: emula en el host el menú y los mensajes de LilyGO para SITL; no es el firmware de vuelo.
+
+## 3. UART y sincronización temporal
+
+Las tramas usan sync `AA 55`, tipo, longitud de un byte, payload y CRC-16/CCITT-FALSE. Los enteros de payload son little-endian; el CRC se serializa big-endian.
+
+| Tipo | Código | Payload/función |
+|---|---:|---|
+| PREFLIGHT_SYNC | `0x10` | Unix UTC en milisegundos (`uint64`); sincronización temporal opcional |
+| TELEMETRY_UPDATE | `0x20` | `<Qffff`: timestamp ms, altitud, roll, pitch, yaw |
+| PAYLOAD_STATUS | `0x30` | Un byte con el estado de la Pi |
+| PREFLIGHT | `0xA0` | Solicita preflight |
+| ARM | `0xA1` | Solicita armado |
+| START_ASCENT | `0xA2` | Inicia video de ascenso |
+| START_REC | `0xB1` | Cambia de video a captura RAW |
+| TOUCHDOWN | `0xC1` | Termina captura RAW e inicia cierre |
+| ABORT | `0xF1` | Solicita aborto |
+
+El ajuste del reloj no es una acción que `missiond.preflight()` ejecute directamente. `telemetryd` solo acepta `PREFLIGHT_SYNC` si se inicia con `--preflight --allow-clock-set`, tiene permiso del sistema para cambiar el reloj, no sincronizó antes y sigue dentro de `--sync-window-s` (120 s por defecto desde el arranque de telemetryd). Al armar, missiond comprueba el UART y pide a telemetryd cerrar la ventana de preflight; si no recibe confirmación, no arma. Esta coordinación no garantiza por sí sola que el reloj se sincronice.
+
+## 4. Secuencia de estados
+
+1. **BOOT**: missiond arranca en frío, persiste/publica BOOT y espera comandos. No ejecuta preflight automáticamente.
+2. **PREFLIGHT**: el comando LilyGO `0xA0` ejecuta las comprobaciones locales. Si pasan, la Pi publica READY; si fallan, queda en ERROR con el motivo.
+3. **READY → ARMED**: ARM solo se acepta desde READY. Antes de pasar a ARMED, missiond exige confirmación de salud UART y cierre de sincronización temporal.
+4. **ARMED → ASCENT**: START_ASCENT (`0xA2`) lanza `rpicam-vid` en cámara 0, 1920x1080, 60 FPS, con salida `libav` en contenedor MP4. El código no fija explícitamente el códec. El archivo se guarda en el directorio configurado para el video de ascenso.
+5. **ASCENT → STARTING → RECORDING**: START_REC (`0xB1`) detiene el video con SIGINT, reinicia la telemetría de misión y lanza `demeter_ingestd.sh`; este inicia el recorder dual.
+6. **RECORDING → INGESTING → PROCESSING → COMPLETE**: TOUCHDOWN (`0xC1`) o el watchdog de descenso provoca el cierre de captura. Los chunks pendientes se copian y se ejecuta el postprocesamiento. COMPLETE es terminal para ese proceso missiond.
+7. **ABORTED / ERROR**: el daemon continúa atendiendo IPC y permite solicitar PREFLIGHT de nuevo desde estos estados. No equivale a un proceso inmortal: una excepción no controlada, fallo del sistema, corte de energía o COMPLETE terminan esa instancia; aquí no hay garantía de reinicio del sistema operativo.
+
+Los estados se reflejan como códigos UART: BOOT `0x00`, PREFLIGHT `0x01`, READY `0x02`, ARMED `0x03`, STARTING `0x04`, ASCENT `0x08`, RECORDING `0x30`, INGESTING `0x05`, PROCESSING `0x06`, COMPLETE `0x07`, ABORTED `0xE0` y error de pipeline `0xEF`.
+
+### Comprobaciones de PREFLIGHT
+
+- `/mnt/ramcam` debe ser un punto de montaje `tmpfs`. Si lo es, preflight elimina su contenido para retirar residuos; no se debe ejecutar con datos que se quieran conservar allí.
+- `MemAvailable` debe ser estrictamente mayor que 3 GiB (`3,145,728 kB`).
+- Comprueba que el script de vuelo, `rpicam-vid`, `demeter_rec` y `demeter_postprocess.py` existan y sean ejecutables.
+- Comprueba que los destinos de grabación y video sean escribibles y tengan, por defecto, al menos 5 GiB libres (`--min-free-bytes`, default `5 * 1024^3`). No existe en este código el requisito de 15 GB indicado anteriormente.
+- Rechaza un flag de touchdown residual.
+
+El wrapper repite validaciones propias: dependencias Python `numpy`/OpenCV, binarios de revelado `praw2rgb` y `controller_replay`, archivo de tuning, montaje tmpfs, exclusión con `flock` y ausencia de otro `demeter_rec`. Además requiere `MemAvailable > 1.5 GiB`; normalmente el preflight del daemon ya impone el umbral mayor de 3 GiB. El código no comprueba el tamaño configurado del tmpfs ni su espacio libre efectivo antes de empezar a capturar.
+
+## 5. Watchdogs y recuperación
+
+- **Ascenso: 15 s por defecto.** El plazo monotónico comienza cuando se lanza `rpicam-vid`. Si sigue en ASCENT al vencer, missiond cierra el video e inicia la captura RAW. Es configurable con `--ascent-watchdog`.
+- **Captura RAW: 95 s por defecto.** Missiond inicia un watchdog al lanzar `demeter_ingestd.sh` y el propio wrapper aplica `DEMETER_MAX_TIME` al bucle de captura. Al vencer cualquiera, se sigue el cierre que detiene el recorder, ingiere chunks e inicia el postprocesamiento. Se configura con `--descent-watchdog`, que missiond pasa al wrapper como `DEMETER_MAX_TIME`.
+- **Chunk: 8 s por defecto**, configurable con `--chunk-time` y transmitido al recorder por `DEMETER_CHUNK_TIME`.
+- ABORT y el cierre del supervisor intentan SIGINT, esperan, luego SIGTERM y finalmente SIGKILL si el proceso hijo no termina. El recorder C++ usa SIGINT para solicitar parada y finalizar el chunk; esto es cierre ordenado de mejor esfuerzo, no garantía ante corte de energía, errores de escritura o corrupción previa.
+
+Los watchdogs cubren pérdida de comandos en el proceso Pi mientras el supervisor sigue activo. No detectan ni reparan por sí mismos un fallo de alimentación, bloqueo del kernel, muerte de missiond o fallo de hardware.
+
+## 6. Captura, memoria y persistencia
+
+`demeter_rec` configura las cámaras 0 y 1 a 4608x2592 `BGGR_PISP_COMP1`, solicita 10 FPS y habilita `PISP_FE_STATS`. Empareja frames por timestamp de sensor; si ambos timestamps son válidos y el skew supera medio periodo (50 ms a 10 FPS), descarta como huérfano el frame más antiguo. Registra RAW comprimido, estadísticas, offsets, tamaños, índices, skew, metadatos y resúmenes por chunk. Usa sync de software libcamera salvo `--no-sync`.
+
+Los chunks se escriben primero en `.chunk_NNNN_tmp/` y se renombran al cerrarse. El wrapper copia chunks cerrados a la SD con `rsync`, `sync -f` y publicación por rename; elimina la copia tmpfs solo después de publicar la copia persistente. Si falla la copia, conserva el origen para reintentar. El destino RAW predeterminado es `/home/admin/demeter_recording/scientific_rec/raw/<misión>/`.
+
+### Control de tasa
+
+La telemetría de altitud selecciona el objetivo de pares que se guardan; **no cambia el framerate solicitado al sensor**, que permanece en 10 FPS. El recorder aplica el objetivo por selección/diezmado de pares:
+
+| Altitud | Objetivo de guardado |
+|---|---:|
+| > 200 m | 2 pares/s |
+| > 100 m y ≤ 200 m | 4 pares/s |
+| > 30 m y ≤ 100 m | 6 pares/s |
+| ≤ 30 m | 8 pares/s |
+
+`target_fps.txt` se consulta como máximo cada 500 ms. Si falta, no es válido o tiene más de 2 s, el recorder usa al menos 4 FPS y no baja de la última tasa válida (`max(último objetivo válido, 4)`). En el arranque del wrapper, el objetivo inicial es 4 FPS. Telemetría atrasada, frames descartados, limitaciones del bus/almacenamiento y errores pueden hacer que la tasa efectiva sea menor que la solicitada.
+
+Missiond toma muestras de recursos cada 5 s por defecto y emite alertas de uso de RAM tmpfs/caudal SD; son observabilidad y avisos, no una garantía de que el sistema detenga la captura antes de quedarse sin espacio. El límite del tmpfs tampoco constituye un límite de RAM física reservado para el recorder.
+
+## 7. Revelado offline
+
+Para cada frame, el postprocesador lee los rangos indicados por metadata, ejecuta `praw2rgb` (COMP1 a Bayer16), y después `controller_replay` con `PISP_FE_STATS`, metadata y el tuning IMX708 para producir RGB888. OpenCV escribe JPEG calidad 95 y PNG de 8 bits, además de sidecars JSON con timestamp/telemetría interpolada cuando existen muestras suficientes. Para una misión en `scientific_rec/raw`, los resultados se escriben en `scientific_rec/jpeg/<misión>/` y `scientific_rec/png/<misión>/`.
+
+El recorrido de chunks y cámaras es secuencial; para un frame se ejecutan secuencialmente la conversión y el replay. Solo el guardado/codificación OpenCV se envía a un `ProcessPoolExecutor` de hasta 4 workers, con un máximo de 8 frames de guardado pendientes. Esto no es un semáforo de hardware ISP: el código visible no implementa el bloqueo descrito en la versión anterior. Tampoco garantiza uso de los cuatro núcleos ni un tiempo fijo de proceso.
+
+Este postprocesador genera medios y sidecars; no hace reconstrucción fotogramétrica 3D. RGB/JPEG idénticos a una captura en vivo, PNG16, 450 frames en cuatro minutos y cualquier rendimiento fijo no son garantías de este pipeline.
+
+## 8. Qué se sabe y qué sigue sin estar demostrado
+
+- `eyes_of_demeter/README.md` documenta dependencias fijadas (libcamera `0.7.2+rpt20260817` y libpisp `1.7.0`) y pruebas cortas de captura dual/sync. Esas pruebas no equivalen a calificación de vuelo sostenido.
+- `praw2rgb` y `controller_replay` existen para COMP1 y replay del controlador PiSP. El replay reutiliza estadísticas y tuning, pero no autoriza a afirmar equivalencia matemática o píxel a píxel con el procesamiento en vivo.
+- Los porcentajes de solapamiento, FOV de 75°, velocidad de descenso de 9.2 m/s, picos de 182 MiB/s, ocupación de 350 MB y rendimiento SD de 50 MB/s no se derivan de los límites del código actual. Sin protocolo de medición reproducible deben tratarse como hipótesis o resultados de ensayos concretos, no como especificaciones ni garantías.
+- Hay evidencia local que contradice la afirmación de que la rampa ya elimina el riesgo de agotamiento: `demeter_recording/missiond/missiond.log` registra una muestra `ramcam_used_percent=100.0`, salida no cero de `demeter_rec` y salida no cero del postprocesador en una ejecución previa. Por eso no se afirma que el problema de `ENOSPC` esté resuelto ni que el pico de RAM esté limitado a 350 MB.
+- La rampa de FPS reduce los pares persistidos, pero el sensor continúa a 10 FPS y no hay en el recorder una política de backpressure que garantice una ocupación máxima del tmpfs. Hace falta medir una misión sostenida en el hardware definitivo, correlacionar bytes por frame, tasas de ingestión y `MemAvailable`, y verificar todos los códigos de salida antes de formular una garantía de supervivencia.
+- El código de la Pi no contiene el firmware LilyGO. En `demeter_lab/host/systemd/demeter-sync.service` sí hay una unidad oneshot para habilitar multicast en `lo` y enrutar `239.255.255.250/32` para el sync de cámaras; no instala ni supervisa missiond/telemetryd. La alimentación de plataforma, radio, GPS, apogeo y recuperación tras reinicio deben documentarse desde sus fuentes externas.
+
+## 9. Fuentes de implementación
+
+- Protocolo: `demeter_protocol.py`, `demeter_telemetryd.py` y `demeter_lab/docs/telemetry_uart_protocol.md`.
+- FSM, preflight, watchdogs y métricas: `demeter_missiond.py`.
+- Captura, ingesta y cierre: `eyes_of_demeter/demeter_ingestd.sh` y `eyes_of_demeter/src/demeter_rec.cpp`.
+- Conversión y salida: `eyes_of_demeter/demeter_postprocess.py` y `eyes_of_demeter/src/controller_replay.cpp`.
+- Calibración, perfiles y herramientas de laboratorio: `eyes_of_demeter/README.md`, `eyes_of_demeter/demeter_isp.py` y `demeter_lab/`.

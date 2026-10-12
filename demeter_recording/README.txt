@@ -27,7 +27,7 @@ OPERACION
 Captura científica actual:
     cd /home/admin/eyes_of_demeter
     ./build.sh
-    ./demeter_flight.sh
+    ./demeter_ingestd.sh
 
 La misión se activa por touchdown o al alcanzar MAX_TIME. El orquestador valida
 que /mnt/ramcam sea tmpfs, copia chunks cerrados de RAM a la carpeta raw y lanza
