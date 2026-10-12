@@ -1,3 +1,9 @@
+// Recorder dual RAW con libcamera: captura IMX708 en BGGR_PISP_COMP1 y guarda
+// PISP_FE_STATS en chunks RAM. Empareja por SensorTimestamp y descarta el frame
+// huérfano si ambos timestamps existen y el skew supera 50 ms a 10 FPS. SIGINT
+// solicita cierre cooperativo; EINTR en escritura también detiene el recorder.
+// Al salir, finaliza el chunk y cierra los streams como cierre de mejor esfuerzo.
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -450,7 +456,7 @@ public:
 			++counts_.frames_received_failed;
 	}
 
-	void appendFrame(const CameraState &camera, Request &request, uint64_t pair_index,
+	bool appendFrame(const CameraState &camera, Request &request, uint64_t pair_index,
 			unsigned int target_fps, uint64_t pair_skew_ns)
 	{
 		FrameBuffer *raw_buffer = request.findBuffer(camera.raw_stream);
@@ -469,14 +475,28 @@ public:
 
 		CameraFiles &files = files_[camera.index];
 		const uint64_t raw_offset = raw_bytes_written_[camera.index];
-		{
+		    int frame_write_error = 0;
+		    {
 			DmaBufReadSync sync(mapped->second->fd());
+			    errno = 0;
 			files.frames.write(reinterpret_cast<const char *>(mapped->second->data()),
 					   static_cast<std::streamsize>(bytes_used));
+			    if (!files.frames)
+				    frame_write_error = errno ? errno : EIO;
 			sync.finish();
 		}
 		if (!files.frames)
-			throw std::runtime_error("Failed writing COMP1 frame data");
+		    {
+			    if (frame_write_error == EINTR)
+				    stop_requested.store(true, std::memory_order_relaxed);
+			    if (stop_requested.load(std::memory_order_relaxed) || frame_write_error == EINTR)
+			    {
+				    files.frames.clear();
+				    return false;
+			    }
+			    throw std::runtime_error("Failed writing COMP1 frame data: " +
+						     std::string(std::strerror(frame_write_error)));
+		    }
 		raw_bytes_written_[camera.index] += bytes_used;
 
 		const auto stats = request.metadata().get(controls::rpi::PispStatsOutput);
@@ -503,7 +523,17 @@ public:
 			     { "pair_sensor_skew_ns", pair_skew_ns } };
 		const auto sensor_timestamp = request.metadata().get(controls::SensorTimestamp);
 		if (sensor_timestamp)
+		{
 			row["sensor_timestamp_ns"] = *sensor_timestamp;
+			const auto wall_now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+					std::chrono::system_clock::now().time_since_epoch()).count();
+			const auto monotonic_now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+					SteadyClock::now().time_since_epoch()).count();
+			const int64_t frame_wallclock_ns = wall_now_ns +
+					(static_cast<int64_t>(*sensor_timestamp) - monotonic_now_ns);
+			if (frame_wallclock_ns > 0)
+				row["frame_wallclock_ns"] = static_cast<uint64_t>(frame_wallclock_ns);
+		}
 		if (const auto exposure = request.metadata().get(controls::ExposureTime))
 			row["exposure_time_us"] = *exposure;
 		if (const auto gain = request.metadata().get(controls::AnalogueGain))
@@ -523,6 +553,7 @@ public:
 
 		++counts_.frames_saved;
 		++counts_.camera_frames_saved[camera.index];
+		return true;
 	}
 
 	void recordPair(uint64_t skew_ns)
@@ -729,7 +760,8 @@ public:
 			pending_[completion.camera_index].push_back(completion.request);
 		}
 
-		while (!pending_[0].empty() && !pending_[1].empty())
+		while (!pending_[0].empty() && !pending_[1].empty() &&
+		       !stop_requested.load(std::memory_order_relaxed))
 		{
 			const uint64_t timestamp0 = sensorTimestamp(*pending_[0].front());
 			const uint64_t timestamp1 = sensorTimestamp(*pending_[1].front());
@@ -765,9 +797,12 @@ public:
 			{
 				if (save_pair)
 				{
-					writer_.appendFrame(*cameras_[0], *request0, pair_index_, target_fps, skew);
-					writer_.appendFrame(*cameras_[1], *request1, pair_index_, target_fps, skew);
-					writer_.recordSavedPair();
+					const bool first_saved = writer_.appendFrame(
+						*cameras_[0], *request0, pair_index_, target_fps, skew);
+					const bool second_saved = first_saved && writer_.appendFrame(
+						*cameras_[1], *request1, pair_index_, target_fps, skew);
+					if (first_saved && second_saved)
+						writer_.recordSavedPair();
 				}
 			}
 			catch (...)
