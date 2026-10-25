@@ -20,6 +20,7 @@ Solo `npm` y Node (Windows y macOS), sin bash.
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `npm install`                      | Instala las dependencias (el `package.json` queda congelado en W0; una dependencia nueva va en un PR aparte, 06 §5) |
 | `npm run dev`                      | Servidor de desarrollo. `/api` va por proxy a `http://localhost:8787` (repetidor, T-630)                            |
+| `npm run repetidor -- demeter nominal` | El relay falso en `:8787` con los JSONL de `dev/datos/` ([dev/repetidor/README.md](dev/repetidor/README.md), T-630)       |
 | `npm run build`                    | `tsc`, `vite build` y la prueba de aislamiento sobre `dist/`                                                        |
 | `npm run colores`                  | Regla contra colores sueltos: falla si hay colores literales fuera de `src/tema/` (T-613)                           |
 | `npm run aislamiento`              | Solo la prueba de aislamiento (D-W01) sobre `dist/`                                                                 |
