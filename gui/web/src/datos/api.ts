@@ -3,8 +3,8 @@
 //
 // LADO DE LECTURA (lo que importa el área E): signals de solo lectura. Es lo ÚNICO congelado.
 // Los componentes leen `.value` y se re-renderizan solos. No agregar signals sin pasar por el contrato.
-// LADO DE ESCRITURA (`alimentar`): interno del área D. T-631 lo amplía sin pasar por el contrato;
-// la UI no escribe.
+// LADO DE ESCRITURA (`alimentar`): interno del área D. T-631 lo amplía (un método por mensaje del
+// stream) sin pasar por el contrato; la UI no escribe.
 //
 // Arranca VACÍO (todo en null, `conexion` en "cargando"): en producción nunca hay datos inventados
 // (R-W5) ni datos de otra misión (D-W01). Los ejemplos se cargan solo desde las pruebas con
@@ -23,12 +23,14 @@ import type {
   Serie,
   Snapshot,
 } from "../contrato/tipos";
+import { claveEvento } from "./costura";
 import {
   type ConexionServidor,
   calcularEdadMs,
   calcularEstadoPagina,
   type EstadoPagina,
 } from "./estado_pagina";
+import { serieVacia } from "./serie";
 
 export type { ConexionServidor, EstadoPagina, EstadoPrincipal } from "./estado_pagina";
 
@@ -107,6 +109,41 @@ export const alimentar = {
     _llegadaLatidoMs.value = llegadaLocalMs;
     _ahoraMs.value = llegadaLocalMs;
   },
+  /** Un mensaje `meta` del stream. */
+  meta(m: Meta): void {
+    _meta.value = m;
+  },
+  /** Un mensaje `estado` (NAV). La serie la actualiza el cliente con `serie()`. */
+  estado(e: Estado): void {
+    _estado.value = e;
+  },
+  /** Un mensaje `salud` (STATUS). */
+  salud(s: Salud): void {
+    _salud.value = s;
+  },
+  /**
+   * Un latido `estacion`. `llegadaLocalMs` es el instante local (monotónico) en que llegó: de ahí
+   * sale la edad del dato (05 §4.4). Nunca el reloj de pared del celular.
+   */
+  estacion(e: Estacion, llegadaLocalMs: number): void {
+    _estacion.value = e;
+    _llegadaLatidoMs.value = llegadaLocalMs;
+  },
+  /** Agrega un evento al final. Devuelve `false` (y no lo agrega) si ya estaba: no se duplican. */
+  evento(ev: Evento): boolean {
+    const clave = claveEvento(ev);
+    if (_eventos.value.some((x) => claveEvento(x) === clave)) return false;
+    _eventos.value = [..._eventos.value, ev];
+    return true;
+  },
+  /** Un mensaje `backfill` (progreso). */
+  backfill(b: Backfill): void {
+    _backfill.value = b;
+  },
+  /** Reemplaza la serie (la del cliente, que agrega un punto con cada `estado`). */
+  serie(s: Serie): void {
+    _serie.value = s;
+  },
   conexion(c: ConexionServidor): void {
     _conexion.value = c;
   },
@@ -114,17 +151,18 @@ export const alimentar = {
   reloj(ahoraLocalMs: number): void {
     _ahoraMs.value = ahoraLocalMs;
   },
+  /** Vuelve al estado inicial vacío (solo pruebas y cambio de misión). */
+  reiniciar(): void {
+    _meta.value = null;
+    _estado.value = null;
+    _salud.value = null;
+    _estacion.value = null;
+    _eventos.value = [];
+    _serie.value = null;
+    _backfill.value = null;
+    _vueloCompletoUrl.value = null;
+    _conexion.value = "cargando";
+    _llegadaLatidoMs.value = 0;
+    _ahoraMs.value = 0;
+  },
 };
-
-function serieVacia(): Serie {
-  return {
-    t_mas_s: [],
-    lat: [],
-    lon: [],
-    alt_agl_m: [],
-    vz_ms: [],
-    acc_x_g: [],
-    acc_y_g: [],
-    acc_z_g: [],
-  };
-}
