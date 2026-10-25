@@ -13,8 +13,8 @@ Primera tarea de W0 de la web. Deja el proyecto Vite listo para que E y D trabaj
 ## Qué se hizo
 - `gui/web/` con Vite multipágina (`/`, `/demeter/`, `/hermes/`), TypeScript estricto, Preact y signals. Páginas placeholder mínimas: sin tokens, tema, contratos ni contenido.
 - Todas las dependencias del stack de 04 §2 (versiones mínimas del `package.json`, fijadas por el lock):
-  - ejecución: preact 11.0.2, @preact/signals 2.11.3, maplibre-gl 6.16.0, pmtiles 4.5.0, uplot 1.6.32, uqr 0.1.3, lucide 1.61.0;
-  - desarrollo: vite 8.3.5, @preact/preset-vite 2.10.6, typescript 7.0.2, @biomejs/biome 2.6.3, vitest 5.0.5, @playwright/test 1.64.1, vite-imagetools 12.0.1, @types/node 26.6.5.
+  - ejecución: preact 11.0.2, @preact/signals 2.11.3, maplibre-gl 6.16.0, pmtiles 4.5.0, uplot 1.6.32, uqr 0.1.3, lucide-preact 1.61.0;
+  - desarrollo: ajv 8.20.0, ajv-formats 3.0.1, vite 8.3.5, @preact/preset-vite 2.10.6, typescript 7.0.2, @biomejs/biome 2.6.3, vitest 5.0.5, @playwright/test 1.64.1, vite-imagetools 12.0.1, @types/node 26.6.5.
 - Proxy `/api` → `http://localhost:8787` en `dev` y `preview`.
 - `scripts/aislamiento.mjs`: parte de `dist/demeter/index.html` (o hermes), sigue referencias a JS, CSS y recursos, y falla si alcanza un archivo de la otra misión por nombre/ruta o si el contenido nombra `assets/<otra>/`, `<otra>.css`, `entradas/<otra>` o `<otra>-<hash>.<ext>`. Los enlaces `<a>` entre páginas no cuentan. Corre dentro de `npm run build` y en Vitest.
 - Humo de Playwright: 3 páginas × 390×844 y 1440×900; verifica 200, título, h1 visible, sin errores de consola ni desborde horizontal; guarda capturas en `e2e/capturas/` (ignoradas).
@@ -32,9 +32,9 @@ Primera tarea de W0 de la web. Deja el proyecto Vite listo para que E y D trabaj
 ## Decisiones tomadas o propuestas
 - Sin cambios a contratos.
 - Propuestas / preguntas abiertas (no decididas aquí):
-  1. **Ajv u otro validador JSON Schema:** T-611 pide "un validador en las pruebas" y 04 §2 no lista ninguno. No lo instalé para no inventar; habría que añadirlo en un PR pequeño de `package.json` o aceptar que T-611 lo agregue.
+  1. **RESUELTA (ajuste del usuario):** `ajv` y `ajv-formats` quedan como devDependencies; el validador lo escribe T-611. Pregunta original, Ajv u otro validador JSON Schema: T-611 pide "un validador en las pruebas" y 04 §2 no lista ninguno. No lo instalé para no inventar; habría que añadirlo en un PR pequeño de `package.json` o aceptar que T-611 lo agregue.
   2. **Estilos de mapa / Protomaps:** 04 §2 nombra "Protomaps" pero no un paquete (p. ej. `protomaps-themes-base`). Tampoco se instaló; lo decide T-632.
-  3. **Íconos:** 04 §2 dice `lucide`; instalé el paquete `lucide` (vanilla). Con Preact podría preferirse `lucide-preact`; confirmar.
+  3. **RESUELTA (ajuste del usuario):** se usa `lucide-preact`. Pregunta original, íconos: 04 §2 dice `lucide`; instalé el paquete `lucide` (vanilla). Con Preact podría preferirse `lucide-preact`; confirmar.
   4. **QR:** el doc admite `uqr` o `qrcode-generator`; elegí `uqr`.
   5. **Versiones mayores recientes** (Preact 11, TypeScript 7, Vite 8, Vitest 5, Biome 2.6): instaladas tal como las resolvió npm hoy. Todo compila y prueba, pero los "4 KB" de Preact que cita el doc no se verificaron con v11 (el runtime compartido pesa 8,4 kB gz).
   6. **`base` de Vite = `/`:** supone despliegue en la raíz del dominio (CDN propio). Si PEN-W05 elige un subpath (p. ej. GitHub Pages de proyecto) habrá que fijarlo.
@@ -52,3 +52,9 @@ Primera tarea de W0 de la web. Deja el proyecto Vite listo para que E y D trabaj
 
 ## Documentos afectados
 Ninguno editado. A consolidar por el documentador: estado de T-610 en el backlog y las preguntas abiertas de arriba.
+
+## Ajustes posteriores (aprobados por el usuario)
+- `lucide` cambiado por `lucide-preact`; agregados `ajv` y `ajv-formats` (devDependencies).
+- `engines.node` >=22 y `.nvmrc` con `22` (misma versión mayor en macOS y Windows).
+- README con la sección "Primeros pasos" (todo desde `gui/web/`).
+- Reverificado: `npm run build` OK (aislamiento OK), `npm test` 7/7, `npm run e2e` 6/6.
