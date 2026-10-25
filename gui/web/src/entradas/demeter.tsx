@@ -1,19 +1,22 @@
-// Entrada provisional de Deméter (T-610). El armazón real es T-622.
+// Entrada de Deméter (D-W01): importa solo lo suyo (tema, contenido y secciones) más lo común.
 import "../tema/comun.css";
 import "../tema/demeter.css";
-import { signal } from "@preact/signals";
+import "../mision/mision.css";
 import { render } from "preact";
+import { demeter } from "../contenido/demeter";
+import { Hueco } from "../mision/Hueco";
+import { Pagina } from "../mision/Pagina";
 
-const mision = signal("Deméter");
-
-function App() {
-  return (
-    <main>
-      <h1>{mision}</h1>
-      <p>Página en construcción.</p>
-    </main>
+const raiz = document.getElementById("app");
+if (raiz) {
+  // Los ojos de Deméter (03 §3.9): sección exclusiva de esta misión. Su lógica llega con T-626.
+  render(
+    <Pagina contenido={demeter} extra={<Hueco id="ojos" titulo="Los ojos de Deméter" />} />,
+    raiz,
   );
 }
 
-const raiz = document.getElementById("app");
-if (raiz) render(<App />, raiz);
+// Solo en desarrollo: `?ejemplo` carga datos de ejemplo. Vite elimina este bloque del build.
+if (import.meta.env.DEV) {
+  void import("../mision/ejemplo_dev").then((m) => m.cargarEjemplo("demeter"));
+}

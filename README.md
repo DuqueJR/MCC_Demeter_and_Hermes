@@ -27,7 +27,7 @@ Igual en Windows y en macOS, desde la raíz del repo. Se necesita **Node 22** y 
 1. `npm run web:instalar` (una vez por máquina: instala las dependencias de `gui/web/` y el Chromium de Playwright).
 2. `npm run web`: abre la página de desarrollo (`/dev/`), con enlaces a la portada, a las páginas de cada misión, a los tokens y a los escenarios de ejemplo.
 
-Otras órdenes: `web:build`, `web:test`, `web:e2e`, `web:preview`, `datos` (regenera los JSONL de ejemplo) y `datos:validar`.
+Otras órdenes: `repetidor` (el relay falso en `:8787`; `npm run repetidor -- demeter nominal`), `web:build`, `web:test`, `web:e2e`, `web:preview`, `datos` (regenera los JSONL de ejemplo) y `datos:validar`.
 
 ## Cómo se trabaja
 

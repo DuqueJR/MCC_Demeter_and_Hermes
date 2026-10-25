@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && node scripts/colores.mjs && vite build && node scripts/aislamiento.mjs dist",
     "preview": "vite preview",
+    "repetidor": "node dev/repetidor/main.ts",
     "aislamiento": "node scripts/aislamiento.mjs dist",
     "colores": "node scripts/colores.mjs",
     "test": "vitest run",
