@@ -70,4 +70,6 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | ~~PEN-W06~~ | ~~Que se acepte D-W06~~ | Cerrado el 2026-10-25: aprobado por el usuario | — |
 | ~~PEN-W07~~ | ~~"Deméter" o "Demeter"~~ | Cerrado el 2026-10-25: **Deméter** (D-W11) | — |
 | PEN-W08 | Agregar en huggingface.co/settings/mcp los Spaces `evalstate/flux1_schnell` (borradores rápidos) y `black-forest-labs/FLUX.2-klein-9B` (versión final). `black-forest-labs/FLUX.1-schnell` ya no aparece en el buscador. Ver 07 §2. | Juan Pablo | T-621 |
-| PEN-W09 | Confirmar el reparto de carriles: A (Experiencia) para Juan Pablo y B (Datos) para Jerónimo | Juan Pablo y Jerónimo | W0 |
+| ~~PEN-W09~~ | ~~El reparto de carriles~~ | Cerrado el 2026-10-25: **A (Experiencia) para Juan Pablo y B (Datos) para Jerónimo** | — |
+| PEN-W10 | **Los parches en PNG con fondo transparente** (el archivo original del diseñador). Los actuales tienen el fondo blanco, y **la capa de Hermes se sale del círculo**: un recorte circular la corta. | Equipos (quien hizo los parches) | T-620 (mientras tanto se recorta a mano) |
+| PEN-W11 | ¿Pagar un generador mejor? Con la cuenta gratuita funciona `evalstate/flux1_schnell`, pero `FLUX.2-klein-9B` responde con error (probablemente por la cuota de ZeroGPU gratuita, V). La opción más barata para probar es Hugging Face Pro (US$ 9/mes). | Juan Pablo | T-621 (no bloquea: schnell alcanza para la portada) |

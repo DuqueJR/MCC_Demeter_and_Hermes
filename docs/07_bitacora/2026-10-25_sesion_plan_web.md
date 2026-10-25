@@ -64,7 +64,18 @@ Al principio iba a ser un prompt para Claude Design. El usuario lo cambió: **Cl
   - D-W06: el relay pasa a la web y T-605 se divide.
 - **Hugging Face:** `black-forest-labs/FLUX.1-schnell` ya no aparece en el buscador de Spaces del MCP. Se recomiendan `evalstate/flux1_schnell` para los borradores y `black-forest-labs/FLUX.2-klein-9B` para la versión final. Se revisaron con el MCP: los dos son Spaces de Gradio con la etiqueta `mcp-server`.
 - **Pull de los cambios de Jerónimo:** se revisó GitHub (`git fetch`, ramas, PR, forks y eventos del repo). **No hay nada suyo publicado.** `main` y `develop` siguen en `6c649f3`, sin PR ni otras ramas, y todos los pushes son de `apnauj`. No hubo nada que ajustar.
-- **Sigue abierto PEN-W09:** el reparto de carriles.
+- El usuario confirmó el reparto (PEN-W09): **A para Juan Pablo y B para Jerónimo**. Se abrió el PR #1 (`docs/plan-web` → `develop`).
+
+## Prueba de generación de imágenes (fondos de la portada)
+- Los Spaces nuevos no cargan en la sesión de Claude Code hasta reiniciarla. Por eso se llamaron **directamente por la API de Gradio**, con el `HF_TOKEN` del usuario: es el mismo servicio que usa el MCP.
+- **`evalstate/flux1_schnell`:** 4 imágenes de 1152×1280 (Hermes y Deméter, semillas 7 y 42), en unos segundos cada una. Quedaron en `generated_images/`, que no se versiona.
+- **`black-forest-labs/FLUX.2-klein-9B`:** responde `event: error`, `data: null`, incluso con 1024×1024. El Space está `RUNNING` en `zero-a10g`. **La causa probable es la cuota de ZeroGPU de la cuenta gratuita** (V): la cuenta no es Pro.
+- **Maquetas de la portada** (portátil y celular) con el oscurecido y el degradado de 07 §2 y el parche encima: `generated_images/maqueta_portada_*.webp`.
+- **Evaluación:**
+  - schnell da fondos correctos y coherentes con la paleta. Con el oscurecido funcionan bien detrás del parche.
+  - Son más "planos" (de estilo vectorial) que la ilustración de los parches, ignoran "más oscuro abajo" (lo resuelve el degradado) y la pluma de Hermes sobra.
+  - **Alcanzan para la portada.** Un modelo mejor daría más textura pintada.
+- **Hallazgo:** los parches no tienen transparencia, y **la capa roja de Hermes sale del círculo**. Hace falta el PNG transparente original (PEN-W10).
 
 ## Documentos afectados
 - Nuevos: `docs/08_gui/00_README.md` a `08_modelo_3d_futuro.md`, `docs/fuentes/marca/*` y `.mcp.json`.
