@@ -1,0 +1,30 @@
+﻿IO48;GPIO48 Libre - I/O Digital de propósito general.
+IO21;GPIO21 Libre - I/O Digital de propósito general.
+IO6;GPIO6 Libre - COMPARTIDO por pista interna con señal GNSS PPS del módulo GPS.
+IO3;GPIO3 Libre - I/O Digital de propósito general.
+IO2;GPIO2 Libre - I/O Digital de propósito general / Seguro para uso general.
+IO38;GPIO38 Libre - I/O Digital de propósito general / Seguro para uso general.
+IO39;GPIO39 Libre - I/O Digital de propósito general / Entrada genérica.
+IO45;GPIO45 Libre - Pin de Strapping del ESP32-S3. Cuidado con colocar Pull-ups en el arranque.
+IO46;GPIO46 Libre - Pin de Strapping del ESP32-S3. Cuidado con colocar Pull-ups en el arranque.
+SCL;GPIO18 - Reloj Bus 12C0. Internamente compartido con Pantalla OLED SH1106, BME280 y QMC6310.
+SDA;GPIO17 - Datos Bus 12C0. Internamente compartido con Pantalla OLED SH1106, BME280 y QMC6310.
+RST;Linea CHIP_PU (Reset activo en bajo) hacia el ESP32-S3.
+RXD;GPIO44 - UARTO RX de programación serie y flasheo.
+QWIIC_RX;GPIO44 - Entrada serie del bus auxiliar UART1
+TXD;GPIO43 - UARTO TX de programación serie y flasheo.
+QWIIC_TX;GPIO43 - Salida serie del bus auxiliar UART1
+QWIIC_GND;Tierra comun
+VBAT;[PMIC Input] Entrada Bat Li-lon 18650 / Rango: 3.5V - 4.2V / Soporta carga programable hasta 2A.
+DC1;[PMIC Output] Buck principal de la placa (Fijo a 3.3V para ESP32-S3) / Rango: 1.5V - 3.4V / I-max: 2.0A.
+VBUS;[PMIC Input] Entrada USB-C / Rango: 3.9V - 6.0V / Corriente máx de entrada: 2.5A.
+A-LDO2;[PMIC Output] LDO dedicado a los sensores internos e IMUs (QMI8658/BME280) / V: 3.3V / I-max: 300mA.
+GND;Tierra comun
+QWIIC_3V3;[PMIC DC1] Línea Core de alimentación ruteada a 3.3V
+GND;Tierra comun
+VSYS;[PMIC Output] Salida principal del sistema / Voltaje: 3.9V - 5.0V (según VBUS/VBAT) / I-max: 4A total.
+GND;Tierra comun
+B-LDO2;[PMIC Output] Regulador Lineal libre en Header / Rango: 0.5V - 3.5V / I-max: 300mA.
+DC4;[PMIC Output] Buck regulado para zócalo M.2 / Rango: 0.6V - 1.84V / I-max: 2.0A.
+GND;Tierra comun
+DC5;[PMIC Output] Buck de potencia para zócalo M.2 / Rango: 1.2V - 3.7V / I-max: 1.0A.
