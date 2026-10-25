@@ -46,3 +46,9 @@ logs/
 
 # Imágenes generadas con IA (MCP de Hugging Face): borradores locales. Las elegidas se copian a gui/ o a docs/.
 generated_images/
+
+# Claude Code: worktrees de las sesiones y del agente desarrollador
+.claude/worktrees/
+
+# graphify: el grafo es local (cada persona lo construye; se copia a los worktrees con .worktreeinclude)
+graphify-out/

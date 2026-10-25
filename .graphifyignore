@@ -1,0 +1,24 @@
+# Qué NO entra al grafo de graphify (sintaxis de .gitignore; además se respeta el .gitignore).
+
+# Datasheets completos (más de un millón de palabras): se consultan con grep. Las fichas de componentes/ sí entran.
+docs/03_hardware/datasheets/
+# Historia y originales ya traducidos a docs/
+docs/99_archivo/
+docs/fuentes/
+# Estado local de Obsidian y capturas
+docs/.obsidian/
+docs/07_bitacora/capturas/
+# Datos de ejemplo y simulaciones (son datos, no conocimiento)
+datos/simulaciones/
+gui/web/dev/datos/
+*.jsonl
+*.csv
+# Generados, dependencias e imágenes
+**/package-lock.json
+*.png
+*.jpg
+*.woff2
+graphify-out/
+.claude/
+# Configuración de MCP (puede llevar encabezados de autenticación)
+.mcp.json

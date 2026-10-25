@@ -1,0 +1,2 @@
+# Archivos ignorados por git que Claude Code copia a cada worktree nuevo (incluidos los del agente desarrollador).
+graphify-out/

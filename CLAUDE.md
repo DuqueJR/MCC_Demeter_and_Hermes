@@ -54,3 +54,14 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 - Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`. Desde el 2026-10-24 todavía no hay código propio.
 - **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
 - Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
+
+## graphify
+
+El repo tiene un grafo de conocimiento en `graphify-out/` (no se versiona; ver `docs/05_plan/graphify.md`).
+
+- Si existe `graphify-out/graph.json`, antes del primer grep o lectura de archivos para una pregunta sobre el código o los documentos, corre `graphify query "<pregunta>"`. Usa `graphify path "<A>" "<B>"` para relaciones y `graphify explain "<concepto>"` para un concepto. Lee los archivos solo en las líneas que el grafo ya ubicó.
+  - Si `graphify` no está en el PATH: `python -m graphify ...`.
+- `graphify-out/GRAPH_REPORT.md` solo para una revisión amplia de la arquitectura.
+- Después de cambiar código: `graphify update .` (solo AST, sin costo de tokens).
+- Los documentos no se reextraen solos: cuando cambien mucho, `/graphify . --update`.
+- El grafo es una ayuda para ubicarse, **no una fuente de verdad**: los números y contratos se confirman en el `.md` original.
