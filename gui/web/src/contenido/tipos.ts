@@ -5,6 +5,8 @@ import type { Mision } from "../contrato/tipos";
 export interface Parte {
   id: string;
   nombre: string;
+  /** URL del ícono ilustrativo de la misión (T-621, D-W20). Sin ícono, el chip solo lleva el texto. */
+  icono?: string;
   /** De 1 a 3 frases (03 §3.1, PEN-W03). */
   texto: string;
 }

@@ -380,6 +380,9 @@ button:focus-visible,
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
   min-height: var(--toque-min);
   padding: 0 var(--e-4);
   background: var(--superficie-2);
@@ -389,6 +392,19 @@ button:focus-visible,
   font: inherit;
   cursor: pointer;
   transition: border-color var(--dur-rapida) var(--curva);
+}
+
+/* Ícono ilustrativo a la izquierda del texto (T-621): 40 px = --e-6 + --e-2. */
+.chip-icono {
+  flex: none;
+  width: calc(var(--e-6) + var(--e-2));
+  height: calc(var(--e-6) + var(--e-2));
+  margin-left: calc(var(--e-2) * -1);
+  object-fit: contain;
+}
+
+.chip-icono[hidden] {
+  display: none;
 }
 
 .chip[aria-expanded="true"] {
