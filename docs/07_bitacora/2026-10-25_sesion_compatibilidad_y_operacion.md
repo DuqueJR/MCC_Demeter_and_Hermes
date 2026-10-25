@@ -108,3 +108,10 @@ Juan Pablo pidió dos cosas:
 - **Los contadores del módem** son los números de la estación: paquetes recibidos, errores de CRC, paquetes fuera de su ranura, comandos enviados y reintentos. Dicen si las pérdidas son de la radio o del software.
 - **El CSV** es una hoja de cálculo con los datos de un rango de tiempo, para analizar en el campo (por ejemplo, la caracterización del motor o un informe para los jueces).
 - **Recomendación:** sí a los tres, con el hexadecimal y los contadores en una sub-pestaña "Avanzado", para no saturar la vista normal.
+
+### Cierre de la 7 y la 8
+El usuario aceptó las dos recomendaciones:
+- **7:** el mapa vectorial con relieve y curvas de nivel ("por el momento"); el satélite queda como *could*;
+- **8:** sí al hexadecimal, a los contadores del módem y al CSV, con la sub-pestaña "Avanzado".
+
+**PEN-W12 cerrado.** El dashboard de operación (09) queda aprobado.

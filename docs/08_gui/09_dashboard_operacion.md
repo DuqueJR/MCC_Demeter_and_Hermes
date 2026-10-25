@@ -1,6 +1,6 @@
 ---
 id: gui_operacion
-estado: propuesta. Preguntas de §9 respondidas por el usuario el 2026-10-25, salvo la 7 y la 8. Sale de *Objetivos* §7 y de C-05.
+estado: aprobado por el usuario (2026-10-25; las 12 preguntas de §9 respondidas). Sale de *Objetivos* §7 y de C-05.
 actualizado: 2026-10-25
 depende_de: [requisitos, estacion_terrena, protocolo_paquetes, maquina_estados, gui_contrato_datos, C-05, gui_identidad, gui_arquitectura]
 decisiones: [D-025, DP-15, DP-17, D-W14]
@@ -114,6 +114,7 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
   - la actitud (horizonte y brújula, con roll, pitch y yaw numéricos);
   - la calidad del enlace.
 - **Perfil de altitud** de los dos cohetes contra T+, en una sola gráfica.
+- **El mapa base** (decidido, §9, pregunta 7): **vectorial con relieve (sombreado) y curvas de nivel**, en el mismo PMTiles de la web más una capa de relieve generada de un modelo de elevación libre. Sin imagen satelital por ahora: los proveedores gratuitos no permiten usarla offline. El satélite queda como *could*.
 - **El 3D** (*Objetivos* 7.A: la trayectoria con la parábola predicha y el modelo con la actitud) **queda pendiente, como *could***, igual que en la web (D-W03; el usuario lo confirmó en §9, pregunta 9). Mientras tanto: la actitud 2D y el perfil de altitud.
 
 ### 3.2 Preparar: Go/No-Go y comandos de rampa (*Objetivos* 7.C y 7.D)
@@ -148,7 +149,9 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
   - congelar la tabla;
   - **"graficar"**, que manda la variable a la pestaña Gráficas;
   - copiar el valor.
-- **Vista "paquete crudo":** el último paquete de cada tipo en hexadecimal, con los campos decodificados al lado (útil para depurar el protocolo con T-502).
+- **Sub-pestaña "Avanzado"** (decidido, §9, pregunta 8), para no saturar la vista normal:
+  - el **paquete crudo**: el último paquete de cada tipo en hexadecimal, con los campos decodificados al lado (para depurar el protocolo con T-502);
+  - los **contadores del módem** (`ESTADO_MODEM`): recibidos, errores de CRC, fuera de ranura, comandos enviados y reintentos.
 - **Exportar a CSV** la sesión o un rango de tiempo, desde `GET /api/v1/local/historial`.
 
 ### 3.4 Gráficas (*Objetivos* 7.F, GS-11)
@@ -238,7 +241,7 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
 | T-662 | La banda de alarmas, visual y sonora, con reconocimiento y silencio | E | S+ | T-660, T-661 |
 | T-663 | Vuelo: el cohete activo en grande y el otro compacto, el mapa y el perfil de altitud (reutiliza T-624, T-632 y T-634) | E | S+ | T-661, T-632 |
 | T-664 | Preparar: Go/No-Go y el **centro de comandos**, con la confirmación por nombre (modo "preguntar") | E | S+ | T-661 |
-| T-665 | Variables: el inspector, el paquete crudo y la exportación a CSV (el alcance se ajusta con la pregunta 8) | D | S+ | T-661 |
+| T-665 | Variables: el inspector, la sub-pestaña "Avanzado" (paquete crudo y contadores del módem) y la exportación a CSV | D | S+ | T-661 |
 | T-668 | Recuperación (reutiliza T-625) | E | S+ | T-625, T-661 |
 | T-666 | Gráficas personalizables (sube T-653 a S) | D | S | T-633 |
 | T-667 | Enlace y diagnóstico | D | S | T-661 |
@@ -269,8 +272,8 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
 | 4 | ¿La confirmación? | Escribir el nombre de la misión | §4 |
 | 5 | ¿Al sol? | "No sé, pero es bueno tener ese modo": se hace el modo sol | §6 |
 | 6 | ¿Alarmas sonoras? | Sí | §5 |
-| 7 | ¿Imagen satelital offline? | ❓ **Abierta:** el usuario pidió una explicación (va en la bitácora de la sesión). Recomendación: el mapa vectorial con relieve; el satélite es *could* si aparece una fuente que permita descargarlo. | §3.1 |
-| 8 | ¿El hexadecimal, los contadores del módem y el CSV? | ❓ **Abierta:** el usuario pidió una explicación. Recomendación: sí a los tres, con el hexadecimal en una sub-pestaña "Avanzado". | §3.3 |
+| 7 | ¿Imagen satelital offline? | Por ahora, la recomendación: **el mapa vectorial con relieve y curvas de nivel**; el satélite queda como *could* si aparece una fuente que permita usarlo offline | §3.1 |
+| 8 | ¿El hexadecimal, los contadores del módem y el CSV? | Sí a los tres. El hexadecimal y los contadores van en la sub-pestaña **"Avanzado"** de Variables. | §3.3, §3.5 |
 | 9 | ¿El 3D? | Queda pendiente (*could*) | §3.1 |
 | 10 | ¿Los lanzamientos? | En momentos diferentes | §1, §3 |
 | 11 | ¿El reparto? | "Repártelo como sea mejor; lo importante es poder trabajar coordinados" | §7, 06 §1 |
