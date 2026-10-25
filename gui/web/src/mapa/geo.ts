@@ -403,7 +403,8 @@ export function construirCapas(e: EntradaMapa, decision: DecisionLkp, rastro: Co
       : null;
   const destino = lkp?.pos ?? cohete?.pos ?? null;
 
-  const elipse = e.estado?.calc.elipse ?? null;
+  // Después de aterrizar ya no hay impacto que estimar: queda la posición final (o el LKP).
+  const elipse = e.estado?.fase === "LANDED" ? null : (e.estado?.calc.elipse ?? null);
   const poligono = elipse ? poligonoElipse(elipse) : null;
 
   const lineaCoords: Coord[] = estacion && destino ? [estacion, destino] : [];

@@ -264,6 +264,23 @@ describe("capas (03 §3.4)", () => {
     expect(capas.marcadores.chip?.texto).toBe("842 m · 271° O");
   });
 
+  it("en LANDED no se dibuja la elipse ni el impacto estimado; en DESCENT sí", () => {
+    const base = snapshotEjemplo.estado as Estado;
+    expect(base.calc.elipse).not.toBeNull();
+    const enTierra = entradaBase({ estado: { ...base, fase: "LANDED", fase_cod: 8 } });
+    const capas = construirCapas(enTierra, decidirLkp(enTierra, null), []);
+    expect(capas.elipse.features).toEqual([]);
+    expect(capas.marcadores.impacto).toBeNull();
+    // Lo que importa en tierra: la posición final, y la línea y el chip siguen.
+    expect(capas.marcadores.cohete?.pos).toEqual([base.pos?.lon, base.pos?.lat]);
+    expect(capas.linea.features).toHaveLength(1);
+
+    const enDescenso = entradaBase();
+    const conElipse = construirCapas(enDescenso, decidirLkp(enDescenso, null), []);
+    expect(conElipse.elipse.features).toHaveLength(1);
+    expect(conElipse.marcadores.impacto).not.toBeNull();
+  });
+
   it("sin estación, sin elipse o sin calc: esas capas quedan vacías, sin inventar nada", () => {
     const base = snapshotEjemplo.estado as Estado;
     const calcVacio = { ...base.calc, dist_horiz_m: null, azimut_deg: null, elipse: null };
