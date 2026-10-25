@@ -24,6 +24,12 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 
 - **El cálculo pesado lo hace el servicio de tierra** (*Objetivos* §6): distancia, azimut, elevación, elipse y tiempos. La web **solo muestra** lo que le llega, más la interpolación visual. Así la web y el dashboard local muestran los mismos números.
 - **Sin el back** (W0–W2), el relay se reemplaza por el **repetidor de desarrollo**. Habla exactamente el mismo contrato, con datos generados de la simulación de OpenRocket (§7).
+- **Tres servidores, las mismas rutas de lectura** (`/api/v1/{mision}/snapshot` y `/stream`):
+  - el **repetidor** (desarrollo);
+  - el **servicio de tierra local** ([C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md) §2, en `127.0.0.1`), que además tiene las extensiones `/api/v1/local/` para el dashboard de operación;
+  - el **relay** (internet, solo lectura).
+
+  El cliente de datos (`src/datos/`) es el mismo para la web y para el dashboard de operación: solo cambia `VITE_API_BASE`.
 
 ## 2. Stack (D-W05)
 
@@ -48,25 +54,25 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 ```
 gui/
 ├── web/                              ← la web pública (Vite)
-│   ├── index.html                    portada (carril A)
-│   ├── demeter/index.html            entrada de Deméter (A)
-│   ├── hermes/index.html             entrada de Hermes (A)
+│   ├── index.html                    portada (carril E)
+│   ├── demeter/index.html            entrada de Deméter (E)
+│   ├── hermes/index.html             entrada de Hermes (E)
 │   ├── src/
 │   │   ├── contrato/                 tipos.ts y esquema.json      ← CONGELADO en W0
-│   │   ├── tema/                     comun.css, demeter.css, hermes.css, fuentes/   ← CONGELADO en W0 (A)
-│   │   ├── portada/                  portada.css (A)
-│   │   ├── entradas/                 demeter.tsx, hermes.tsx: componen las secciones de cada misión (A)
-│   │   ├── mision/                   layout, barra de misión, secciones y componentes visuales (A)
-│   │   ├── contenido/                demeter.ts, hermes.ts: textos, fotos e integrantes (A)
-│   │   ├── datos/                    cliente SSE, snapshot, signals, interpolación, estados de la página (B)
-│   │   ├── mapa/                     MapLibre, capas y estilos por tema (B)
-│   │   ├── graficas/                 uPlot (B)
-│   │   └── actitud/                  horizonte y brújula 2D (B)
-│   ├── src/assets/{comun,demeter,hermes}/      imágenes originales; vite-imagetools genera AVIF/WebP (A)
-│   ├── public/mapas/santa_fe.pmtiles           (B)
-│   └── dev/repetidor/                el relay falso de desarrollo (B)
-├── relay/                            el relay público en Python (B, en W3)
-tools/web_datos/                      OpenRocket CSV → JSONL del contrato (B)
+│   │   ├── tema/                     comun.css, demeter.css, hermes.css, fuentes/   ← CONGELADO en W0 (E)
+│   │   ├── portada/                  portada.css (E)
+│   │   ├── entradas/                 demeter.tsx, hermes.tsx: componen las secciones de cada misión (E)
+│   │   ├── mision/                   layout, barra de misión, secciones y componentes visuales (E)
+│   │   ├── contenido/                demeter.ts, hermes.ts: textos, fotos e integrantes (E)
+│   │   ├── datos/                    cliente SSE, snapshot, signals, interpolación, estados de la página (D)
+│   │   ├── mapa/                     MapLibre, capas y estilos por tema (D)
+│   │   ├── graficas/                 uPlot (D)
+│   │   └── actitud/                  horizonte y brújula 2D (D)
+│   ├── src/assets/{comun,demeter,hermes}/      imágenes originales; vite-imagetools genera AVIF/WebP (E)
+│   ├── public/mapas/santa_fe.pmtiles           (D)
+│   └── dev/repetidor/                el relay falso de desarrollo (D)
+├── relay/                            el relay público en Python (D, en W2)
+tools/web_datos/                      OpenRocket CSV → JSONL del contrato (D)
 ```
 
 - **Aislamiento (D-W01):** `entradas/demeter.tsx` solo importa los contenidos, el tema y las secciones de Deméter, y lo mismo con Hermes. **La prueba de aceptación** revisa el `dist/`: ningún archivo de `/demeter/` referencia `assets/hermes/` ni `hermes.css`, y al revés.
