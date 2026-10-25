@@ -1,0 +1,19 @@
+{
+  "name": "hermes-demeter",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Atajos desde la raíz del repo para probar la web en local (T-614). Sin dependencias; funciona en Windows y macOS.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "web": "npm --prefix gui/web run dev -- --open /dev/",
+    "web:instalar": "npm --prefix gui/web ci && npm --prefix gui/web run e2e:instalar",
+    "web:build": "npm --prefix gui/web run build",
+    "web:test": "npm --prefix gui/web test",
+    "web:e2e": "npm --prefix gui/web run e2e",
+    "web:preview": "npm --prefix gui/web run preview",
+    "datos": "node scripts/python.mjs -m tools.web_datos",
+    "datos:validar": "node scripts/python.mjs -m tools.web_datos --validar"
+  }
+}
