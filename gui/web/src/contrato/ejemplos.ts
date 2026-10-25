@@ -96,6 +96,8 @@ export const eventoEjemplo: Evento = {
   utc_ms: 1793981023678,
   t_mas_s: 11.54,
   valor: 669.1,
+  fase: null,
+  activa: null,
 };
 
 export const eventoFaseEjemplo: Evento = {
@@ -105,6 +107,7 @@ export const eventoFaseEjemplo: Evento = {
   t_mas_s: 15.64,
   valor: null,
   fase: "FREE_FALL",
+  activa: null,
 };
 
 export const eventoAlarmaEjemplo: Evento = {
@@ -113,6 +116,7 @@ export const eventoAlarmaEjemplo: Evento = {
   utc_ms: 1793981037778,
   t_mas_s: 25.64,
   valor: -21.5,
+  fase: null,
   activa: true,
 };
 

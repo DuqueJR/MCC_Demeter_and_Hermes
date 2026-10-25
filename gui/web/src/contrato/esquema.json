@@ -877,24 +877,38 @@
           ]
         },
         "fase": {
-          "enum": [
-            "BOOT",
-            "PREFLIGHT",
-            "ARMED",
-            "BOOST",
-            "COAST",
-            "APOGEE",
-            "FREE_FALL",
-            "DESCENT",
-            "LANDED",
-            "ERROR"
+          "anyOf": [
+            {
+              "enum": [
+                "BOOT",
+                "PREFLIGHT",
+                "ARMED",
+                "BOOST",
+                "COAST",
+                "APOGEE",
+                "FREE_FALL",
+                "DESCENT",
+                "LANDED",
+                "ERROR"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "activa": {
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
-      "required": ["tipo", "t_ms", "utc_ms", "t_mas_s", "valor"],
+      "required": ["tipo", "t_ms", "utc_ms", "t_mas_s", "valor", "fase", "activa"],
       "additionalProperties": false
     },
     "backfill": {

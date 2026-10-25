@@ -182,10 +182,10 @@ export interface Evento {
   t_mas_s: number | null;
   /** apogeo: altitud; alarma_descenso: Vz; si no aplica, null. */
   valor: number | null;
-  /** Solo en `fase`. */
-  fase?: Fase;
-  /** Solo en `alarma_descenso`. */
-  activa?: boolean;
+  /** Solo aplica en `fase`; null en los demás. */
+  fase: Fase | null;
+  /** Solo aplica en `alarma_descenso`; null en los demás. */
+  activa: boolean | null;
 }
 
 /** 05 §2.6. */

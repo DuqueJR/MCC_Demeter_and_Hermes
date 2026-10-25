@@ -18,6 +18,8 @@ import {
   snapshotVacioEjemplo,
 } from "../src/contrato/ejemplos";
 import { TIPOS_MENSAJE } from "../src/contrato/tipos";
+import { validarExtra } from "../src/contrato/validacion_extra";
+import { WEB_SERIE_MAX_PUNTOS } from "../src/datos/constantes";
 
 const raiz = resolve(import.meta.dirname, "..");
 const esquema = JSON.parse(readFileSync(join(raiz, "src/contrato/esquema.json"), "utf8"));
@@ -150,6 +152,11 @@ describe("el esquema rechaza casos falsos", () => {
     expect(validar("estado", e)).not.toEqual([]);
   });
 
+  it("evento sin fase ni activa (van siempre, con null si no aplican)", () => {
+    const { fase: _f, activa: _a, ...sin } = eventoEjemplo;
+    expect(validar("evento", sin)).not.toEqual([]);
+  });
+
   it("campo desconocido (una errata en el generador)", () => {
     expect(validar("estado", { ...estadoEjemplo, alt: 1 })).not.toEqual([]);
   });
@@ -175,6 +182,40 @@ describe("el esquema rechaza casos falsos", () => {
   });
 });
 
+describe("validacion_extra (lo que el esquema no expresa)", () => {
+  it("acepta los ejemplos", () => {
+    expect(validarExtra("snapshot", snapshotEjemplo)).toEqual([]);
+    expect(validarExtra("snapshot", snapshotVacioEjemplo)).toEqual([]);
+    expect(validarExtra("meta", metaEjemplo)).toEqual([]);
+    expect(validarExtra("estado", estadoEjemplo)).toEqual([]);
+  });
+
+  it("rechaza columnas de la serie de distinto largo", () => {
+    const s = copia(snapshotEjemplo);
+    s.serie.lat.pop();
+    expect(validarExtra("snapshot", s).join("|")).toContain("serie.lat");
+  });
+
+  it("rechaza una serie con más de WEB_SERIE_MAX_PUNTOS puntos", () => {
+    const s = copia(snapshotVacioEjemplo);
+    for (const col of Object.values(s.serie)) col.length = WEB_SERIE_MAX_PUNTOS + 1;
+    expect(validarExtra("snapshot", s).join("|")).toContain("WEB_SERIE_MAX_PUNTOS");
+    for (const col of Object.values(s.serie)) col.length = WEB_SERIE_MAX_PUNTOS;
+    expect(validarExtra("snapshot", s)).toEqual([]);
+  });
+
+  it("rechaza misión y nodo que no cuadran (demeter=1, hermes=2)", () => {
+    expect(validarExtra("meta", { ...metaEjemplo, mision: "hermes" })).not.toEqual([]);
+    expect(validarExtra("meta", { ...metaEjemplo, mision: "hermes", nodo: 2 })).toEqual([]);
+    expect(validarExtra("meta", { ...metaEjemplo, nodo: 2 })).not.toEqual([]);
+  });
+
+  it("rechaza una fase que no corresponde a su fase_cod (maquina_estados §1)", () => {
+    expect(validarExtra("estado", { ...estadoEjemplo, fase_cod: 6 })).not.toEqual([]);
+    expect(validarExtra("estado", { ...estadoEjemplo, fase: "ERROR", fase_cod: 9 })).toEqual([]);
+  });
+});
+
 describe("tipos y esquema dicen lo mismo", () => {
   // Los ejemplos están tipados con tipos.ts y completos (incluyen los opcionales): sus claves
   // deben ser exactamente las propiedades del esquema.
@@ -189,9 +230,9 @@ describe("tipos y esquema dicen lo mismo", () => {
     expect(claves(backfillEjemplo)).toEqual(props("backfill"));
     expect(claves(snapshotEjemplo)).toEqual(props("snapshot"));
     expect(claves(snapshotEjemplo.serie)).toEqual(props("serie"));
-    // `evento` tiene `fase` y `activa` opcionales: se juntan las claves de los tres ejemplos.
-    const todas = new Set([eventoEjemplo, eventoFaseEjemplo, eventoAlarmaEjemplo].flatMap(claves));
-    expect([...todas].sort()).toEqual(props("evento"));
+    for (const ev of [eventoEjemplo, eventoFaseEjemplo, eventoAlarmaEjemplo]) {
+      expect(claves(ev)).toEqual(props("evento"));
+    }
   });
 
   it("las columnas de la serie tienen el mismo largo", () => {
@@ -220,8 +261,9 @@ describe("JSONL de ejemplo de dev/datos/", () => {
         .filter((l) => l.trim() !== "");
       expect(lineas.length).toBeGreaterThan(0);
       lineas.forEach((texto, i) => {
-        const errores = validar("linea_jsonl", JSON.parse(texto));
-        expect(errores, `${archivo}:${i + 1}`).toEqual([]);
+        const linea = JSON.parse(texto);
+        expect(validar("linea_jsonl", linea), `${archivo}:${i + 1}`).toEqual([]);
+        expect(validarExtra(linea.evento, linea.datos), `${archivo}:${i + 1}`).toEqual([]);
       });
     });
   }
