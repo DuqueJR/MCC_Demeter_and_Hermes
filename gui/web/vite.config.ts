@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import preact from "@preact/preset-vite";
 import { imagetools } from "vite-imagetools";
 import { defineConfig } from "vitest/config";
+import { imagenesDeHtml } from "./scripts/imagenes-html.mjs";
 
 // Repetidor de desarrollo (T-630) o servicio local: mismo contrato de lectura.
 const OBJETIVO_API = "http://localhost:8787";
@@ -9,7 +10,8 @@ const OBJETIVO_API = "http://localhost:8787";
 const aqui = (ruta: string) => resolve(import.meta.dirname, ruta);
 
 export default defineConfig({
-  plugins: [preact(), imagetools()],
+  // imagenesDeHtml cubre las imágenes de los HTML sin JS (la portada); imagetools, las de JS y CSS.
+  plugins: [preact(), imagetools(), imagenesDeHtml(import.meta.dirname)],
   build: {
     target: "es2022",
     rollupOptions: {

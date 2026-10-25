@@ -4,15 +4,68 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hermes y Deméter · Universidad EIA</title>
+    <meta name="description" content="Sigue en vivo el vuelo de los cohetes Hermes y Deméter de la Universidad EIA en el CCCD 2026." />
+    <link rel="stylesheet" href="/src/portada/portada.css" />
   </head>
   <body>
+    <!-- Portada (T-620, 03 §1): sin JavaScript. Toda la mitad es el enlace (D-W10). -->
+    <header class="cabecera">
+      <img
+        src="/src/assets/comun/eia_blanco.png?w=256&format=webp"
+        srcset="/src/assets/comun/eia_blanco.png?w=256&format=webp 256w, /src/assets/comun/eia_blanco.png?w=512&format=webp 512w"
+        sizes="64px"
+        alt="Universidad EIA"
+        width="256"
+        height="144"
+      />
+      <span class="lugar">CCCD 2026 · Santa Fe de Antioquia · 8 de noviembre</span>
+    </header>
+
     <main>
-      <h1>Hermes y Deméter</h1>
-      <p>Portada en construcción.</p>
-      <nav>
-        <a href="/hermes/">Hermes</a>
-        <a href="/demeter/">Deméter</a>
-      </nav>
+      <h1 class="solo-lectores">Hermes y Deméter</h1>
+      <div class="mitades">
+        <a class="mitad" data-mision="demeter" href="/demeter/" aria-label="Entrar a la misión Deméter">
+          <span class="parche">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="/src/assets/demeter/parche.png?w=256&format=avif 256w, /src/assets/demeter/parche.png?w=512&format=avif 512w, /src/assets/demeter/parche.png?w=1024&format=avif 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <source
+                type="image/webp"
+                srcset="/src/assets/demeter/parche.png?w=256&format=webp 256w, /src/assets/demeter/parche.png?w=512&format=webp 512w, /src/assets/demeter/parche.png?w=1024&format=webp 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <img src="/src/assets/demeter/parche.png?w=512&format=webp" alt="" width="512" height="512" fetchpriority="high" />
+            </picture>
+          </span>
+          <h2 class="nombre">Deméter</h2>
+          <span class="lema">La tierra que mira</span>
+          <span class="entrar"><span class="clic">Entrar →</span><span class="toca">Toca para entrar</span></span>
+        </a>
+
+        <a class="mitad" data-mision="hermes" href="/hermes/" aria-label="Entrar a la misión Hermes">
+          <span class="parche">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="/src/assets/hermes/parche.png?w=256&format=avif 256w, /src/assets/hermes/parche.png?w=512&format=avif 512w, /src/assets/hermes/parche.png?w=1024&format=avif 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <source
+                type="image/webp"
+                srcset="/src/assets/hermes/parche.png?w=256&format=webp 256w, /src/assets/hermes/parche.png?w=512&format=webp 512w, /src/assets/hermes/parche.png?w=1024&format=webp 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <img src="/src/assets/hermes/parche.png?w=512&format=webp" alt="" width="512" height="512" fetchpriority="high" />
+            </picture>
+          </span>
+          <h2 class="nombre">Hermes</h2>
+          <span class="lema">El mensajero</span>
+          <span class="entrar"><span class="clic">Entrar →</span><span class="toca">Toca para entrar</span></span>
+        </a>
+      </div>
     </main>
   </body>
 </html>

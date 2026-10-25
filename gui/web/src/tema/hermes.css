@@ -15,7 +15,7 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-:root[data-mision="hermes"] {
+[data-mision="hermes"] {
   --fondo: #14112a;
   --superficie: #1e1a3a;
   --superficie-2: #2a2450;
@@ -35,7 +35,7 @@
 }
 
 /* Títulos de la misión (02 §5): mayúsculas con espaciado de 0,08 em. */
-:root[data-mision="hermes"] :is(h1, h2, h3) {
+[data-mision="hermes"] :is(h1, h2, h3) {
   font-family: var(--fuente-display), system-ui, sans-serif;
   font-weight: 800;
   text-transform: uppercase;
