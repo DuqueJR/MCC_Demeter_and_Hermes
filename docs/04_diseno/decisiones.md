@@ -1,7 +1,7 @@
 ---
 id: decisiones
 estado: vivo. Registro de decisiones (ADR compacto).
-actualizado: 2026-10-24
+actualizado: 2026-10-25
 ---
 # Registro de decisiones
 
@@ -46,3 +46,4 @@ actualizado: 2026-10-24
 | D-032 | Estructura del repo: `firmware/` (PlatformIO con 3 environments, incluido el módem), `estacion/`, `gui/`, `visionpack/`, `tools/`, `docs/` (la bóveda) y `docs/fuentes/` (los documentos originales). Remoto: `github.com/DuqueJR/MCC_Demeter_and_Hermes`. | Aprobada | U + C | README del repo |
 | D-030 | Agente `desarrollador` (`.claude/agents/desarrollador.md`): Sonnet, `isolation: worktree`, una tarea por invocación, sin merges ni cambios de contrato | Aprobada | U | flujo_trabajo §1 |
 | D-034 | **Web pública y dashboard de operación:** se planean en [08_gui/](../08_gui/00_README.md), con sus decisiones D-W01 a D-W15 (tres páginas aisladas, solo español y oscuro, el 3D como *could*, el stack Vite + Preact + MapLibre + uPlot + SSE, el relay en FastAPI, los carriles E y D, y el dashboard de operación en la misma app). **T-603 y T-604 pasan al dashboard de operación; T-605 se divide en T-605a (reenviador, back) y T-640 (relay, web).** El formato de datos es `web-1`, que el back adopta como su único formato de salida (DP-17). | Aprobada (PR #1 y PR #2, 2026-10-25); D-W13 y `web-1` se congelan en H0 | U + J + C | [08_gui/00](../08_gui/00_README.md), [08_gui/05](../08_gui/05_contrato_datos_web.md) |
+| D-035 | **Entorno de desarrollo sin Docker.** La web usa Node 22 (`gui/web/.nvmrc`, `engines >=22`) y siempre `npm ci` con el `package-lock.json`; los scripts son de npm y Node, sin bash, y funcionan en Windows (Jerónimo) y macOS (Juan Pablo). Python (estación y relay) usará un entorno virtual con versiones fijadas, que se define al arrancar esas tareas. **Docker solo para desplegar el relay (T-642).** Motivo: el firmware y la estación necesitan USB y puerto serie, que no pasan bien a un contenedor en macOS; en Windows, Docker exige WSL2 y degrada el recargado en vivo de Vite; el lockfile ya da la reproducibilidad. Se reconsidera si aparecen diferencias reales entre las dos máquinas. | Aprobada (2026-10-25) | U + C | [08_gui/04](../08_gui/04_arquitectura_web.md) §2, `gui/web/README.md` |

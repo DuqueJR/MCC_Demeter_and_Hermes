@@ -59,3 +59,7 @@ Cifras, salidas, hash del commit, versión del firmware, fotos o logs adjuntos.
 | 2026-10-25 | [Plan de dos sesiones del back](../05_plan/dos_sesiones/bitacora_2026-10-25_plan_dos_sesiones.md) (en su carpeta; se copia aquí en T-S14) | Jerónimo: punto de control, método, contratos C-01 a C-05, DP-01…DP-17 |
 | 2026-10-25 | [Ajuste de C-05 a `web-1`](../05_plan/dos_sesiones/bitacora_2026-10-25_ajuste_C-05_web-1.md) (ídem) | El servicio de tierra adopta `web-1` (DP-17) |
 | 2026-10-25 | [Compatibilidad de los dos planes y dashboard de operación](2026-10-25_sesion_compatibilidad_y_operacion.md) | Carriles E y D, `web-1` con `lkp` y `fw_version`, E10 en el backlog, D-034, constantes `WEB_*`, borrador del dashboard de operación |
+| 2026-10-25 | [Refinamiento de C-02 y C-04 para H0](2026-10-25_sesion_contratos_C-02_C-04.md) | Sesión B: interfaces internas del firmware y formato binario del log, listos para congelar en H0 (PR #5) |
+| 2026-10-25 | [Andamiaje de la web (T-610)](2026-10-25_T-610_andamiaje_web.md) | El agente: Vite multipágina, stack completo, prueba de aislamiento y humo (PR #4) |
+| 2026-10-25 | [Tema y tokens (T-613)](2026-10-25_T-613_tema_tokens.md) | El agente: tokens de 02 §6, fuentes autohospedadas, `dev/tokens.html`, regla contra colores sueltos y aislamiento por familia de fuente (PR #6) |
+| 2026-10-25 | [Revisión de T-610 y T-613, y entorno de desarrollo](2026-10-25_revision_T-610_T-613_y_entorno.md) | Revisión de los PR #4 y #6; D-W17 (Ajv y `lucide-preact`); D-035 (Node 22 y `npm ci`, sin Docker para desarrollar); T-611 lanzada |
