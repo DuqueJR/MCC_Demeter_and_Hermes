@@ -15,11 +15,11 @@ actualizado: 2026-10-24
 | Nombre | Valor | Origen |
 | --- | --- | --- |
 | `FECHA_LANZAMIENTO_CAT3` | 2026-11-08 | Cronograma del CCCD |
-| `SITIO` | Santa Fe de Antioquia. Altitud aproximada: 550 m s.n.m. (V) | CCCD |
+| `SITIO` | Santa Fe de Antioquia: 6,582° N, −75,823° E, **510 m s.n.m.** | Simulación de OpenRocket de Demeter ([perfiles_vuelo](perfiles_vuelo.md)) |
 | `CANSAT_MASA_G` | 250–300 | Ficha de la Cat 3 |
 | `ATERRIZAJE_V_MAX_MS` | 11 | DCP |
 | `INTEGRACION_MAX_MIN` | 15 | DCP |
-| `MOTORES` | G80-7T y **H135W-8** (H135W-14A perforado a 8 s). V: falta saber qué cohete lleva cada uno. | Usuario, 2026-10-24 (confirmado) |
+| `MOTORES` | **Demeter: H135W-8. Hermes: G80-7T.** | Usuario, 2026-10-24 (confirmado), y la simulación de Demeter |
 | Recuperación | Solo por la eyección del motor. **Prohibido el despliegue electrónico.** | DCP |
 
 ## 2. Radio y TDMA ([enlace_lora_tdma.md](../04_diseno/enlace_lora_tdma.md))
@@ -77,7 +77,7 @@ actualizado: 2026-10-24
 | `LANDED_ACC_TOL_G` | 0,05 | |
 | `LANDED_GIRO_MAX_DPS` | 5 | |
 | `LANDED_VENTANA_S` | 5 (P) | |
-| `ALARMA_DESCENSO_MS` | 10,0 | *Objetivos* 7.G. Se evalúa solo en DESCENT. |
+| `ALARMA_DESCENSO_MS` | 10,0 | *Objetivos* 7.G. Se evalúa solo en DESCENT. ⚠️ El descenso nominal de Demeter es de 9,2 m/s, así que se propone subirla a 11 con una ventana de 2 s (PEN-20). |
 | `PRETRIGGER_S` | 2 | |
 | `ORIGEN_PROMEDIO_S` | 30 | Promedio GNSS y baro en PREFLIGHT |
 | `GO_HACC_MAX_M` | 5 (P) | |
@@ -113,20 +113,24 @@ actualizado: 2026-10-24
 
 ## 7. Buses, pines y encendido ([buses_y_pines.md](../03_hardware/buses_y_pines.md))
 
+> ⚠️ **D-022 está reabierta.** Los pines de los sensores externos de abajo son los de la **opción B′, que es la recomendada y es provisional** hasta PEN-18. Ver [buses_y_pines](../03_hardware/buses_y_pines.md) §4.
+
 | Nombre | Valor |
 | --- | --- |
-| `PIN_SPI3_SCK` / `PIN_SPI3_MOSI` / `PIN_SPI3_MISO` | 36 / 35 / 37 |
-| `PIN_CS_SD` / `PIN_CS_QMI8658` | 47 / 34 |
+| `PIN_SD_CLK` / `PIN_SD_CMD` / `PIN_SD_D0` / `PIN_SD_D3` | 36 / 35 / 37 / 47 (la SD en SDMMC de 1 bit, B′) |
+| `PIN_CS_QMI8658` | 34 (se mantiene en alto: QMI8658 deshabilitado en B′) |
+| `PIN_SENS_SCK` / `PIN_SENS_MOSI` / `PIN_SENS_MISO` | 46 / 45 / 3 (host SPI3 por la GPIO matrix, B′) |
 | `PIN_CS_LSM6DSO32` / `PIN_INT_LSM6DSO32` | 38 / 39 |
-| `PIN_CS_BMP581` / `PIN_INT_BMP581` | 48 / 21 |
+| `PIN_CS_BMP581` | 48 (el FIFO se lee por timer cada `BARO_FIFO_POLL_MS` = 50) |
 | `I2C0_SDA` / `I2C0_SCL` · `I2C_ADDR_MMC5983MA` | 17 / 18 · 0x30 |
+| Alimentación de los breakouts externos | **DC1 (3,3 V, PM1)**, con sus pull-ups de los CS en el mismo riel. El DRV5032 se alimenta de **VBAT**. |
 | `I2C1_SDA` / `I2C1_SCL` · `PIN_PMU_IRQ` | 42 / 41 · 40 |
 | `PIN_RADIO_SCK/MOSI/MISO/CS/RST/BUSY/DIO1` | 12 / 11 / 13 / 10 / 5 / 4 / 1 |
 | `PIN_GNSS_TX` / `PIN_GNSS_RX` / `PIN_GNSS_PPS` | 8 / 9 / 6 |
-| `PIN_BUZZER` | 46 (solo salida, con pull-down en la base) |
-| `PIN_PI_PULSO` (Demeter) | 45 (solo salida, a masa por transistor, con pull-down) |
+| `PIN_BUZZER` | 21 (B′, provisional; ver buses_y_pines §6) |
+| `PIN_PI_PULSO` (Demeter) | **2** (IO2 del header, a masa por transistor, con pull-down de 10 kΩ; 🔎 verificar que `RADIO_RETAIN` no lo use) |
 | `PIN_PI_UART_TX` / `PIN_PI_UART_RX` (Demeter) | 43 / 44 |
-| `SPI3_SD_MAX_MS` | 8 (P). Es lo máximo que una escritura a la SD puede tener el bus. |
+| `SPI3_SD_MAX_MS` | 8 (P). Solo aplica en la opción A′ (el bus compartido con la SD). |
 | `PMIC_PWRON_APAGADO_S` | 10. Pulsación larga para apagar, **desactivada desde ARMED hasta LANDED**. |
 
 ## 8. Montaje (pendiente)

@@ -16,6 +16,7 @@ Incluye:
 | [`estacion/`](estacion/) | Servicio de tierra (Python) |
 | [`gui/`](gui/) | Dashboard local y frontend público |
 | [`visionpack/`](visionpack/) | El plano de control de la Pi de Demeter |
+| [`datos/`](datos/README.md) | Simulaciones de OpenRocket y datos de referencia |
 | [`tools/`](tools/) | Simulación, decodificación del log y análisis post-vuelo |
 | [`docs/`](docs/00_INDICE.md) | **Toda la documentación.** Se empieza por [`docs/00_INDICE.md`](docs/00_INDICE.md). |
 

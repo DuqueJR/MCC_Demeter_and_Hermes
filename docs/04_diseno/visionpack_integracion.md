@@ -14,7 +14,7 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 
 - 115200 baudios, 8N1, niveles de 3,3 V y **masa común**.
 - En la Pi va por `/dev/serial0` (GPIO 14/15). En la LilyGO va por **los GPIO 43 (TX) y 44 (RX)**, en el conector QWIIC o en el M.2 ([buses_y_pines.md](../03_hardware/buses_y_pines.md) §5).
-- **El pulso de encendido sale del GPIO 45**, a masa por un transistor.
+- **El pulso de encendido sale del IO2** del header (D-022, opción B′), a masa por un transistor.
 - **No hay GPIO para `cam=1`:** el estado de la cámara se deriva del `PAYLOAD_STATUS` de la UART.
 - **Trama:** `AA 55 | tipo u8 | len u8 | payload | CRC16-CCITT-FALSE` (CRC en big-endian, payload en little-endian). Ver `demeter_protocol.py`.
 
@@ -50,7 +50,7 @@ Cada comando se reenvía hasta que el `PAYLOAD_STATUS` confirme el cambio de est
   - El tiempo de arranque no está documentado oficialmente: hay que **medirlo** (prueba P-09). Aun así, es de decenas de segundos y **no puede ocurrir después del despegue**.
 - **Energía:** con 2× Molicel P30B (≈ 21,6 Wh en total), la Pi en reposo aguanta horas. Medir el consumo real con las cámaras activas.
 - **Pendiente para Demeter (hardware):**
-  - el circuito real del pulso (J2, GLOBAL_EN o el EN del X1200), desde el GPIO 45 de la LilyGO.
+  - el circuito real del pulso (J2, GLOBAL_EN o el EN del X1200), desde el IO2 de la LilyGO.
 
 ## 4. Riesgos propios de la integración
 

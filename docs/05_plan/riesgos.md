@@ -9,7 +9,7 @@ Probabilidad (P) e impacto (I) en escala B/M/A. Se revisa a diario.
 
 | ID | Riesgo | P | I | Mitigación | Prueba / tarea |
 | --- | --- | --- | --- | --- | --- |
-| R-01 | **No hay un host SPI libre** para los sensores externos, y compartir el bus con la SD provoca pérdida de muestras | M | A | D-022 aprobada: un solo dueño del bus, la SD en bloques ≤ 8 ms, el MMC en I2C0, los FIFO como colchón; si falla, bajar la IMU a 1,66 kHz y luego el plan B con SDMMC. **Hay que correr P-02 cuanto antes.** | P-01, P-02 |
+| R-01 | **No hay un host SPI libre**, y los pines 35/36/37 no son accesibles porque el M.2 es interno. La SD en SDMMC podría no funcionar (no hay pull-ups en CMD y D0; en la V3.0 hay MOSFETs de cambio de nivel). | A | A | PEN-18 el primer día: probar la SD en SDMMC (B′). Si falla, A′ (soldar a R32–R34 y compartir el bus con un solo dueño) y bajar la IMU a 1,66 kHz. | P-01, P-02, T-003 |
 | R-02 | Latencia de escritura de la SD (100–250 ms) | M | A | Buffer de 512 KB en PSRAM, archivo preasignado, bloques de 16 KB, tarjeta A1/A2 probada | P-02 |
 | R-03 | Sin vuelo previo, las transiciones de la máquina de estados fallan con datos reales | M | A | Estimador vertical simple (D-011), replay de más de 20 vuelos, prueba de manipulación, umbrales conservadores | P-03, P-04, P-14 |
 | R-04 | El EKF 3D no está listo o diverge | A | M | No decide transiciones; es "debería"; la telemetría cae al GNSS crudo con `EKF_OK = 0` | P-13 |

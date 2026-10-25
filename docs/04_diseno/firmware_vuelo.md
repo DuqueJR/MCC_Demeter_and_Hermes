@@ -36,13 +36,13 @@ El núcleo 1 se reserva para el tiempo real de los sensores. El núcleo 0 lleva 
 
 | Tarea | Núcleo | Prioridad | Se dispara por | Hace |
 | --- | --- | --- | --- | --- |
-| `t_bus_spi3` | 1 | Máxima | IRQ del watermark del LSM6DSO32 (GPIO 39), IRQ del FIFO del BMP581 (GPIO 21), el QMI8658, y los bloques pendientes de la SD | **Es la única dueña del bus SPI3** (sensores y SD, D-022). Lee los FIFO en ráfaga, marca el tiempo de cada muestra y lo publica en dos colas, la de fusión y la del log. **Escribe la SD en bloques cortos** (≤ `SPI3_SD_MAX_MS`), intercalados entre las lecturas. |
+| `t_bus_sens` | 1 | Máxima | IRQ del watermark del LSM6DSO32 (GPIO 39) y el timer del FIFO del BMP581 (50 ms) | **Es la única dueña del bus SPI de sensores** (D-022). Lee los FIFO en ráfaga, marca el tiempo de cada muestra y lo publica en dos colas, la de fusión y la del log. **En la opción B′**, la SD va por SDMMC, la maneja `t_log` y no comparte bus. **En la opción A′**, esta tarea también escribe la SD en bloques ≤ `SPI3_SD_MAX_MS`. |
 | `t_bus_i2c0` | 1 | Media | Timer de 100 Hz | Es la dueña de I2C0: lee el MMC5983MA (100 Hz), el QMC6310 y el BME280 (los respaldos), y en tierra refresca el OLED. **En vuelo no toca el OLED.** |
 | `t_fusion` | 1 | Alta | Llegada de muestras | Estimador vertical 1D, que es crítico, a la tasa del IMU decimada (500 Hz (P)) · Madgwick (500 Hz) · EKF 3D (predicción a 100 Hz, corrección con el baro a 100 Hz y con el GNSS a 10 Hz) |
 | `t_fsm` | 1 | Alta | 100 Hz | Evalúa las transiciones ([maquina_estados.md](maquina_estados.md)), dispara las acciones y escribe la persistencia |
 | `t_radio` | 0 | Máxima en el núcleo 0 | Timer del slot TDMA e IRQ DIO1 | Programa el TX del slot, el RX continuo y los comandos, y lleva la fuente de sincronía ([enlace_lora_tdma.md](enlace_lora_tdma.md)) |
 | `t_gnss` | 0 | Alta | UART e IRQ del PPS (GPIO 6) | Parsea UBX-NAV-PVT, marca el tiempo del PPS y calcula la correspondencia entre `t_us` y UTC |
-| `t_log` | 0 | Media | Llegada de registros | Serializa los registros en el buffer de PSRAM y arma los bloques de 16 KB. **No toca el bus:** se los entrega a `t_bus_spi3` para que los escriba. |
+| `t_log` | 0 | Media | Llegada de registros | Serializa los registros en el buffer de PSRAM, arma los bloques de 16 KB y los escribe en la SD por SDMMC (opción B′). En la opción A′, se los entrega a `t_bus_sens`. |
 | `t_house` | 0 | Baja | 1 Hz | Batería (AXP2101) y temperaturas · arma STATUS · OLED (solo en tierra) · buzzer |
 | `t_visionpack` | 0 | Media | UART de la Pi | Solo con `MODULO_VISIONPACK = 1`: el protocolo AA 55 ([visionpack_integracion.md](visionpack_integracion.md)) |
 | `t_dump` | 0 | Baja | LANDED + comando | Punto de acceso Wi-Fi y servidor HTTP del volcado; el backfill lo hace `t_radio` |
@@ -60,8 +60,9 @@ Ver [buses_y_pines.md](../03_hardware/buses_y_pines.md). Ese documento tiene el 
 - **I2C1** (42/41): AXP2101 y PCF8563.
 - **UART** (8/9) para el GNSS. **PPS en el GPIO 6.**
 - **SPI de la radio** (SPI2/FSPI): solo el SX1262.
-- **SPI3 (35/36/37)**: el LSM6DSO32 (CS 38), el BMP581 (CS 48), el QMI8658 (CS 34) y la SD (CS 47). Tiene una sola dueña, `t_bus_spi3` (D-022).
+- **SPI de sensores** (D-022, reabierta; [buses_y_pines](../03_hardware/buses_y_pines.md) §4). La propuesta es la opción B′: el host SPI3 por el header (SCK 46, MOSI 45, MISO 3), con el LSM6DSO32 (CS 38) y el BMP581 (CS 48), y **la SD en SDMMC de 1 bit** (36/35/37/47). El QMI8658 queda deshabilitado.
 - **El MMC5983MA va en I2C0** (0x30), no en SPI.
+- **Los breakouts externos se alimentan de DC1**: no se apagan con el ciclo de ALDO en el arranque, así que **el firmware les manda un reset por software** (LSM6DSO32: SW_RESET; BMP581: soft reset; MMC5983MA: SW_RST) antes de configurarlos.
 - **Encendido:** el DRV5032 actúa sobre el `PWR_KEY` del AXP2101 (D-031). El firmware **desactiva el apagado por pulsación larga** al entrar en ARMED y lo reactiva en DISARM y en LANDED.
 
 ## 4. Tasas de adquisición (D-018)

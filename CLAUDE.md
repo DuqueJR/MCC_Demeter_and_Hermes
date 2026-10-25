@@ -42,6 +42,7 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 | `estacion/` | Servicio de tierra en Python: serial, log crudo, decodificación, comandos y reenviador |
 | `gui/` | Dashboard local y frontend público (web) |
 | `visionpack/` | El código de la Pi de Demeter (`demeter_*.py`). **Tiene bugs bloqueantes:** ver `docs/06_revisiones/revision_codigo_pi_demeter.md` |
+| `datos/` | Datos de entrada que no se editan: las simulaciones de OpenRocket (`datos/simulaciones/openrocket/`), con su catálogo en `datos/README.md` y su análisis en `docs/02_requisitos/perfiles_vuelo.md` |
 | `tools/` | Herramientas de PC: generador de vuelos sintéticos, decodificador del log y análisis del motor |
 | `docs/` | La bóveda de Obsidian con toda la documentación |
 | `docs/fuentes/` | Los documentos originales: `Objetivos_Sistemas.pdf`, `Tabla_componentes.xlsx` y los `.docx`, ya traducidos a `docs/` |
@@ -51,4 +52,5 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 ## Estado
 
 - Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`. Desde el 2026-10-24 todavía no hay código propio.
-- Siguiente paso: T-002 y T-003, en paralelo con el cableado según `docs/03_hardware/buses_y_pines.md` (PEN-17).
+- **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
+- Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.

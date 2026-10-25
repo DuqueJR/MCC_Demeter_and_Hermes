@@ -29,7 +29,7 @@ Traducción de *Objetivos_Sistemas.pdf* y del reglamento a requisitos que se pue
 | HW-04 | Entrada GPIO de estado (`cam=1` o `actuador_ok`) incluida en la telemetría | S | Modificado por D-031: se deriva de la UART de la Pi (`act.CAM_OK`), sin GPIO |
 | HW-05 | Buzzer por PWM solo al confirmar el aterrizaje | M | Vigente (T12 y el comando BUZZER) |
 | HW-06 | I2C0 17/18 para OLED, magnetómetro y barómetro de la placa; I2C1 42/41 para PMIC y RTC; UART para el GNSS | M | Vigente |
-| HW-07 | Los sensores externos no comparten el SPI de los componentes internos | M | **Modificado por D-022:** no existe un tercer host SPI. El LSM6DSO32 y el BMP581 comparten SPI3 con una sola tarea dueña del bus; el MMC5983MA va en I2C0. Se valida con P-02. |
+| HW-07 | Los sensores externos no comparten el SPI de los componentes internos | M | **En revisión (D-022, reabierta).** La propuesta B′ **sí lo cumple**: la SD va por SDMMC y SPI3 queda dedicado a los sensores, por el header. La alternativa A′ lo incumple, porque comparte el bus con la SD. |
 
 ## Datos y transmisión (*Objetivos* 4)
 

@@ -1,100 +1,136 @@
 ---
 id: buses_y_pines
-estado: aprobado (D-022 y D-031). Asignación definida por el documentador el 2026-10-24 por delegación del usuario; el cableado todavía no está hecho.
+estado: D-022 REABIERTA (2026-10-24). Se cierra con la prueba de la SD en SDMMC (PEN-18). Pines de los headers confirmados con docs/fuentes/pines_headers_tbeam_supreme.csv. D-031 vigente.
 actualizado: 2026-10-24
 depende_de: [tbeam_supreme, esp32_s3, lsm6dso32, bmp581, mmc5983ma, qmi8658, drv5032, axp2101]
 ---
-# Buses y pines de la T-Beam Supreme (CanSat): asignación definitiva v1
+# Buses y pines de la T-Beam Supreme (CanSat)
 
-Las fuentes están en las fichas [tbeam_supreme](componentes/tbeam_supreme.md) y [esp32_s3](componentes/esp32_s3.md), y en el [esquemático V3.1](datasheets/tbeam_supreme_schematic.pdf).
-- ✅ = confirmado en el repo oficial de LilyGO.
-- 🔎 = leído en el esquemático: se verifica con el multímetro al cablear (T-004).
-- **Esta tabla manda: el cableado se hace según ella.**
+Las fuentes son las fichas [tbeam_supreme](componentes/tbeam_supreme.md) y [esp32_s3](componentes/esp32_s3.md), y los esquemáticos [V3.1](datasheets/tbeam_supreme_schematic.pdf) y [V3.0](datasheets/tbeam_supreme_schematic_v3.0.pdf). Las copias renderizadas se describen en la bitácora del 2026-10-24.
+- ✅ = confirmado en el repo de LilyGO o en el esquemático.
+- 🔎 = falta verificar en la placa física.
+
+## 0. Corrección importante (2026-10-24)
+
+**El conector M.2 B-key NO es un conector externo.**
+- En el esquemático V3.0 aparecen dos conectores iguales: **"Expansion board Interface"** y **"Mother board Interface"**. Además, ninguna hoja publicada dibuja el ESP32-S3.
+- O sea: la T-Beam Supreme es **una placa madre (con el ESP32-S3) unida a una placa de periféricos por ese conector**.
+- Lo que el usuario puede cablear son los **headers PN1 y PM1** (13 pines en la V3.1, 16 en la V3.0) y el conector **QWIIC**.
+
+**Consecuencias:**
+- **El bus SPI3 (35/36/37) de la SD y la IMU no sale a ningún header.** La versión anterior de este documento suponía que el "SPI externo" era ese bus. Era un error.
+- **`PWR_KEY` no está en ningún header:** solo llega al botón PWR (SW3).
 
 ## 1. Lo que ya ocupa la placa ✅
 
 | Función | GPIO | Bus o host |
 | --- | --- | --- |
-| I2C0: OLED SH1106, QMC6310 y BME280 | SDA 17, SCL 18 | `Wire` (I2C0). **Se alimenta por ALDO1, que debe encenderse antes de tocar el bus.** |
+| I2C0: OLED SH1106, QMC6310 y BME280 | SDA 17, SCL 18 | `Wire`. **Pull-ups de 4,7 kΩ (R26/R27) hacia A_LDO1.** |
 | I2C1: AXP2101 (0x34) y PCF8563 (0x51) | SDA 42, SCL 41 | `Wire1` |
-| IRQ del PMU / interrupción del RTC | 40 / 14 | |
-| SPI de la radio: SX1262 | SCK 12, MOSI 11, MISO 13, CS 10, RST 5, BUSY 4, DIO1 1 | **SPI2 (FSPI)**, solo la radio |
-| SPI de periféricos: SD y QMI8658 | SCK 36, MOSI 35, MISO 37 · CS de la SD 47 · CS de la IMU 34 · INT de la IMU 33 | **SPI3 (HSPI)** |
-| GNSS | TX 8, RX 9, **PPS 6**, EN o wake 7 (las fuentes se contradicen; ver PEN-12) | UART |
-| Botón BOOT / USB CDC | 0 / 19, 20 | |
-| Flash / PSRAM (QSPI) | 26–32 (reservados) | SPI0/1 |
+| IRQ del PMU / interrupción del RTC | 40 / 14 | El RTC_INT tiene un pull-up de 100 kΩ (R2) |
+| SPI2 de la radio: SX1262 | SCK 12, MOSI 11, MISO 13, CS 10, RST 5, BUSY 4, DIO1 1 | Solo la radio |
+| SPI3 de periféricos: SD y QMI8658 | SCK 36, MOSI 35, MISO 37, CS de la SD 47, CS de la IMU 34, INT de la IMU 33 | El CS de la SD con pull-up de 10 kΩ (R13); las líneas de la SD con 22 Ω en serie; puentes de 0 Ω (R32–R34) entre la SD y el SPI. **En la V3.0** hay además MOSFETs BSS123 de cambio de nivel en las líneas de la SD. |
+| GNSS | TX 8, RX 9, **PPS 6** (en el header, con un LED y 1 kΩ como carga), EN o wake 7 | UART |
+| USB CDC / BOOT | 19, 20 / 0 | |
 
-El ESP32-S3 solo tiene **2 hosts SPI de uso general, y los dos están ocupados**. Por eso no existe un tercer bus SPI "aislado".
+## 2. Lo que se puede cablear ✅
 
-## 2. Qué sale al conector de expansión 🔎
+Confirmado con el esquemático V3.1 y con la lista de pines de los headers que entregó el usuario el 2026-10-24 ([`docs/fuentes/pines_headers_tbeam_supreme.csv`](../fuentes/pines_headers_tbeam_supreme.csv)).
 
-En el esquemático V3.1, el conector M.2 B-key ("Expansion board Interface") lleva estas señales:
-- `SPI_SCK`, `SPI_MOSI`, `SPI_MISO`, `IMU_CS`, `IMU_INT` y `SD_CS`: es decir, **el bus de periféricos 35/36/37 está expuesto**. Es el "SPI externo" del que habla Pablo.
-- `SCL` y `SDA` (I2C0);
-- `GPIO21`, `GPIO38`, `GPIO39`, `GPIO45`, `GPIO46` y `GPIO48`;
-- `U0TXD` y `U0RXD` (GPIO 43 y 44, también en el conector QWIIC);
-- `PWR_KEY` (el botón del AXP2101) y `CHIP_PU`;
-- USB y alimentación.
+| Header | Señales |
+| --- | --- |
+| **PN1** | IO48 · IO21 · IO6 (= GPS_PPS, **ocupado**) · IO3 · **IO2** · IO38 · IO39 · IO45 · IO46 · SCL (GPIO18) · SDA (GPIO17) · GND |
+| **PM1** | RST (= CHIP_PU) · RXD (GPIO44) · TXD (GPIO43) · **VBAT** · **DC1 (3,3 V)** · VBUS · **A-LDO2** · VSYS · B-LDO2 · DC4 · DC5 · GND |
+| **QWIIC** | RX (GPIO44) · TX (GPIO43) · 3V3 (DC1) · GND |
 
-**Los GPIO 2, 15 y 16 no aparecen en el conector**, así que no se usan. El GPIO 3 tampoco está confirmado.
+**Los GPIO libres que se pueden cablear son 8:** 48, 21, 3, **2**, 38, 39, 45 y 46. Más la UART0 (43/44) e I2C0 (SCL/SDA).
+- **El IO6 no está libre:** es la línea del PPS del GNSS, que usamos para el TDMA.
+- 🔎 **El IO2** ocupa en el header el lugar de la red `RADIO_RETAIN` del esquemático. Hay que verificar con el multímetro que en la variante SX1262 no lo maneja nada más. No es pin de strapping; en el reset queda flotante y tiene un pequeño pulso bajo de unos 60 µs al encender, según el datasheet.
 
-## 3. D-022 (cerrada): topología de sensores
+**Rieles de alimentación en el header** (para los breakouts):
+- **DC1 (3,3 V):** el mismo riel del ESP32. Está encendido siempre que la placa lo está. **Aquí se alimentan los breakouts externos (LSM6DSO32, BMP581, MMC5983MA) y sus pull-ups de los CS.**
+  - Así tienen voltaje desde el primer instante: el CS ya está en alto al encender, lo que evita la trampa del BMP581.
+  - Y no los alcanza el ciclo de apagado y encendido que el código de LilyGO le hace a ALDO1/ALDO2 en el arranque. **El firmware debe mandarles un reset por software al iniciar.**
+  - Y el MMC nunca queda sin alimentación mientras los pull-ups de I2C0 (que van a A_LDO1) están encendidos, así que no hay alimentación inversa por el bus.
+- **A-LDO2:** es un LDO que el firmware enciende y apaga. No se usa para los breakouts.
+- **VBAT:** el DRV5032 (D-031), porque es el único riel presente con el PMIC apagado.
 
-| Sensor | Bus | Por qué |
-| --- | --- | --- |
-| **LSM6DSO32** | **SPI3** (el bus de periféricos), con su propio CS | Es lo que dijo Pablo ("todos los sensores en el mismo SPI"). Está expuesto en el conector y aguanta 3,33 kHz. |
-| **BMP581** | **SPI3**, con su propio CS | Ídem. FIFO a 240 Hz. |
-| **MMC5983MA** | **I2C0** (0x30), leído a 100 Hz sin INT | 1) *Objetivos* pone el magnetómetro en I2C0. 2) **No alcanzan los GPIO expuestos** para un tercer CS más las señales de Demeter. 3) A 100 Hz, una lectura de 7 B tarda unos 0,3 ms a 400 kHz. 4) Si no tiene FIFO, en I2C deja de competir con la SD. 0x30 no choca con 0x1C, 0x3C/0x3D ni 0x77. |
-| QMI8658, SD | SPI3 (ya están) | Respaldo y almacenamiento |
-| QMC6310, BME280, OLED | I2C0 (ya están) | El OLED **no se refresca en vuelo** |
+## 3. Pull-ups y pull-downs (la pregunta de Pablo)
 
-**Reglas del bus SPI3 compartido.** Todas son obligatorias y se validan en P-02.
-1. **Una sola tarea es dueña del bus** (`t_bus_spi3`, en el núcleo 1). Hace las lecturas de los FIFO y las escrituras de la SD **en bloques cortos e intercalados**.
-   - Ninguna escritura a la SD puede tener el bus más de `SPI3_SD_MAX_MS` seguidos.
-   - **Margen del FIFO del LSM6DSO32 a 3,33 kHz:** unos 66 ms si es de 3 KB (el peor caso) o unos 197 ms si es de 9 KB.
-   - **Margen del BMP581:** unos 133 ms.
-2. Si P-02 falla, el orden de recorte es: bajar la IMU a 1,66 kHz; después, la SD a SDMMC (plan B, ver la §6).
-3. **Todos los CS con pull-up de 10 kΩ a 3V3**, sobre todo el del BMP581: si su CS baja en el arranque, cambia a SPI de forma irreversible.
-4. **El LSM6DSO32 con `I2C_disable`.** Modo SPI y reloj **por dispositivo**: BMP581 ≤ 12 MHz, MMC no aplica (va por I2C), LSM6DSO32 según su ficha, y la SD puede ir más rápido.
-
-## 4. D-031: encendido con el DRV5032 (Adafruit 6051, ScoutMakes, omnipolar)
-
-- **Conexión:** la salida del DRV5032 va a **`PWR_KEY`** (el botón de encendido del AXP2101), **a través de un diodo Schottky**.
-  - El ánodo va a `PWR_KEY` y el cátodo a la salida del DRV. Así el sensor **solo puede llevar la línea a masa**, haga lo que haga su salida (push-pull u open-drain).
-  - El DRV5032 se alimenta de **VBAT**, que siempre está presente aunque el PMIC esté apagado (1,65–5,5 V; consumo de µA).
-  - 🔎 Hay que verificar en el conector o en un pad dónde tomar VBAT y la masa.
-- **Comportamiento:**
-  - **Imán ~1 s cerca del fuselaje:** es como pulsar el botón; el PMIC enciende la placa y el firmware entra en BOOT.
-  - **Antes de eso, la placa está apagada del todo:** con el PMIC apagado, el consumo es mínimo. Es el "reposo absoluto" de *Objetivos* 3.1, que permite sellar el cohete en rampa.
-  - **Imán sostenido `PMIC_PWRON_APAGADO_S` (10 s):** apagado por hardware del PMIC. Solo debe funcionar en tierra. **El firmware desactiva el apagado por pulsación larga al entrar en ARMED, y lo reactiva en DISARM y en LANDED** (🔎: verificar el registro en la ficha [axp2101](componentes/axp2101.md) o en XPowersLib).
-  - Las pulsaciones cortas llegan al firmware como una IRQ del PMU (GPIO 40). En v1 no tienen función.
-- **Por qué no CHIP_PU:** con el imán, el ESP32 quedaría en reset pero el PMIC seguiría encendido y consumiendo, y la lógica quedaría invertida (imán puesto = apagado).
-- **Por qué no un GPIO con *deep sleep*:** gasta un GPIO, de los que no sobra ninguno, y el PMIC queda encendido.
-
-## 5. Asignación de GPIO (v1)
-
-| Señal | GPIO | Conector | Notas |
+| Línea | En la placa (esquemático) | Interno del ESP32-S3 en el reset (datasheet) | Implicación |
 | --- | --- | --- | --- |
-| SPI3: SCK, MOSI, MISO | 36, 35, 37 | M.2 `SPI_*` 🔎 | Compartido con la SD y el QMI8658 |
-| CS del LSM6DSO32 | **38** | M.2 🔎 | Pull-up de 10 kΩ |
-| INT1 del LSM6DSO32 (watermark) | **39** | M.2 🔎 | Solo entrada |
-| CS del BMP581 | **48** | M.2 🔎 | Pull-up de 10 kΩ, **obligatorio** |
-| INT del BMP581 (FIFO) | **21** | M.2 🔎 | |
-| MMC5983MA | I2C0: 17/18 | M.2 `SCL/SDA` 🔎 | 0x30; con pull-ups de I2C (ya están en la placa) |
-| DRV5032 | **PWR_KEY** (sin GPIO) | M.2 `PWR_KEY` 🔎 | Diodo Schottky; alimentado por VBAT |
-| PWM del buzzer | **46** | M.2 🔎 | Solo salida (LEDC), por un transistor NPN con **pull-down de 10 kΩ en la base**. El 46 es strapping y debe estar en bajo en el arranque: el pull-down lo garantiza. |
-| Pulso de encendido de la Pi (solo Demeter) | **45** | M.2 🔎 | Solo salida, por un transistor u optoacoplador **a masa** hacia J2 de la Pi, con **pull-down de 10 kΩ**. El 45 es strapping (voltaje de la flash): en bajo en el arranque da 3,3 V, que es lo correcto. |
-| `cam=1` (solo Demeter) | — | — | **No se cablea:** el estado de la Pi ya llega por la UART (`PAYLOAD_STATUS`), así que se publica como `act.CAM_OK` derivado del StatusCode. Se ahorra un GPIO. |
-| UART a la Pi (solo Demeter) | TX 43, RX 44 | QWIIC / M.2 `U0*` | Es la UART0. En el arranque, la ROM imprime basura por el 43; la Pi la descarta porque no tiene la sincronía AA 55 ni el CRC correcto. La consola del firmware va por USB CDC. |
-| Libres | Hermes: 45. Demeter: ninguno. | | |
+| GPIO 38, 39, 48, 21, 3, 2 | **No se ve ninguna resistencia** en la hoja de periféricos. La placa madre no está publicada, así que hay que **medir** (PEN-18). | **Ninguna**: entrada flotante (IE) | **Un CS flota en el arranque** hasta que el firmware lo configure. Por eso hace falta **un pull-up externo de 10 kΩ en cada CS**, sobre todo en el del BMP581, que pasa a SPI de forma irreversible si su CS baja. |
+| GPIO 45, 46 | Ídem | **Pull-down débil (WPD)**, porque son pines de strapping | **Nunca ponerles un pull-up.** El 45 en alto en el arranque fija la flash a 1,8 V y la placa no arranca. El 46 en alto junto con el GPIO0 en bajo invalida el modo de descarga. Solo se usan como salida o como entrada que esté en bajo en el arranque. |
+| GPIO 43, 44 (UART0) | — | Pull-up débil (WPU) | Correcto para la UART hacia la Pi |
+| SCL/SDA (I2C0) | 4,7 kΩ hacia **A_LDO1** | — | El MMC5983MA va a **DC1**, que está encendido siempre que lo está ALDO1, así que nunca queda sin alimentación con el bus en alto. **El firmware enciende ALDO1 antes de usar I2C0.** Los pull-ups propios del breakout quedan en paralelo, y no es grave. |
+| GPS_PPS | LED con 1 kΩ hacia GND | — | Leve carga en el PPS; no afecta la marca de tiempo |
+| IMU_INT (QMI8658) | 10 kΩ hacia 3V3 con diodos (OR cableado) | — | — |
 
-## 6. Plan B (solo si P-02 falla después de bajar a 1,66 kHz)
+**Los pull internos del ESP32 (~45 kΩ) se pueden programar en cualquier GPIO.** Pero solo actúan **después** de que el firmware los configura, así que **no sirven para fijar el estado de un CS en el arranque**.
 
-- Llevar la SD al periférico **SDMMC** de 1 bit (CLK 36, CMD 35, D0 37, D3 = 47 en alto). Eso deja SPI3 solo para los sensores, en otros pines.
-- **Costos:** se pierde el QMI8658, y hacen falta 3 GPIO más, que no existen en el conector de Demeter. Es una última opción y requiere rediseñar el cableado.
+## 4. D-022: dónde van los sensores externos (REABIERTA)
 
-## 7. Verificación al cablear (T-004)
+Como los pines 35/36/37 no son accesibles, hay dos caminos. **Se decide en la sesión de verificación (PEN-18)** con una prueba concreta: ¿funciona la microSD en modo SDMMC de 1 bit?
 
-1. Mapear con el multímetro cada señal del conector M.2 contra la tabla 🔎.
-2. P-01: WHO_AM_I del LSM6DSO32 (0x6C), CHIP_ID del BMP581 (0x50) y Product ID del MMC5983MA (0x30), en frío y en 100 reinicios.
-3. Encendido con imán, y apagado por pulsación larga bloqueado en ARMED.
+### Opción B′ (recomendada si la SD funciona en SDMMC): un bus SPI propio para los sensores, por el header
+
+- **La SD pasa al periférico SDMMC de 1 bit**, por sus mismos pines: CLK 36, CMD 35, D0 37, y D3 = CS 47 en alto, que ya tiene un pull-up de 10 kΩ.
+- **El QMI8658 queda deshabilitado**, con su CS 34 en alto. Era el respaldo; la IMU principal es el LSM6DSO32.
+- **El host SPI3 queda libre** y se enruta por la GPIO matrix a los pines del header. Es un **bus de sensores dedicado**, que cumple la regla de *Objetivos* de un "SPI externo aislado".
+  - Los sensores usan relojes de ≤ 10–12 MHz, que la GPIO matrix soporta de sobra.
+- **Riesgos que hay que probar:**
+  - el CMD y el D0 de la SD necesitan pull-ups; la placa no las tiene, así que se usan las internas y se valida la velocidad;
+  - en la V3.0 están los MOSFETs de cambio de nivel en las líneas de la SD.
+
+| Señal | GPIO (PN1) | Por qué ese pin |
+| --- | --- | --- |
+| SCK del SPI de sensores | **46** | Salida, en reposo en bajo (modo 0). Su WPD en el arranque la mantiene en bajo. |
+| MOSI | **45** | Salida. Su WPD en el arranque da el strapping correcto (flash a 3,3 V). |
+| MISO | **3** | Entrada. Los sensores solo la manejan con el CS en bajo. |
+| CS del LSM6DSO32 | **38** | **Pull-up externo de 10 kΩ** |
+| CS del BMP581 | **48** | **Pull-up externo de 10 kΩ (obligatorio)** |
+| INT1 del LSM6DSO32 (watermark) | **39** | Entrada |
+| INT del BMP581 | — | **No se cablea:** el FIFO se lee por timer cada 50 ms (32 frames a 240 Hz dan unos 133 ms de margen) |
+| MMC5983MA | I2C0 (SCL/SDA del PN1), 0x30 | Se alimenta de **DC1 (3,3 V)** |
+| Buzzer | **21** | Salida PWM por un transistor |
+| Pulso a la Pi (solo Demeter) | **2** | Salida a masa por un transistor u optoacoplador, con **pull-down de 10 kΩ**. En Hermes queda libre. |
+| UART a la Pi (solo Demeter) | 43/44 (PM1 o QWIIC) | |
+
+### Opción A′ (si SDMMC no funciona): soldar al bus SPI3 interno
+
+- Sacar cables desde los puentes de 0 Ω R32, R33 y R34 (SPI_MOSI, SCK y MISO) de la placa de periféricos (V3.1), y compartir el bus con la SD y el QMI8658 con un solo dueño, como decía la versión anterior.
+- **Desventajas:**
+  - soldar sobre componentes SMD diminutos, con vibración de hasta 20 g, es frágil mecánicamente;
+  - en la V3.0 la topología es distinta;
+  - el bus se comparte con la SD, que puede tardar 100–250 ms, frente a un margen del FIFO de 66 ms.
+- Necesita 3 CS (38, 48 y uno más) y las INT, en el header.
+
+## 5. D-031 (vigente, con un cambio): encendido con el DRV5032
+
+- **La lógica no cambia:** la salida del DRV5032 va a `PWR_KEY` por un diodo Schottky, con el ánodo en `PWR_KEY` y el cátodo en el DRV.
+- **El DRV5032 se alimenta de VBAT**, que **está en el PM1** ✅.
+- **Cambio:** como `PWR_KEY` no está en los headers, **el cable se suelda al pad del botón PWR (SW3) del lado de `PWR_KEY`** 🔎. Es un pad grande, más robusto que un SMD.
+- **Comportamiento:**
+  - imán ~1 s: enciende;
+  - imán sostenido 10 s: apaga (solo en tierra);
+  - **el firmware bloquea el apagado por pulsación larga desde ARMED hasta LANDED.**
+
+## 6. ~~Lo que quedaba abierto en la opción B′~~ (resuelto el 2026-10-24)
+
+El IO2 del header (ver la lista de pines) le da pin al pulso de la Pi. Las alternativas de abajo quedan solo como historia:
+1. **Mover el buzzer al LED de carga del AXP2101** (salida que el firmware puede controlar). Sirve si el buzzer es **activo**, es decir, con oscilador interno, así que **hay que saber qué tipo de buzzer compraron** (PEN-19). Así el GPIO 21 queda para el pulso de la Pi en Demeter.
+2. Poner un expansor I2C de GPIO (por ejemplo, PCA9554) en I2C0 para las salidas lentas: el buzzer activo y el pulso de la Pi. Hay que comprarlo.
+3. No usar el pulso: la Pi arranca sola cuando recibe alimentación (ver la ficha raspberry_pi_5). Se enciende con su propio interruptor o UPS antes de la integración, y la LilyGO solo verifica por UART que esté en READY. Es la opción más simple.
+
+## 7. Verificación física (PEN-18): cierra D-022
+
+1. **Versión de la placa:** V3.0 (LED PPS azul) o V3.1 (LED PPS rojo). Foto de las dos caras.
+2. **Headers:** con el multímetro, la continuidad de cada pin del PN1 y el PM1 frente a la §2.
+3. **Pull-ups y pull-downs de la placa madre:** con la placa **sin alimentación**, medir la resistencia de cada GPIO del header (48, 21, 3, 38, 39, 45 y 46) a VDD3V3 y a GND. Algo por debajo de ~200 kΩ es una resistencia externa.
+4. **Firmware de prueba** (agente desarrollador, T-003):
+   - escaneo de I2C0 e I2C1;
+   - **la microSD en SDMMC de 1 bit**: montar, escribir 10 MB y medir la latencia;
+   - tamaño y modo de la PSRAM;
+   - UBX-MON-VER del GNSS;
+   - el registro de la pulsación larga del AXP2101.
+5. **El buzzer:** ¿activo o pasivo?

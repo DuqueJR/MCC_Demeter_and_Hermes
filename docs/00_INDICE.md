@@ -12,6 +12,7 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | --- | --- |
 | Entender el proyecto | [01_contexto/proyecto.md](01_contexto/proyecto.md) |
 | Saber qué hay que construir | [02_requisitos/requisitos.md](02_requisitos/requisitos.md) |
+| Saber cómo vuela cada cohete (simulación) | [02_requisitos/perfiles_vuelo.md](02_requisitos/perfiles_vuelo.md) y [../datos/README.md](../datos/README.md) |
 | Usar un número (umbral, tasa, tamaño, ID) | [02_requisitos/constantes.md](02_requisitos/constantes.md): **es la única fuente** |
 | Trabajar con hardware o drivers | [03_hardware/componentes.md](03_hardware/componentes.md) y [03_hardware/buses_y_pines.md](03_hardware/buses_y_pines.md) |
 | Radio, TDMA o sincronización | [04_diseno/enlace_lora_tdma.md](04_diseno/enlace_lora_tdma.md) |
