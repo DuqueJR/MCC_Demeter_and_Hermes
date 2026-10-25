@@ -14,24 +14,24 @@ npm run repetidor -- hermes backfill --velocidad 5
 
 `npm run repetidor -- [misión] [escenario] [opciones]`
 
-| Parámetro | Valores | Por defecto |
-| --- | --- | --- |
-| misión | `demeter`, `hermes`, `todas` | `todas` |
-| escenario | `nominal`, `lkp_descenso`, `descenso_rapido`, `backfill`, `espera_rampa`, `relay_caido` | `nominal` |
-| `--puerto` | | 8787 (donde apunta el proxy de Vite) |
-| `--host` | `0.0.0.0` para probar desde un celular | 127.0.0.1 |
-| `--velocidad` | factor del tiempo (`10` = diez veces más rápido) | 1 |
-| `--datos` | otra carpeta de `.jsonl` | `dev/datos` |
+| Parámetro     | Valores                                                                                 | Por defecto                          |
+| ------------- | --------------------------------------------------------------------------------------- | ------------------------------------ |
+| misión        | `demeter`, `hermes`, `todas`                                                            | `todas`                              |
+| escenario     | `nominal`, `lkp_descenso`, `descenso_rapido`, `backfill`, `espera_rampa`, `relay_caido` | `nominal`                            |
+| `--puerto`    |                                                                                         | 8787 (donde apunta el proxy de Vite) |
+| `--host`      | `0.0.0.0` para probar desde un celular                                                  | 127.0.0.1                            |
+| `--velocidad` | factor del tiempo (`10` = diez veces más rápido)                                        | 1                                    |
+| `--datos`     | otra carpeta de `.jsonl`                                                                | `dev/datos`                          |
 
 Con `npm run dev` en otra terminal, la web usa `VITE_API_BASE=/api` y el proxy de Vite manda `/api` a `:8787`. Con otro origen, el repetidor tiene CORS abierto para `GET`.
 
 ## Rutas
 
-| Ruta | Qué hace |
-| --- | --- |
+| Ruta                            | Qué hace                                                                                                                                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/{mision}/snapshot` | Lo emitido hasta ahora en la vuelta: último `meta`, `estado`, `salud`, `estacion` y `backfill`; los `eventos`; la `serie` en columnas, decimada a `WEB_SERIE_MAX_PUNTOS`; `vuelo_completo_url: null` |
-| `GET /api/v1/{mision}/stream` | SSE con `id`, `event` y `data`. Manda un `meta` al conectar (sin `id`), un `: ping` cada `WEB_SSE_LATIDO_S` y reanuda con `Last-Event-ID` |
-| `GET /api/v1/salud` | Siempre 200. Dice el escenario, la vuelta, el último `id` y si simula el relay caído |
+| `GET /api/v1/{mision}/stream`   | SSE con `id`, `event` y `data`. Manda un `meta` al conectar (sin `id`), un `: ping` cada `WEB_SSE_LATIDO_S` y reanuda con `Last-Event-ID`                                                            |
+| `GET /api/v1/salud`             | Siempre 200. Dice el escenario, la vuelta, el último `id` y si simula el relay caído                                                                                                                 |
 
 Cualquier otro método da 405: no hay ruta de escritura (GS-14).
 
@@ -51,13 +51,13 @@ Los saltos de `seq` y el hueco de `relay_caido` son intencionales (T-612).
 
 ## Archivos
 
-| Archivo | Contenido |
-| --- | --- |
-| `main.ts` | Línea de comandos |
-| `servidor.ts` | HTTP, SSE, CORS, 503 y latido |
-| `reproductor.ts` | Tiempo, `id`, vueltas y `relay_caido` |
-| `snapshot.ts` | Acumulador del snapshot y decimación |
-| `jsonl.ts` | Lectura del JSONL |
-| `constantes.ts` | `WEB_*` (de `src/datos/constantes.ts`) y los valores propios `(P)` |
+| Archivo          | Contenido                                                          |
+| ---------------- | ------------------------------------------------------------------ |
+| `main.ts`        | Línea de comandos                                                  |
+| `servidor.ts`    | HTTP, SSE, CORS, 503 y latido                                      |
+| `reproductor.ts` | Tiempo, `id`, vueltas y `relay_caido`                              |
+| `snapshot.ts`    | Acumulador del snapshot y decimación                               |
+| `jsonl.ts`       | Lectura del JSONL                                                  |
+| `constantes.ts`  | `WEB_*` (de `src/datos/constantes.ts`) y los valores propios `(P)` |
 
 Los `.ts` se ejecutan con Node 22 sin compilar (quita los tipos): imports con extensión `.ts`, sin `enum` ni sintaxis que genere código (`erasableSyntaxOnly` en `tsconfig.json`).
