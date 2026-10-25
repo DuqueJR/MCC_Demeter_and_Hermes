@@ -49,9 +49,11 @@ Jerónimo integró los PR #23 (T-631) y #24 (su [consolidación](2026-10-25_sesi
 | T-640, relay público | S | D: `gui/relay/` | Antes hay que decidir D1, D3 y D7 de la [agenda](../08_gui/10_agenda_H0_web-1.md) |
 | T-633, gráficas | S | D | **No:** espera a D5 y D6 |
 
-**T-621 no choca con nada de esto.** Son assets en `src/assets/` y no es código.
+**Ojo con T-621:** su PR #25, abierto y sin merge, no toca solo `src/assets/`. También cambia `src/mision/Inicio.tsx`, `src/mision/mision.css`, `src/contenido/` (los tres archivos) y `src/portada/portada.css`. Por la regla de no pisarse (06 §1), **T-624, T-625, T-626 y T-623 no deben empezar hasta que se integre el #25.** Como mínimo, la rama tendría que salir con el #25 ya en `develop`, porque `mision.css` es el archivo con más riesgo de conflicto.
 
-**Recomendación: T-624.**
+**Recomendación:**
+- **Ahora, mientras se integra el #25: T-634** (Actitud 2D, `src/actitud/`, área D). No comparte carpeta con el #25, está lista y es de las carpetas de D (el punto de partida de Jerónimo, D-W16).
+- **Apenas se integre el #25: T-624.** Las razones:
 1. **Es la tarea M de mayor valor que está lista.** Es la primera sección que pinta datos en vivo: la línea de fases, los objetivos con su T+ y el banner de descenso rápido.
 2. **Cierra HW1** (29 de octubre). De HW1 solo falta que "las páginas de misión muestran la barra en vivo desde el repetidor". Eso es conectar `iniciarCliente({ mision })` en las entradas, que se anotó dentro de T-624.
 3. **Desbloquea lo que sigue:**
@@ -60,7 +62,7 @@ Jerónimo integró los PR #23 (T-631) y #24 (su [consolidación](2026-10-25_sesi
    - y, después de HW1, el dashboard (T-660 y siguientes).
 4. **Es la primera vez que se usa el cliente de T-631 en una página real.** Si algo falla, conviene saberlo antes de construir encima.
 
-**En paralelo, si hay alguien libre:** T-634 (`src/actitud/`, área D). No comparte carpeta con T-624 ni con T-621.
+**T-634 y T-624 pueden ir en paralelo**, porque no comparten carpeta. T-634 llega a `src/mision/` solo cuando la sección de actitud se monte en la página. Si hace falta, ese montaje se deja para después de T-624.
 
 **Después:**
 - T-625 (cuando termine T-624, porque es la misma carpeta);
@@ -70,7 +72,8 @@ Jerónimo integró los PR #23 (T-631) y #24 (su [consolidación](2026-10-25_sesi
 **Antes de T-640 y T-633:** resolver D1, D3, D5, D6 y D7 de la agenda.
 
 ## Pendiente / siguiente paso
-1. **Lanzar T-624** con el agente `desarrollador` y tomarla con un PR en borrador (D-W16).
+1. **Lanzar T-634** ya. Lanzar **T-624** cuando se integre el #25 (T-621). Las dos se toman con un PR en borrador (D-W16).
+   - El PR #26 (Juan Pablo) y este PR agregan una fila al final del índice de la bitácora. El que se integre segundo tiene un conflicto trivial en `docs/07_bitacora/README.md`: hay que quedarse con las dos filas.
 2. **Resolver la sección D de la agenda** (Juan Pablo y Jerónimo).
 3. **`fix/T-632-*`:** la e2e de los gestos (`mapa.spec.ts:196`), que falla en `develop`.
 4. **Extraer las 3 imágenes de `src/assets/`** en el próximo `/graphify . --update`, cuando T-621 agregue las demás.
