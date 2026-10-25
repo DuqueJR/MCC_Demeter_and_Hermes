@@ -1,0 +1,261 @@
+/*
+ * El mapa por dentro [T-632]: lienzo, controles y marcadores. Se carga junto con MapLibre (diferido).
+ * SOLO tokens de src/tema/ (06 §6): los colores del lienzo WebGL se leen de estas mismas variables
+ * en tiempo de ejecución (src/mapa/estilo.ts).
+ */
+
+.mapa-lienzo {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- Controles propios (centrar, ver todo, pantalla completa) ---------- */
+
+.mapa-controles {
+  position: absolute;
+  top: var(--e-2);
+  right: var(--e-2);
+  z-index: 2;
+  display: grid;
+  gap: var(--e-2);
+}
+
+.mapa-boton {
+  display: grid;
+  place-items: center;
+  width: var(--toque-min);
+  height: var(--toque-min);
+  padding: 0;
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-rapida) var(--curva),
+    color var(--dur-rapida) var(--curva);
+}
+
+.mapa-boton:hover:not(:disabled),
+.mapa-boton:focus-visible,
+.mapa-boton[aria-pressed="true"] {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.mapa-boton:disabled {
+  color: var(--estado-sin-dato);
+  cursor: default;
+}
+
+.mapa-boton svg {
+  width: var(--e-5);
+  height: var(--e-5);
+}
+
+.mapa-aviso,
+.mapa-sin-webgl {
+  position: absolute;
+  left: 50%;
+  bottom: var(--e-7);
+  z-index: 2;
+  max-width: calc(100% - var(--e-4));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--e-1) var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.mapa-sin-webgl {
+  inset: var(--e-4);
+  bottom: var(--e-4);
+  left: var(--e-4);
+  transform: none;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--texto);
+  font-size: inherit;
+}
+
+/* ---------- Controles de MapLibre con los tokens del tema ---------- */
+
+.mapa-lienzo .maplibregl-ctrl-group {
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  box-shadow: none;
+}
+
+.mapa-lienzo .maplibregl-ctrl-group button {
+  width: var(--toque-min);
+  height: var(--toque-min);
+}
+
+.mapa-lienzo .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--linea);
+}
+
+/* Los íconos de MapLibre son negros: se invierten para el fondo oscuro. */
+.mapa-lienzo .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.mapa-lienzo .maplibregl-ctrl-attrib {
+  background: var(--superficie-2);
+  color: var(--texto-2);
+}
+
+.mapa-lienzo .maplibregl-ctrl-attrib a {
+  color: var(--acento);
+}
+
+.mapa-lienzo .maplibregl-ctrl-scale {
+  background: var(--superficie-2);
+  border-color: var(--texto-2);
+  color: var(--texto-2);
+}
+
+/* ---------- Marcadores ---------- */
+
+/* Los marcadores no capturan gestos: el dedo sobre ellos desplaza la página o mueve el mapa. */
+.mapa-marcador {
+  pointer-events: none;
+}
+
+.marcador-lkp {
+  z-index: 3;
+}
+
+.marcador-cohete {
+  z-index: 2;
+}
+
+.mapa-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--e-5);
+  padding: 0 var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Insignias redondas de los lugares fijos; la leyenda explica cuál es cuál. */
+.mapa-insignia {
+  display: grid;
+  place-items: center;
+  width: var(--e-5);
+  height: var(--e-5);
+  background: var(--superficie-2);
+  border: 1px solid var(--texto-2);
+  border-radius: 50%;
+  color: var(--texto);
+}
+
+.mapa-insignia svg {
+  width: var(--e-3);
+  height: var(--e-3);
+}
+
+.mapa-impacto {
+  border-style: dashed;
+}
+
+/* El cohete: punto con halo y una flecha en su rumbo. */
+.mapa-cohete {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--e-6);
+  height: var(--e-6);
+}
+
+.cohete-halo {
+  position: absolute;
+  inset: 0;
+  background: var(--acento);
+  border-radius: 50%;
+  opacity: 0.3;
+}
+
+.cohete-punto {
+  width: var(--e-3);
+  height: var(--e-3);
+  background: var(--texto);
+  border: 2px solid var(--acento);
+  border-radius: 50%;
+}
+
+.cohete-rumbo {
+  position: absolute;
+  inset: calc(var(--e-2) * -1);
+  display: grid;
+  justify-items: center;
+  align-items: start;
+}
+
+.cohete-rumbo svg {
+  width: var(--e-4);
+  height: var(--e-4);
+  color: var(--acento);
+  fill: var(--acento);
+}
+
+.mapa-cohete.atenuado {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cohete-halo {
+    animation: cohete-pulso calc(var(--dur-media) * 6) var(--curva) infinite;
+  }
+}
+
+@keyframes cohete-pulso {
+  from {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+/* La última posición conocida: rojo fijo, sin animación (GS-03, 02 §4). */
+.mapa-lkp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lkp-texto {
+  display: grid;
+  justify-items: center;
+  padding: 0 var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--estado-alarma);
+  border-radius: var(--radio);
+  color: var(--estado-alarma);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lkp-pin {
+  width: var(--e-6);
+  height: var(--e-6);
+  color: var(--estado-alarma);
+  fill: var(--estado-alarma);
+  fill-opacity: 0.3;
+  stroke-width: 2.25;
+}
