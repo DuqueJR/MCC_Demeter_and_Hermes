@@ -75,9 +75,10 @@ actualizado: 2026-10-24
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-601 | Firmware del módem V1.2: maestro del TDMA, beacon y CMD, RX con destino al USB | M | J | T-005, T-006, T-502 | estacion_terrena §2.1, tbeam_v12_estacion | P-05 en verde, del lado de la estación | pendiente |
 | T-602 | Servicio de tierra: serial, log crudo, decodificación, estado por cohete y comandos con reintento | M | J | T-601, T-502 | estacion_terrena §2.2 | Recibe dos cohetes durante 30 min sin perder nada en el PC | pendiente |
-| T-603 | Dashboard local mínimo: números, fase, mapa offline con LKP, Go/No-Go, ARM/DISARM/FORZAR_ATERRIZADO | M | J | T-602 | estacion_terrena §2.3, requisitos GS-01..07 | Usable en P-07 | pendiente |
-| T-604 | Dashboard completo: 3D, elipse, QR, alarma, tiempos estimados y gráficas | S | J | T-603 | requisitos GS-04..13 | Revisión visual | pendiente |
-| T-605 | Reenviador, servidor de ingesta y frontend público | S | J | T-602, D3 | estacion_terrena §2.4 | P-08 en verde | pendiente |
+| T-603 | ~~Dashboard local mínimo~~ → **se reparte (D-034):** la operación crítica pasa a la CLI (T-S04, DP-15) y la vista pasa al dashboard de operación (E10: T-660 a T-664 y T-668) | — | — | — | 08_gui/09 | — | reemplazada |
+| T-604 | ~~Dashboard completo~~ → **dashboard de operación** (E10: T-665 a T-669) | — | — | — | 08_gui/09 | — | reemplazada |
+| T-605a | **Reenviador:** los mensajes `web-1` de los dos cohetes → `POST /api/v1/ingesta` del relay, con token, cola en disco y solo de salida | S | J | T-602, T-S06 | 05_plan/dos_sesiones/06_contratos/05_api_backend_tierra §6, 08_gui/05 | Con el relay de T-640: un log crudo reprocesado llega a la web pública | pendiente |
+| T-605 | ~~Reenviador, servidor de ingesta y frontend público~~ → **se divide (D-034):** T-605a (reenviador, aquí) + T-640 (relay) y la web pública (E10) | — | — | — | — | — | reemplazada |
 
 ## E7. VisionPack (F1–F2)
 
@@ -102,3 +103,37 @@ actualizado: 2026-10-24
 | T-901 | Checklists de campo: preparación, integración en 15 min, Go/No-Go, recuperación y volcado | M | Ambos | P-07 | maquina_estados §4, requisitos REG-02 | Probados en el ensayo final | pendiente |
 | T-902 | Procedimiento de carga del firmware, versión visible y placas de repuesto | M | JP | T-002 | firmware_vuelo §9 | Las placas de repuesto arrancan con la versión etiquetada | pendiente |
 | T-903 | Kit de campo: mapas offline, cables, adaptador de antena de N a la placa, baterías y lector de SD | M | Ambos | PEN-12 | estacion_terrena | Inventario revisado | pendiente |
+
+## E10. Web pública y dashboard de operación (F1–F3)
+
+**El plan completo está en [08_gui/06_plan_web.md](../08_gui/06_plan_web.md)** (las fases W0–W4, las áreas, los worktrees, las dependencias y los criterios de aceptación) **y en [08_gui/09_dashboard_operacion.md](../08_gui/09_dashboard_operacion.md)** (operación).
+- **Para el agente `desarrollador`:** la fila de aquí es el índice. **El criterio de aceptación y lo que hay que leer están en la fila de la misma tarea en 06_plan_web §3** (o en 09 §7), y se lee siempre [08_gui/00_README.md](../08_gui/00_README.md).
+- **Áreas** (D-W12): **E**, Experiencia; **D**, Datos. **No hay dueño fijo por persona** (D-W16): se toma la siguiente tarea lista, primero las S+ del dashboard de operación. Las sesiones de Claude Code de la web se abren con `SESION=web`.
+- **Prioridad:** la web se pausa si el mínimo para volar se atrasa (06 §2).
+
+| ID | Tarea | Pri | Área | Depende de | Estado |
+| --- | --- | --- | --- | --- | --- |
+| T-610 | Andamiaje de `gui/web/` (Vite multipágina, TS, Preact y signals, pruebas, aislamiento) | M | E | — | pendiente |
+| T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | pendiente |
+| T-612 | Generador de datos de ejemplo: OpenRocket → JSONL `web-1`, 6 escenarios por misión | M | D | — | pendiente |
+| T-613 | Tema y tokens (02 §6) y fuentes autohospedadas | M | E | T-610 | pendiente |
+| T-620 | Portada | M | E | T-613 | pendiente |
+| T-621 | Assets de marca y fondos (lo hace el diseñador con el usuario) | M | E | PEN-W08 | pendiente |
+| T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | pendiente |
+| T-623 | Contenido provisional de cada misión | M | E | T-622 | pendiente |
+| T-624 | Estado de la misión, Telemetría y banner de alarma | M | E | T-622, T-631 | pendiente |
+| T-625 | Recuperación y Salud del cohete | M/S | E | T-622, T-631 | pendiente |
+| T-626 | Los ojos de Deméter | S | E | T-622, T-631 | pendiente |
+| T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | pendiente |
+| T-631 | Cliente de datos (snapshot, SSE, edad, estados de la página, interpolación) | M | D | T-611, T-630 | pendiente |
+| T-632 | Mapa (MapLibre y PMTiles de la zona, capas, LKP) | M | D | T-611 | pendiente |
+| T-633 | Gráficas (uPlot) y backfill | S | D | T-631 | pendiente |
+| T-634 | Actitud 2D | S | D | T-631 | pendiente |
+| T-640 | Relay público (FastAPI: ingesta con token, snapshot, SSE, 1 Hz en tierra) | S | D | T-611, T-630 | pendiente |
+| T-641 | Conectar con el back (log crudo reprocesado y luego una placa real) | S | Ambos | T-640, T-602, T-S06, T-605a | pendiente |
+| T-642 | Despliegue (CDN, relay con TLS, dominio) | S | Ambos | T-640 | pendiente |
+| T-643 | Prueba de carga de 600 SSE | S | D | T-642 | pendiente |
+| T-644 | Pulido para el celular (Lighthouse ≥ 90, celulares reales) | S | E | T-624, T-625 | pendiente |
+| T-645 | Guía de operación de la web el día del vuelo | S | Ambos | T-642 | pendiente |
+| T-650…T-654 | Could: 3D (inicio, actitud, trayectoria), gráficas personalizables de la web, repetición post-evento | C | — | — | congelada |
+| T-660…T-670 | **Dashboard de operación** (borrador; se ajusta con PEN-W12): entrada y tema, cliente local, alarmas, Vuelo, Preparar y comandos, Variables, Gráficas, Enlace, Recuperación, Post-vuelo y ensayo | S+ / S | E y D | HW1, C-05 | pendiente (ver 09 §7) |

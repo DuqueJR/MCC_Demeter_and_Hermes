@@ -1,14 +1,21 @@
 ---
 id: gui_contrato_datos
-estado: propuesta. **Es un contrato:** se congela al cerrar W0 (T-611) con el visto bueno de Juan Pablo y Jerónimo.
+estado: propuesta. **Es un contrato:** se congela en la sincronización H0 (T-611), **en la misma reunión que C-05**, con el visto bueno de Juan Pablo y Jerónimo.
 version: web-1
 actualizado: 2026-10-25
 depende_de: [protocolo_paquetes, maquina_estados, estacion_terrena, constantes]
+lo_usan: [web pública, dashboard de operación (09), servicio de tierra y CLI (C-05, DP-17)]
 ---
 # Contrato de datos de la web (`web-1`)
 
 Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que el **reenviador** sube, que el **relay** difunde y que la **web** muestra.
-Conviene que sea **el mismo que usa el dashboard local** (estacion_terrena §2.4), para escribir la lógica una sola vez.
+**Es el único formato de salida del servicio de tierra** (DP-17 del back, [C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md)): lo consumen igual la web pública, el dashboard de operación y la CLI. La lógica se escribe una sola vez.
+- **Este documento lo mantiene el plan web.** El back propone los cambios (como hizo con PA-15 y PA-22) y no lo edita.
+- **Lo que no está aquí** (comandos, paquetes crudos, diagnóstico) vive en las extensiones `/api/v1/local/` de C-05 §3. **Nunca se reenvía a internet.**
+
+**Cambios aceptados del back** (el 2026-10-25, antes de congelar; son compatibles):
+- **PA-15:** `meta.proto_version` es `2` o `3`. Con el protocolo v3 (DP-07), `salud` trae `fw_version`.
+- **PA-22:** `estado.lkp`, la última posición **válida**. Así el cliente no tiene que buscarla en la `serie`.
 
 ## 0. Reglas
 
@@ -48,7 +55,7 @@ Conviene que sea **el mismo que usa el dashboard local** (estacion_terrena §2.4
 { "contrato_version": "web-1", "mision": "demeter", "nodo": 1,
   "modo": "vivo",                       // "vivo" | "simulacion" | "sintetico"
   "mission_id": 1793980800,             // STATUS.mission_id; null antes de ARM
-  "proto_version": 2,
+  "proto_version": 3,                   // 2 o 3 (PA-15; v3 = STATUS con fw_version, DP-07)
   "sitio": { "lat": 6.582, "lon": -75.823, "alt_msl_m": 510.0 } }
 ```
 
@@ -70,7 +77,8 @@ Conviene que sea **el mismo que usa el dashboard local** (estacion_terrena §2.4
             "elipse": { "lat": 6.5830, "lon": -75.8302, "semieje_mayor_m": 120.0, "semieje_menor_m": 60.0, "rumbo_deg": 270.0 },
             "t_a_apogeo_s": null, "t_restante_s": 33.9, "siguiente_fase": "LANDED", "t_siguiente_fase_s": 33.9 },
   "enlace": { "rssi_dbm": -97, "snr_db": 6.5, "perdidos_pct_10s": 3.0 },
-  "alarmas": { "descenso_rapido": false } }
+  "alarmas": { "descenso_rapido": false },
+  "lkp": { "lat": 6.5823456, "lon": -75.8231234, "alt_agl_m": 312.4, "utc_ms": 1793981012345 } }
 ```
 
 | Campo | Sale de | Notas |
@@ -90,6 +98,7 @@ Conviene que sea **el mismo que usa el dashboard local** (estacion_terrena §2.4
 | `calc.*` | **Lo calcula el servicio de tierra** (*Objetivos* §6) | Distancia, azimut y elevación en WGS84 desde la estación. La elipse, con la tasa de descenso. Los tiempos estimados son GS-13. `null` si no aplica. |
 | `enlace.*` | El módem (RSSI y SNR de cada paquete) y el servicio (pérdidas por `seq`) | |
 | `alarmas.descenso_rapido` | El servicio de tierra: solo en DESCENT, con `ALARMA_DESCENSO_MS` de [constantes](../02_requisitos/constantes.md) | La web no recalcula la alarma: la muestra |
+| `lkp` (opcional, PA-22) | El servicio de tierra: la última `pos` con fix válido | `null` si nunca hubo posición. Si `pos` llega en `null`, la web dibuja el LKP con esto (GS-03). |
 
 ### 2.3 `salud`: con cada STATUS (1 Hz)
 
@@ -107,6 +116,7 @@ Conviene que sea **el mismo que usa el dashboard local** (estacion_terrena §2.4
 - `fallas`: los **nombres** de los bits activos, como en protocolo §3: `"LSM6DSO32"`, `"BMP581"`, …, `"EKF divergente"`, `"UART del VisionPack"`, `"Batería baja"`. Se acompaña de `fallas_bits`.
 - `go_nogo`: lo evalúa el servicio de tierra con las condiciones de [maquina_estados](../04_diseno/maquina_estados.md) §4. Es el "checklist automático" de *Objetivos* 7.C.
 - `temp_pi_c` es `null` en Hermes.
+- `fw_version` (opcional, PA-15): el hash corto de git del firmware, como texto (`"a1b2c3d"`). Viene en STATUS desde el protocolo v3 (DP-07); `null` con el protocolo v2.
 
 ### 2.4 `estacion`: latido a 1 Hz, aunque no llegue nada del cohete
 

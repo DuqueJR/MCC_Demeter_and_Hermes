@@ -24,16 +24,22 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 
 - **El cálculo pesado lo hace el servicio de tierra** (*Objetivos* §6): distancia, azimut, elevación, elipse y tiempos. La web **solo muestra** lo que le llega, más la interpolación visual. Así la web y el dashboard local muestran los mismos números.
 - **Sin el back** (W0–W2), el relay se reemplaza por el **repetidor de desarrollo**. Habla exactamente el mismo contrato, con datos generados de la simulación de OpenRocket (§7).
+- **Tres servidores, las mismas rutas de lectura** (`/api/v1/{mision}/snapshot` y `/stream`):
+  - el **repetidor** (desarrollo);
+  - el **servicio de tierra local** ([C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md) §2, en `127.0.0.1`), que además tiene las extensiones `/api/v1/local/` para el dashboard de operación;
+  - el **relay** (internet, solo lectura).
+
+  El cliente de datos (`src/datos/`) es el mismo para la web y para el dashboard de operación: solo cambia `VITE_API_BASE`.
 
 ## 2. Stack (D-W05)
 
 | Pieza | Elección | Por qué | Alternativa descartada |
 | --- | --- | --- | --- |
 | Build | **Vite**, en modo multipágina (`index.html`, `demeter/index.html` y `hermes/index.html`) | Cada página es su propio punto de entrada, así que se cumple D-W01 sin trucos. El build es rápido y el servidor de desarrollo está incluido. | Next o Astro: más peso y más conceptos para 12 días |
-| Lenguaje | **TypeScript** | El contrato de datos queda tipado: si cambia, el compilador avisa en los dos carriles | JS sin tipos |
+| Lenguaje | **TypeScript** | El contrato de datos queda tipado: si cambia, el compilador avisa en las dos áreas | JS sin tipos |
 | UI | **Preact + @preact/signals** | La API de React, que los agentes dominan, en 4 KB. Las *signals* actualizan solo el número que cambia a 10 Hz, sin volver a dibujar la página: esto es clave en celulares baratos. | React (40 KB y re-renders), Svelte (menos predecible para los agentes), vanilla (lento de construir) |
 | Portada | **HTML y CSS puros**, sin JS | Carga instantánea; el hover es CSS | — |
-| Mapa | **MapLibre GL JS + un PMTiles propio** de la zona (Protomaps), servido desde el CDN | **Sin dependencia de un servidor de tiles de terceros con 500 personas a la vez.** El estilo vectorial se pinta con la paleta de cada tema. **El mismo archivo sirve como mapa offline del dashboard local (T-603)**. Se carga diferido (*lazy*), al acercarse a la sección. | Leaflet + tiles de OSM: la política de uso de OSM no permite ese tráfico y no se puede tematizar |
+| Mapa | **MapLibre GL JS + un PMTiles propio** de la zona (Protomaps), servido desde el CDN; en el dashboard de operación, además, relieve y curvas de nivel (09 §3.1) | **Sin dependencia de un servidor de tiles de terceros con 500 personas a la vez.** El estilo vectorial se pinta con la paleta de cada tema. **El mismo archivo sirve como mapa offline del dashboard local (T-603)**. Se carga diferido (*lazy*), al acercarse a la sección. | Leaflet + tiles de OSM: la política de uso de OSM no permite ese tráfico y no se puede tematizar |
 | Gráficas | **uPlot** | Unos 50 KB, pensado para series de tiempo en vivo y muy rápido en el celular | Chart.js (más pesado y lento con muchos puntos) |
 | Tiempo real | **SSE** (`EventSource`) | Va en una sola dirección, **como debe ser una web sin comandos** (GS-14). Reconecta solo, con `Last-Event-ID`, y es HTTP normal (pasa proxies y redes móviles). | WebSocket: es bidireccional, no hace falta y abre la puerta a enviar cosas |
 | QR | `uqr` o `qrcode-generator` (unos 10 KB) | El QR se genera en el navegador | Un servicio externo |
@@ -48,25 +54,25 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 ```
 gui/
 ├── web/                              ← la web pública (Vite)
-│   ├── index.html                    portada (carril A)
-│   ├── demeter/index.html            entrada de Deméter (A)
-│   ├── hermes/index.html             entrada de Hermes (A)
+│   ├── index.html                    portada (área E)
+│   ├── demeter/index.html            entrada de Deméter (E)
+│   ├── hermes/index.html             entrada de Hermes (E)
 │   ├── src/
 │   │   ├── contrato/                 tipos.ts y esquema.json      ← CONGELADO en W0
-│   │   ├── tema/                     comun.css, demeter.css, hermes.css, fuentes/   ← CONGELADO en W0 (A)
-│   │   ├── portada/                  portada.css (A)
-│   │   ├── entradas/                 demeter.tsx, hermes.tsx: componen las secciones de cada misión (A)
-│   │   ├── mision/                   layout, barra de misión, secciones y componentes visuales (A)
-│   │   ├── contenido/                demeter.ts, hermes.ts: textos, fotos e integrantes (A)
-│   │   ├── datos/                    cliente SSE, snapshot, signals, interpolación, estados de la página (B)
-│   │   ├── mapa/                     MapLibre, capas y estilos por tema (B)
-│   │   ├── graficas/                 uPlot (B)
-│   │   └── actitud/                  horizonte y brújula 2D (B)
-│   ├── src/assets/{comun,demeter,hermes}/      imágenes originales; vite-imagetools genera AVIF/WebP (A)
-│   ├── public/mapas/santa_fe.pmtiles           (B)
-│   └── dev/repetidor/                el relay falso de desarrollo (B)
-├── relay/                            el relay público en Python (B, en W3)
-tools/web_datos/                      OpenRocket CSV → JSONL del contrato (B)
+│   │   ├── tema/                     comun.css, demeter.css, hermes.css, fuentes/   ← CONGELADO en W0 (E)
+│   │   ├── portada/                  portada.css (E)
+│   │   ├── entradas/                 demeter.tsx, hermes.tsx: componen las secciones de cada misión (E)
+│   │   ├── mision/                   layout, barra de misión, secciones y componentes visuales (E)
+│   │   ├── contenido/                demeter.ts, hermes.ts: textos, fotos e integrantes (E)
+│   │   ├── datos/                    cliente SSE, snapshot, signals, interpolación, estados de la página (D)
+│   │   ├── mapa/                     MapLibre, capas y estilos por tema (D)
+│   │   ├── graficas/                 uPlot (D)
+│   │   └── actitud/                  horizonte y brújula 2D (D)
+│   ├── src/assets/{comun,demeter,hermes}/      imágenes originales; vite-imagetools genera AVIF/WebP (E)
+│   ├── public/mapas/santa_fe.pmtiles           (D)
+│   └── dev/repetidor/                el relay falso de desarrollo (D)
+├── relay/                            el relay público en Python (D, en W2)
+tools/web_datos/                      OpenRocket CSV → JSONL del contrato (D)
 ```
 
 - **Aislamiento (D-W01):** `entradas/demeter.tsx` solo importa los contenidos, el tema y las secciones de Deméter, y lo mismo con Hermes. **La prueba de aceptación** revisa el `dist/`: ningún archivo de `/demeter/` referencia `assets/hermes/` ni `hermes.css`, y al revés.
