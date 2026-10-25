@@ -1,0 +1,54 @@
+---
+id: bitacora
+estado: vivo
+actualizado: 2026-10-24
+---
+# Bitácora del proyecto
+
+Aquí queda **cada paso del proceso**, con **un archivo por entrada**. Las entradas no se reescriben: si algo cambia después, se agrega una entrada nueva que enlace a la anterior.
+
+## Nombre del archivo
+
+`AAAA-MM-DD_<tipo>_<tema>.md`. Para las tareas: `AAAA-MM-DD_T-xxx_<slug>.md`.
+Tipos: `sesion` · `T-xxx` (tarea) · `prueba` · `reunion` · `decision` · `campo`.
+
+## Plantilla
+
+```markdown
+---
+fecha: AAAA-MM-DD
+tipo: sesion | tarea | prueba | reunion | decision | campo
+ids: [T-xxx, P-xx, D-xxx, PEN-xx]
+autor: <persona o agente>
+rama: <rama git, si aplica>
+---
+# <Título corto>
+
+## Contexto
+Por qué se hizo esto (1–3 líneas).
+
+## Qué se hizo
+- …
+
+## Evidencia
+Cifras, salidas, hash del commit, versión del firmware, fotos o logs adjuntos.
+
+## Decisiones tomadas o propuestas
+(Las propuestas que cambian contratos no se aplican aquí: las consolida el documentador.)
+
+## Problemas y cómo se resolvieron
+
+## Pendiente / siguiente paso
+
+## Documentos afectados
+```
+
+## Índice
+
+| Fecha | Entrada | Resumen |
+| --- | --- | --- |
+| 2026-10-23 | [Arranque del proyecto](2026-10-23_sesion_arranque.md) | Revisión del material, primeras preguntas, CLAUDE.md, guía HTML; corrección Hermes/Demeter |
+| 2026-10-24 | [Ronda de respuestas y pendientes justificados](2026-10-24_sesion_pendientes.md) | Software común a los dos equipos; hallazgo del TDMA; revisión de la Pi para Jerónimo |
+| 2026-10-24 | [Investigación de componentes y diseño v1](2026-10-24_sesion_diseno_v1.md) | 23 fichas con agentes Haiku; reestructura de la documentación; contratos v1; plan |
+| 2026-10-24 | [Flujo de trabajo y agente desarrollador](2026-10-24_sesion_flujo_trabajo.md) | Respuestas sobre el DRV5032, el CanSat rígido y las antenas; gitflow, worktrees, agente Sonnet, bitácora |
+| 2026-10-24 | [Pines, encendido y creación del repo](2026-10-24_sesion_repo_y_pines.md) | D-022 cerrada (SPI3 compartido y el MMC en I2C0), D-031 (DRV5032 a PWR_KEY), H135W-8; repo creado y subido |
