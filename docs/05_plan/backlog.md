@@ -1,7 +1,7 @@
 ---
 id: backlog
 estado: vivo
-actualizado: 2026-10-24
+actualizado: 2026-10-25
 ---
 # Backlog
 
@@ -113,10 +113,10 @@ actualizado: 2026-10-24
 
 | ID | Tarea | Pri | Área | Depende de | Estado |
 | --- | --- | --- | --- | --- | --- |
-| T-610 | Andamiaje de `gui/web/` (Vite multipágina, TS, Preact y signals, pruebas, aislamiento) | M | E | — | pendiente |
-| T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | pendiente |
-| T-612 | Generador de datos de ejemplo: OpenRocket → JSONL `web-1`, 6 escenarios por misión | M | D | — | pendiente |
-| T-613 | Tema y tokens (02 §6) y fuentes autohospedadas | M | E | T-610 | pendiente |
+| T-610 | Andamiaje de `gui/web/` (Vite multipágina, TS, Preact y signals, pruebas, aislamiento) | M | E | — | hecha (2026-10-25, PR #4) |
+| T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | en curso (PR #7 abierto) |
+| T-612 | Generador de datos de ejemplo: OpenRocket → JSONL `web-1`, 6 escenarios por misión | M | D | — | hecha (2026-10-25, PR #8). Falta validar los 12 JSONL contra `esquema.json` cuando se integre T-611 |
+| T-613 | Tema y tokens (02 §6) y fuentes autohospedadas | M | E | T-610 | hecha (2026-10-25, PR #6) |
 | T-620 | Portada | M | E | T-613 | pendiente |
 | T-621 | Assets de marca y fondos (lo hace el diseñador con el usuario) | M | E | PEN-W08 | pendiente |
 | T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | pendiente |
@@ -124,7 +124,7 @@ actualizado: 2026-10-24
 | T-624 | Estado de la misión, Telemetría y banner de alarma | M | E | T-622, T-631 | pendiente |
 | T-625 | Recuperación y Salud del cohete | M/S | E | T-622, T-631 | pendiente |
 | T-626 | Los ojos de Deméter | S | E | T-622, T-631 | pendiente |
-| T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | pendiente |
+| T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | pendiente (lista: los JSONL están en `gui/web/dev/datos/`) |
 | T-631 | Cliente de datos (snapshot, SSE, edad, estados de la página, interpolación) | M | D | T-611, T-630 | pendiente |
 | T-632 | Mapa (MapLibre y PMTiles de la zona, capas, LKP) | M | D | T-611 | pendiente |
 | T-633 | Gráficas (uPlot) y backfill | S | D | T-631 | pendiente |
