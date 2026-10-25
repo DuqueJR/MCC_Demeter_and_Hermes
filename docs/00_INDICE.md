@@ -29,6 +29,7 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | Lo que falta por responder | [05_plan/pendientes.md](05_plan/pendientes.md) |
 | Riesgos | [05_plan/riesgos.md](05_plan/riesgos.md) |
 | Cómo se trabaja (roles, gitflow, worktrees, commits, definido como hecho) | [05_plan/flujo_trabajo.md](05_plan/flujo_trabajo.md) |
+| El grafo de conocimiento del repo (graphify: instalación y uso) | [05_plan/graphify.md](05_plan/graphify.md) |
 | Qué pasó y cuándo | [07_bitacora/README.md](07_bitacora/README.md) (el índice de entradas) |
 
 ## Estructura

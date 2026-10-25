@@ -36,7 +36,9 @@ feature/T-201 ───────●
 
 ## 3. Worktrees
 
-- Cada invocación del agente `desarrollador` corre en **su propio worktree** (`isolation: worktree` en su definición). Así varias tareas avanzan en paralelo sin pisarse.
+- Cada invocación del agente `desarrollador` corre en **su propio worktree** (`isolation: worktree` en su definición), bajo `.claude/worktrees/` (ignorado por git). Así varias tareas avanzan en paralelo sin pisarse.
+  - Claude Code crea ese worktree desde la **rama por defecto del remoto (`main`)**. Por eso el agente crea su rama desde `origin/develop` **antes** de leer nada (su §0).
+  - El worktree no trae lo ignorado: el agente instala las dependencias que necesite (`npm ci`, PlatformIO). `.worktreeinclude` copia `graphify-out/` ([graphify](graphify.md)).
 - **Para humanos que quieran el mismo esquema:**
   - crear: `git worktree add ../hermes-wt/T-xxx -b feature/T-xxx-<slug> develop`
   - limpiar después del merge: `git worktree remove ../hermes-wt/T-xxx` y `git branch -d feature/T-xxx-<slug>`.
