@@ -23,7 +23,7 @@ Juan Pablo pidió instalar [graphify](https://github.com/Graphify-Labs/graphify)
   - `graphify claude install` agrega una sección a `CLAUDE.md` y dos hooks `PreToolUse` en `.claude/settings.json`: `Bash|Grep` → `graphify hook-guard search`, y `Read|Glob` → `graphify hook-guard read`.
   - Los hooks tienen un *timeout* de 10 s y **no bloquean** si falta el grafo. No se activó el modo estricto, que bloquea la primera lectura.
 - **Tamaño de lo que se indexa:**
-  - `docs/` sin los datasheets ni el archivo pesa unos 770 KB, más o menos 200 000 tokens en la pasada semántica.
+  - `docs/` sin los datasheets ni el archivo pesa unos 770 KB, unos 200 000 tokens de texto. **La construcción real costó unos 850 000 tokens** (lo que suman los 6 subagentes, con sus instrucciones), cuatro veces lo estimado.
   - Los `.md` de los datasheets pesan 7,4 MB, unos 2 millones de tokens. Por eso **se excluyen**.
 
 ## Decisiones de configuración (D-036)
@@ -44,8 +44,26 @@ Juan Pablo pidió instalar [graphify](https://github.com/Graphify-Labs/graphify)
 - **El hook es compartido** (`.claude/settings.json`), así que Jerónimo también debe instalar graphify. Si no lo hace, Claude Code le muestra un error en cada búsqueda. La instalación para Windows y macOS está en [flujo_trabajo](../05_plan/flujo_trabajo.md) §9.
 - `graphify install` también creó `.claude/CLAUDE.md`, que solo apunta a la skill. Se dejó como lo generó la herramienta.
 
+## Construcción del grafo (`/graphify .`, en la carpeta principal)
+- **Corpus:** 131 archivos, unas 140 000 palabras.
+  - 19 de código: 231 nodos por AST.
+  - 112 documentos: 6 subagentes Sonnet en paralelo, todos leídos hasta la última línea.
+  - Las licencias OFL se excluyeron después del primer conteo.
+- **El filtro de archivos "sensibles"** dejó fuera `gui/web/dev/tokens.css` y `tokens.html` por el nombre. Es un falso positivo y se pierde poco.
+- **Resultado:** 686 nodos, 1115 relaciones y 48 comunidades, a las que se les puso nombre.
+- **Aviso de integridad:** 38 relaciones apuntan a nodos que no existen, hay 1 bucle y algunas relaciones se fusionaron (casi todas `contains` + `calls` entre los mismos nodos). El grafo sirve, pero no es completo.
+- **Nodos más conectados:**
+  - el registro de decisiones;
+  - `MissionDaemon` (Pi);
+  - el enlace LoRa/TDMA;
+  - el índice de la web;
+  - el protocolo LoRa v2;
+  - el plan de dos sesiones;
+  - `constantes.md`.
+- **Prueba de consulta:** `graphify query "¿qué tareas dependen del contrato web-1?"` encontró los tres nodos de `web-1`. También trajo ruido, como "10 Hz requiere GPS+GAL", porque la búsqueda inicial es por palabras. **Sirve para ubicar archivos, no para responder sola.**
+- **Costo:** unos 850 000 tokens, lo que suman los subagentes.
+
 ## Pendiente / siguiente paso
-- **Construir el grafo** en la carpeta principal con `/graphify .`. Es un costo único de tokens; está pendiente de la confirmación de Juan Pablo.
 - **Jerónimo:** instalar `uv` y `graphifyy==0.9.95`, y construir su grafo.
 - **Evaluar en una semana** si los agentes de verdad leen menos archivos. Si no ayuda, se quita con `graphify uninstall`.
 

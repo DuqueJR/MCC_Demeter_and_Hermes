@@ -97,7 +97,7 @@ Los tipos y ámbitos permitidos, y un ejemplo, están en `.claude/agents/desarro
 **Construir el grafo (una vez por persona, en la carpeta principal del repo):**
 - En Claude Code: `/graphify .`.
   - El código se lee localmente con el AST, sin modelo.
-  - Los `.md` pasan por el modelo de la sesión: es un costo único de tokens, de unos 200 000.
+  - Los `.md` pasan por el modelo de la sesión: es un costo único de tokens: la primera construcción (112 documentos, 6 subagentes Sonnet) gastó unos 850 000 el 2026-10-25. Después, `--update` solo procesa lo que cambió.
 - **Sin claves de API en el entorno:** si existe una variable como `GEMINI_API_KEY` u `OPENAI_API_KEY`, el modo sin asistente (`graphify extract`) le enviaría los documentos a ese proveedor.
 
 **Mantenerlo al día (solo en la carpeta principal):**
