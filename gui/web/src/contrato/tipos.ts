@@ -60,6 +60,13 @@ export interface Posicion {
   fuente: "ekf" | "gnss";
 }
 
+export interface Vel {
+  n_ms: number;
+  e_ms: number;
+  u_ms: number;
+  total_ms: number;
+}
+
 /** 05 §2.2: con cada NAV (en vuelo ~9 Hz; en tierra el relay lo baja a 1 Hz). */
 export interface Estado {
   seq: number;
@@ -75,7 +82,8 @@ export interface Estado {
   fase_cod: number;
   /** null sin fix: entonces la web dibuja `lkp` (GS-03). */
   pos: Posicion | null;
-  vel: { n_ms: number; e_ms: number; u_ms: number; total_ms: number };
+  /** null sin velocidad válida (D-W19), como `pos`. */
+  vel: Vel | null;
   /** Marco del cuerpo, promedio de 100 ms. */
   acc_g: { x: number; y: number; z: number };
   /** Cuaternión del cuerpo a ENU. */
