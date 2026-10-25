@@ -50,7 +50,7 @@ describe("api.ts", () => {
     api.alimentar.conexion("conectado");
     api.alimentar.snapshot(snapshotVacioEjemplo, 0);
     expect(api.estado.value).toBeNull();
-    expect(api.estadoPagina.value.principal).toBe("cargando");
+    expect(api.estadoPagina.value.principal).toBe("sin_transmision");
   });
 });
 
@@ -119,7 +119,7 @@ describe("calcularEstadoPagina (03 §4)", () => {
   it("la caída del SSE y la carga inicial mandan sobre la edad", () => {
     expect(con(0, { conexion: "reconectando" })).toBe("sin_servidor");
     expect(con(0, { conexion: "cargando" })).toBe("cargando");
-    expect(con(0, { estacion: null })).toBe("cargando");
+    expect(con(0, { estacion: null, estado: null })).toBe("sin_transmision");
   });
 
   it("los avisos se superponen: simulación, aterrizado, reconstruyendo, alarma", () => {

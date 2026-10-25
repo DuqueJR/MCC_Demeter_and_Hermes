@@ -70,3 +70,5 @@ Las preguntas 1 a 11 quedan **resueltas** (decisiones delegadas por Juan Pablo; 
 - **`WEB_ALARMA_SOSTENER_S` = 10** agregada a `constantes.ts` para la UI (no la usa `estadoPagina`).
 
 Evidencia: `npm test` 61 pasan y 1 se salta (sin `.jsonl` aún); `npm run build` OK; `npm run e2e` 12 pasan. Casos nuevos: DESCENT 30 min → sin_senal; PREFLIGHT 11 min → sin_transmision; LANDED 2 h → sin_senal; bordes de 2 s y 5 s; evento sin fase/activa rechazado; serie desigual o mayor al máximo; mision/nodo y fase/fase_cod cruzados.
+
+- **Ajuste posterior:** con `conexion = "conectado"` y `estacion = null` el estado es `sin_transmision` (03 §4: el servidor responde pero la estación no ha mandado nada); `cargando` queda solo para `conexion = "cargando"`. Pruebas: snapshot vacío y conectado da `sin_transmision`; conexión cargando da `cargando`.

@@ -74,7 +74,7 @@ function calcularPrincipal(e: EntradaEstadoPagina): EstadoPrincipal {
   // La caída del SSE no se confunde con un problema del cohete; los datos se mantienen.
   if (e.conexion === "reconectando") return "sin_servidor";
   // Antes del primer dato del servidor: esqueleto con lo que haya del snapshot.
-  if (e.conexion === "cargando" || e.estacion === null) return "cargando";
+  if (e.conexion === "cargando") return "cargando";
   // Nunca llegó un dato del cohete en esta misión.
   if (e.estado === null || e.edadMs === null) return "sin_transmision";
   // Banco antes del vuelo: BOOT, PREFLIGHT o ERROR sin nada por mucho tiempo no es una alarma de LKP.
