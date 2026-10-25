@@ -18,7 +18,12 @@ depende_de: [gui_identidad]
 | Fondo de la portada, Deméter | Generado (§2) | ⏳ T-621 | Portada |
 | Fotos de cada cohete, del equipo y de los integrantes | Los equipos (§3) | ⏳ PEN-W01 | Inicio y Equipo |
 | Ornamentos (alas y viento; espigas, hojas y curvas de nivel) | SVG hechos a mano o vectorizados | ⏳ Could, en T-622 o T-624 | Divisores de sección |
+| **Íconos ilustrativos** (las partes del cohete: nariz, CanSat, VisionPack, motor, paracaídas y aletas; los objetivos de la misión) | **Generados con el MCP de Hugging Face** (§2, la misma paleta y el mismo trazo que el parche de cada misión) | ⏳ T-621 (necesita PEN-W08) | Chips de partes del Inicio, línea de objetivos |
 
+- **Íconos: dos familias (D-W20).**
+  - **De interfaz** (estado, navegación, flechas, alertas): `lucide-preact` (D-W17). Son vectoriales, se pintan con los tokens, pesan poco y se leen igual al sol en los dos temas.
+  - **Ilustrativos** (partes del cohete, objetivos, equipo): **se generan con el MCP de Hugging Face**, como los fondos. Le dan a cada misión su identidad. Los genera el diseñador (el Claude principal) con el usuario y los guarda en `generated_images/`; los elegidos se copian a `src/assets/<misión>/iconos/` y los procesa `vite-imagetools`.
+  - **Hoy el MCP solo expone herramientas de búsqueda del Hub.** Para generar, primero hay que cerrar PEN-W08.
 - **Originales:** quedan en `docs/fuentes/marca/` y **no se editan**.
 - **Copias de trabajo:** en `gui/web/src/assets/{comun,demeter,hermes}/`, a resolución completa.
 - **Formatos y tamaños:** el build genera AVIF y WebP en 256, 512 y 1024 px (y 1600 para los fondos) con `vite-imagetools`. Nadie exporta tamaños a mano. Se incluye en T-610.
