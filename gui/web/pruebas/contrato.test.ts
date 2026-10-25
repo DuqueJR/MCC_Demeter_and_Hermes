@@ -137,6 +137,19 @@ describe("el esquema rechaza casos falsos", () => {
     expect(validar("estado", c)).not.toEqual([]);
   });
 
+  it("estado.vel puede ser null (D-W19), como pos", () => {
+    const e = { ...copia(estadoEjemplo), pos: null, vel: null };
+    expect(validar("estado", e)).toEqual([]);
+    expect(validarExtra("estado", e)).toEqual([]);
+  });
+
+  it("estado.vel como texto, número o incompleto se rechaza", () => {
+    for (const v of ["0,4", 0.4, [], { n_ms: 1 }, { ...estadoEjemplo.vel, extra: 1 }]) {
+      const e = { ...copia(estadoEjemplo), vel: v };
+      expect(validar("estado", e), `vel=${JSON.stringify(v)}`).not.toEqual([]);
+    }
+  });
+
   it("versión distinta de web-1", () => {
     for (const v of ["web-2", "web-0", "", 1]) {
       const m = { ...metaEjemplo, contrato_version: v };

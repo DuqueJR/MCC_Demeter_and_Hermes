@@ -182,23 +182,30 @@
           ]
         },
         "vel": {
-          "type": "object",
-          "properties": {
-            "n_ms": {
-              "type": "number"
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "n_ms": {
+                  "type": "number"
+                },
+                "e_ms": {
+                  "type": "number"
+                },
+                "u_ms": {
+                  "type": "number"
+                },
+                "total_ms": {
+                  "type": "number"
+                }
+              },
+              "required": ["n_ms", "e_ms", "u_ms", "total_ms"],
+              "additionalProperties": false
             },
-            "e_ms": {
-              "type": "number"
-            },
-            "u_ms": {
-              "type": "number"
-            },
-            "total_ms": {
-              "type": "number"
+            {
+              "type": "null"
             }
-          },
-          "required": ["n_ms", "e_ms", "u_ms", "total_ms"],
-          "additionalProperties": false
+          ]
         },
         "acc_g": {
           "type": "object",
