@@ -9,9 +9,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/aislamiento.mjs dist",
+    "build": "tsc --noEmit && node scripts/colores.mjs && vite build && node scripts/aislamiento.mjs dist",
     "preview": "vite preview",
     "aislamiento": "node scripts/aislamiento.mjs dist",
+    "colores": "node scripts/colores.mjs",
     "test": "vitest run",
     "e2e": "npm run build && playwright test",
     "e2e:instalar": "playwright install chromium",
