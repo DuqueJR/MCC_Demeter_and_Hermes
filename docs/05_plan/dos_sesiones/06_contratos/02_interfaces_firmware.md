@@ -1,6 +1,6 @@
 ---
 id: C-02
-estado: borrador (lo redacta B y lo revisa A; se congela en H0, T-S02)
+estado: borrador v2 (refinado por B el 2026-10-25; lo revisa A; se congela en H0, T-S02). El §8 se cierra con la sesión de la placa (PEN-18, T-S12).
 actualizado: 2026-10-25
 depende_de: [firmware_vuelo, maquina_estados, protocolo_paquetes, enlace_lora_tdma, buses_y_pines, constantes]
 ---
@@ -29,9 +29,9 @@ Aquí se definen **los datos que cruzan entre módulos**, no su codificación.
 | `t_bus_i2c0` | B | I2C0 (MMC5983MA, BME280, magnetómetro de la placa, OLED) |
 | `t_fusion`, `t_fsm` | B | — |
 | `t_log` | B | SD (SDMMC en B′) |
-| `t_house` | B | **I2C1** (PMU TG28 y RTC BM8563), buzzer |
+| `t_house` | B | **I2C1** (PMU TG28 y RTC BM8563), buzzer. **No arma STATUS** (DP-18): publica la energía en el estado de vuelo |
 | `t_gnss` | **A** | UART del GNSS y PPS (GPIO 6) |
-| `t_radio` | **A** | SPI2 (SX1262) |
+| `t_radio` | **A** | SPI2 (SX1262). **Arma NAV y STATUS** (DP-18): es el único dueño del codificador de paquetes (T-502) y lee cada campo de su fuente (§2.1) |
 | `t_visionpack` | **A** | UART0 (43/44), pulso (IO2) |
 | `t_dump` | **A** | Wi-Fi |
 
@@ -55,6 +55,50 @@ Es un registro único que se publica a 100 Hz (`FSM_HZ`). Cada grupo de campos t
 **Bits de `fallas`, por dueño:**
 - **B:** LSM6DSO32, BMP581, MMC5983MA, QMI8658, BME280, magnetómetro de la placa, SD, PMIC, EKF, RTC, batería baja.
 - **A:** GNSS sin datos, radio, UART del VisionPack.
+
+**El QMI8658 depende de D-022:**
+- **en la opción B′**, el QMI8658 queda deshabilitado (`PIN_CS_QMI8658` en alto, [constantes](../../../02_requisitos/constantes.md) §7). Su bit 3 de `fallas` **queda en 0 y no cuenta como falla**, `SESION.qmi_activo = 0` ([C-04](04_formato_log_y_replay.md)), y los respaldos son solo el BME280 y el magnetómetro de la placa;
+- **en la opción A′**, el QMI8658 funciona como IMU de respaldo y su bit se usa normalmente.
+
+**Bits de `calib`** ([protocolo](../../../04_diseno/protocolo_paquetes.md) §3), **todos de B:**
+
+| Bit | Calibración | Escritor |
+| --- | --- | --- |
+| 0 | Bias del giro | `t_fusion` |
+| 1 | Magnetómetro | `t_fusion` |
+| 2 | Referencia barométrica | `t_fsm` |
+| 3 | Origen del EKF | `t_fsm` (en ARM) |
+| 4 | Alineación inicial de la actitud | `t_fusion` |
+
+### 2.1 De dónde sale cada campo de NAV y STATUS (DP-18)
+
+`t_radio` (A) arma los dos paquetes y **lee cada campo de su fuente**. Ninguna otra tarea codifica paquetes.
+
+| Paquete y campo ([protocolo](../../../04_diseno/protocolo_paquetes.md) §2–§3) | Fuente | Dueño |
+| --- | --- | --- |
+| NAV `t_ms`, STATUS `t_ms` | `t_us / 1000` en el momento de armar el paquete | A |
+| NAV `lat_e7`, `lon_e7`, `alt_dm`, `vel_*`, `q_*` | Estado de vuelo, grupo Navegación | B (`t_fusion`) |
+| NAV `acc_*_mg` | Estado de vuelo, grupo Aceleración promedio | B (`t_fusion`) |
+| NAV `fase` | Estado de vuelo, grupo Fase | B (`t_fsm`) |
+| NAV `estado_sec`, `act` (menos BUZZER) | Grupo Módulo secundario | A |
+| NAV `act.BUZZER` | `t_house` | B |
+| NAV `flags.GNSS_FIX` | Último PVT con `fix == 3` | A (`t_gnss`) |
+| NAV `flags.EKF_OK` | Grupo Navegación | B (`t_fusion`) |
+| NAV `flags.FALLA_ACTIVA` | `fallas ≠ 0`, calculado por `t_radio` al armar el paquete | A (cálculo) con los bits de los dos |
+| NAV `flags.EYECCION`, `APOGEO`, `REANUDADO` | Grupo Fase | B (`t_fsm`) |
+| NAV `flags.LOG_ACTIVO` | Grupo Energía (`log_activo`) | B (`t_log`) |
+| NAV `bat_pct`, STATUS `bat_mv`, `temp_esp_c` | Grupo Energía | B (`t_house`) |
+| STATUS `utc_ms` | `utc_desde_t_us(t_us)` (§5) | A (`t_gnss`) |
+| STATUS `mission_id`, `apogeo_dm`, `alt_origen_msl_dm` | Grupos Fase y Origen | B (`t_fsm`) |
+| STATUS `boot_count` | La persistencia en NVS (D-015) | B (`t_fsm`) |
+| STATUS `gnss_fix`, `gnss_sv`, `gnss_hacc_dm` | Último PVT (§5) | A (`t_gnss`) |
+| STATUS `temp_pi_c` | Grupo Módulo secundario | A (`t_visionpack`) |
+| STATUS `fallas` | Los bits de cada dueño (arriba) | A y B |
+| STATUS `calib` | La tabla de arriba | B |
+| STATUS `nav_innov_cm` | Grupo Navegación (`innov_pos_m`) | B (`t_fusion`) |
+| STATUS `sd_libre_mb` | Grupo Energía | B (`t_log`) |
+| STATUS `rssi_tierra_dbm`, `ultimo_cmd_seq` | El último BEACON o CMD recibido | A (`t_radio`) |
+| STATUS `fw_version` (protocolo v3, DP-07) | Constante de compilación (hash corto de git) | Compilación (T-002) |
 
 ## 3. Eventos de fase (los emite B y los consumen A y B)
 
@@ -149,4 +193,7 @@ El hardware es idéntico. **Lo único que cambia** se fija en la compilación, c
 | Magnetómetro de la placa | QMC6310 (0x1C/0x3C) | **QMC6309 en 0x7C** | T-S12: escaneo de I2C0. Ver DP-08 |
 | PSRAM | 8 MB, modo sin especificar | **APS6404L, QSPI** | `platformio.ini` en QSPI; `psramFound()` en T-003 |
 | Pines 45/46 | "Nunca ponerles un pull-up" | Los breakouts **pueden** traer pull-ups en SDA/SCL (= MOSI/SCK) | T-S12 mide **antes** de conectar ([RP-05](../10_riesgos.md)) |
-| Alimentación del MMC5983MA | DC1 en `buses_y_pines`; A_LDO1 en PEN-17 | DC1 (DP-06) | **Consultar con el equipo de hardware** ([PA-14](../11_preguntas_abiertas.md)) |
+| Alimentación del MMC5983MA | DC1 en `buses_y_pines`; A_LDO1 en PEN-17 | DC1 (DP-06) | **Consultar con el equipo de hardware** ([PA-14](../11_preguntas_abiertas.md)). Juan Pablo lo pregunta el 2026-10-25, antes de la sesión de la placa |
+| QMI8658 | IMU de respaldo en SPI3 | **Deshabilitado si D-022 = B′** | Se confirma con D-022 en H0 (ver el bloque del QMI8658 en §2) |
+
+**Este §8 queda abierto a propósito:** se cierra con los resultados de la sesión de la placa (PEN-18 y T-S12) en la sincronización H0. El resto del contrato se congela en H0 aunque algún punto de esta tabla siga pendiente.
