@@ -14,11 +14,12 @@ depende_de: [gui_identidad]
 | Parche de Deméter | `docs/fuentes/marca/escudo_demeter.png` (2080², ídem) | ✅ | Ídem |
 | Logo de la EIA, blanco | `docs/fuentes/marca/escudo_eia_sin_fondo.png` (2560×1440, transparente) | ✅ | Cabecera de la portada y pie |
 | Logo de la EIA, a color | `docs/fuentes/marca/escudo_eia_con_fondo.png` (1080²) | ✅ Referencia, no se usa sobre el fondo oscuro | — |
-| Fondo de la portada, Hermes | Generado (§2) | ⏳ T-621 | Portada |
-| Fondo de la portada, Deméter | Generado (§2) | ⏳ T-621 | Portada |
+| Fondo de la portada, Hermes | Generado con FLUX schnell en el Space de Hugging Face (`evalstate/flux1_schnell`, §2); original 1152×1280 en `src/assets/hermes/fondo_portada.webp` | ✅ T-621 | Portada |
+| Fondo de la portada, Deméter | Generado con FLUX schnell en el Space de Hugging Face (`evalstate/flux1_schnell`, §2); original 1152×1280 en `src/assets/demeter/fondo_portada.webp` | ✅ T-621 | Portada |
 | Fotos de cada cohete, del equipo y de los integrantes | Los equipos (§3) | ⏳ PEN-W01 | Inicio y Equipo |
 | Ornamentos (alas y viento; espigas, hojas y curvas de nivel) | SVG hechos a mano o vectorizados | ⏳ Could, en T-622 o T-624 | Divisores de sección |
-| **Íconos ilustrativos** (las partes del cohete: nariz, CanSat, VisionPack, motor, paracaídas y aletas; los objetivos de la misión) | **Generados con el MCP de Hugging Face** (§2, la misma paleta y el mismo trazo que el parche de cada misión) | ⏳ T-621 (PEN-W08 ya cerrado) | Chips de partes del Inicio, línea de objetivos |
+| **Íconos ilustrativos de las partes del cohete** (nariz, CanSat, VisionPack —solo Deméter—, motor, paracaídas y aletas) | Generados con FLUX schnell en Replicate (la misma paleta y el mismo trazo que el parche de cada misión); sin el fondo plano (`gui/web/scripts/iconos-transparentes.mjs`), 512×512 con transparencia en `src/assets/{demeter,hermes}/iconos/<parte>.png` | ✅ T-621 | Chips de partes del Inicio |
+| **Íconos ilustrativos de los objetivos de la misión** | Por generar (D-W20) | ⏳ | Línea de objetivos |
 
 - **Íconos: dos familias (D-W20).**
   - **De interfaz** (estado, navegación, flechas, alertas): `lucide-preact` (D-W17). Son vectoriales, se pintan con los tokens, pesan poco y se leen igual al sol en los dos temas.
