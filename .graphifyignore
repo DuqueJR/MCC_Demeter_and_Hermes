@@ -12,3 +12,5 @@ docs/.obsidian/
 .claude/worktrees/
 **/node_modules/
 **/dist/
+# Licencias de las fuentes: texto legal sin relaciones útiles.
+**/LICENCIA-*.txt
