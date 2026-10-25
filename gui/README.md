@@ -4,7 +4,7 @@
 
 **Leer primero:**
 - [docs/08_gui/00_README.md](../docs/08_gui/00_README.md): el índice, las decisiones (D-W) y los pendientes (PEN-W);
-- [docs/08_gui/06_plan_web.md](../docs/08_gui/06_plan_web.md): las tareas T-6xx, los carriles E y D, y los worktrees;
+- [docs/08_gui/06_plan_web.md](../docs/08_gui/06_plan_web.md): las tareas T-6xx, las áreas E y D, y los worktrees;
 - [docs/08_gui/05_contrato_datos_web.md](../docs/08_gui/05_contrato_datos_web.md): el contrato `web-1`.
 
 **Reglas:**

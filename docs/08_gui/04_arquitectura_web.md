@@ -36,7 +36,7 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 | Pieza | Elección | Por qué | Alternativa descartada |
 | --- | --- | --- | --- |
 | Build | **Vite**, en modo multipágina (`index.html`, `demeter/index.html` y `hermes/index.html`) | Cada página es su propio punto de entrada, así que se cumple D-W01 sin trucos. El build es rápido y el servidor de desarrollo está incluido. | Next o Astro: más peso y más conceptos para 12 días |
-| Lenguaje | **TypeScript** | El contrato de datos queda tipado: si cambia, el compilador avisa en los dos carriles | JS sin tipos |
+| Lenguaje | **TypeScript** | El contrato de datos queda tipado: si cambia, el compilador avisa en las dos áreas | JS sin tipos |
 | UI | **Preact + @preact/signals** | La API de React, que los agentes dominan, en 4 KB. Las *signals* actualizan solo el número que cambia a 10 Hz, sin volver a dibujar la página: esto es clave en celulares baratos. | React (40 KB y re-renders), Svelte (menos predecible para los agentes), vanilla (lento de construir) |
 | Portada | **HTML y CSS puros**, sin JS | Carga instantánea; el hover es CSS | — |
 | Mapa | **MapLibre GL JS + un PMTiles propio** de la zona (Protomaps), servido desde el CDN | **Sin dependencia de un servidor de tiles de terceros con 500 personas a la vez.** El estilo vectorial se pinta con la paleta de cada tema. **El mismo archivo sirve como mapa offline del dashboard local (T-603)**. Se carga diferido (*lazy*), al acercarse a la sección. | Leaflet + tiles de OSM: la política de uso de OSM no permite ese tráfico y no se puede tematizar |
@@ -54,7 +54,7 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 ```
 gui/
 ├── web/                              ← la web pública (Vite)
-│   ├── index.html                    portada (carril E)
+│   ├── index.html                    portada (área E)
 │   ├── demeter/index.html            entrada de Deméter (E)
 │   ├── hermes/index.html             entrada de Hermes (E)
 │   ├── src/

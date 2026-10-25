@@ -106,12 +106,12 @@ actualizado: 2026-10-24
 
 ## E10. Web pública y dashboard de operación (F1–F3)
 
-**El plan completo está en [08_gui/06_plan_web.md](../08_gui/06_plan_web.md)** (las fases W0–W4, los carriles, los worktrees, las dependencias y los criterios de aceptación) **y en [08_gui/09_dashboard_operacion.md](../08_gui/09_dashboard_operacion.md)** (operación).
+**El plan completo está en [08_gui/06_plan_web.md](../08_gui/06_plan_web.md)** (las fases W0–W4, las áreas, los worktrees, las dependencias y los criterios de aceptación) **y en [08_gui/09_dashboard_operacion.md](../08_gui/09_dashboard_operacion.md)** (operación).
 - **Para el agente `desarrollador`:** la fila de aquí es el índice. **El criterio de aceptación y lo que hay que leer están en la fila de la misma tarea en 06_plan_web §3** (o en 09 §7), y se lee siempre [08_gui/00_README.md](../08_gui/00_README.md).
-- **Carriles** (D-W12): **E**, Experiencia (Juan Pablo); **D**, Datos (Jerónimo). Las sesiones de Claude Code de la web se abren con `SESION=web`.
+- **Áreas** (D-W12): **E**, Experiencia; **D**, Datos. **No hay dueño fijo por persona** (D-W16): se toma la siguiente tarea lista, primero las S+ del dashboard de operación. Las sesiones de Claude Code de la web se abren con `SESION=web`.
 - **Prioridad:** la web se pausa si el mínimo para volar se atrasa (06 §2).
 
-| ID | Tarea | Pri | Carril | Depende de | Estado |
+| ID | Tarea | Pri | Área | Depende de | Estado |
 | --- | --- | --- | --- | --- | --- |
 | T-610 | Andamiaje de `gui/web/` (Vite multipágina, TS, Preact y signals, pruebas, aislamiento) | M | E | — | pendiente |
 | T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | pendiente |
@@ -136,4 +136,4 @@ actualizado: 2026-10-24
 | T-644 | Pulido para el celular (Lighthouse ≥ 90, celulares reales) | S | E | T-624, T-625 | pendiente |
 | T-645 | Guía de operación de la web el día del vuelo | S | Ambos | T-642 | pendiente |
 | T-650…T-654 | Could: 3D (inicio, actitud, trayectoria), gráficas personalizables de la web, repetición post-evento | C | — | — | congelada |
-| T-660…T-670 | **Dashboard de operación** (borrador; se ajusta con PEN-W12): entrada y tema, cliente local, alarmas, Vuelo, Preparar y comandos, Variables, Gráficas, Enlace, Recuperación, Post-vuelo y ensayo | S | E y D | HW1, C-05 | borrador |
+| T-660…T-670 | **Dashboard de operación** (borrador; se ajusta con PEN-W12): entrada y tema, cliente local, alarmas, Vuelo, Preparar y comandos, Variables, Gráficas, Enlace, Recuperación, Post-vuelo y ensayo | S+ / S | E y D | HW1, C-05 | pendiente (ver 09 §7) |

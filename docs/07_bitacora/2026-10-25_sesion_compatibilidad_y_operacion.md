@@ -78,3 +78,33 @@ Juan Pablo pidió dos cosas:
 - **`docs/05_plan/`:** `backlog.md`, `pendientes.md`, `riesgos.md` y `dos_sesiones/11_preguntas_abiertas.md`.
 - **`docs/04_diseno/`:** `decisiones.md` y `estacion_terrena.md`.
 - **El resto:** `docs/02_requisitos/constantes.md`, `docs/00_INDICE.md`, `docs/07_bitacora/README.md` y `gui/README.md`.
+
+## Actualización: respuestas del usuario sobre el dashboard de operación
+- **1:** se hace todo. Cuando hay varias tareas listas, va primero el mínimo de operación (S+).
+- **2:** un PC principal y un segundo monitor → dos ventanas: "Mando" (la única que manda comandos) y "Análisis" (solo lectura).
+- **3:** los comandos también desde el dashboard; la CLI es el respaldo.
+- **4:** se confirma escribiendo el nombre de la misión.
+- **5:** "modo sol" sí.
+- **6:** alarmas sonoras sí.
+- **9:** el 3D queda pendiente.
+- **10:** los lanzamientos son en momentos distintos → el cohete activo en grande y el otro compacto.
+- **11:** "repártelo como sea mejor" → **D-W16**:
+  - E y D son áreas de carpetas, no personas;
+  - se toma la siguiente tarea lista;
+  - el PR en borrador es el candado;
+  - dos tareas en curso nunca tocan la misma carpeta.
+- **12:** el PC local recibe los datos y sirve el dashboard; de ahí van al servidor remoto, que sirve la web pública. **Hay que proponerle al back** que el servidor local de C-05 sirva `gui/web/dist/operacion/` (H0).
+- **7 y 8:** el usuario pidió una explicación. Quedan abiertas (PEN-W12).
+
+### Explicación dada para la 7 (imagen satelital offline)
+- El **mapa vectorial** (PMTiles, datos de OpenStreetMap) tiene calles, caminos, ríos, nombres y, si se agrega, relieve. Es liviano, se puede pintar con el tema y se descarga legalmente.
+- La **imagen satelital** es la foto aérea real: se ven los potreros, las cercas, los árboles y las quebradas, lo que ayuda a buscar el cohete en el monte.
+  - Para tenerla **sin internet** hay que descargar antes las imágenes de la zona (cientos de MB).
+  - Los proveedores gratuitos (Esri, Google, Mapbox) **no permiten descargarlas para usarlas offline**. Sentinel-2 sí es libre, pero tiene 10 m por píxel: no se ve un potrero.
+- **Recomendación:** el mapa vectorial con relieve y curvas de nivel en el dashboard; el satélite como *could* si aparece una fuente que lo permita. El equipo de recuperación tiene el satélite en su celular con el QR de Google Maps, si hay señal.
+
+### Explicación dada para la 8
+- **El hexadecimal** son los bytes tal como llegan por radio (por ejemplo, `21 01 2A …`). Sirve para depurar: si un número se ve raro, se sabe si el cohete lo mandó mal o si el decodificador lo leyó mal.
+- **Los contadores del módem** son los números de la estación: paquetes recibidos, errores de CRC, paquetes fuera de su ranura, comandos enviados y reintentos. Dicen si las pérdidas son de la radio o del software.
+- **El CSV** es una hoja de cálculo con los datos de un rango de tiempo, para analizar en el campo (por ejemplo, la caracterización del motor o un informe para los jueces).
+- **Recomendación:** sí a los tres, con el hexadecimal y los contadores en una sub-pestaña "Avanzado", para no saturar la vista normal.

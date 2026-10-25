@@ -21,7 +21,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | Saber qué tiene cada pantalla y cómo se comporta en el celular | [03_experiencia_y_pantallas.md](03_experiencia_y_pantallas.md) |
 | Saber con qué se construye y cómo aguanta 500 personas | [04_arquitectura_web.md](04_arquitectura_web.md) |
 | Consumir o producir los datos de la web | [05_contrato_datos_web.md](05_contrato_datos_web.md) (**contrato**) |
-| Tomar una tarea, ver los carriles y los worktrees | [06_plan_web.md](06_plan_web.md) |
+| Tomar una tarea, ver las áreas y los worktrees | [06_plan_web.md](06_plan_web.md) |
 | Generar, pedir u optimizar imágenes | [07_assets_e_imagenes.md](07_assets_e_imagenes.md) |
 | El cohete en 3D (congelado: es un *could*) | [08_modelo_3d_futuro.md](08_modelo_3d_futuro.md) |
 | **El dashboard de operación** (nuestra consola en la estación; borrador) | [09_dashboard_operacion.md](09_dashboard_operacion.md) |
@@ -36,7 +36,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
   - PA-15 y PA-22: aceptadas en `web-1` (05);
   - PA-23: el dashboard de operación usa `/api/v1/local/` (09);
   - PA-24: el `.gitignore` no tuvo conflicto.
-- **Las letras de los carriles** de la web son E y D, no A y B, porque esas son las sesiones del back (D-W12).
+- **Las áreas de la web** se llaman E y D, no A y B, porque esas son las sesiones del back (D-W12). Son áreas de carpetas, no personas (D-W16).
 
 ## Reglas de esta carpeta
 
@@ -67,7 +67,8 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | D-W06 | El servidor público (*relay*) es parte del plan web. El reenviador sigue en `estacion/` (T-605 se parte en T-605a y T-640). | Aprobada por el usuario (2026-10-25). Se le comunica a Jerónimo en el PR. | 04 §4, 06 |
 | D-W10 | En la portada, **toda la mitad** es el enlace y el parche es el foco visual | Aprobada por el usuario (2026-10-25) | 03 §1 |
 | D-W11 | El nombre público es **"Deméter"**, con tilde, en todo texto visible; `demeter` en las URLs y el código | Aprobada por el usuario (2026-10-25) | 02, 03 |
-| D-W12 | Los carriles de la web se llaman **E (Experiencia, Juan Pablo)** y **D (Datos, Jerónimo)**, para no chocar con las sesiones A y B del back | Aprobada (C), por compatibilidad | 06 §1 |
+| D-W12 | Las áreas de la web se llaman **E (Experiencia)** y **D (Datos)**, para no chocar con las sesiones A y B del back | Aprobada (C), por compatibilidad | 06 §1 |
+| D-W16 | **No hay dueño fijo por persona:** cualquiera toma la siguiente tarea lista; el PR en borrador es el candado; dos tareas en curso nunca tocan la misma carpeta; prioridad S+ (mínimo de operación), luego M, luego S | Aprobada por el usuario (2026-10-25: "repártelo como sea mejor") | 06 §1 |
 | D-W13 | `web-1` acepta antes de congelarse las propuestas del back: `meta.proto_version` 2 o 3 y `salud.fw_version` (PA-15), y `estado.lkp` (PA-22). Son campos opcionales y compatibles. | Propuesta (C). Se aprueba en H0 con C-05. | 05 |
 | D-W14 | El **dashboard de operación** es parte de este plan: una cuarta entrada de la misma app, servida por el servidor local de C-05 y con los comandos por `/api/v1/local/` (PA-23) | Pedida por el usuario (2026-10-25); el detalle es borrador | 09 |
 | D-W15 | La web sigue el flujo de ramas de DP-01 (ramas de ≤ 1 día; "preguntar" para `web-1`, los tokens, el relay y los comandos; "mostrar" para el resto) | Adoptada (C), por compatibilidad con DP-01 | 06 §5 |
@@ -87,7 +88,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | ~~PEN-W06~~ | ~~Que se acepte D-W06~~ | Cerrado el 2026-10-25: aprobado por el usuario | — |
 | ~~PEN-W07~~ | ~~"Deméter" o "Demeter"~~ | Cerrado el 2026-10-25: **Deméter** (D-W11) | — |
 | PEN-W08 | Agregar en huggingface.co/settings/mcp los Spaces `evalstate/flux1_schnell` (borradores rápidos) y `black-forest-labs/FLUX.2-klein-9B` (versión final). `black-forest-labs/FLUX.1-schnell` ya no aparece en el buscador. Ver 07 §2. | Juan Pablo | T-621 |
-| ~~PEN-W09~~ | ~~El reparto de carriles~~ | Cerrado el 2026-10-25: **A (Experiencia) para Juan Pablo y B (Datos) para Jerónimo** | — |
+| ~~PEN-W09~~ | ~~El reparto~~ | Cerrado el 2026-10-25: sin dueño fijo por persona (D-W16) | — |
 | PEN-W10 | **Los parches en PNG con fondo transparente** (el archivo original del diseñador). Los actuales tienen el fondo blanco, y **la capa de Hermes se sale del círculo**: un recorte circular la corta. | Equipos (quien hizo los parches) | T-620 (mientras tanto se recorta a mano) |
-| PEN-W12 | Las 12 preguntas del dashboard de operación ([09](09_dashboard_operacion.md) §9) | Juan Pablo y Jerónimo | T-660 a T-670 |
+| PEN-W12 | Del dashboard de operación ([09](09_dashboard_operacion.md) §9) quedan abiertas **la 7 (imagen satelital offline) y la 8 (hexadecimal, contadores del módem y CSV)**. Las otras 10 se respondieron el 2026-10-25. | Juan Pablo | T-663, T-665 |
 | PEN-W11 | ¿Pagar un generador mejor? Con la cuenta gratuita funciona `evalstate/flux1_schnell`, pero `FLUX.2-klein-9B` responde con error (probablemente por la cuota de ZeroGPU gratuita, V). La opción más barata para probar es Hugging Face Pro (US$ 9/mes). | Juan Pablo | T-621 (no bloquea: schnell alcanza para la portada) |

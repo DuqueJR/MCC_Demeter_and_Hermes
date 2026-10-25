@@ -1,6 +1,6 @@
 ---
 id: gui_operacion
-estado: borrador para refinar (preguntas en §9). Sale de *Objetivos* §7 y de C-05.
+estado: propuesta. Preguntas de §9 respondidas por el usuario el 2026-10-25, salvo la 7 y la 8. Sale de *Objetivos* §7 y de C-05.
 actualizado: 2026-10-25
 depende_de: [requisitos, estacion_terrena, protocolo_paquetes, maquina_estados, gui_contrato_datos, C-05, gui_identidad, gui_arquitectura]
 decisiones: [D-025, DP-15, DP-17, D-W14]
@@ -23,9 +23,22 @@ Reemplaza a T-603 y T-604 en su parte visual. El back-end que lo alimenta es del
 4. **Ningún comando se da por hecho sin ACK.** Cada comando muestra su estado hasta `confirmado` o `sin_confirmacion` (C-05 §4).
 5. **Los comandos solo desde `127.0.0.1`** (GS-14, D-025). El dashboard se sirve desde el servicio local. Ni el relay ni la web pública pueden mandar nada.
 6. **Los dos cohetes a la vez** (GS-01). La regla de aislamiento de la web pública (D-W01) **no aplica aquí**.
-7. **Legible al sol** en un portátil al aire libre (ver §9, pregunta 5).
+7. **Legible al sol:** tiene un "modo sol" claro y de alto contraste (§6).
+8. **Un cohete a la vez en el foco.** Se lanzan en momentos distintos (§9, pregunta 10), así que la vista principal pone en grande el cohete activo y el otro en compacto (§3).
 
 ## 2. Arquitectura
+
+**El esquema que definió el usuario:**
+- **un PC local** en la estación recibe los datos en tiempo real del módem y **sirve el dashboard**;
+- desde ese PC, los datos **se envían a un servidor remoto**, que sirve **la página pública**.
+
+```
+ Módem ─USB─► PC de la estación (servicio de tierra, C-05) ──► dashboard de operación (este documento),
+                         │                                     en el monitor principal y el secundario
+                         └─ reenviador (T-605a) ──internet──► servidor remoto (relay, T-640) ──► web pública
+```
+
+**Detalle del PC local:**
 
 ```
 Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
@@ -33,8 +46,10 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
   ├─ GET /api/v1/local/stream                          ← paquete, modem, diagnostico, comando
   ├─ GET /api/v1/local/historial                       ← lectura del log decodificado
   ├─ POST /api/v1/local/comandos                       ← los comandos (solo 127.0.0.1)
-  └─ archivos estáticos: gui/web/dist/operacion/       ← este dashboard (❓ §9, pregunta 12)
+  └─ archivos estáticos: gui/web/dist/operacion/       ← este dashboard (§9, pregunta 12)
 ```
+
+- **Que el servidor local sirva los archivos estáticos del dashboard** es un agregado a C-05 §2: una ruta `/` → `gui/web/dist/operacion/`. Se le propone al back en H0 (C-05 es su contrato).
 
 - **Es una cuarta entrada de la misma app**, `gui/web/operacion/index.html`. Reutiliza el cliente de datos (`src/datos/`), el mapa (`src/mapa/`), las gráficas (`src/graficas/`), la actitud (`src/actitud/`) y los tokens.
 - **Sin dependencias externas en tiempo de ejecución:**
@@ -47,7 +62,20 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
 
 ## 3. Pantallas
 
-**Tamaño objetivo:** un portátil de 1366×768 o más, con un segundo monitor opcional (§9, pregunta 2). No se diseña para el celular: si alguien quiere ver desde el celular, para eso está la web pública.
+**El puesto** (§9, pregunta 2): **un PC principal y un segundo monitor**, a 1366×768 o más. No se diseña para el celular: para eso está la web pública.
+
+**Dos ventanas, una sola fuente de datos:**
+- **Monitor principal, "Mando":**
+  - la barra superior y las alarmas;
+  - las pestañas Vuelo, Preparar (con los comandos), Recuperación y Comandos.
+  - **Es la única ventana que puede mandar comandos.**
+- **Segundo monitor, "Análisis":** se abre con el botón "Abrir en el segundo monitor". Muestra las pestañas Variables, Gráficas, Enlace y Post-vuelo, o el mapa en grande. **Es de solo lectura:** ahí no aparece ningún botón de comando.
+- **Cada ventana abre sus propios streams** del servidor local, así que no dependen una de la otra. **La selección se sincroniza:** si en Variables se elige "graficar", la gráfica aparece en la ventana que tenga Gráficas (`BroadcastChannel` del navegador).
+
+**El foco en el cohete activo** (§9, pregunta 10):
+- Los cohetes se lanzan en momentos distintos. La vista Vuelo pone **en grande al cohete activo** y **en compacto al otro**: una fila con su fase, altitud, edad y Go.
+- El foco **cambia solo** cuando un cohete pasa a ARMED, con un aviso. El operador puede fijarlo a mano.
+- **Las alarmas de los dos cohetes siempre se ven**, esté donde esté el foco.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -86,7 +114,7 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
   - la actitud (horizonte y brújula, con roll, pitch y yaw numéricos);
   - la calidad del enlace.
 - **Perfil de altitud** de los dos cohetes contra T+, en una sola gráfica.
-- **El 3D** (*Objetivos* 7.A: la trayectoria con la parábola predicha y el modelo con la actitud) va **como *could*, igual que en la web** (D-W03). Ver §9, pregunta 9.
+- **El 3D** (*Objetivos* 7.A: la trayectoria con la parábola predicha y el modelo con la actitud) **queda pendiente, como *could***, igual que en la web (D-W03; el usuario lo confirmó en §9, pregunta 9). Mientras tanto: la actitud 2D y el perfil de altitud.
 
 ### 3.2 Preparar: Go/No-Go y comandos de rampa (*Objetivos* 7.C y 7.D)
 - **Por cohete, el checklist automático** de [maquina_estados](../04_diseno/maquina_estados.md) §4 (`salud.go_nogo`):
@@ -157,18 +185,22 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
 
 ## 4. Seguridad de los comandos
 
-| Comando | Confirmación propuesta (❓ §9, pregunta 4) |
+| Comando | Confirmación (decidida, §9, pregunta 4) |
 | --- | --- |
 | PING, SYSTEM_CHECK | Un clic |
 | RECALIBRAR, BUZZER, PI_GRABAR, WIFI_AP, BACKFILL | Clic y luego "Confirmar" en un diálogo propio de la página (no `alert()` del navegador) |
-| **ARM, DISARM, FORZAR_ATERRIZADO, SET_CANAL, PI_ENCENDER** | **Escribir el nombre de la misión** (igual que la CLI, C-05 §5) **o mantener presionado 2 s** |
+| **ARM, DISARM, FORZAR_ATERRIZADO, SET_CANAL, PI_ENCENDER** | **Escribir el nombre de la misión** ("demeter" o "hermes"), igual que en la CLI (C-05 §5). El botón de enviar se habilita solo cuando el texto coincide. |
+
+- **Los comandos se mandan desde el dashboard y desde la CLI** (§9, pregunta 3). La CLI es el respaldo. Los dos usan la misma ruta (`POST /api/v1/local/comandos`), así que el historial es uno solo.
 
 - **El servicio rechaza** antes de enviar cualquier pedido que no venga de `127.0.0.1`, y los comandos fuera de fase (C-05 §4). El dashboard **además** deshabilita los botones fuera de fase.
 - **FORZAR_ATERRIZADO** solo aparece en FREE_FALL y DESCENT, en rojo, con el texto de [maquina_estados](../04_diseno/maquina_estados.md) T13.
 
 ## 5. Alarmas
 
-| Alarma | Cuándo | Visual | Sonora (❓ §9, pregunta 6) |
+**Sonido** (decidido, §9, pregunta 6): sí, con un tono distinto para el rojo y para el ámbar, y un botón de silencio temporal (60 s) que no borra la alarma visual. Los sonidos se generan en el navegador (Web Audio), sin archivos externos.
+
+| Alarma | Cuándo | Visual | Sonora |
 | --- | --- | --- | --- |
 | Descenso rápido (GS-05) | `alarmas.descenso_rapido` (solo en DESCENT) | Banda roja y el panel del cohete en rojo | Sí |
 | Sin señal en vuelo | Edad > `WEB_SIN_SENAL_S` entre BOOST y DESCENT | Banda roja; LKP | Sí |
@@ -186,29 +218,34 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
   - un tema neutro de control de misión con el teal de la EIA en la interfaz;
   - **el acento de cada cohete solo para identificarlo** (lavanda o cielo).
 - **Sin decoración en el área de datos.** Los parches solo en la barra superior.
-- Modo oscuro por defecto, y **❓ un "modo sol"** de alto contraste para el aire libre (§9, pregunta 5).
+- **Modo oscuro por defecto y un "modo sol"** (decidido, §9, pregunta 5), que se cambia con un botón en la barra superior:
+  - fondo claro, texto casi negro y contraste ≥ 7:1 (AAA);
+  - los colores de estado, oscurecidos para que se lean sobre el fondo claro;
+  - el mismo tamaño de letra.
 
-## 7. Prioridad y tareas (borrador: se ajusta con las respuestas de §9)
+  Sale de los mismos tokens: un tema más, `data-tema="sol"`.
 
-**Mínimo de operación (prioridad S alta):** la barra superior y las alarmas, Vuelo, Preparar (con los comandos), Variables y Recuperación.
-**Después (S):** Gráficas personalizables, Enlace, Comandos (historial) y Post-vuelo.
-**Could:** el 3D (con T-650 a T-652).
+## 7. Prioridad y tareas
 
-| ID | Tarea | Carril | Depende de |
-| --- | --- | --- | --- |
-| T-660 | Entrada `operacion/`, tema "consola", el layout con pestañas y la barra superior | E | T-610, T-613 |
-| T-661 | Cliente local: los dos streams `web-1`, `/api/v1/local/stream` y el cliente de comandos | D | T-631, C-05 congelado |
-| T-662 | Banda de alarmas, visual y sonora, con reconocimiento | E | T-660, T-661 |
-| T-663 | Vuelo: el mapa conjunto y los paneles por cohete (reutiliza T-624, T-632 y T-634) | E | T-661, T-632 |
-| T-664 | Preparar: Go/No-Go y el **centro de comandos** con confirmación (modo "preguntar") | E | T-661 |
-| T-665 | Variables: el inspector, el paquete crudo y la exportación a CSV | D | T-661 |
-| T-666 | Gráficas personalizables (sube T-653 a S) | D | T-633 |
-| T-667 | Enlace y diagnóstico | D | T-661 |
-| T-668 | Recuperación (reutiliza T-625) | E | T-625, T-661 |
-| T-669 | Post-vuelo: backfill, Wi-Fi y la descarga | D | T-661, T-801 |
-| T-670 | Ensayo completo con el módem falso y en P-07 (integración en 15 min) | Ambos | T-662 a T-665, T-S07 |
+**Prioridad** (decidida, §9, pregunta 1): **se hace todo**. Cuando dos tareas estén listas a la vez, **va primero la del mínimo de operación**: la barra superior y las alarmas, Vuelo, Preparar con los comandos, Variables y Recuperación. Después, el resto de la operación y la web pública, intercaladas.
 
-**Calendario tentativo:** después de HW1 (29 de octubre), en paralelo con W2 y W3. **Es mucho para la misma gente:** ver §9, pregunta 1.
+**Reparto** (decidido, §9, pregunta 11): **no hay un dueño fijo por persona.** Se trabaja por **áreas de carpetas** y por **tarea tomada**, como explica [06_plan_web](06_plan_web.md) §1. La columna "Área" de abajo dice qué carpetas toca cada tarea, no quién la hace.
+
+| ID | Tarea | Área | Pri | Depende de |
+| --- | --- | --- | --- | --- |
+| T-660 | La entrada `operacion/`, el tema "consola" (oscuro y sol), el layout con pestañas, la barra superior y las dos ventanas (Mando y Análisis) | E | S+ | T-610, T-613 |
+| T-661 | El cliente local: los dos streams `web-1`, `/api/v1/local/stream`, el cliente de comandos y la sincronización entre ventanas | D | S+ | T-631, C-05 congelado |
+| T-662 | La banda de alarmas, visual y sonora, con reconocimiento y silencio | E | S+ | T-660, T-661 |
+| T-663 | Vuelo: el cohete activo en grande y el otro compacto, el mapa y el perfil de altitud (reutiliza T-624, T-632 y T-634) | E | S+ | T-661, T-632 |
+| T-664 | Preparar: Go/No-Go y el **centro de comandos**, con la confirmación por nombre (modo "preguntar") | E | S+ | T-661 |
+| T-665 | Variables: el inspector, el paquete crudo y la exportación a CSV (el alcance se ajusta con la pregunta 8) | D | S+ | T-661 |
+| T-668 | Recuperación (reutiliza T-625) | E | S+ | T-625, T-661 |
+| T-666 | Gráficas personalizables (sube T-653 a S) | D | S | T-633 |
+| T-667 | Enlace y diagnóstico | D | S | T-661 |
+| T-669 | Post-vuelo: backfill, Wi-Fi y la descarga | D | S | T-661, T-801 |
+| T-670 | Ensayo completo con el módem falso y en P-07 (integración en 15 min) | Ambos | S+ | T-662 a T-665, T-668, T-S07 |
+
+**S+** = el mínimo de operación. **Calendario:** después de HW1 (29 de octubre), en paralelo con W2 y W3.
 
 ## 8. Cómo cubre *Objetivos* §7
 
@@ -222,17 +259,19 @@ Servicio de tierra (estacion/, C-05) en 127.0.0.1:<API_PUERTO>
 | F. Gráficas personalizables y relay web | Gráficas; el estado del reenviador en la barra |
 | G. QR, LKP, vector y alarma de descenso | Recuperación y Alarmas |
 
-## 9. Preguntas para refinar
+## 9. Preguntas y respuestas (el usuario, 2026-10-25)
 
-1. **Prioridad:** con la misma gente, ¿qué va primero: el **mínimo de operación** o la **web pública**? Propongo el mínimo de operación primero, porque es el que se usa en la rampa y en la recuperación; la web después.
-2. **Puesto de la estación:** ¿cuántos portátiles, pantallas y operadores? ¿Uno solo para los dos cohetes, o uno por cohete? ¿Hay segundo monitor?
-3. **¿Comandos desde el dashboard?** *Objetivos* 7.D lo pide; DP-15 deja la CLI como la vía obligatoria. Propongo las dos, con la CLI de respaldo.
-4. **Confirmación de los comandos críticos:** ¿escribir el nombre de la misión (como en la CLI), mantener presionado, o que lo confirme una segunda persona?
-5. **Sol:** ¿operan al aire libre? ¿Agregamos un "modo sol" claro y de alto contraste?
-6. **¿Alarmas sonoras?**
-7. **Mapa:** ¿basta el mapa vectorial offline, o necesitan **imagen satelital offline** para guiar la recuperación en el monte?
-8. **"Todas las variables":** ¿incluye el hexadecimal de los paquetes y los contadores del módem (propuesto)? ¿Exportar a CSV en el campo?
-9. **El 3D en operación:** *Objetivos* 7.A pide la trayectoria 3D y el modelo con actitud. ¿Lo dejamos como *could*, igual que en la web, con la actitud 2D y el perfil de altitud como respaldo?
-10. **¿Se lanzan los dos cohetes casi al mismo tiempo, o con minutos de diferencia?** Cambia si la vista principal muestra los dos lado a lado o uno grande y el otro pequeño.
-11. **¿Quién lo construye?** Propongo los mismos carriles: E (tú) la parte visual y los comandos, y D (Jerónimo) los datos, el inspector y el diagnóstico. Jerónimo ya va cargado (R-W7).
-12. **¿Quién sirve el dashboard?** Propongo que el servidor local de C-05 (Jerónimo) sirva `gui/web/dist/operacion/` como archivos estáticos. Hay que acordarlo con él.
+| # | Pregunta | Respuesta | Dónde |
+| --- | --- | --- | --- |
+| 1 | ¿Qué va primero? | "Sí [el mínimo de operación], pero de cualquier manera vamos a darle a todo" | §7 |
+| 2 | ¿El puesto? | Un PC principal y un segundo monitor | §3 |
+| 3 | ¿Comandos desde el dashboard? | Sí; la CLI queda de respaldo | §4 |
+| 4 | ¿La confirmación? | Escribir el nombre de la misión | §4 |
+| 5 | ¿Al sol? | "No sé, pero es bueno tener ese modo": se hace el modo sol | §6 |
+| 6 | ¿Alarmas sonoras? | Sí | §5 |
+| 7 | ¿Imagen satelital offline? | ❓ **Abierta:** el usuario pidió una explicación (va en la bitácora de la sesión). Recomendación: el mapa vectorial con relieve; el satélite es *could* si aparece una fuente que permita descargarlo. | §3.1 |
+| 8 | ¿El hexadecimal, los contadores del módem y el CSV? | ❓ **Abierta:** el usuario pidió una explicación. Recomendación: sí a los tres, con el hexadecimal en una sub-pestaña "Avanzado". | §3.3 |
+| 9 | ¿El 3D? | Queda pendiente (*could*) | §3.1 |
+| 10 | ¿Los lanzamientos? | En momentos diferentes | §1, §3 |
+| 11 | ¿El reparto? | "Repártelo como sea mejor; lo importante es poder trabajar coordinados" | §7, 06 §1 |
+| 12 | ¿Quién sirve el dashboard? | El PC local recibe los datos y sirve el dashboard; de ahí van al servidor remoto, que sirve la página pública | §2 |

@@ -4,29 +4,39 @@ estado: aprobado (PR #1, 2026-10-25). Alineado con el plan de dos sesiones del b
 actualizado: 2026-10-25
 depende_de: [gui_vision, gui_arquitectura, gui_contrato_datos, flujo_trabajo, plan_maestro, dos_sesiones_plan_maestro, C-05]
 ---
-# Plan de la web pública: fases, carriles y worktrees
+# Plan de la web pública y de operación: fases, áreas y worktrees
 
 ## 1. La idea en una línea
 
-**Dos carriles en paralelo desde el día 1, separados por dos contratos congelados en W0:** los tokens de diseño y el contrato de datos.
-- El carril **E (Experiencia)** construye lo que se ve, con datos de ejemplo.
-- El carril **D (Datos)** construye lo que trae y mueve los datos, con el repetidor.
+**Dos áreas de trabajo en paralelo desde el día 1, separadas por dos contratos congelados en W0:** los tokens de diseño y el contrato de datos.
+- El área **E (Experiencia)** construye lo que se ve, con datos de ejemplo.
+- El área **D (Datos)** construye lo que trae y mueve los datos, con el repetidor.
 
 Se encuentran en una interfaz única, `src/datos/api.ts`, y **no tocan las mismas carpetas**. El back se conecta al final (W3) cambiando una variable (D-W07).
 
-> **Letras E y D, no A y B (D-W12).** El [plan de dos sesiones](../05_plan/dos_sesiones/00_LEEME.md) del back ya usa **A = Jerónimo** y **B = Juan Pablo**. Para no confundir, la web usa E y D.
+> **Letras E y D, no A y B (D-W12).** Son áreas de carpetas, no personas (D-W16). El [plan de dos sesiones](../05_plan/dos_sesiones/00_LEEME.md) del back ya usa **A = Jerónimo** y **B = Juan Pablo**. Para no confundir, la web usa E y D.
 
-| Carril | Persona (confirmado, PEN-W09) | Es dueño de |
-| --- | --- | --- |
-| **E, Experiencia** | Juan Pablo | `gui/web/index.html`, `demeter/`, `hermes/`, `src/tema/`, `src/portada/`, `src/entradas/`, `src/mision/`, `src/contenido/`, `src/assets/`, `vite.config.ts` |
-| **D, Datos** | Jerónimo | `src/datos/` (menos `api.ts`, que es compartido y congelado), `src/mapa/`, `src/graficas/`, `src/actitud/`, `public/mapas/`, `dev/`, `gui/relay/`, `tools/web_datos/` |
-| **Compartido y congelado en W0** | Los dos, por decisión | `src/contrato/`, `src/datos/api.ts`, `package.json` (dependencias) |
+| Área | Carpetas |
+| --- | --- |
+| **E, Experiencia** | `gui/web/index.html`, `demeter/`, `hermes/`, `operacion/`, `src/tema/`, `src/portada/`, `src/entradas/`, `src/mision/`, `src/operacion/`, `src/contenido/`, `src/assets/`, `vite.config.ts` |
+| **D, Datos** | `src/datos/` (menos `api.ts`, que es compartido y congelado), `src/mapa/`, `src/graficas/`, `src/actitud/`, `public/mapas/`, `dev/`, `gui/relay/`, `tools/web_datos/` |
+| **Compartido y congelado en W0** | `src/contrato/`, `src/datos/api.ts`, `package.json` (dependencias) |
+
+**Cómo se reparte (D-W16, decidido por el usuario: "repártelo como sea mejor; lo importante es trabajar coordinados"):**
+- **E y D son áreas de carpetas, no personas.** Cualquiera de los dos toma cualquier tarea.
+- **Tomar una tarea:**
+  1. Elige la siguiente tarea **lista** (sus dependencias están hechas) de mayor prioridad: primero el mínimo de operación (S+), luego M, luego S.
+  2. **La toma creando su rama y un PR en borrador** (`gh pr create --draft`) con el ID en el título, y lo dice en la sincronización de la mañana.
+  3. El PR en borrador es el "candado": **nadie toma una tarea que ya tiene PR abierto.**
+- **Regla de no pisarse:** **dos tareas en curso nunca tocan la misma área a la vez**, salvo que estén en subcarpetas distintas (por ejemplo, `src/mapa/` y `src/graficas/` sí pueden ir en paralelo; dos tareas en `src/mision/` no).
+- **Punto de partida sugerido** (para equilibrar la carga, no es fijo): Juan Pablo empieza por E y Jerónimo por D. Como Jerónimo también lleva la sesión A del back, **Juan Pablo toma tareas de D cuando E no tenga nada listo** (R-W7).
+- **Qué está en curso:** la lista de PR en borrador (`gh pr list --draft`) es la verdad. El estado del backlog se consolida en las sincronizaciones de hito, como en el back.
 
 **Relación con el plan del back** ([dos_sesiones](../05_plan/dos_sesiones/00_LEEME.md)):
 - Su contrato C-01 marca `gui/`, `docs/08_gui/` y `tools/web_datos/` como **"otro plan: no se toca"**. Su hook `no_gui.py` lo hace cumplir **salvo en las sesiones web** (variable `SESION`, ver su [15](../05_plan/dos_sesiones/15_CLAUDE_md_propuesto.md) §3).
   → **Una sesión de Claude Code que trabaje en la web se abre con `SESION=web`.**
 - **Su servicio de tierra produce `web-1`** (DP-17, [C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md)), con las mismas rutas de lectura que nuestro relay. Para la web, el servicio local, el relay y el repetidor son **intercambiables cambiando la URL base**.
-- **Carga de Jerónimo:** lleva la sesión A del back (enlace, tiempo, tierra y Pi) y el carril D. Si se atrasa, la regla de §2 pausa primero el carril D (R-W7).
+- **Carga de Jerónimo:** lleva la sesión A del back (enlace, tiempo, tierra y Pi) y tareas de la web. Si se atrasa, Juan Pablo toma las tareas de D que estén listas (R-W7).
 
 ## 2. Fases
 
@@ -52,22 +62,22 @@ W4 Congelar                                                         ██
 ## 3. Tareas (T-610 a T-699)
 
 **Columnas:**
-- **Carril:** E, D o Ambos.
+- **Área:** E, D o Ambos (las carpetas que toca, no quién la hace).
 - **Pri:** M, S o C, como en el [backlog](../05_plan/backlog.md).
 - **Leer:** siempre este plan y lo que diga la fila, con rutas relativas a `docs/`.
 
 ### W0: Cimientos
 
-| ID | Tarea | Carril | Pri | Depende de | Leer | Criterio de aceptación |
+| ID | Tarea | Área | Pri | Depende de | Leer | Criterio de aceptación |
 | --- | --- | --- | --- | --- | --- | --- |
 | T-610 | **Andamiaje de `gui/web/`:**<br>- Vite multipágina (`/`, `/demeter/` y `/hermes/`), TS, Preact y signals, Biome, Vitest y Playwright.<br>- **Instalar de una vez todas las dependencias del stack** (04 §2).<br>- El proxy `/api` → `localhost:8787` para el repetidor.<br>- La prueba de aislamiento del `dist/`.<br>- La prueba de humo a 390×844 y 1440×900. | E | M | — | 08_gui/04 §2–3, §6 | `npm run build`, `npm test` y `npm run e2e` pasan. La prueba de aislamiento falla si `/demeter/` referencia algo de Hermes, y al revés (comprobado con un caso falso). |
-| T-611 | **Contratos en código:**<br>- `src/contrato/tipos.ts` y `esquema.json` (05 completo).<br>- `src/datos/api.ts`: las *signals* públicas que consume el carril A (estado, salud, estación, eventos, serie, `estadoPagina` y `edad`), **alimentadas por un snapshot de ejemplo estático**.<br>- Un validador en las pruebas. | D | M | T-610 | 08_gui/05, 08_gui/03 §4 | Los tipos compilan; el esquema valida los JSONL de T-612; `api.ts` se puede importar y muestra datos de ejemplo. **Los dos lo aprueban en el PR: queda congelado.** |
+| T-611 | **Contratos en código:**<br>- `src/contrato/tipos.ts` y `esquema.json` (05 completo).<br>- `src/datos/api.ts`: las *signals* públicas que consume el área E (estado, salud, estación, eventos, serie, `estadoPagina` y `edad`), **alimentadas por un snapshot de ejemplo estático**.<br>- Un validador en las pruebas. | D | M | T-610 | 08_gui/05, 08_gui/03 §4 | Los tipos compilan; el esquema valida los JSONL de T-612; `api.ts` se puede importar y muestra datos de ejemplo. **Los dos lo aprueban en el PR: queda congelado.** |
 | T-612 | **Generador de datos (`tools/web_datos/`, Python):** OpenRocket CSV → JSONL del contrato. Deméter desde la simulación real; Hermes sintético (G80, marcado). Los 6 escenarios de 05 §5. | D | M | — (paralelo a T-610) | 08_gui/05, 02_requisitos/perfiles_vuelo, datos/README | El apogeo de Deméter en el JSONL difiere < 1 m de la simulación (669 m) y los eventos < 0,1 s; los 12 archivos validan contra el esquema (cuando esté T-611) |
 | T-613 | **Tema y tokens:**<br>- `tema/comun.css`, `demeter.css` y `hermes.css`, exactamente los de 02 §6.<br>- Las fuentes autohospedadas (WOFF2 con subconjunto latino).<br>- La página de desarrollo `dev/tokens.html`, con todos los tokens y estados en los dos temas. | E | M | T-610 | 08_gui/02 | La página de tokens se ve bien en los dos temas; ningún componente posterior usa colores sueltos (regla de Biome o grep en las pruebas) |
 
 ### W1: Paralelo 1
 
-| ID | Tarea | Carril | Pri | Depende de | Leer | Criterio de aceptación |
+| ID | Tarea | Área | Pri | Depende de | Leer | Criterio de aceptación |
 | --- | --- | --- | --- | --- | --- | --- |
 | T-620 | **Portada**, según 03 §1: dos mitades, hover y foco que hacen crecer el parche, enlaces, cabecera EIA, versiones vertical y horizontal, sin JS | E | M | T-613 (fondos provisionales hasta T-621) | 08_gui/03 §1, 02 §7 | Capturas a 390×844, 844×390 y 1440×900 · < 500 KB · LCP < 2 s (Lighthouse móvil) · se navega con el teclado |
 | T-621 | **Assets de marca:**<br>- generar y elegir los fondos de la portada (07 §2);<br>- exportar los parches y el logo en AVIF y WebP, a 256, 512 y 1024 px;<br>- placeholders de las fotos. | E (**el diseñador, Claude principal, con el usuario:** no es código) | M | PEN-W08 | 08_gui/07 | Los originales en `src/assets/{comun,demeter,hermes}/`; el build los exporta dentro del presupuesto de peso. Los fondos, aprobados por el usuario. |
@@ -79,7 +89,7 @@ W4 Congelar                                                         ██
 
 ### W2: Paralelo 2
 
-| ID | Tarea | Carril | Pri | Depende de | Leer | Criterio de aceptación |
+| ID | Tarea | Área | Pri | Depende de | Leer | Criterio de aceptación |
 | --- | --- | --- | --- | --- | --- | --- |
 | T-624 | **Estado de la misión, Telemetría y banner de alarma** (03 §3.2, §3.3 y §4) | E | M | T-622, T-631 | 08_gui/03, 02 §9 | Con `nominal`: la línea de fases y los objetivos se encienden en orden con su T+. Con `descenso_rapido`: sale el banner. Los números son tabulares, con coma decimal. |
 | T-625 | **Recuperación** (coordenadas, Google Maps, QR y vector) y **Salud del cohete** (resumen, Go/No-Go y detalle) (03 §3.5 y §3.8) | E | M (Recuperación) / S (Salud) | T-622, T-631 | 08_gui/03, 05 §2.3 | El QR abre la URL correcta en un celular real; con fallas simuladas, el resumen y el detalle cambian |
@@ -90,7 +100,7 @@ W4 Congelar                                                         ██
 
 ### W3: Integración
 
-| ID | Tarea | Carril | Pri | Depende de | Leer | Criterio de aceptación |
+| ID | Tarea | Área | Pri | Depende de | Leer | Criterio de aceptación |
 | --- | --- | --- | --- | --- | --- | --- |
 | T-641 | **Conectar con el back:** el reenviador de la estación (T-605a, back) postea `web-1` al relay. **Se puede probar antes sin hardware** con el reprocesamiento de un log crudo del servicio de tierra ([C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md) §1). | Ambos | S | T-640, **T-602 y T-S06** (servicio y API local), **T-605a** | 08_gui/05, 05_plan/dos_sesiones/06_contratos/05_api_backend_tierra | Primero un log crudo reprocesado y después una placa real en el banco aparecen en la web pública con < 2 s de retraso |
 | T-642 | **Despliegue:** CDN estático, relay con TLS, dominio, variables de entorno y PMTiles en el CDN (PEN-W05) | Ambos | S | T-640 | 08_gui/04 §9 | URL pública funcionando; el SSE no queda en búfer (los mensajes llegan uno a uno) |
@@ -123,10 +133,12 @@ T-612 ─► T-630 ─► T-631 ────────────────
 T-611 ─► T-632                                     T-624, T-625 ─► T-644
 ```
 
-**Lo que se puede hacer al mismo tiempo, el primer día:** T-610 (E) y T-612 (D).
-**Después de HW0:**
-- E puede llevar a la vez T-620 y T-622 (portada y misión no comparten carpetas);
-- D puede llevar a la vez T-630→T-631 y T-632.
+**Lo que se puede hacer al mismo tiempo, el primer día:** T-610 (área E) y T-612 (área D).
+**Después de HW0**, en paralelo:
+- T-620 y T-622 (la portada y la misión no comparten carpetas);
+- T-630→T-631 y T-632.
+
+**Orden de prioridad cuando hay varias listas** (D-W16): primero las S+ del [dashboard de operación](09_dashboard_operacion.md) §7, luego las M de la web, luego las S.
 
 **El dashboard de operación** (T-660 en adelante) tiene su propio documento: [09_dashboard_operacion](09_dashboard_operacion.md). Reutiliza el andamiaje, el cliente de datos, el mapa y las gráficas de esta web, así que empieza **después de HW1**.
 
@@ -136,7 +148,7 @@ T-611 ─► T-632                                     T-624, T-625 ─► T-644
   - El agente `desarrollador` crea su worktree (`isolation: worktree`).
   - Un humano lo hace con: `git worktree add ../hermes-wt/T-620 -b feature/T-620-portada develop`.
 - **Cada mañana**, cada rama abierta se actualiza desde `develop` (merge de `develop` hacia la rama). Nunca se rebasa una rama ajena.
-- **Cada persona puede tener varias tareas en curso a la vez**, siempre que estén en **su carril** y **no compartan carpetas**. Por ejemplo, E con T-620 y T-622; D con T-631 y T-632.
+- **Cada persona puede tener varias tareas en curso a la vez** (cada una en su worktree), siempre que **no compartan carpetas** con ninguna otra tarea en curso, suya o del otro (§1). Por ejemplo, T-620 y T-622 en paralelo, o T-631 y T-632.
 - **Archivos que nunca se tocan sin acuerdo:**
   - `src/contrato/`, `src/datos/api.ts` y los tokens de `src/tema/` (contratos, D-W);
   - `package.json`: si hace falta una dependencia nueva, va en un PR pequeño `build(web): agregar <dep> [T-6xx]` que se integra primero.
@@ -185,5 +197,5 @@ Para lanzar una tarea, en una sesión con `SESION=web`: *"Implementa T-6xx. El p
 | R-W4 | No llegan las fotos ni los nombres a tiempo | Media | Bajo | Placeholders dignos (parche y fondo) y contenido modificable hasta el 6 de noviembre |
 | R-W5 | Se confunde la simulación con el vuelo real | Baja | Alto | Banner "SIMULACIÓN" fijo y modo marcado en `meta.modo` (03 §4) |
 | R-W6 | La cuota gratuita de Hugging Face no alcanza para generar los fondos | Media | Bajo | Generar pronto (T-621 en W1); alternativa: fotos con licencia libre y el mismo tratamiento |
-| R-W7 | Jerónimo queda sobrecargado: la sesión A del back más el carril D | Alta | Medio | Su back va primero; el carril D se pausa antes que E; Juan Pablo puede tomar T-632 o T-633 si E va adelantado |
+| R-W7 | Jerónimo queda sobrecargado: la sesión A del back más tareas de la web | Alta | Medio | Su back va primero. Como no hay dueños fijos (D-W16), Juan Pablo toma las tareas de D que estén listas |
 | R-W8 | `web-1` cambia después de H0 y rompe la web, el servicio de tierra y la CLI a la vez | Baja | Alto | Congelado en H0 con C-05; solo campos opcionales sin `web-2`; los dos lados validan contra el mismo `esquema.json` |
