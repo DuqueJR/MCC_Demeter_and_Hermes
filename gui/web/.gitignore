@@ -4,3 +4,6 @@ test-results/
 playwright-report/
 e2e/capturas/
 .env.local
+
+# PMTiles del mapa (T-632): lo genera un humano (src/mapa/README.md) y va al CDN, no al repo.
+public/mapas/*.pmtiles

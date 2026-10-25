@@ -1,0 +1,83 @@
+/*
+ * La sección Mapa (03 §3.4) [T-632]: lo que va en el CSS inicial. El resto (marcadores, controles y
+ * el CSS de MapLibre) está en mapa.css y se carga junto con el mapa. SOLO tokens de src/tema/ (06 §6).
+ * Alto: 60 % de la pantalla en el celular y, en el portátil, lo que ocupe el centro del panel.
+ */
+
+.mapa-seccion {
+  display: flex;
+  flex-direction: column;
+}
+
+.mapa-marco {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 60svh;
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.mapa-espera {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--e-3);
+  margin: 0;
+  padding: var(--e-4);
+  color: var(--texto-2);
+  text-align: center;
+}
+
+.mapa-espera p {
+  margin: 0;
+}
+
+/* Leyenda bajo el mapa: qué es cada insignia. */
+.mapa-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-1) var(--e-4);
+  margin: var(--e-2) 0 0;
+  padding: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  list-style: none;
+}
+
+.mapa-leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+}
+
+.mapa-leyenda svg {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+/* Pantalla completa: la sección cubre la ventana y la página de atrás no se desplaza. */
+.mapa-seccion.completa {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border-radius: 0;
+  background: var(--fondo);
+}
+
+.mapa-seccion.completa .mapa-marco {
+  min-height: 0;
+}
+
+html.mapa-completa-abierta {
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .mapa-marco {
+    min-height: calc(var(--e-8) * 7);
+  }
+}
