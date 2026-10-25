@@ -118,7 +118,7 @@ tools/web_datos/                      OpenRocket CSV → JSONL del contrato (D)
 | --- | --- | --- | --- |
 | Portada | < 500 KB (fondos AVIF de unos 150 KB cada uno a 1080 px; parches WebP de 512 px de unos 60 KB) | < 2 s | Sin JS. Con `<picture>` y `srcset`. |
 | Misión, sin el mapa | JS < 90 KB gz, CSS < 20 KB, fuentes < 80 KB | < 2,5 s | Preact + signals + uPlot + el código propio |
-| Mapa (diferido) | MapLibre unos 230 KB gz, más los tiles visibles | Cuando el usuario llega a la sección | En la red móvil del evento, la página es útil sin el mapa |
+| Mapa (diferido) | **Medido en T-632:** unos 300 KB gz el chunk (MapLibre, `pmtiles` y el código del mapa) y 148 KB gz el worker, más los tiles visibles. Antes se estimaba en unos 230 KB | Cuando el usuario llega a la sección | En la red móvil del evento, la página es útil sin el mapa. El JS inicial de la misión con el mapa integrado pesa 16,7 KB gz |
 
 - Las imágenes de las fotos van en AVIF/WebP, con `loading="lazy"` y medidas fijas (sin saltos de diseño).
 - Lighthouse móvil ≥ 90 en rendimiento y en accesibilidad (criterio de T-644).
