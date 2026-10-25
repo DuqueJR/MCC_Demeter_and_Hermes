@@ -100,6 +100,7 @@ Otras decisiones del repetidor que los documentos no fijan (todas `(P)`, fácile
 
 ## Problemas y cómo se resolvieron
 - Una prueba mía suponía que con una `serie` decimada a 120 puntos (menos que los puntos de vuelo) el apogeo sobrevive; no tiene por qué, porque entonces se decima parejo todo. La corregí: con un máximo menor que el vuelo se comprueba el máximo y el orden; con un máximo que alcanza para el vuelo se comprueba que el apogeo se conserva.
+- **Lint (corregido después del PR):** dije "lint sin errores" y no era cierto. Corrí `biome check --write` solo sobre los `.ts` y `package.json`, y no sobre los dos README con tablas (`gui/web/README.md` y `gui/web/dev/repetidor/README.md`), que Biome también formatea. `npm run lint` daba 2 errores de formato. Se arregló con `npx biome format --write README.md dev/repetidor/README.md` (solo espacios y guiones de las tablas); quedan 0 errores y los 3 avisos que ya existían. Lección: correr `npm run lint` completo antes de dar el informe, no un subconjunto.
 - No hay grafo de graphify en la carpeta principal (`graphify-out/graph.json` no existe), así que usé grep y lectura directa de los documentos citados en el encargo.
 - El entorno del agente no deja correr comandos de shell compuestos con redirecciones a rutas calculadas; los scripts de análisis temporales van en el directorio de trabajo temporal de la sesión, no en el repo.
 
