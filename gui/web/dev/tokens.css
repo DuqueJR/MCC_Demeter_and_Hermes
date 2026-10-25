@@ -1,0 +1,204 @@
+/* Página de desarrollo de tokens (T-613). Solo usa tokens: sin colores sueltos. */
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-3) var(--e-4);
+  background: var(--superficie-2);
+  border-bottom: 1px solid var(--linea);
+}
+
+.barra h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.selector {
+  display: flex;
+  gap: var(--e-2);
+}
+
+button {
+  min-height: var(--toque-min);
+  padding: 0 var(--e-4);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+button[aria-pressed="true"] {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--e-4);
+}
+
+section {
+  margin-bottom: var(--e-6);
+}
+
+h2 {
+  margin: 0 0 var(--e-3);
+  font-size: 1.1rem;
+  color: var(--marca-2);
+}
+
+h3 {
+  margin: var(--e-3) 0;
+  font-size: 1.5rem;
+}
+
+.nota,
+small,
+.etiqueta {
+  color: var(--texto-2);
+}
+
+.etiqueta {
+  margin: var(--e-3) 0 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--e-3);
+  margin-bottom: var(--e-3);
+}
+
+.muestra,
+.estado,
+.forma {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  padding: var(--e-3);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-tarjeta);
+  background: var(--superficie);
+}
+
+.muestra .cuadro {
+  height: var(--e-7);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+}
+
+.institucional {
+  border-left: var(--e-2) solid var(--c);
+}
+
+.estado {
+  border-left: var(--e-2) solid var(--c);
+  color: var(--c);
+  font-weight: 600;
+}
+
+.icono {
+  font-size: 1.25rem;
+}
+
+.forma {
+  min-height: var(--e-8);
+}
+
+.forma.radio {
+  border-radius: var(--radio);
+}
+
+.numero-grande {
+  margin: 0;
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.numero-medio {
+  margin: 0;
+  font-size: 24px;
+}
+
+.unidad {
+  margin-left: var(--e-1);
+  color: var(--texto-2);
+  font-size: 0.5em;
+  font-weight: 400;
+}
+
+.pista {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  margin-bottom: var(--e-2);
+  padding: var(--e-2);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.bola {
+  width: var(--e-5);
+  height: var(--e-5);
+  border-radius: 50%;
+  background: var(--acento);
+  transition: transform var(--dur-media) var(--curva);
+  transform: translateX(0);
+}
+
+.bola.rapida {
+  transition-duration: var(--dur-rapida);
+}
+
+.pista.corre .bola {
+  transform: translateX(min(60vw, 20rem));
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  padding: var(--e-2);
+  border-bottom: 1px solid var(--linea);
+  text-align: left;
+}
+
+.espacios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-4);
+}
+
+.espacios div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-1);
+  font-size: 12px;
+  color: var(--texto-2);
+}
+
+.espacios i {
+  display: block;
+  background: var(--acento);
+}

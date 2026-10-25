@@ -1,4 +1,6 @@
 // Entrada provisional de Hermes (T-610). El armazón real es T-622.
+import "../tema/comun.css";
+import "../tema/hermes.css";
 import { signal } from "@preact/signals";
 import { render } from "preact";
 
