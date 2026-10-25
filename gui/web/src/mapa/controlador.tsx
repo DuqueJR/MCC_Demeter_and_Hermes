@@ -265,7 +265,9 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   });
 
   let detener: (() => void) | null = null;
-  mapa.on("load", () => {
+  // Se conecta en cuanto el estilo está listo, NO al evento `load`: ese espera a que lleguen las
+  // teselas visibles y, con mala red, retrasaría el LKP y el cohete, que no dependen de ellas.
+  mapa.once("style.load", () => {
     detener = effect(() => {
       actualizar({
         sitio: meta.value?.sitio ?? null,
