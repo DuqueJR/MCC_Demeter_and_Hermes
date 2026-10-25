@@ -1,7 +1,7 @@
 // Prueba de aislamiento del dist/ (D-W01, 04 §3).
 // Ningún archivo alcanzable desde /demeter/ puede referenciar nada de Hermes, y al revés.
 // Uso: node scripts/aislamiento.mjs [dist]   (sale con código 1 si hay violaciones)
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliDecompressSync } from "node:zlib";
@@ -241,14 +241,52 @@ export function revisarAislamiento(distRuta) {
   return violaciones;
 }
 
+// Valores característicos de src/contrato/ejemplos.ts: si aparecen en el dist/, los datos de ejemplo
+// (solo de desarrollo, `?ejemplo`) se colaron a producción y se verían como datos reales (R-W5).
+const MARCAS_DE_EJEMPLO = ["1793980800", "6.5823456", "-75.8231234", "1793981012345"];
+
+/**
+ * Busca los datos de ejemplo en los textos del dist/.
+ * @param {string} distRuta
+ * @returns {Violacion[]}
+ */
+export function buscarEjemplosEnDist(distRuta) {
+  const dist = resolve(distRuta);
+  /** @type {Violacion[]} */
+  const violaciones = [];
+  const recorrer = (dir) => {
+    for (const nombre of readdirSync(dir)) {
+      const ruta = join(dir, nombre);
+      if (statSync(ruta).isDirectory()) recorrer(ruta);
+      else if (EXT_TEXTO.has(extension(ruta))) {
+        const texto = readFileSync(ruta, "utf8");
+        const marca = MARCAS_DE_EJEMPLO.find((m) => texto.includes(m));
+        if (marca) {
+          violaciones.push({
+            pagina: "(dist)",
+            archivo: aPosix(relative(dist, ruta)),
+            motivo: `datos de ejemplo en producción (${marca})`,
+          });
+        }
+      }
+    }
+  };
+  if (existsSync(dist)) recorrer(dist);
+  return violaciones;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const violaciones = revisarAislamiento(process.argv[2] ?? "dist");
+  const violaciones = [
+    ...revisarAislamiento(process.argv[2] ?? "dist"),
+    ...buscarEjemplosEnDist(process.argv[2] ?? "dist"),
+  ];
   if (violaciones.length > 0) {
     console.error("AISLAMIENTO ROTO (D-W01):");
     for (const v of violaciones) console.error(`  /${v.pagina}/ -> ${v.archivo}: ${v.motivo}`);
     process.exit(1);
   }
   console.log("Aislamiento OK: /demeter/ y /hermes/ no se referencian entre sí.");
+  console.log("Sin datos de ejemplo en el dist/ de producción.");
   for (const pagina of PAGINAS) {
     const fuentes = fuentesDePagina(process.argv[2] ?? "dist", pagina);
     const total = fuentes.reduce((suma, f) => suma + f.bytes, 0);
