@@ -46,7 +46,7 @@ comandos: CLI o dashboard local ─► POST /api/v1/local/comandos ─► gestor
 | --- | --- |
 | Cada NAV | Un `estado`, con `calc`, `enlace` y `alarmas` calculados aquí |
 | Cada STATUS | Un `salud`, con `go_nogo` evaluado aquí según [maquina_estados](../../../04_diseno/maquina_estados.md) §4 |
-| `ESTADO_MODEM` (C-03) a 1 Hz | Un `estacion`, en cada flujo de misión, aunque no llegue nada del cohete |
+| `ESTADO_MODEM` (C-03) a 1 Hz | Un `estacion`, en cada flujo de misión, aunque no llegue nada del cohete. Es **una copia del mismo latido** en cada stream, sin campo de misión (`web-1` §2.4, D-W18) |
 | Cambios de fase y de flags | Un `evento` (`despegue`, `fin_combustion`, `eyeccion`, `apogeo`, `fase`, `aterrizaje`, `alarma_descenso`, `camaras`), con `t_mas_s` |
 | Los BACKFILL recibidos | Un `backfill` con el progreso; al completarse, el `snapshot` trae la trayectoria completa |
 | Al arrancar, al cambiar `mission_id` y al cambiar `proto_version` | Un `meta`. **`proto_version` = 3 cuando se aplique DP-07** (hay que avisarle al plan web) |
@@ -64,7 +64,7 @@ comandos: CLI o dashboard local ─► POST /api/v1/local/comandos ─► gestor
 | Ruta | Contenido |
 | --- | --- |
 | `GET /api/v1/{mision}/snapshot` | El `snapshot` de `web-1` §3. `mision` es `demeter` o `hermes` |
-| `GET /api/v1/{mision}/stream` | SSE con los mensajes de `web-1` §2, con `id: <seq>` y `Last-Event-ID`. **A diferencia del relay, en local no hay que bajar a 1 Hz en tierra:** sale todo lo que llega |
+| `GET /api/v1/{mision}/stream` | SSE con los mensajes de `web-1` §2, con `id: <seq>` (un contador creciente por misión de este servicio; la web lo trata como opaco, `web-1` §1) y `Last-Event-ID`. En local, `relay_utc_ms` va en `null`. **A diferencia del relay, en local no hay que bajar a 1 Hz en tierra:** sale todo lo que llega |
 | `GET /api/v1/salud` | Salud del servicio (puerto serie, módem, disco, reenviador) |
 
 - **Opción para una segunda pantalla de solo lectura** en la red local del portátil: abre **solo** estas rutas, nunca las de §3.

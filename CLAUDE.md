@@ -54,3 +54,36 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 - Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`. Desde el 2026-10-24 todavía no hay código propio.
 - **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
 - Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
+
+## graphify
+
+Búsqueda en el repo con un grafo de conocimiento (D-036). [Graphify](https://github.com/Graphify-Labs/graphify) `0.9.95` convierte el código y los `.md` de `docs/` en un grafo que se consulta en vez de leer archivo por archivo.
+
+**Dónde está el grafo:**
+- En `graphify-out/` de la **carpeta principal** del repo. **No se versiona** (está en `.gitignore`): cada persona lo construye en su máquina.
+- `.graphifyignore` deja fuera los datasheets, `docs/99_archivo/`, `docs/fuentes/`, `datos/`, los worktrees y los builds.
+
+**Cómo buscar:**
+1. Antes del primer grep o de leer archivos para responder algo sobre el repo, consulta el grafo:
+   - `graphify query "<pregunta>"`;
+   - `graphify path "<A>" "<B>"` para ver cómo se conectan dos cosas;
+   - `graphify explain "<concepto>"` para un concepto.
+2. Después lee solo las líneas que el grafo ubicó.
+3. Usa `graphify-out/GRAPH_REPORT.md` solo para una vista general.
+4. **Si no existe `graphify-out/graph.json` o no está instalado `graphify`, sigue con grep normal.** El hook no bloquea nada.
+
+**Desde un worktree** (por ejemplo, el agente `desarrollador`): el grafo no está en el worktree. Apunta al de la carpeta principal con `--graph <carpeta principal>/graphify-out/graph.json`. La carpeta principal es el padre de lo que devuelve `git rev-parse --path-format=absolute --git-common-dir`.
+
+**Qué no hace el grafo:**
+- No reemplaza las fuentes de verdad. Los números salen de `constantes.md`; los contratos, de sus documentos.
+- Una relación marcada `INFERRED` es una pista, no un hecho: verifica en el archivo antes de citarla.
+- Los datasheets siguen la regla de siempre: la ficha y grep en su `.md`.
+
+**Actualizar el grafo** (solo en la carpeta principal, nunca desde un worktree):
+- Después de integrar código a `develop`: `graphify update .`. Solo usa el AST, sin modelo y sin costo.
+- Después de cambios grandes en `docs/`: `/graphify . --update`. Usa el modelo de la sesión, así que lo corre el Claude principal o un humano, no el `desarrollador`.
+
+**Reglas:**
+- Pon una línea sobre el grafo en cada prompt de un subagente que explore el repo.
+- **No vuelvas a correr `graphify claude install`:** reescribe esta sección en inglés y sin las reglas del proyecto.
+- El hook de `.claude/settings.json` llama a `graphify hook-guard`, así que **cada persona necesita `graphify` instalado**. La instalación está en `docs/05_plan/flujo_trabajo.md` §9.

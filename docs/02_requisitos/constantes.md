@@ -150,6 +150,7 @@ Las replica la web en un solo archivo de constantes (06_plan_web §6), con los m
 | `WEB_SIN_SENAL_S` | 5 (P): a partir de aquí, "sin señal" y LKP | 08_gui/03 §4 |
 | `WEB_SIN_TRANSMISION_MIN` | 10 (P): sin nada de la estación, "la transmisión empieza el día del lanzamiento" | 08_gui/03 §4 |
 | `WEB_RECONEXION_MAX_S` | 15: el retroceso máximo de la reconexión SSE | 08_gui/03 §4 |
+| `WEB_ALARMA_SOSTENER_S` | 10: el banner de alarma de descenso sigue estos segundos después de que la alarma se apaga | 08_gui/03 §4, D-W18 |
 | `WEB_TASA_TIERRA_HZ` | 1: la tasa del relay hacia el público en BOOT, PREFLIGHT, ARMED y LANDED. En vuelo pasa todo. | 08_gui/04 §4 |
 | `WEB_SSE_LATIDO_S` | 15 | 08_gui/04 §4 |
 | `WEB_SSE_MAX_POR_IP` | 10 | 08_gui/04 §8 |

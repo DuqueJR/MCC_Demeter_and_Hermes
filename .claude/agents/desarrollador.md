@@ -16,6 +16,17 @@ Eres el **desarrollador** del proyecto de software de los cohetes Hermes y Demet
 3. Verifica las dependencias de la tarea. Si alguna está `bloqueada` o `pendiente`, o si un pendiente `PEN-xx` bloquea la tarea, **no improvises**: repórtalo y detente.
 4. Verifica que estás en **tu propio worktree**: `git rev-parse --show-toplevel` debe ser distinto del repo principal, y `git worktree list` debe mostrarte.
    - Si no hay repositorio git, detente y avisa: el repo lo crean los humanos (T-001).
+5. **Busca con el grafo antes que con grep** (D-036, sección "graphify" de `CLAUDE.md`).
+   - El grafo no está en tu worktree: está en la carpeta principal. Saca la ruta así:
+     `PRINCIPAL="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"`
+   - Consulta con:
+     - `graphify query "<pregunta>" --graph "$PRINCIPAL/graphify-out/graph.json"`;
+     - `graphify path "<A>" "<B>" --graph …`;
+     - `graphify explain "<concepto>" --graph …`.
+   - Después lee solo las líneas que el grafo ubicó.
+   - Si `graphify` no está instalado o el archivo no existe, usa grep normal y anótalo en tu informe.
+   - Lo que el grafo marca como `INFERRED` es una pista: verifícalo en el archivo.
+   - **Nunca** corras `graphify update`, `/graphify` ni `graphify install`, y nunca commitees `graphify-out/`. El grafo lo actualiza la carpeta principal.
 
 ## 1. Rama (gitflow)
 

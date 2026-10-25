@@ -43,10 +43,12 @@ decisiones: [D-025, D-W01, D-W05, D-W06, D-W09]
 | Gráficas | **uPlot** | Unos 50 KB, pensado para series de tiempo en vivo y muy rápido en el celular | Chart.js (más pesado y lento con muchos puntos) |
 | Tiempo real | **SSE** (`EventSource`) | Va en una sola dirección, **como debe ser una web sin comandos** (GS-14). Reconecta solo, con `Last-Event-ID`, y es HTTP normal (pasa proxies y redes móviles). | WebSocket: es bidireccional, no hace falta y abre la puerta a enviar cosas |
 | QR | `uqr` o `qrcode-generator` (unos 10 KB) | El QR se genera en el navegador | Un servicio externo |
-| Íconos | `lucide` (importando íconos sueltos) | Licencia MIT y *tree-shaking* | — |
+| Íconos | `lucide-preact` (importando íconos sueltos; D-W17) | Licencia MIT, *tree-shaking* y componentes nativos de Preact | `lucide` vanilla: obliga a convertir los íconos a mano |
 | Imágenes | `vite-imagetools` | Genera AVIF/WebP en varios tamaños durante el build: nadie exporta tamaños a mano | Exportar a mano |
 | Pruebas | **Vitest** (lógica de datos, interpolación, estados de la página, parseo del contrato) + **Playwright** (humo a 390×844 y 1440×900, con capturas) | Se prueba lo que puede romperse en vivo | — |
+| Validación del contrato | **Ajv** + `ajv-formats`, solo en desarrollo (D-W17) | Valida los JSONL y los mensajes contra `esquema.json` en las pruebas (T-611); no va al navegador | — |
 | Calidad | **Biome** (lint y formato en una sola herramienta) | Una sola configuración | ESLint + Prettier |
+| Entorno | **Node 22** (`.nvmrc`) y `npm ci` con el lockfile (D-035) | Las dos máquinas (Windows y macOS) instalan exactamente lo mismo | Docker para desarrollar: estorba en Windows y con el USB del firmware |
 | Relay | **Python 3.12 + FastAPI + uvicorn**, con SSE por `sse-starlette` | El equipo ya trabaja en Python (estación, Pi y decodificador). Aguanta 500 SSE en una máquina pequeña (§5). | Node: un lenguaje más para mantener |
 
 ## 3. Estructura en el repo

@@ -25,6 +25,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | Generar, pedir u optimizar imágenes | [07_assets_e_imagenes.md](07_assets_e_imagenes.md) |
 | El cohete en 3D (congelado: es un *could*) | [08_modelo_3d_futuro.md](08_modelo_3d_futuro.md) |
 | **El dashboard de operación** (nuestra consola en la estación; borrador) | [09_dashboard_operacion.md](09_dashboard_operacion.md) |
+| Preparar la sincronización H0 (congelar `web-1`, PR #7) | [10_agenda_H0_web-1.md](10_agenda_H0_web-1.md) |
 
 ## Relación con el plan del back ([dos_sesiones](../05_plan/dos_sesiones/00_LEEME.md))
 
@@ -69,6 +70,8 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | D-W11 | El nombre público es **"Deméter"**, con tilde, en todo texto visible; `demeter` en las URLs y el código | Aprobada por el usuario (2026-10-25) | 02, 03 |
 | D-W12 | Las áreas de la web se llaman **E (Experiencia)** y **D (Datos)**, para no chocar con las sesiones A y B del back | Aprobada (C), por compatibilidad | 06 §1 |
 | D-W16 | **No hay dueño fijo por persona:** cualquiera toma la siguiente tarea lista; el PR en borrador es el candado; dos tareas en curso nunca tocan la misma carpeta; prioridad S+ (mínimo de operación), luego M, luego S | Aprobada por el usuario (2026-10-25: "repártelo como sea mejor") | 06 §1 |
+| D-W18 | **Cierre de `web-1` en T-611** (agenda de H0, [10](10_agenda_H0_web-1.md)):<br>- la lista de campos que pueden ser `null` y el esquema estricto, con `validacion_extra.ts` para lo que el esquema no expresa;<br>- `evento.fase` y `evento.activa` siempre presentes;<br>- el `id` del SSE es un contador del emisor;<br>- el latido de `estacion` se copia en cada stream;<br>- el estado de la página es uno principal más avisos. "Sin transmisión" solo aplica antes de ARMED; desde ARMED, el LKP no tiene límite;<br>- se congela solo el lado de lectura de `api.ts`, que arranca vacío, sin datos de ejemplo;<br>- se agrega `WEB_ALARMA_SOSTENER_S`. | Decidida por el documentador con delegación del usuario (2026-10-25); Jerónimo aprueba al integrar el PR #7 | 05, 03 §4, constantes §9 |
+| D-W17 | Ajustes al stack en T-610: **Ajv** + `ajv-formats` como dependencias de desarrollo para el validador de T-611, y **`lucide-preact`** en vez de `lucide`. Node 22 fijo (D-035). | Aprobada por el usuario (2026-10-25, revisión del PR #4) | 04 §2 |
 | D-W13 | `web-1` acepta antes de congelarse las propuestas del back: `meta.proto_version` 2 o 3 y `salud.fw_version` (PA-15), y `estado.lkp` (PA-22). Son campos opcionales y compatibles. | Propuesta (C). Se aprueba en H0 con C-05. | 05 |
 | D-W14 | El **dashboard de operación** es parte de este plan: una cuarta entrada de la misma app, servida por el servidor local de C-05 y con los comandos por `/api/v1/local/` (PA-23) | Aprobada por el usuario (2026-10-25), con las 12 preguntas de 09 §9 respondidas | 09 |
 | D-W15 | La web sigue el flujo de ramas de DP-01 (ramas de ≤ 1 día; "preguntar" para `web-1`, los tokens, el relay y los comandos; "mostrar" para el resto) | Adoptada (C), por compatibilidad con DP-01 | 06 §5 |

@@ -1,7 +1,7 @@
 ---
 id: flujo_trabajo
 estado: aprobado (D-028, D-029, D-030)
-actualizado: 2026-10-24
+actualizado: 2026-10-25
 ---
 # Flujo de trabajo: roles, git, worktrees y documentación
 
@@ -81,3 +81,31 @@ Los tipos y ámbitos permitidos, y un ejemplo, están en `.claude/agents/desarro
   - Para versionar también los PDF: instalar `git-lfs`, ejecutar `git lfs track "*.pdf"` y quitar la línea del `.gitignore`.
 - **Plantilla de PR:** `.github/pull_request_template.md`, con el checklist de §5.
 - **Pendiente en GitHub (lo hace el dueño del repo):** proteger `main` y `develop` (exigir PR, una revisión y prohibir el force-push).
+
+## 9. Búsqueda con graphify (D-036)
+
+[Graphify](https://github.com/Graphify-Labs/graphify) arma un grafo de conocimiento con el código y los `.md` de `docs/`. Así, los agentes consultan el grafo en vez de leer archivo por archivo. Las reglas de uso están en la sección "graphify" de `CLAUDE.md` y en el §0 del agente `desarrollador`.
+
+**Instalación (una vez por máquina, Windows y macOS).** Hace falta porque el hook de `.claude/settings.json` llama a `graphify`; sin él, Claude Code muestra un error en cada búsqueda.
+
+1. Instalar `uv`:
+   - macOS: `brew install uv`;
+   - Windows: `winget install astral-sh.uv`.
+2. `uv tool install "graphifyy==0.9.95"`. El paquete se llama así, con **doble y**; los otros `graphify*` de PyPI no son oficiales. El comando sigue siendo `graphify`.
+3. Si `graphify` no aparece en la terminal: `uv tool update-shell` y abrir otra terminal.
+
+**Construir el grafo (una vez por persona, en la carpeta principal del repo):**
+- En Claude Code: `/graphify .`.
+  - El código se lee localmente con el AST, sin modelo.
+  - Los `.md` pasan por el modelo de la sesión: es un costo único de tokens: la primera construcción (112 documentos, 6 subagentes Sonnet) gastó unos 850 000 el 2026-10-25. Después, `--update` solo procesa lo que cambió.
+- **Sin claves de API en el entorno:** si existe una variable como `GEMINI_API_KEY` u `OPENAI_API_KEY`, el modo sin asistente (`graphify extract`) le enviaría los documentos a ese proveedor.
+
+**Mantenerlo al día (solo en la carpeta principal):**
+- Después de integrar código: `graphify update .` (gratis).
+- Después de cambios grandes en `docs/`: `/graphify . --update`.
+
+**Qué queda en el repo:**
+- **Se versiona:** `.claude/skills/graphify/` (la skill), `.claude/settings.json` (el hook), `.graphifyignore` y las reglas.
+- **No se versiona:** `graphify-out/`. Es un archivo generado que se reescribe entero en cada actualización, y con varias ramas en paralelo daría conflictos todo el tiempo.
+
+**Para quitarlo:** `graphify uninstall` y borrar la sección de `CLAUDE.md`.
