@@ -1,0 +1,35 @@
+/*
+ * Tokens de cada misión aplicados a un ELEMENTO, no a :root [T-620].
+ * Solo para la portada (`/`), donde las dos misiones conviven en la misma página: los temas
+ * de demeter.css y hermes.css se activan con `:root[data-mision]` y no pueden convivir.
+ * Los valores se REPLICAN de 02 §6 (mismos nombres que en demeter.css y hermes.css).
+ * Si cambia un token de misión, hay que cambiarlo aquí también.
+ * Propuesta abierta: que T-613 cambie los selectores a `[data-mision="x"]` (sin `:root`) y este archivo sobra.
+ */
+[data-mision="demeter"]:not(:root) {
+  --fondo: #0b1a24;
+  --superficie-2: #18324a;
+  --texto: #f2f0ed;
+  --texto-2: #a9c1d1;
+  --acento: #85c6f8;
+  --marca-1: #1b364a;
+  --fuente-display: "Marcellus";
+  --dur-media: 320ms;
+  --curva: cubic-bezier(0.4, 0, 0.2, 1);
+  --titulo-peso: 400;
+  --titulo-espaciado: 0.06em;
+}
+
+[data-mision="hermes"]:not(:root) {
+  --fondo: #14112a;
+  --superficie-2: #2a2450;
+  --texto: #f3eef8;
+  --texto-2: #b9b0d6;
+  --acento: #b4a7f5;
+  --marca-1: #362b57;
+  --fuente-display: "Montserrat";
+  --dur-media: 180ms;
+  --curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --titulo-peso: 800;
+  --titulo-espaciado: 0.08em;
+}

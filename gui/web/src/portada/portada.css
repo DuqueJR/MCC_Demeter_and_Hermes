@@ -1,0 +1,254 @@
+/*
+ * Portada (`/`) según 03 §1 [T-620]. HTML y CSS puros, sin JS. Solo tokens de src/tema/.
+ * Los fondos son provisionales (degradado con tokens) hasta T-621.
+ */
+@import "../tema/comun.css";
+@import "../tema/demeter.css"; /* solo por el @font-face de Marcellus */
+@import "../tema/hermes.css"; /* solo por el @font-face de Montserrat */
+@import "../tema/mitades.css";
+
+:root {
+  color-scheme: dark;
+  /* Tamaño del parche (03 §1): celular min(32svh, 68vw); portátil min(34vw, 380px). */
+  --parche: min(32svh, 68vw);
+  --crecer: 1.08;
+  --oscurecer-otra: 0.85;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--eia-teal);
+}
+
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Las dos mitades: filas en vertical (celular), columnas en horizontal (portátil). */
+.mitades {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  height: 100svh;
+}
+
+@media (min-width: 768px) and (orientation: landscape) {
+  :root {
+    --parche: min(34vw, 380px, 46svh);
+  }
+
+  .mitades {
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.mitad {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  padding: var(--e-7) var(--e-4) var(--e-3);
+  overflow: hidden;
+  color: var(--texto);
+  text-align: center;
+  text-decoration: none;
+  /* Fondo provisional: de la marca hacia el fondo del tema, más oscuro abajo (07 §2). */
+  background:
+    linear-gradient(to bottom, transparent 0%, var(--fondo) 100%),
+    radial-gradient(ellipse at 50% 38%, var(--marca-1) 0%, var(--fondo) 80%);
+  transition: filter var(--dur-media) var(--curva);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Aclara el fondo de la mitad con hover o foco. */
+.mitad::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 38%, var(--superficie-2) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--dur-media) var(--curva);
+}
+
+/* La línea fina de 1 px entre las dos mitades, al 20 % de opacidad. */
+.mitad::after {
+  content: "";
+  position: absolute;
+  background: var(--texto);
+  opacity: 0.2;
+  inset: auto 0 0 0;
+  height: 1px;
+}
+
+.mitad:last-child::after {
+  display: none;
+}
+
+@media (min-width: 768px) and (orientation: landscape) {
+  .mitad {
+    padding-top: var(--e-8);
+  }
+
+  .mitad::after {
+    inset: 0 0 0 auto;
+    width: 1px;
+    height: auto;
+  }
+}
+
+.mitad:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: -3px;
+}
+
+.parche {
+  position: relative;
+  width: var(--parche);
+  aspect-ratio: 1;
+  flex: none;
+  transition: transform var(--dur-media) var(--curva);
+}
+
+/* Halo suave del color de acento; se intensifica con hover o foco. */
+.parche::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--acento);
+  filter: blur(var(--e-6));
+  opacity: 0.25;
+  transition: opacity var(--dur-media) var(--curva);
+}
+
+.parche img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /*
+   * PEN-W10 (provisional): el PNG tiene fondo blanco y la capa de Hermes sobresale del círculo.
+   * Se recorta en círculo justo dentro del borde del anillo: quita el blanco y corta las puntas de la capa.
+   */
+  clip-path: circle(49% at 50% 50%);
+}
+
+.nombre {
+  position: relative;
+  margin: 0;
+  font-family: var(--fuente-display), system-ui, sans-serif;
+  font-weight: var(--titulo-peso);
+  font-size: clamp(1.5rem, 4.4svh, 2.25rem);
+  line-height: 1.1;
+  letter-spacing: var(--titulo-espaciado);
+  text-transform: uppercase;
+}
+
+.lema {
+  position: relative;
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 1rem;
+}
+
+.entrar {
+  position: relative;
+  margin: 0;
+  color: var(--acento);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.entrar .toca {
+  display: none;
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  .entrar .toca {
+    display: inline;
+  }
+
+  .entrar .clic {
+    display: none;
+  }
+}
+
+/* Hover (solo con ratón) y foco del teclado: el parche crece, el halo se intensifica y el fondo se aclara. */
+@media (hover: hover) {
+  .mitad:hover .parche {
+    transform: scale(var(--crecer));
+  }
+
+  .mitad:hover .parche::before {
+    opacity: 0.55;
+  }
+
+  .mitad:hover::before {
+    opacity: 1;
+  }
+
+  /* La otra mitad se oscurece un 15 %. */
+  .mitades:has(.mitad:hover) .mitad:not(:hover) {
+    filter: brightness(var(--oscurecer-otra));
+  }
+}
+
+.mitad:focus-visible .parche {
+  transform: scale(var(--crecer));
+}
+
+.mitad:focus-visible .parche::before {
+  opacity: 0.55;
+}
+
+.mitad:focus-visible::before {
+  opacity: 1;
+}
+
+.mitades:has(.mitad:focus-visible) .mitad:not(:focus-visible) {
+  filter: brightness(var(--oscurecer-otra));
+}
+
+/* Cabecera EIA: fina, superpuesta y centrada. No captura clics (toda la mitad es el enlace). */
+.cabecera {
+  position: fixed;
+  inset: var(--e-3) 0 auto 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-3);
+  padding: 0 var(--e-4);
+  pointer-events: none;
+  color: var(--texto-2);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+}
+
+.cabecera img {
+  display: block;
+  width: auto;
+  height: var(--e-6);
+}
+
+@media (max-width: 767px) {
+  .cabecera .lugar {
+    display: none;
+  }
+}
