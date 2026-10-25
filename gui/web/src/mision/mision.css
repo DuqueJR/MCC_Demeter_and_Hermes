@@ -363,6 +363,7 @@ button:focus-visible,
   width: 40%;
   height: auto;
   opacity: 0.55;
+  border-radius: 50%;
 }
 
 .foto-pendiente span {
@@ -434,6 +435,7 @@ button:focus-visible,
   width: min(100%, calc(var(--e-8) * 4));
   height: auto;
   margin: 0 auto var(--e-4);
+  border-radius: 50%; /* 02 §7: el parche siempre circular (el PNG aún trae fondo blanco) */
   filter: drop-shadow(0 0 var(--e-4) var(--acento));
 }
 
