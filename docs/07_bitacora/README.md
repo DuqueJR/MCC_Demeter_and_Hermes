@@ -63,3 +63,4 @@ Cifras, salidas, hash del commit, versión del firmware, fotos o logs adjuntos.
 | 2026-10-25 | [Andamiaje de la web (T-610)](2026-10-25_T-610_andamiaje_web.md) | El agente: Vite multipágina, stack completo, prueba de aislamiento y humo (PR #4) |
 | 2026-10-25 | [Tema y tokens (T-613)](2026-10-25_T-613_tema_tokens.md) | El agente: tokens de 02 §6, fuentes autohospedadas, `dev/tokens.html`, regla contra colores sueltos y aislamiento por familia de fuente (PR #6) |
 | 2026-10-25 | [Revisión de T-610 y T-613, y entorno de desarrollo](2026-10-25_revision_T-610_T-613_y_entorno.md) | Revisión de los PR #4 y #6; D-W17 (Ajv y `lucide-preact`); D-035 (Node 22 y `npm ci`, sin Docker para desarrollar); T-611 lanzada |
+| 2026-10-25 | [Instalación de graphify](2026-10-25_sesion_graphify.md) | D-036: grafo de conocimiento para la búsqueda de los agentes; la skill y el hook se versionan, el grafo no; los datasheets quedan fuera |

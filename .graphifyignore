@@ -1,0 +1,14 @@
+# Qué deja fuera graphify (D-036). Además respeta .gitignore.
+# Datasheets: millones de tokens; se consultan con la ficha y grep (CLAUDE.md).
+docs/03_hardware/datasheets/
+# Historia y originales ya traducidos a docs/: no se usan para decidir.
+docs/99_archivo/
+docs/fuentes/
+# Datos de entrada (CSV de OpenRocket) y capturas.
+datos/
+docs/07_bitacora/capturas/
+# Estado de Obsidian, worktrees de los agentes y builds.
+docs/.obsidian/
+.claude/worktrees/
+**/node_modules/
+**/dist/
