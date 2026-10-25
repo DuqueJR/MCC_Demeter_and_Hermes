@@ -56,3 +56,9 @@ rama: feature/T-622-armazon-mision
 
 ## Documentos afectados
 Ninguno de los contratos. `06_plan_web.md`: T-622 lista para marcar como hecha al integrar el PR.
+
+## Ajustes tras la revisión del PR #17
+- **Estado sin recorte.** La barra pasa a 3 filas en celular y tableta: parche, nombre y T+; el estado (con SIM) solo en una fila; fase y altitud. Se quitó el `text-overflow: ellipsis` del indicador. Prueba e2e a 360 y 390 px, en las dos misiones y en 6 variantes (`scrollWidth <= clientWidth` del indicador y de sus `span`, y que no pase del borde derecho). `scroll-margin-top` sube 16 px por la barra más alta.
+- **T+ con el reloj del cohete.** `T+ = t_ms del estado − t_ms del despegue + t_mas_s`. Sin evento `despegue`, usa el primer evento con `t_mas_s` (todos dan el mismo instante); sin ninguno o antes del despegue, `null` (`T+ --:--`). Pruebas unitarias con un despegue y un estado conocidos.
+- **Hallazgo:** `contrato/ejemplos.ts` no trae el evento `despegue`, y su estado (`t_ms` 1234567) es anterior a su apogeo (`t_ms` 1245900), así que el cálculo correcto daba 0,2 s ("00:00"): era el ejemplo, no el reloj. En `ejemplo_dev.ts` (solo desarrollo) se agrega el despegue implícito (`t_ms` del apogeo − 11,54 s) y se adelanta el estado a T+ 42 s. El contrato no se tocó. Propuesta para D: que `ejemplos.ts` tenga un estado coherente con sus eventos.
+- Evidencia: build, `npm test` (86) y `npm run e2e` (51) en verde; capturas de la barra regeneradas.

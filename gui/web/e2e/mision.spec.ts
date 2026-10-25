@@ -67,6 +67,8 @@ for (const m of MISIONES) {
         await page.goto(`${DEV}/${m.id}/?ejemplo`);
         await expect(page.locator(".indicador")).toContainText("EN VIVO");
         await expect(page.locator(".barra-fase")).toHaveText("Bajando con paracaídas");
+        // T+ con el reloj del cohete: el estado de ejemplo va 42 s después del despegue.
+        await expect(page.locator(".barra-t")).toHaveText("T+ 00:42");
         await expect(page.locator(".barra-alt .num")).toHaveText("312");
         await expect(page.locator(".barra-nombre")).toHaveText(m.nombre);
         // El tema de cada misión: el fondo es el token --fondo de su archivo de tema.
@@ -161,6 +163,43 @@ test.describe("la barra en cada estado (desarrollo, ?ejemplo=...)", () => {
       expect(await sinDesborde(page)).toBe(true);
       await page.screenshot({ path: `${CAPTURAS}/barra-${e.v}-390x844.png` });
     });
+  }
+});
+
+// El estado de la conexión nunca se recorta: es lo que el público lee al sol (T-622).
+test.describe("el texto del estado no se recorta", () => {
+  const VARIANTES = [
+    { v: "en_vivo", texto: "EN VIVO" },
+    { v: "senal_debil", texto: "Señal débil" },
+    { v: "sin_senal", texto: "Sin señal" },
+    { v: "reconectando", texto: "Sin servidor" },
+    { v: "sin_transmision", texto: "Sin transmisión" },
+    { v: "simulacion", texto: "EN VIVO" },
+  ];
+  for (const ancho of [360, 390]) {
+    for (const mision of ["demeter", "hermes"]) {
+      test(`${mision} a ${ancho} px`, async ({ page }) => {
+        await page.setViewportSize({ width: ancho, height: 844 });
+        for (const e of VARIANTES) {
+          await page.goto(`${DEV}/${mision}/?ejemplo=${e.v}`);
+          const ind = page.locator(".indicador");
+          await expect(ind).toContainText(e.texto);
+          const medidas = await page.evaluate(() => {
+            const el = document.querySelector(".indicador") as HTMLElement;
+            const hijos = [el, ...Array.from(el.querySelectorAll("span"))] as HTMLElement[];
+            const caja = el.getBoundingClientRect();
+            return {
+              recortado: hijos.some((h) => h.scrollWidth > h.clientWidth),
+              derecha: caja.right,
+              ancho: document.documentElement.clientWidth,
+            };
+          });
+          expect(medidas.recortado, `${mision} ${e.v} a ${ancho}`).toBe(false);
+          expect(medidas.derecha, `${mision} ${e.v} a ${ancho}`).toBeLessThanOrEqual(medidas.ancho);
+          expect(await sinDesborde(page)).toBe(true);
+        }
+      });
+    }
   }
 });
 

@@ -46,14 +46,19 @@ export function indicadorDe(principal: EstadoPrincipal): Indicador {
   }
 }
 
-/** T+ en segundos: el último evento con T+ más lo que avanzó el reloj del cohete desde entonces. */
+/**
+ * T+ en segundos con el reloj del COHETE, no el del celular: `estado.t_ms` menos el `t_ms` del
+ * despegue, más su `t_mas_s`. Si no hay evento `despegue`, usa el primer evento con T+ (cada uno
+ * da el mismo instante de despegue: `t_ms - t_mas_s * 1000`). Sin ninguno, `null`: no se inventa.
+ */
 export function tMasSegundos(est: Estado | null, evs: Evento[]): number | null {
   if (est === null) return null;
-  for (let i = evs.length - 1; i >= 0; i--) {
-    const ev = evs[i];
-    if (ev && ev.t_mas_s !== null) return ev.t_mas_s + (est.t_ms - ev.t_ms) / MS_POR_S;
-  }
-  return null;
+  const ref =
+    evs.find((e) => e.tipo === "despegue" && e.t_mas_s !== null) ??
+    evs.find((e) => e.t_mas_s !== null);
+  if (!ref || ref.t_mas_s === null) return null;
+  const t = ref.t_mas_s + (est.t_ms - ref.t_ms) / MS_POR_S;
+  return t < 0 ? null : t;
 }
 
 function textoFase(principal: EstadoPrincipal, est: Estado | null): string {

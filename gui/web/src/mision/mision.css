@@ -51,10 +51,12 @@ button:focus-visible,
 
 .barra-enlace {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  /* Tres filas para que el estado (lo que el público lee al sol) nunca se recorte, ni a 360 px. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "p n e t"
-    "f f f a";
+    "p n t"
+    "e e e"
+    "f f a";
   align-items: center;
   gap: var(--e-1) var(--e-2);
   min-height: var(--toque-min);
@@ -82,9 +84,9 @@ button:focus-visible,
 .barra-estado {
   grid-area: e;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--e-2);
-  min-width: 0;
 }
 
 .indicador {
@@ -96,11 +98,6 @@ button:focus-visible,
   font-weight: 700;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.indicador > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .indicador svg,
@@ -146,9 +143,6 @@ button:focus-visible,
   grid-area: f;
   min-width: 0;
   color: var(--texto-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .barra-alt {
@@ -255,7 +249,7 @@ button:focus-visible,
   background: var(--superficie);
   border: 1px solid var(--linea);
   border-radius: var(--radio-tarjeta);
-  scroll-margin-top: var(--alto-cabecera);
+  scroll-margin-top: calc(var(--alto-cabecera) + var(--e-4));
 }
 
 .seccion > h2,
