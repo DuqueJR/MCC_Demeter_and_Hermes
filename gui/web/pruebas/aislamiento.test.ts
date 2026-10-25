@@ -1,13 +1,22 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // @ts-expect-error módulo .mjs sin tipos; se usa también como script de Node
-import { revisarAislamiento } from "../scripts/aislamiento.mjs";
+import { buscarEjemplosEnDist, revisarAislamiento } from "../scripts/aislamiento.mjs";
 
 type Violacion = { pagina: string; archivo: string; motivo: string };
 const revisar = revisarAislamiento as (dist: string) => Violacion[];
+const buscarEjemplos = buscarEjemplosEnDist as (dist: string) => Violacion[];
 
 const fuenteReal = (nombre: string) =>
   readFileSync(resolve(import.meta.dirname, "../src/tema/fuentes", nombre));
@@ -149,18 +158,51 @@ describe("prueba de aislamiento (D-W01) con dist falso", () => {
   });
 });
 
+describe("datos de ejemplo fuera de producción (R-W5)", () => {
+  it("pasa si el dist/ no trae valores de los ejemplos", () => {
+    expect(buscarEjemplos(distFalso("sin-ejemplos", BASE_LIMPIA))).toEqual([]);
+  });
+
+  it("FALLA si un .js del dist/ trae un valor característico de los ejemplos", () => {
+    const dist = distFalso("con-ejemplos", {
+      ...BASE_LIMPIA,
+      "assets/ejemplos-dddd4444.js": "export const m={mission_id:1793980800};",
+    });
+    const v = buscarEjemplos(dist);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ archivo: "assets/ejemplos-dddd4444.js" });
+  });
+});
+
 describe("prueba de aislamiento sobre el build real", () => {
   const salida = join(raizTemporal, "dist-real");
   beforeAll(async () => {
-    await build({
-      root: resolve(import.meta.dirname, ".."),
-      logLevel: "silent",
-      build: { outDir: salida, emptyOutDir: true },
-    });
+    // Dentro de Vitest NODE_ENV es "test" y Vite deja import.meta.env.DEV = true: se fuerza
+    // producción solo durante este build, como en `npm run build`.
+    const anterior = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      await build({
+        root: resolve(import.meta.dirname, ".."),
+        logLevel: "silent",
+        mode: "production",
+        build: { outDir: salida, emptyOutDir: true },
+      });
+    } finally {
+      process.env.NODE_ENV = anterior;
+    }
   });
 
   it("el dist/ real está aislado", () => {
     expect(revisar(salida)).toEqual([]);
+  });
+
+  it("el dist/ real no contiene los datos de ejemplo ni el cargador de desarrollo", () => {
+    expect(buscarEjemplos(salida)).toEqual([]);
+    const textos = readdirSync(join(salida, "assets"))
+      .filter((n) => n.endsWith(".js"))
+      .map((n) => readFileSync(join(salida, "assets", n), "utf8"));
+    expect(textos.some((t) => t.includes("ejemplo_dev") || t.includes("?ejemplo"))).toBe(false);
   });
 
   it("la página de desarrollo de tokens no entra al dist/ de producción", () => {

@@ -1,0 +1,624 @@
+/*
+ * Armazón de la página de misión (03 §2) [T-622]. Común a las dos misiones: SOLO tokens de src/tema/.
+ * Sin colores literales (06 §6). Los puntos de quiebre son 03 §2.2: < 600, 600-1023 y >= 1024 px.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Tamaños de texto de 02 §5 (celular). No hay token de tema para ellos: se agrupan aquí. */
+  --t-etiqueta: 13px;
+  --t-titulo: 20px;
+  --t-num-sec: 24px;
+  --t-num-gran: 40px;
+
+  --alto-nav: calc(var(--toque-min) + var(--e-2));
+  --ancho-max: 1440px;
+  --alto-cabecera: calc(var(--e-8) * 2);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Deja sitio para la navegación inferior fija del celular. */
+body {
+  padding-bottom: calc(var(--alto-nav) + env(safe-area-inset-bottom));
+}
+
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* ---------- Cabecera: barra de misión y banner ---------- */
+
+.cabecera-mision {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--superficie-2);
+  border-bottom: 1px solid var(--linea);
+}
+
+.barra-enlace {
+  display: grid;
+  /* Tres filas para que el estado (lo que el público lee al sol) nunca se recorte, ni a 360 px. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "p n t"
+    "e e e"
+    "f f a";
+  align-items: center;
+  gap: var(--e-1) var(--e-2);
+  min-height: var(--toque-min);
+  padding: var(--e-2) var(--e-4);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.barra-parche {
+  grid-area: p;
+  width: var(--e-6);
+  height: var(--e-6);
+  border-radius: 50%;
+}
+
+.barra-nombre {
+  grid-area: n;
+  font-family: var(--fuente-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-synthesis: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.barra-estado {
+  grid-area: e;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.indicador {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-width: 0;
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.indicador svg,
+.banner svg,
+.barra-alt svg {
+  flex: none;
+  width: var(--e-4);
+  height: var(--e-4);
+  stroke-width: 1.75;
+}
+
+.ind-ok {
+  color: var(--estado-ok);
+}
+.ind-aviso {
+  color: var(--estado-aviso);
+}
+.ind-alarma {
+  color: var(--estado-alarma);
+}
+.ind-sin-dato {
+  color: var(--estado-sin-dato);
+}
+
+.marca-sim {
+  flex: none;
+  padding: 0 var(--e-1);
+  border: 1px solid var(--estado-info);
+  border-radius: var(--radio);
+  color: var(--estado-info);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+}
+
+.barra-t {
+  grid-area: t;
+  font-weight: 600;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.barra-fase {
+  grid-area: f;
+  min-width: 0;
+  color: var(--texto-2);
+}
+
+.barra-alt {
+  grid-area: a;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e-1);
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.barra-alt svg {
+  align-self: center;
+}
+
+.barra-alt .num {
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.barra-alt .unidad,
+.barra-alt .antiguedad,
+.sin-dato-texto {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.barra-alt.lkp {
+  color: var(--estado-alarma);
+}
+.barra-alt.lkp .antiguedad {
+  color: var(--estado-alarma);
+}
+
+.atenuado {
+  opacity: 0.65;
+}
+
+.barra[data-principal="sin_servidor"] .barra-fase::after {
+  content: " · Reconectando…";
+  color: var(--estado-sin-dato);
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-1) var(--e-4);
+  border-top: 1px solid var(--linea);
+  background: var(--superficie);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.banner-info {
+  color: var(--estado-info);
+}
+
+/* ---------- Navegación por anclas ---------- */
+
+.navegacion {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--superficie-2);
+  border-top: 1px solid var(--linea);
+}
+
+.navegacion a {
+  display: grid;
+  place-items: center;
+  min-height: var(--alto-nav);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 600;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--dur-rapida) var(--curva);
+}
+
+.navegacion a:hover,
+.navegacion a:focus-visible {
+  color: var(--acento);
+}
+
+/* ---------- Panel y tarjetas ---------- */
+
+.panel {
+  display: grid;
+  gap: var(--e-4);
+  max-width: var(--ancho-max);
+  margin: 0 auto;
+  padding: var(--e-4);
+}
+
+.seccion {
+  min-width: 0;
+  padding: var(--e-4);
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-tarjeta);
+  scroll-margin-top: calc(var(--alto-cabecera) + var(--e-4));
+}
+
+.seccion > h2,
+.subtitulo {
+  margin: 0 0 var(--e-3);
+  color: var(--marca-2);
+  font-size: var(--t-titulo);
+}
+
+.hueco-nota {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+#estado,
+#telemetria,
+#mapa,
+#recuperacion,
+#actitud,
+#graficas,
+#salud,
+#ojos {
+  min-height: calc(var(--e-8) * 2);
+}
+
+#mapa {
+  min-height: 60svh;
+}
+
+/* ---------- Inicio ---------- */
+
+.inicio-cuerpo {
+  display: grid;
+  gap: var(--e-4);
+}
+
+.inicio-texto h1 {
+  margin: 0;
+  font-size: var(--t-num-gran);
+  line-height: 1.1;
+}
+
+.lema {
+  margin: var(--e-1) 0 var(--e-3);
+  color: var(--marca-2);
+  font-weight: 600;
+}
+
+.frase {
+  margin: 0 0 var(--e-3);
+}
+
+.datos-fijos {
+  display: flex;
+  gap: var(--e-5);
+  margin: 0;
+}
+
+.datos-fijos dt {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.datos-fijos dd {
+  margin: 0;
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+}
+
+.carrusel {
+  display: flex;
+  gap: var(--e-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+}
+
+.diapositiva {
+  flex: 0 0 85%;
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.diapositiva figcaption {
+  margin-top: var(--e-1);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.foto,
+.foto-pendiente {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--e-2);
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--marca-1);
+  border-radius: var(--radio);
+}
+
+.foto-pendiente img {
+  width: 40%;
+  height: auto;
+  opacity: 0.55;
+  border-radius: 50%;
+}
+
+.foto-pendiente span {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.subtitulo {
+  margin-top: var(--e-4);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-height: var(--toque-min);
+  padding: 0 var(--e-4);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-rapida) var(--curva);
+}
+
+.chip[aria-expanded="true"] {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.tarjeta-parte {
+  margin-top: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  background: var(--superficie-2);
+  border-radius: var(--radio);
+}
+
+.tarjeta-parte[hidden] {
+  display: none;
+}
+
+.tarjeta-parte h3 {
+  margin: 0 0 var(--e-1);
+  font-size: var(--t-etiqueta);
+}
+
+.tarjeta-parte p {
+  margin: 0;
+}
+
+.nota-provisional {
+  margin: var(--e-3) 0 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* ---------- Equipo y pie ---------- */
+
+.parche-grande {
+  display: block;
+  width: min(100%, calc(var(--e-8) * 4));
+  height: auto;
+  margin: 0 auto var(--e-4);
+  border-radius: 50%; /* 02 §7: el parche siempre circular (el PNG aún trae fondo blanco) */
+  filter: drop-shadow(0 0 var(--e-4) var(--acento));
+}
+
+.integrantes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--e-8) * 2), 1fr));
+  gap: var(--e-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.integrante {
+  display: grid;
+  justify-items: center;
+  gap: var(--e-1);
+  padding: var(--e-3);
+  background: var(--superficie-2);
+  border-radius: var(--radio);
+  text-align: center;
+}
+
+.inicial {
+  display: grid;
+  place-items: center;
+  width: var(--e-7);
+  height: var(--e-7);
+  background: var(--marca-1);
+  border-radius: 50%;
+  font-family: var(--fuente-display), system-ui, sans-serif;
+  font-size: var(--t-num-sec);
+}
+
+.apellido {
+  font-weight: 700;
+}
+
+.rol {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.pie {
+  display: grid;
+  justify-items: center;
+  gap: var(--e-2);
+  padding: var(--e-5) var(--e-4);
+  background: var(--eia-teal);
+  text-align: center;
+}
+
+.pie p {
+  margin: 0;
+}
+
+.pie-logo {
+  width: auto;
+  height: var(--e-6);
+}
+
+.pie-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: var(--toque-min);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.pie-enlace svg {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+/* ---------- Tableta: dos columnas, el mapa a lo ancho (600-1023 px) ---------- */
+
+@media (min-width: 600px) {
+  .panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #inicio,
+  #mapa,
+  #equipo,
+  #graficas {
+    grid-column: 1 / -1;
+  }
+
+  .diapositiva {
+    flex-basis: 45%;
+  }
+}
+
+/* ---------- Portátil: panel de control (>= 1024 px) ---------- */
+
+@media (min-width: 1024px) {
+  :root {
+    --t-num-gran: 56px;
+  }
+
+  body {
+    padding-bottom: 0;
+  }
+
+  /* La navegación pasa a ser la fila bajo la barra. */
+  .navegacion {
+    position: static;
+    display: flex;
+    gap: var(--e-5);
+    padding: 0 var(--e-4);
+    background: var(--superficie);
+    border-top: 1px solid var(--linea);
+  }
+
+  .navegacion a {
+    min-height: var(--toque-min);
+    padding: 0 var(--e-2);
+  }
+
+  .barra-enlace {
+    display: flex;
+    gap: var(--e-5);
+    max-width: var(--ancho-max);
+    margin: 0 auto;
+  }
+
+  .barra-fase {
+    flex: 1;
+  }
+
+  .barra-t,
+  .barra-alt {
+    justify-self: auto;
+  }
+
+  .panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  #inicio {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  #estado {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  #telemetria {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  #mapa {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+    min-height: 0;
+  }
+  #recuperacion {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  #salud {
+    grid-column: 3;
+    grid-row: 3;
+  }
+  #graficas {
+    grid-column: 1 / span 2;
+    grid-row: 4;
+  }
+  #actitud {
+    grid-column: 3;
+    grid-row: 4;
+  }
+  /* Sin fila fija: Los ojos (solo en una misión) y Equipo ocupan las filas libres, sin huecos. */
+  #ojos,
+  #equipo {
+    grid-column: 1 / -1;
+  }
+
+  /* Banda baja de Inicio: la foto principal junto al texto. */
+  .inicio-cuerpo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    align-items: center;
+  }
+
+  .diapositiva:not(:first-child) {
+    display: none;
+  }
+
+  .diapositiva {
+    flex-basis: 100%;
+  }
+}
