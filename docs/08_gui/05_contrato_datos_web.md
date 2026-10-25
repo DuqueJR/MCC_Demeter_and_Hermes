@@ -28,7 +28,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
   - grados, con 1.
 - **`null` = sin dato.** Corresponde a los valores reservados de [protocolo_paquetes](../04_diseno/protocolo_paquetes.md) §0. Un campo nunca se omite: está o es `null`.
 - **Qué campos pueden ser `null`** (D-W18). Todos los demás son obligatorios y nunca `null`.
-  - `estado`: `utc_ms`, `relay_utc_ms` (siempre `null` en el servicio local, que no tiene relay), `pos` completo, `pos.alt_msl_m`, `bat_pct`, `secundario`, cada `calc.*`, cada `enlace.*` y `lkp`.
+  - `estado`: `utc_ms`, `relay_utc_ms` (siempre `null` en el servicio local, que no tiene relay), `pos` completo, **`vel` completo** (sin fix ni EKF no hay velocidad: el protocolo la manda como "sin dato", D-W19), `pos.alt_msl_m`, `bat_pct`, `secundario`, cada `calc.*`, cada `enlace.*` y `lkp`.
   - `salud`: las lecturas de los sensores y los contadores que el cohete no reporte (por ejemplo `temp_pi_c` en Hermes y `fw_version` con el protocolo v2).
   - `estacion`: `pos`, sin GNSS, y `ultimo_paquete_hace_ms`, mientras no haya llegado ningún paquete del cohete.
   - `evento`: `valor`, `fase` y `activa` (§2.5).
