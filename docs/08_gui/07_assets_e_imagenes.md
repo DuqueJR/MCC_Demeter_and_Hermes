@@ -23,7 +23,7 @@ depende_de: [gui_identidad]
 - **Íconos: dos familias (D-W20).**
   - **De interfaz** (estado, navegación, flechas, alertas): `lucide-preact` (D-W17). Son vectoriales, se pintan con los tokens, pesan poco y se leen igual al sol en los dos temas.
   - **Ilustrativos** (partes del cohete, objetivos, equipo): **se generan con el MCP de Hugging Face**, como los fondos. Le dan a cada misión su identidad. Los genera el diseñador (el Claude principal) con el usuario y los guarda en `generated_images/`; los elegidos se copian a `src/assets/<misión>/iconos/` y los procesa `vite-imagetools`.
-  - **Hoy el MCP solo expone herramientas de búsqueda del Hub.** Para generar, primero hay que cerrar PEN-W08.
+  - Los Spaces de generación están en `CLAUDE.md` (sección "Imágenes con Hugging Face"). Si no aparecen en la sesión, hay que reconectar el MCP con `/mcp`.
 - **Originales:** quedan en `docs/fuentes/marca/` y **no se editan**.
 - **Copias de trabajo:** en `gui/web/src/assets/{comun,demeter,hermes}/`, a resolución completa.
 - **Formatos y tamaños:** el build genera AVIF y WebP en 256, 512 y 1024 px (y 1600 para los fondos) con `vite-imagetools`. Nadie exporta tamaños a mano. Se incluye en T-610.
@@ -49,10 +49,12 @@ depende_de: [gui_identidad]
 | Detalles | Ráfagas de viento suaves, alguna pluma flotando | Flores silvestres rosadas, espigas |
 | Colores dominantes | `#362B57`, `#978ACE`, `#DFD5ED`, `#C8955A` | `#1B364A`, `#85C6F8`, `#1D3422`, `#D9A93A`, `#DA89AA` |
 
-**Modelos (PEN-W08).** El Space `black-forest-labs/FLUX.1-schnell` ya no aparece en el buscador de huggingface.co/settings/mcp. Se usan dos Spaces:
+**Modelos (PEN-W08, cerrado el 2026-10-25).** El Space `black-forest-labs/FLUX.1-schnell` ya no aparece en el buscador de huggingface.co/settings/mcp. Están agregados cuatro Spaces, con Dynamic Spaces activado (la tabla está en `CLAUDE.md`, sección "Imágenes con Hugging Face"):
 - **Borradores:** `evalstate/flux1_schnell`. Es del autor del servidor MCP de Hugging Face, está hecho para MCP y se actualizó en septiembre de 2026. Es rápido.
 - **Versión final:** `black-forest-labs/FLUX.2-klein-9B`. Es el oficial de Black Forest Labs, más nuevo y de mejor calidad.
 - `black-forest-labs/flux-3-image-klein` es muy reciente (18 de octubre de 2026): se prueba solo si los otros no convencen.
+- `mcp-tools/Z-Image-Turbo`: otra opción rápida para borradores.
+- **La API de *Inference Providers* no tiene créditos** en la cuenta gratuita: responde 402. Por eso se genera con los Spaces (ZeroGPU), no con esa API.
 
 **Prompts** (en inglés, porque el modelo responde mejor). Se generan 4 semillas de cada uno en borrador; las 1 o 2 elegidas se rehacen en FLUX.2-klein a 1152×1280.
 
