@@ -1,0 +1,45 @@
+# Sistema y editores
+.DS_Store
+~$*
+*.swp
+.vscode/
+.idea/
+
+# Obsidian: el estado local de cada persona
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+docs/.obsidian/cache
+
+# Datasheets PDF: no se versionan (no hay Git LFS). Sí se versionan sus .md y las URL de las fichas.
+docs/03_hardware/datasheets/*.pdf
+
+# PlatformIO y builds
+.pio/
+firmware/.pio/
+build/
+*.elf
+*.bin
+*.map
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node (GUI)
+node_modules/
+dist/
+
+# Secretos y configuración local (siempre con su .example versionado)
+secretos.*
+*.local.*
+.env
+.env.*
+!.env.example
+
+# Logs de vuelo y de pruebas (se guardan fuera de git o en un release)
+*.bin.log
+logs/

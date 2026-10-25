@@ -1,0 +1,9 @@
+# Fin de línea normalizado
+* text=auto eol=lf
+
+# Binarios
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.png  binary
+*.jpg  binary
