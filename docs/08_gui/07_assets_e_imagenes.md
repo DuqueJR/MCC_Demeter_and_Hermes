@@ -18,7 +18,7 @@ depende_de: [gui_identidad]
 | Fondo de la portada, Deméter | Generado (§2) | ⏳ T-621 | Portada |
 | Fotos de cada cohete, del equipo y de los integrantes | Los equipos (§3) | ⏳ PEN-W01 | Inicio y Equipo |
 | Ornamentos (alas y viento; espigas, hojas y curvas de nivel) | SVG hechos a mano o vectorizados | ⏳ Could, en T-622 o T-624 | Divisores de sección |
-| **Íconos ilustrativos** (las partes del cohete: nariz, CanSat, VisionPack, motor, paracaídas y aletas; los objetivos de la misión) | **Generados con el MCP de Hugging Face** (§2, la misma paleta y el mismo trazo que el parche de cada misión) | ⏳ T-621 (necesita PEN-W08) | Chips de partes del Inicio, línea de objetivos |
+| **Íconos ilustrativos** (las partes del cohete: nariz, CanSat, VisionPack, motor, paracaídas y aletas; los objetivos de la misión) | **Generados con el MCP de Hugging Face** (§2, la misma paleta y el mismo trazo que el parche de cada misión) | ⏳ T-621 (PEN-W08 ya cerrado) | Chips de partes del Inicio, línea de objetivos |
 
 - **Íconos: dos familias (D-W20).**
   - **De interfaz** (estado, navegación, flechas, alertas): `lucide-preact` (D-W17). Son vectoriales, se pintan con los tokens, pesan poco y se leen igual al sol en los dos temas.

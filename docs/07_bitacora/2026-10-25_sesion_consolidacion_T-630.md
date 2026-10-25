@@ -1,7 +1,7 @@
 ---
 fecha: 2026-10-25
 tipo: sesion
-ids: [T-630, T-631, T-633, T-640, T-614, D-W07]
+ids: [T-630, T-622, T-631, T-633, T-640, T-614, D-W07, D-W20]
 autor: documentador (Claude Opus 5.5)
 rama: docs/consolidar-T-630
 ---
@@ -23,10 +23,34 @@ El usuario pidió continuar con T-630 del plan web ([06_plan_web](../08_gui/06_p
   - **Sin cambios de contrato:** no toca `src/contrato/`, `src/datos/` ni `docs/08_gui/`.
 - **Comprobación del orden del backfill:** en `demeter_backfill.jsonl` el `t_ms` de los 729 `estado` nunca retrocede. Por eso la `serie` del snapshot sale ordenada en el tiempo sin tener que reordenarla.
 - **[Backlog](../05_plan/backlog.md):**
-  - T-630 queda en revisión (PR #18);
-  - T-631 queda lista en cuanto se integre el #18;
+  - T-630 hecha (PR #18) y T-622 hecha (PR #17);
+  - T-631 queda lista;
   - T-614 pasa a hecha (PR #16, que ya estaba integrado y el backlog no lo decía).
-- **Índice de la bitácora:** esta entrada y la del agente.
+- **Índice de la bitácora:** esta entrada, la del agente y la de T-622.
+
+## Integración de los PR #17 a #20 (pedida por el usuario)
+El usuario pidió revisar los PR #17 a #20, elegir el orden de merge, integrarlos y resumir.
+
+| PR | Contenido | Archivos | Revisión |
+| --- | --- | --- | --- |
+| #17 | T-622, armazón de la página de misión (Juan Pablo) | `gui/web/src/{mision,contenido,entradas}/`, `scripts/aislamiento.mjs`, pruebas y capturas | Bien. Lee solo de `api.ts` (no toca `src/contrato/` ni `src/datos/`). "Los ojos de Deméter" solo en la entrada de Deméter (D-W01). El ejemplo `?ejemplo` va detrás de `import.meta.env.DEV`, y `buscarEjemplosEnDist` comprueba que no llega al `dist/`. Los únicos valores sueltos son los declarados en su bitácora (bordes de 1 px, foco de 2 px, `@media` y los `--t-*` locales) |
+| #18 | T-630, el repetidor | `gui/web/dev/repetidor/`, `tsconfig.json`, `package.json`, README | Ver arriba. **Hallazgo:** `npm run lint` fallaba con 2 errores de formato de Biome en dos README; el agente había informado "sin errores". Se le devolvió y lo corrigió (`ee4bd20`, `88799c5`) |
+| #19 | Esta consolidación | `docs/05_plan/backlog.md`, `docs/07_bitacora/` y una línea de 07 | — |
+| #20 | D-W20 (íconos con Hugging Face), los Spaces en `CLAUDE.md`, PEN-W08 cerrado (Juan Pablo) | `CLAUDE.md`, `docs/08_gui/00_README.md` y `07_assets_e_imagenes.md` | Bien. Una inconsistencia menor: la fila de los íconos ilustrativos en 07 seguía diciendo "necesita PEN-W08", que el mismo PR cierra. Se corrigió en este PR |
+
+- **Riesgo de integración:** ningún par de PR comparte archivos. El único cruce es de comportamiento: el #18 activa `erasableSyntaxOnly` en `tsconfig.json`, que también afecta al código del #17.
+- **Prueba de los cuatro juntos** (un worktree temporal desde `origin/develop` con los cuatro PR mezclados, antes de integrar ninguno):
+  - `npm ci` limpio;
+  - `npm run lint`: 0 errores y los 3 avisos de siempre (con el arreglo del #18);
+  - `tsc --noEmit` OK;
+  - `npm test`: **113 pasaron**;
+  - `npm run build` OK (aislamiento, sin ejemplos en el `dist/`, fuentes por debajo del límite);
+  - `npm run e2e`: **51 pasaron**. La primera corrida falló entera porque esta máquina no tenía el Chromium de Playwright; se instaló con `npm run e2e:instalar`.
+- **Orden de merge** (merge commit, `--no-ff`, como dice el gitflow):
+  1. #18, porque este PR enlaza la bitácora del agente;
+  2. #17, que ya probado sobre el #18;
+  3. #20, independiente;
+  4. #19 al final, para que lleve el estado del backlog después de los tres y la corrección del #20.
 
 ## Evidencia
 - Lo informa el agente:
@@ -63,13 +87,16 @@ El usuario pidió continuar con T-630 del plan web ([06_plan_web](../08_gui/06_p
 - **No hay grafo de graphify** (`graphify-out/graph.json` no existe en la carpeta principal). El agente usó grep, como dice CLAUDE.md. Hay que reconstruirlo en la carpeta principal (`graphify update .`) después de integrar el #18.
 
 ## Pendiente / siguiente paso
-1. **Revisión humana del PR #18** (Juan Pablo o Jerónimo) y merge a `develop`. Este PR de documentación enlaza la entrada del agente, así que conviene integrar primero el #18.
+1. **Integrados el 2026-10-25:** #18, #17 y #20, y luego este (#19). Falta borrar el worktree del agente de T-630 y las ramas ya integradas.
 2. **Llevar a la agenda de H0 las propuestas 4, 5, 6 y 7** (cambios a 05 y 04 §4). La 5 (el cursor del snapshot) va antes de T-631 y T-640.
 3. **Decidir la propuesta 3** (backfill completo) antes de lanzar T-633.
-4. **T-631** (el cliente de datos) se puede lanzar en cuanto se integre el #18. Puede ir en paralelo con T-622 (PR #17): no comparten archivos, salvo que T-622 toque `src/datos/`.
+4. **T-631** (el cliente de datos) ya se puede lanzar. También las de E que dependían de T-622: T-623 ya está lista, y T-624 a T-626 esperan a T-631.
 5. Subir `engines` a `>=22.18` (observación de arriba).
-6. **Sin probar:** la web real contra el repetidor en un navegador (se prueba en T-631), `npm run e2e`, macOS y Node anterior a 22.18.
+6. **Sin probar:** la web real contra el repetidor en un navegador (se prueba en T-631), macOS y Node anterior a 22.18.
+7. **Las 5 preguntas sobre 03** de la [bitácora de T-622](2026-10-25_T-622_armazon_mision.md) (íconos o emoji, `T+ --:--`, el lugar de "Los ojos de Deméter", las anclas del celular y el botón de la simulación) siguen sin responder.
+8. El "Estado" de `CLAUDE.md` sigue diciendo que no hay código propio.
 
 ## Documentos afectados
 - `docs/05_plan/backlog.md` (el estado de T-630, T-631 y T-614)
 - `docs/07_bitacora/README.md` (índice)
+- `docs/08_gui/07_assets_e_imagenes.md` (la referencia a PEN-W08)

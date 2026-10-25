@@ -120,13 +120,13 @@ actualizado: 2026-10-25
 | T-614 | **Probar la web en local con npm:** un `package.json` en la raíz (sin dependencias) con `npm run web`, `web:instalar`, `web:build`, `web:test`, `web:e2e`, `web:preview`, `datos` y `datos:validar`, que funcione en Windows y macOS; y la página de desarrollo `gui/web/dev/index.html`, con enlaces a todo lo que se puede ver y los escenarios disponibles, fuera del `dist/`. **Leer:** 08_gui/06 §5–§6, 08_gui/04 §3, `gui/web/README.md`, `tools/web_datos/README.md`. **Criterio:** desde la raíz, `npm run web:instalar` y `npm run web` abren la página de desarrollo; `dev/index.html` no está en el `dist/`; las tres órdenes de la web en verde | M | E | T-610 | hecha (2026-10-25, PR #16) |
 | T-620 | Portada | M | E | T-613 | hecha (2026-10-25, PR #11). Pendientes del diseñador para T-621 |
 | T-621 | Assets de marca y fondos (lo hace el diseñador con el usuario) | M | E | PEN-W08 | pendiente |
-| T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | pendiente |
+| T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | hecha (2026-10-25, PR #17). Quedan 5 preguntas sobre 03 en su bitácora |
 | T-623 | Contenido provisional de cada misión | M | E | T-622 | pendiente |
 | T-624 | Estado de la misión, Telemetría y banner de alarma | M | E | T-622, T-631 | pendiente |
 | T-625 | Recuperación y Salud del cohete | M/S | E | T-622, T-631 | pendiente |
 | T-626 | Los ojos de Deméter | S | E | T-622, T-631 | pendiente |
-| T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | en revisión (2026-10-25, PR #18). Propuestas abiertas para H0: cursor del snapshot, `meta` sin `id`, `serie.t_mas_s` en la espera y backfill completo ([consolidación](../07_bitacora/2026-10-25_sesion_consolidacion_T-630.md)) |
-| T-631 | Cliente de datos (snapshot, SSE, edad, estados de la página, interpolación) | M | D | T-611, T-630 | pendiente (lista al integrar el PR #18) |
+| T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | hecha (2026-10-25, PR #18). Propuestas abiertas para H0: cursor del snapshot, `meta` sin `id`, `serie.t_mas_s` en la espera y backfill completo ([consolidación](../07_bitacora/2026-10-25_sesion_consolidacion_T-630.md)) |
+| T-631 | Cliente de datos (snapshot, SSE, edad, estados de la página, interpolación) | M | D | T-611, T-630 | pendiente (lista) |
 | T-632 | Mapa (MapLibre y PMTiles de la zona, capas, LKP) | M | D | T-611 | pendiente |
 | T-633 | Gráficas (uPlot) y backfill | S | D | T-631 | pendiente |
 | T-634 | Actitud 2D | S | D | T-631 | pendiente |
