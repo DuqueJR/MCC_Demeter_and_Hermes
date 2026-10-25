@@ -138,3 +138,20 @@ actualizado: 2026-10-24
 | Nombre | Valor |
 | --- | --- |
 | `R_MONTAJE_LSM6DSO32`, `R_MONTAJE_MMC5983MA`, `R_MONTAJE_QMI8658`, `R_MONTAJE_QMC6310` | Matrices de rotación del eje del sensor al cuerpo del cohete. **Se miden en el CanSat real.** |
+
+## 9. Web pública y dashboard de operación ([08_gui](../08_gui/00_README.md))
+
+Las replica la web en un solo archivo de constantes (06_plan_web §6), con los mismos nombres. El relay las lee de `constantes.py`.
+
+| Nombre | Valor | Origen |
+| --- | --- | --- |
+| `WEB_LATENCIA_MAX_S` | 2 (de punta a punta, de la estación al celular) | D-W09 |
+| `WEB_DATO_VIEJO_S` | 2 (P): a partir de aquí, "señal débil" | 08_gui/03 §4 |
+| `WEB_SIN_SENAL_S` | 5 (P): a partir de aquí, "sin señal" y LKP | 08_gui/03 §4 |
+| `WEB_SIN_TRANSMISION_MIN` | 10 (P): sin nada de la estación, "la transmisión empieza el día del lanzamiento" | 08_gui/03 §4 |
+| `WEB_RECONEXION_MAX_S` | 15: el retroceso máximo de la reconexión SSE | 08_gui/03 §4 |
+| `WEB_TASA_TIERRA_HZ` | 1: la tasa del relay hacia el público en BOOT, PREFLIGHT, ARMED y LANDED. En vuelo pasa todo. | 08_gui/04 §4 |
+| `WEB_SSE_LATIDO_S` | 15 | 08_gui/04 §4 |
+| `WEB_SSE_MAX_POR_IP` | 10 | 08_gui/04 §8 |
+| `WEB_SERIE_MAX_PUNTOS` | 2000 (P): el máximo de puntos de la `serie` del snapshot | 08_gui/05 §3 |
+| `WEB_INGESTA_TOKEN` | **No va en el repo:** una variable de entorno en el relay y en el reenviador | 08_gui/04 §4 |

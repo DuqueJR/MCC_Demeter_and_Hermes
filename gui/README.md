@@ -1,9 +1,12 @@
 # gui/
 
-**Dashboard local** de operación (funciona sin internet) y **frontend público** de solo lectura, en las tareas T-603, T-604 y T-605.
-
-La tecnología se define en la conversación D3 (PEN-09). **Desde internet no se puede mandar ningún comando** (D-025).
+**La web pública** (`web/`, con las páginas `/`, `/demeter/` y `/hermes/`), **el dashboard de operación** (`web/operacion/`) y **el relay público** (`relay/`).
 
 **Leer primero:**
-- [estacion_terrena](../docs/04_diseno/estacion_terrena.md)
-- [requisitos](../docs/02_requisitos/requisitos.md), de GS-01 a GS-14
+- [docs/08_gui/00_README.md](../docs/08_gui/00_README.md): el índice, las decisiones (D-W) y los pendientes (PEN-W);
+- [docs/08_gui/06_plan_web.md](../docs/08_gui/06_plan_web.md): las tareas T-6xx, los carriles E y D, y los worktrees;
+- [docs/08_gui/05_contrato_datos_web.md](../docs/08_gui/05_contrato_datos_web.md): el contrato `web-1`.
+
+**Reglas:**
+- **Desde internet no se puede mandar ningún comando** (D-025, GS-14). Solo el dashboard de operación manda comandos, por `/api/v1/local/` y desde `127.0.0.1` (C-05).
+- Las sesiones de Claude Code que trabajan aquí se abren con `SESION=web` (el hook `no_gui.py` del plan del back).

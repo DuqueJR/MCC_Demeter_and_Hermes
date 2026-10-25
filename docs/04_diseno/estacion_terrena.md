@@ -1,7 +1,7 @@
 ---
 id: estacion_terrena
-estado: propuesta para conversar (D3). El contrato con la radio y la seguridad del uplink están aprobados; la tecnología de la interfaz está abierta.
-actualizado: 2026-10-24
+estado: el contrato con la radio y la seguridad del uplink están aprobados. La interfaz y la web se definen en 08_gui (D-034); el back-end, en C-05.
+actualizado: 2026-10-25
 depende_de: [enlace_lora_tdma, protocolo_paquetes, tbeam_v12_estacion]
 decisiones: [D-024, D-025]
 ---
@@ -51,10 +51,14 @@ El módem es **tonto a propósito**: no interpreta el contenido de los paquetes,
 
 ### 2.3 Dashboard local (operación)
 
-- Una aplicación web servida por el servicio local. Funciona **sin internet**, así que los mapas deben ir **precargados**: hay que bajar los tiles de Santa Fe de Antioquia antes de viajar.
+> **Actualizado el 2026-10-25 (D-034):** el diseño está en [08_gui/09_dashboard_operacion.md](../08_gui/09_dashboard_operacion.md) (borrador). **La operación crítica también existe en la CLI** (DP-15, [C-05](../05_plan/dos_sesiones/06_contratos/05_api_backend_tierra.md) §5): el vuelo no depende del dashboard.
+
+- Una aplicación web servida por el servicio local. Funciona **sin internet**, así que los mapas deben ir **precargados**: el mismo PMTiles de Santa Fe de Antioquia que usa la web (08_gui/04 §2).
 - Tiene todo lo de *Objetivos* 7: 3D, mapa 2D, LKP, QR, alarmas, Go/No-Go, centro de comandos, gráficas y backfill.
 
 ### 2.4 Servidor remoto y frontend público (D-025, parcial)
+
+> **Actualizado el 2026-10-25 (D-034):** **el contrato de la ingesta es `web-1`** ([08_gui/05](../08_gui/05_contrato_datos_web.md)), el mismo que produce el servicio de tierra (DP-17). El relay es T-640 y el reenviador es T-605a. La arquitectura está en [08_gui/04](../08_gui/04_arquitectura_web.md) y la web en [08_gui/](../08_gui/00_README.md).
 
 - **Ingesta** autenticada con un token compartido, que solo acepta datos del servicio de tierra.
 - **Difusión** a los navegadores del público por WebSocket o SSE.
@@ -65,6 +69,14 @@ El módem es **tonto a propósito**: no interpreta el contenido de los paquetes,
   - El proveedor se elige en la semana final. Lo que no puede faltar es **una prueba de punta a punta por Starlink antes del cierre** (prueba P-08).
 
 ## 3. Temas para la conversación (D3)
+
+> **Resueltos el 2026-10-25** en [08_gui/](../08_gui/00_README.md):
+> 1. Una sola base de código, con páginas aisladas para el público y una entrada de operación (D-W01, D-W14).
+> 2. Vite + Preact + MapLibre + uPlot (D-W05).
+> 3. Abierto en [08_gui/09](../08_gui/09_dashboard_operacion.md) §9.
+> 4. Cada cohete en su propia página pública (D-W01).
+> 5. < 2 s (D-W09).
+> 6. Se decide después del evento (T-654).
 
 1. ¿Una sola base de código del frontend con dos modos (operación y público), o dos aplicaciones? **Recomiendo una sola**, con las funciones de operación desactivadas en la versión pública.
 2. ¿Qué *framework* web saben usar? Para la interfaz se puede usar algo simple: Leaflet para el mapa, three.js para la actitud 3D, y uPlot o Chart.js para las gráficas.
