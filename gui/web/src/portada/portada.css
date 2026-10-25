@@ -5,7 +5,6 @@
 @import "../tema/comun.css";
 @import "../tema/demeter.css"; /* solo por el @font-face de Marcellus */
 @import "../tema/hermes.css"; /* solo por el @font-face de Montserrat */
-@import "../tema/mitades.css";
 
 :root {
   color-scheme: dark;
@@ -151,12 +150,8 @@ body {
 .nombre {
   position: relative;
   margin: 0;
-  font-family: var(--fuente-display), system-ui, sans-serif;
-  font-weight: var(--titulo-peso);
   font-size: clamp(1.5rem, 4.4svh, 2.25rem);
   line-height: 1.1;
-  letter-spacing: var(--titulo-espaciado);
-  text-transform: uppercase;
 }
 
 .lema {

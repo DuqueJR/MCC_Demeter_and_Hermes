@@ -15,7 +15,7 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-:root[data-mision="demeter"] {
+[data-mision="demeter"] {
   --fondo: #0b1a24;
   --superficie: #10222f;
   --superficie-2: #18324a;
@@ -35,7 +35,7 @@
 }
 
 /* Títulos de la misión (02 §5): mayúsculas con espaciado de 0,06 em. */
-:root[data-mision="demeter"] :is(h1, h2, h3) {
+[data-mision="demeter"] :is(h1, h2, h3) {
   font-family: var(--fuente-display), system-ui, sans-serif;
   font-weight: 400;
   text-transform: uppercase;
