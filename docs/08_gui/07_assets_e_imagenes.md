@@ -40,7 +40,11 @@ depende_de: [gui_identidad]
   - **la parte de abajo más oscura**, para que se lean el nombre y el "Entrar".
 - **Proporción:** **casi cuadrada, un poco vertical**. Sirve para la mitad del portátil (unos 960×1080) y para la mitad del celular (unos 390×420): se genera en 1152×1280 y se recorta con `object-fit: cover`.
 - **Sin texto, sin personas, sin cohetes:** el parche ya tiene todo eso.
-- Encima va un **degradado hacia el `--fondo` del tema** (02 §2), del 0 % arriba al 70 % abajo, y un oscurecido general del 25 %. El modo es oscuro.
+- Encima va un **velo con el `--fondo` del tema** (02 §2). El modo es oscuro.
+  - **Valores medidos en T-621:** oscurecido general del 30 %, degradado hasta el 85 % abajo y una franja oscura arriba, porque la cabecera cae sobre el cielo claro de Deméter.
+  - Los valores de la primera versión (25 % y 70 %) **no alcanzaban el contraste AA**: el lema de Deméter daba 4,04:1 y el logo 4,11:1. Con los nuevos, el mínimo es 4,82:1.
+  - Lo comprueba `e2e/portada_contraste.spec.ts`.
+  - La portada queda más oscura que la maqueta. Es aceptado (D-W21).
 
 | | Hermes | Deméter |
 | --- | --- | --- |
