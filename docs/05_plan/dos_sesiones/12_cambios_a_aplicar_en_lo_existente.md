@@ -63,6 +63,8 @@ depende_de: [dos_sesiones_decisiones]
 | [componentes.md](../../03_hardware/componentes.md) | Inconsistencias que el repo ya había anotado: BMP581 "INT 21" → **"INT sin cablear (B′)"**; QMI8658 "SPI3 con la SD" → **"deshabilitado en B′ (CS 34 en alto)"** | — |
 | [pendientes.md](../pendientes.md) PEN-12 | "el mapa del conector M.2" → **"los headers PN1/PM1"** | — |
 | [firmware_vuelo.md](../../04_diseno/firmware_vuelo.md) §1 | Agregar: **PSRAM en modo QSPI** en `platformio.ini`; el environment **`native`** para las pruebas en el PC | — |
+| [firmware_vuelo.md](../../04_diseno/firmware_vuelo.md) §2 | `t_house`: "arma STATUS" → **"publica la energía en el estado de vuelo"**; `t_radio`: agregar **"arma NAV y STATUS"** (DP-18, C-02 §2.1) | — |
+| [firmware_vuelo.md](../../04_diseno/firmware_vuelo.md) §6 | La lista de tipos de registro y lo que va en `tierra.bin` → **enlazar a C-04** (que pasa a `formato_log.md`), sin copiarlo (DP-19) | — |
 
 ## 7. Decisiones y flujo (DP-01 a DP-04, DP-15)
 
