@@ -7,7 +7,9 @@ Solo `npm` y Node (Windows y macOS), sin bash.
 
 ## Primeros pasos (Windows y macOS)
 
-**Todo se corre desde `gui/web/`, no desde la raíz del repo.**
+**Atajo (T-614):** desde la raíz del repo, `npm run web:instalar` una vez y luego `npm run web` (abre `/dev/`). Ver el `README.md` de la raíz. Lo de abajo es lo mismo, corrido desde `gui/web/`.
+
+**Las órdenes de esta tabla se corren desde `gui/web/`.**
 
 1. Node 22 (`.nvmrc`; con nvm: `nvm use`).
 2. `npm ci`
@@ -33,4 +35,4 @@ Imágenes: `vite-imagetools` está activo. Ejemplo: `import src from "./foto.png
 ## Tema y tokens (T-613)
 
 Tokens en `src/tema/` (contrato, 02 §6): `comun.css` + el de la misión. Fuentes WOFF2 latinas en `src/tema/fuentes/` con sus licencias OFL.
-Página de desarrollo: `npm run dev` y abrir `/dev/tokens.html` (`?mision=hermes`). No entra al `dist/`.
+Página de desarrollo: `npm run dev` y abrir `/dev/` (índice con todo lo que se puede ver, T-614) o `/dev/tokens.html` (`?mision=hermes`). Ninguna entra al `dist/`.

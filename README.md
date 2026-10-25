@@ -20,6 +20,15 @@ Incluye:
 | [`tools/`](tools/) | Simulación, decodificación del log y análisis post-vuelo |
 | [`docs/`](docs/00_INDICE.md) | **Toda la documentación.** Se empieza por [`docs/00_INDICE.md`](docs/00_INDICE.md). |
 
+## Probar la web en local
+
+Igual en Windows y en macOS, desde la raíz del repo. Se necesita **Node 22** y **Python 3** (solo para `npm run datos`).
+
+1. `npm run web:instalar` (una vez por máquina: instala las dependencias de `gui/web/` y el Chromium de Playwright).
+2. `npm run web`: abre la página de desarrollo (`/dev/`), con enlaces a la portada, a las páginas de cada misión, a los tokens y a los escenarios de ejemplo.
+
+Otras órdenes: `web:build`, `web:test`, `web:e2e`, `web:preview`, `datos` (regenera los JSONL de ejemplo) y `datos:validar`.
+
 ## Cómo se trabaja
 
 - **Flujo** ([`docs/05_plan/flujo_trabajo.md`](docs/05_plan/flujo_trabajo.md)):
