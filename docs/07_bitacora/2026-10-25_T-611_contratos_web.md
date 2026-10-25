@@ -59,3 +59,14 @@ Sobre C-05 (solo comprobación, sin cambios):
 
 ## Documentos afectados
 Ninguno editado. Sugerido para el documentador: marcar T-611 como hecha cuando se apruebe, y resolver las preguntas 1 a 8 en 05.
+
+## Correcciones de la revisión
+Las preguntas 1 a 11 quedan **resueltas** (decisiones delegadas por Juan Pablo; D-W18 en el PR #9):
+- **Nulabilidad (1, 2, 5), `additionalProperties: false` (4) y `relay_utc_ms` nullable (10):** se aceptan tal como están, sin cambio de código.
+- **`evento.fase` y `evento.activa` (3):** van siempre presentes, con `null` si no aplican. Cambiado en tipos, esquema y ejemplos.
+- **Serie, `mision`/`nodo` y `fase`/`fase_cod` (6, 7):** nuevo `src/contrato/validacion_extra.ts` (función pura que devuelve la lista de errores): 8 columnas con el mismo largo y máximo `WEB_SERIE_MAX_PUNTOS`; demeter=1 y hermes=2; `fase_cod` es el índice en `FASES`, verificado contra `maquina_estados.md` §1 (BOOT 0 … LANDED 8, ERROR 9): **todo cuadra**. La usan las pruebas, incluida la de los JSONL de `dev/datos/`.
+- **`estadoPagina` (8):** `sin_transmision` si nunca llegó dato del cohete, o si la última fase es BOOT, PREFLIGHT o ERROR con edad ≥ `WEB_SIN_TRANSMISION_MIN`. Desde ARMED nunca: queda `sin_senal` con el LKP (GS-03). Borde de 5 s: `<` es señal débil y `≥` es sin señal.
+- **`api.ts`:** solo se congela el lado de lectura; `alimentar` es interno del área D. **Arranca vacío** (todo `null`, `conexion` en `"cargando"`) y no importa los ejemplos: así `/hermes/` no empaqueta datos de Deméter (D-W01) ni muestra "EN VIVO" inventado (R-W5). Las pruebas lo alimentan con `alimentar.snapshot(snapshotEjemplo, …)`.
+- **`WEB_ALARMA_SOSTENER_S` = 10** agregada a `constantes.ts` para la UI (no la usa `estadoPagina`).
+
+Evidencia: `npm test` 61 pasan y 1 se salta (sin `.jsonl` aún); `npm run build` OK; `npm run e2e` 12 pasan. Casos nuevos: DESCENT 30 min → sin_senal; PREFLIGHT 11 min → sin_transmision; LANDED 2 h → sin_senal; bordes de 2 s y 5 s; evento sin fase/activa rechazado; serie desigual o mayor al máximo; mision/nodo y fase/fase_cod cruzados.
