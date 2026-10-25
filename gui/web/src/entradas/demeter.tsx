@@ -1,4 +1,6 @@
 // Entrada provisional de Deméter (T-610). El armazón real es T-622.
+import "../tema/comun.css";
+import "../tema/demeter.css";
 import { signal } from "@preact/signals";
 import { render } from "preact";
 
