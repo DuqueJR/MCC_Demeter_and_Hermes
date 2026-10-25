@@ -1,17 +1,18 @@
 // API de datos de la web: la interfaz CONGELADA entre el área E (UI) y el área D (datos). T-611.
 // Aprobación: Juan Pablo y Jerónimo en la sincronización H0 (06 §5: "preguntar").
 //
-// LADO DE LECTURA (lo que importa el área E): signals de solo lectura. Los componentes
-// leen `.value` y se re-renderizan solos. No agregar signals sin pasar por el contrato.
-// LADO DE ESCRITURA (`alimentar`): solo lo usa el cliente de datos de T-631. La UI no escribe.
+// LADO DE LECTURA (lo que importa el área E): signals de solo lectura. Es lo ÚNICO congelado.
+// Los componentes leen `.value` y se re-renderizan solos. No agregar signals sin pasar por el contrato.
+// LADO DE ESCRITURA (`alimentar`): interno del área D. T-631 lo amplía sin pasar por el contrato;
+// la UI no escribe.
 //
-// Hoy se alimenta con un snapshot de ejemplo estático. T-631 reemplaza esa carga inicial por el
-// snapshot real y el SSE, sin cambiar nada de lo exportado como lectura.
+// Arranca VACÍO (todo en null, `conexion` en "cargando"): en producción nunca hay datos inventados
+// (R-W5) ni datos de otra misión (D-W01). Los ejemplos se cargan solo desde las pruebas con
+// `alimentar.snapshot(snapshotEjemplo, ...)`.
 //
 // Reglas (05): `null` = sin dato; la edad no usa el reloj de pared del celular (05 §0, §4.4).
 // Cada página carga UNA misión (D-W01); este módulo guarda el estado de esa única misión.
 import { computed, type ReadonlySignal, signal } from "@preact/signals";
-import { snapshotEjemplo } from "../contrato/ejemplos";
 import type {
   Backfill,
   Estacion,
@@ -127,7 +128,3 @@ function serieVacia(): Serie {
     acc_z_g: [],
   };
 }
-
-// Carga inicial: el snapshot de ejemplo estático (reemplazada por el cliente en T-631).
-alimentar.snapshot(snapshotEjemplo, 0);
-alimentar.conexion("conectado");

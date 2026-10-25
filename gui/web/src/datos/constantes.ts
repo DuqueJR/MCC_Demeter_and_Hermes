@@ -18,6 +18,8 @@ export const WEB_TASA_TIERRA_HZ = 1;
 export const WEB_SSE_LATIDO_S = 15;
 /** 08_gui/04 §8: conexiones SSE por IP (lo aplica el relay). */
 export const WEB_SSE_MAX_POR_IP = 10;
+/** 08_gui/03 §4: el banner de alarma de descenso sigue 10 s más (lo usa la UI, no `estadoPagina`). */
+export const WEB_ALARMA_SOSTENER_S = 10;
 /** 08_gui/05 §3 (P): máximo de puntos de la `serie` del snapshot. */
 export const WEB_SERIE_MAX_PUNTOS = 2000;
 // WEB_INGESTA_TOKEN no va en el repo: es una variable de entorno del relay y del reenviador.
