@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { build } from "vite";
@@ -9,6 +9,12 @@ import { revisarAislamiento } from "../scripts/aislamiento.mjs";
 type Violacion = { pagina: string; archivo: string; motivo: string };
 const revisar = revisarAislamiento as (dist: string) => Violacion[];
 
+const fuenteReal = (nombre: string) =>
+  readFileSync(resolve(import.meta.dirname, "../src/tema/fuentes", nombre));
+const MONTSERRAT = fuenteReal("montserrat-latin-800-normal.woff2");
+const MARCELLUS = fuenteReal("marcellus-latin-400-normal.woff2");
+const INTER = fuenteReal("inter-latin-wght-normal.woff2");
+
 const raizTemporal = mkdtempSync(join(tmpdir(), "aislamiento-"));
 afterAll(() => rmSync(raizTemporal, { recursive: true, force: true }));
 
@@ -17,7 +23,7 @@ function html(script: string, extra = ""): string {
 }
 
 /** Crea un dist falso con los archivos dados (ruta relativa -> contenido). */
-function distFalso(nombre: string, archivos: Record<string, string>): string {
+function distFalso(nombre: string, archivos: Record<string, string | Buffer>): string {
   const dist = join(raizTemporal, nombre);
   for (const [ruta, contenido] of Object.entries(archivos)) {
     const destino = join(dist, ruta);
@@ -39,8 +45,14 @@ const BASE_LIMPIA = {
   "assets/demeter-aaaa1111.js": 'import{p}from"./preact-cccc3333.js";console.log(p,"Deméter");',
   "assets/hermes-bbbb2222.js": 'import{p}from"./preact-cccc3333.js";console.log(p,"Hermes");',
   "assets/preact-cccc3333.js": "export const p=1;",
-  "assets/demeter-aaaa1111.css": "body{color:#fff}",
-  "assets/hermes-bbbb2222.css": "body{color:#eee}",
+  // Los archivos de fuente llevan nombres neutros: la prueba debe identificarlos por su familia real.
+  "assets/demeter-aaaa1111.css":
+    "@font-face{src:url(/assets/titulos-1111.woff2)}@font-face{src:url(/assets/texto-3333.woff2)}",
+  "assets/hermes-bbbb2222.css":
+    "@font-face{src:url(/assets/titulos-2222.woff2)}@font-face{src:url(/assets/texto-3333.woff2)}",
+  "assets/titulos-1111.woff2": MARCELLUS,
+  "assets/titulos-2222.woff2": MONTSERRAT,
+  "assets/texto-3333.woff2": INTER,
 };
 
 describe("prueba de aislamiento (D-W01) con dist falso", () => {
@@ -90,6 +102,47 @@ describe("prueba de aislamiento (D-W01) con dist falso", () => {
     expect(revisar(dist).some((x) => x.pagina === "hermes")).toBe(true);
   });
 
+  it("FALLA si /demeter/ alcanza la fuente de títulos de Hermes, aunque el archivo tenga otro nombre", () => {
+    const dist = distFalso("falso-fuente-hermes", {
+      ...BASE_LIMPIA,
+      "assets/demeter-aaaa1111.css": `${BASE_LIMPIA["assets/demeter-aaaa1111.css"]}@font-face{src:url(/assets/titulos-2222.woff2)}`,
+    });
+    const v = revisar(dist);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ pagina: "demeter", archivo: "assets/titulos-2222.woff2" });
+    expect(v[0]?.motivo).toContain("Montserrat");
+  });
+
+  it("FALLA al revés: /hermes/ alcanza la fuente de títulos de Deméter", () => {
+    const dist = distFalso("falso-fuente-demeter", {
+      ...BASE_LIMPIA,
+      "assets/hermes-bbbb2222.css": `${BASE_LIMPIA["assets/hermes-bbbb2222.css"]}@font-face{src:url(/assets/titulos-1111.woff2)}`,
+    });
+    const v = revisar(dist);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ pagina: "hermes", archivo: "assets/titulos-1111.woff2" });
+    expect(v[0]?.motivo).toContain("Marcellus");
+  });
+
+  it("FALLA si las fuentes de una página pasan de 80 KB", () => {
+    const dist = distFalso("falso-peso", {
+      ...BASE_LIMPIA,
+      "assets/titulos-2222.woff2": Buffer.concat([MONTSERRAT, Buffer.alloc(40 * 1024)]),
+    });
+    const v = revisar(dist);
+    expect(v.some((x) => x.pagina === "hermes" && x.motivo.includes("presupuesto"))).toBe(true);
+  });
+
+  it("FALLA si una página no carga su propia fuente de títulos", () => {
+    const dist = distFalso("falso-sin-titulos", {
+      ...BASE_LIMPIA,
+      "assets/hermes-bbbb2222.css": "@font-face{src:url(/assets/texto-3333.woff2)}",
+    });
+    expect(
+      revisar(dist).some((x) => x.pagina === "hermes" && x.motivo.includes("Montserrat")),
+    ).toBe(true);
+  });
+
   it("FALLA si falta una de las páginas", () => {
     const { "hermes/index.html": _omitida, ...sinHermes } = BASE_LIMPIA;
     expect(revisar(distFalso("sin-hermes", sinHermes)).length).toBeGreaterThan(0);
@@ -108,5 +161,10 @@ describe("prueba de aislamiento sobre el build real", () => {
 
   it("el dist/ real está aislado", () => {
     expect(revisar(salida)).toEqual([]);
+  });
+
+  it("la página de desarrollo de tokens no entra al dist/ de producción", () => {
+    expect(existsSync(join(salida, "dev"))).toBe(false);
+    expect(existsSync(join(salida, "tokens.html"))).toBe(false);
   });
 });
