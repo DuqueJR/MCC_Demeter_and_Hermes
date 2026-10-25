@@ -114,10 +114,11 @@ actualizado: 2026-10-25
 | ID | Tarea | Pri | Área | Depende de | Estado |
 | --- | --- | --- | --- | --- | --- |
 | T-610 | Andamiaje de `gui/web/` (Vite multipágina, TS, Preact y signals, pruebas, aislamiento) | M | E | — | hecha (2026-10-25, PR #4) |
-| T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | en curso (PR #7 abierto) |
-| T-612 | Generador de datos de ejemplo: OpenRocket → JSONL `web-1`, 6 escenarios por misión | M | D | — | hecha (2026-10-25, PR #8). Falta validar los 12 JSONL contra `esquema.json` cuando se integre T-611 |
+| T-611 | Contratos en código: `web-1` (tipos y esquema) y `api.ts`. **Se congela en H0 con C-05.** | M | D | T-610 | hecha (2026-10-25, PR #7; D-W18). Errata D-W19 (`vel` nulable) en `fix/T-611-vel-nulable` |
+| T-612 | Generador de datos de ejemplo: OpenRocket → JSONL `web-1`, 6 escenarios por misión | M | D | — | hecha (2026-10-25, PR #8). Validados contra `esquema.json` el 2026-10-25: 36 líneas fallan, todas por `vel: null` antes del fix. El error estaba en el contrato, no en T-612 (D-W19) |
 | T-613 | Tema y tokens (02 §6) y fuentes autohospedadas | M | E | T-610 | hecha (2026-10-25, PR #6) |
-| T-620 | Portada | M | E | T-613 | pendiente |
+| T-614 | **Probar la web en local con npm:** un `package.json` en la raíz (sin dependencias) con `npm run web`, `web:instalar`, `web:build`, `web:test`, `web:e2e`, `web:preview`, `datos` y `datos:validar`, que funcione en Windows y macOS; y la página de desarrollo `gui/web/dev/index.html`, con enlaces a todo lo que se puede ver y los escenarios disponibles, fuera del `dist/`. **Leer:** 08_gui/06 §5–§6, 08_gui/04 §3, `gui/web/README.md`, `tools/web_datos/README.md`. **Criterio:** desde la raíz, `npm run web:instalar` y `npm run web` abren la página de desarrollo; `dev/index.html` no está en el `dist/`; las tres órdenes de la web en verde | M | E | T-610 | pendiente |
+| T-620 | Portada | M | E | T-613 | hecha (2026-10-25, PR #11). Pendientes del diseñador para T-621 |
 | T-621 | Assets de marca y fondos (lo hace el diseñador con el usuario) | M | E | PEN-W08 | pendiente |
 | T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | pendiente |
 | T-623 | Contenido provisional de cada misión | M | E | T-622 | pendiente |
