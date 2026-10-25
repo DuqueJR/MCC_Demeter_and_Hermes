@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es" data-mision="demeter">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Desarrollo · Hermes y Deméter</title>
+    <!-- Solo desarrollo (T-614): no entra al dist/ ni es una entrada pública. Se ve con `npm run web` desde la raíz. -->
+    <link rel="stylesheet" href="/src/tema/comun.css" />
+    <link rel="stylesheet" href="/src/tema/demeter.css" />
+    <link rel="stylesheet" href="/dev/index.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Página de desarrollo</h1>
+      <p class="nota">
+        Los datos en vivo llegan con T-630 (repetidor) y T-631 (cliente). Mientras tanto, los escenarios de abajo son
+        JSONL del contrato <code>web-1</code>, generados con <code>npm run datos</code>.
+      </p>
+
+      <section aria-labelledby="paginas">
+        <h2 id="paginas">Páginas</h2>
+        <ul>
+          <li><a href="/">/</a><span class="que">Portada</span></li>
+          <li><a href="/demeter/">/demeter/</a><span class="que">Página de Deméter</span></li>
+          <li><a href="/hermes/">/hermes/</a><span class="que">Página de Hermes</span></li>
+          <li><a href="/dev/tokens.html">/dev/tokens.html</a><span class="que">Tokens de color, tipografía y espacio (también <code>?mision=hermes</code>)</span></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="e-demeter">
+        <h2 id="e-demeter">Escenarios de Deméter (simulación de OpenRocket)</h2>
+        <ul>
+          <li><a href="/dev/datos/demeter_nominal.jsonl">demeter_nominal.jsonl</a><span class="que">PREFLIGHT (sin fix, luego fix y Go/No-Go en verde), ARM a los 8 s, 10 s en ARMED, vuelo completo y 30 s en LANDED.</span></li>
+          <li><a href="/dev/datos/demeter_lkp_descenso.jsonl">demeter_lkp_descenso.jsonl</a><span class="que">Se pierde la señal a 120 m en el descenso; el latido de la estación sigue y la edad del último paquete crece.</span></li>
+          <li><a href="/dev/datos/demeter_descenso_rapido.jsonl">demeter_descenso_rapido.jsonl</a><span class="que">Descenso 1,6 veces más rápido: evento alarma_descenso y alarmas.descenso_rapido.</span></li>
+          <li><a href="/dev/datos/demeter_backfill.jsonl">demeter_backfill.jsonl</a><span class="que">Pierde el 25 % de los NAV en vuelo y, ya aterrizado, retransmite unos 850 registros a 8 por segundo.</span></li>
+          <li><a href="/dev/datos/demeter_espera_rampa.jsonl">demeter_espera_rampa.jsonl</a><span class="que">30 min en PREFLIGHT a 1 Hz (consumo de la página).</span></li>
+          <li><a href="/dev/datos/demeter_relay_caido.jsonl">demeter_relay_caido.jsonl</a><span class="que">Vuelo nominal sin nada del relay entre T+20 s y T+40 s; al volver llega un meta.</span></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="e-hermes">
+        <h2 id="e-hermes">Escenarios de Hermes (sintético, PEN-W04)</h2>
+        <ul>
+          <li><a href="/dev/datos/hermes_nominal.jsonl">hermes_nominal.jsonl</a><span class="que">PREFLIGHT (sin fix, luego fix y Go/No-Go en verde), ARM a los 8 s, 10 s en ARMED, vuelo completo y 30 s en LANDED.</span></li>
+          <li><a href="/dev/datos/hermes_lkp_descenso.jsonl">hermes_lkp_descenso.jsonl</a><span class="que">Se pierde la señal a 120 m en el descenso; el latido de la estación sigue y la edad del último paquete crece.</span></li>
+          <li><a href="/dev/datos/hermes_descenso_rapido.jsonl">hermes_descenso_rapido.jsonl</a><span class="que">Descenso 1,6 veces más rápido: evento alarma_descenso y alarmas.descenso_rapido.</span></li>
+          <li><a href="/dev/datos/hermes_backfill.jsonl">hermes_backfill.jsonl</a><span class="que">Pierde el 25 % de los NAV en vuelo y, ya aterrizado, retransmite unos 850 registros a 8 por segundo.</span></li>
+          <li><a href="/dev/datos/hermes_espera_rampa.jsonl">hermes_espera_rampa.jsonl</a><span class="que">30 min en PREFLIGHT a 1 Hz (consumo de la página).</span></li>
+          <li><a href="/dev/datos/hermes_relay_caido.jsonl">hermes_relay_caido.jsonl</a><span class="que">Vuelo nominal sin nada del relay entre T+20 s y T+40 s; al volver llega un meta.</span></li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

@@ -16,7 +16,7 @@ export default defineConfig({
       url: `http://localhost:${PUERTO}`,
       reuseExistingServer: !process.env.CI,
     },
-    // Solo para dev/tokens.html (T-613), que no existe en el dist/.
+    // Solo para dev/ (T-613 y T-614), que no existe en el dist/.
     {
       command: `npx vite --port ${PUERTO_DEV} --strictPort`,
       url: `http://localhost:${PUERTO_DEV}`,
