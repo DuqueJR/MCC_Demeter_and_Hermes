@@ -43,3 +43,6 @@ secretos.*
 # Logs de vuelo y de pruebas (se guardan fuera de git o en un release)
 *.bin.log
 logs/
+
+# Imágenes generadas con IA (MCP de Hugging Face): borradores locales. Las elegidas se copian a gui/ o a docs/.
+generated_images/
