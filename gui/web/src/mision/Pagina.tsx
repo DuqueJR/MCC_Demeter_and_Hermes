@@ -2,6 +2,7 @@
 // No importa nada específico de una misión (D-W01): lo propio llega por props.
 import type { ComponentChildren } from "preact";
 import type { Contenido } from "../contenido/tipos";
+import { SeccionMapa } from "../mapa/SeccionMapa";
 import { BarraMision } from "./BarraMision";
 import { Equipo } from "./Equipo";
 import { Hueco } from "./Hueco";
@@ -26,7 +27,7 @@ export function Pagina({ contenido, extra }: Props) {
         <Inicio contenido={contenido} />
         <Hueco id="estado" titulo="Estado de la misión" />
         <Hueco id="telemetria" titulo="Telemetría" />
-        <Hueco id="mapa" titulo="Mapa" />
+        <SeccionMapa />
         <Hueco id="recuperacion" titulo="Recuperación" />
         <Hueco id="actitud" titulo="Actitud" />
         <Hueco id="graficas" titulo="Gráficas" />
