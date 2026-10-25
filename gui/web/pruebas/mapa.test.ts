@@ -31,10 +31,12 @@ import {
   type Coord,
   cardinal,
   construirCapas,
+  cuadricula,
   decidirLkp,
   type EntradaMapa,
   fueraDeLimites,
   limitesDe,
+  lineasLkp,
   poligonoElipse,
   puntosDeSerie,
   rumboDelCohete,
@@ -136,6 +138,9 @@ describe("LKP (03 §3.4 y §4, GS-03)", () => {
       alt_agl_m: e.estado?.lkp?.alt_agl_m,
     });
     expect(textoLkp(120.6, 42_925)).toBe("Última posición · 121 m · hace 42 s");
+    expect(lineasLkp(120.6, 42_925)).toEqual(["Última posición", "121 m · hace 42 s"]);
+    expect(lineasLkp(null, null)).toEqual(["Última posición", null]);
+    expect(textoLkp(null, 3_000)).toBe("Última posición · hace 3 s");
   });
 
   it("nominal en pleno vuelo: no toca LKP y el cohete se dibuja en estado.pos", () => {
@@ -397,6 +402,26 @@ describe("elipse de impacto y rumbo", () => {
     expect(rumboDelCohete({ ...base, vel: null }, [])).toBeNull();
   });
 
+  it("la cuadrícula de referencia: meridianos y paralelos alineados al paso", () => {
+    const c = cuadricula({ lat: 6.582, lon: -75.823 }, 0.01, 0.002);
+    const lineas = c.features.map((f) => f.geometry.coordinates);
+    const meridianos = lineas.filter(([a, b]) => a?.[0] === b?.[0]);
+    const paralelos = lineas.filter(([a, b]) => a?.[1] === b?.[1]);
+    expect(meridianos.length + paralelos.length).toBe(lineas.length);
+    expect(meridianos.length).toBeGreaterThanOrEqual(10);
+    expect(paralelos.length).toBeGreaterThanOrEqual(10);
+    for (const [a] of meridianos)
+      expect(
+        Math.abs((a?.[0] as number) / 0.002 - Math.round((a?.[0] as number) / 0.002)),
+      ).toBeLessThan(1e-6);
+    // Todo cae dentro del cuadrado pedido.
+    for (const l of lineas)
+      for (const p of l) {
+        expect(Math.abs((p as Coord)[0] + 75.823)).toBeLessThanOrEqual(0.0101);
+        expect(Math.abs((p as Coord)[1] - 6.582)).toBeLessThanOrEqual(0.0101);
+      }
+  });
+
   it("limites y fueraDeLimites", () => {
     expect(limitesDe([])).toBeNull();
     const l = limitesDe([
@@ -481,6 +506,7 @@ describe("estilo por tema", () => {
     expect(Object.keys(sin.sources)).not.toContain(FUENTE.base);
     expect(sin.layers.map((l) => l.id)).toEqual([
       "fondo",
+      "cuadricula",
       "elipse-relleno",
       "elipse-borde",
       "linea-estacion",

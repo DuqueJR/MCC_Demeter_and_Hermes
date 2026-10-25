@@ -6,18 +6,23 @@ import { WEB_SERIE_MAX_PUNTOS } from "../datos/constantes";
 export const MAPA_CENTRO_POR_DEFECTO = { lat: 6.582, lon: -75.823 } as const;
 /** Zoom con el que abre el mapa, centrado en la rampa. */
 export const MAPA_ZOOM_INICIAL = 14.5;
-/** Zoom máximo de la interfaz (el PMTiles llega a `MAPA_ZOOM_MAX_TEJAS`; lo demás es ampliación). */
+/** Zoom máximo de la interfaz (el PMTiles se extrae hasta el zoom 15; lo demás es ampliación). */
 export const MAPA_ZOOM_MAX = 18;
 /** Zoom máximo al ajustar la vista a todo lo dibujado (evita acercarse al infinito si todo coincide). */
 export const MAPA_ZOOM_AJUSTE_MAX = 16;
 /** Zoom mínimo al "centrar en el cohete": si el usuario ya está más cerca, se respeta. */
 export const MAPA_ZOOM_CENTRAR = 16;
 /** Relleno de la vista al ajustar, en px. */
-export const MAPA_RELLENO_PX = 56;
+export const MAPA_RELLENO_PX = 72;
 /** El mapa se pide cuando la sección está a esta distancia de entrar en pantalla (04 §2). */
 export const MAPA_MARGEN_CARGA_PX = 200;
 /** Ruta del PMTiles propio, relativa a `BASE_URL`. Puede reemplazarse con `VITE_MAPA_PMTILES_URL`. */
 export const MAPA_PMTILES_RUTA = "mapas/santa_fe.pmtiles";
+/** Ancho máximo de la escala del mapa, en px. */
+export const MAPA_ESCALA_MAX_PX = 96;
+/** Cuadrícula de referencia (solo sin mapa base): separación entre líneas y radio, en grados. */
+export const MAPA_CUADRICULA_PASO_GRADOS = 0.002;
+export const MAPA_CUADRICULA_RADIO_GRADOS = 0.05;
 /** Tramos en que se parte la trayectoria para desvanecerla con el tiempo. */
 export const MAPA_TRAMOS_DESVANECER = 8;
 /** Opacidad del tramo más viejo de la trayectoria (el más nuevo es 1). */
@@ -56,4 +61,5 @@ export const ESTILO_MAPA = {
   anchoLinea: 1.5,
   guionLinea: [3, 3] as readonly number[],
   anchoRastro: [10, 2, 18, 5] as RampaZoom,
+  anchoCuadricula: 1,
 } as const;

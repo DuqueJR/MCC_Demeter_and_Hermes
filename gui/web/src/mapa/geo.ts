@@ -5,6 +5,8 @@ import type { Estacion, Estado, Meta, Serie } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/estado_pagina";
 import { hace, numero } from "../mision/formato";
 import {
+  MAPA_CUADRICULA_PASO_GRADOS,
+  MAPA_CUADRICULA_RADIO_GRADOS,
   MAPA_EPSILON_GRADOS,
   MAPA_OPACIDAD_RASTRO_MIN,
   MAPA_PASOS_ELIPSE,
@@ -285,12 +287,51 @@ export function textoChip(distM: number | null, azimutDeg: number | null): strin
   return partes.length > 0 ? partes.join(" · ") : null;
 }
 
-/** "Última posición conocida · 121 m · hace 38 s", con lo que se sepa. */
+/** El texto del LKP en dos líneas: `["Última posición", "121 m · hace 38 s"]`. */
+export function lineasLkp(altM: number | null, edadMs: number | null): [string, string | null] {
+  const detalle: string[] = [];
+  if (altM !== null) detalle.push(`${numero(altM)} m`);
+  if (edadMs !== null) detalle.push(hace(edadMs));
+  return ["Última posición", detalle.length > 0 ? detalle.join(" · ") : null];
+}
+
+/** Lo mismo en una sola línea (para lectores de pantalla): "Última posición · 121 m · hace 38 s". */
 export function textoLkp(altM: number | null, edadMs: number | null): string {
-  const partes = ["Última posición"];
-  if (altM !== null) partes.push(`${numero(altM)} m`);
-  if (edadMs !== null) partes.push(hace(edadMs));
-  return partes.join(" · ");
+  const [titulo, detalle] = lineasLkp(altM, edadMs);
+  return detalle ? `${titulo} · ${detalle}` : titulo;
+}
+
+/** Decimales con que se redondean las líneas de la cuadrícula (quita el ruido de `k * paso`). */
+const DECIMALES_CUADRICULA = 6;
+
+/**
+ * Cuadrícula de referencia: meridianos y paralelos cada `paso` grados, alineados a múltiplos del
+ * paso, en un cuadrado de `radio` grados alrededor de `centro`. Da sensación de escala y de
+ * movimiento cuando el mapa no tiene base (no hay PMTiles).
+ */
+export function cuadricula(
+  centro: { lat: number; lon: number },
+  radio: number = MAPA_CUADRICULA_RADIO_GRADOS,
+  paso: number = MAPA_CUADRICULA_PASO_GRADOS,
+): Coleccion<Linea, Record<string, never>> {
+  const redondear = (n: number) => Number(n.toFixed(DECIMALES_CUADRICULA));
+  const [oeste, este] = [centro.lon - radio, centro.lon + radio];
+  const [sur, norte] = [centro.lat - radio, centro.lat + radio];
+  const features: Caracteristica<Linea, Record<string, never>>[] = [];
+  const linea = (a: Coord, b: Coord): Caracteristica<Linea, Record<string, never>> => ({
+    type: "Feature",
+    properties: {},
+    geometry: { type: "LineString", coordinates: [a, b] },
+  });
+  for (let k = Math.ceil(oeste / paso); k <= Math.floor(este / paso); k++) {
+    const lon = redondear(k * paso);
+    features.push(linea([lon, sur], [lon, norte]));
+  }
+  for (let k = Math.ceil(sur / paso); k <= Math.floor(norte / paso); k++) {
+    const lat = redondear(k * paso);
+    features.push(linea([oeste, lat], [este, lat]));
+  }
+  return coleccion(features);
 }
 
 // ---- Todas las capas

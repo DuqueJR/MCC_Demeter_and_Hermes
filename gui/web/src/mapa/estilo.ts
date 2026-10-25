@@ -8,7 +8,13 @@ import type {
   LayerSpecification,
   StyleSpecification,
 } from "maplibre-gl";
-import { ESTILO_MAPA as E, MAPA_DUR_RESPALDO_MS, type RampaZoom } from "./constantes";
+import {
+  ESTILO_MAPA as E,
+  MAPA_CENTRO_POR_DEFECTO,
+  MAPA_DUR_RESPALDO_MS,
+  type RampaZoom,
+} from "./constantes";
+import { cuadricula } from "./geo";
 
 const MS_POR_S = 1000;
 
@@ -79,6 +85,7 @@ export const FUENTE = {
   elipse: "elipse",
   linea: "linea-estacion",
   base: "base",
+  cuadricula: "cuadricula",
 } as const;
 
 const vacia = { type: "FeatureCollection", features: [] } as const;
@@ -167,6 +174,16 @@ function capasBase(t: Tokens): LayerSpecification[] {
   ];
 }
 
+/** La cuadrícula de referencia, que reemplaza al mapa base cuando no hay PMTiles. */
+function capaCuadricula(t: Tokens): LayerSpecification {
+  return {
+    id: "cuadricula",
+    type: "line",
+    source: FUENTE.cuadricula,
+    paint: { "line-color": t.linea, "line-width": E.anchoCuadricula },
+  };
+}
+
 /** Las capas propias de la misión, encima del mapa base. */
 function capasMision(t: Tokens): LayerSpecification[] {
   return [
@@ -230,13 +247,21 @@ export function construirEstilo(t: Tokens, base: BaseVectorial | null): StyleSpe
             },
           }
         : {}),
+      ...(base
+        ? {}
+        : {
+            [FUENTE.cuadricula]: {
+              type: "geojson" as const,
+              data: cuadricula(MAPA_CENTRO_POR_DEFECTO),
+            },
+          }),
       [FUENTE.trayectoria]: { type: "geojson", data: vacia },
       [FUENTE.elipse]: { type: "geojson", data: vacia },
       [FUENTE.linea]: { type: "geojson", data: vacia },
     },
     layers: [
       { id: "fondo", type: "background", paint: { "background-color": t.fondo } },
-      ...(base ? capasBase(t) : []),
+      ...(base ? capasBase(t) : [capaCuadricula(t)]),
       ...capasMision(t),
     ],
   };
