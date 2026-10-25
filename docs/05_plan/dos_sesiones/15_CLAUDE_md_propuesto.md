@@ -30,7 +30,7 @@ Congelamiento: 4 de noviembre a las 12:00.** Idioma: español.
 ## Dos sesiones (docs/05_plan/dos_sesiones/)
 - **Sesión A, Jerónimo:** enlace, tiempo, tierra y Pi. **Sesión B, Juan Pablo:** adquisición, log y decisión.
 - Quién es quién lo dice tu `CLAUDE.local.md`. Las carpetas de cada sesión: `06_contratos/01_propiedad_y_carpetas.md`.
-  **No edites las carpetas de la otra sesión ni `gui/` (la GUI es de otro plan).**
+  **No edites las carpetas de la otra sesión, ni `gui/`, `docs/08_gui/` o `tools/web_datos/` (la GUI es de otro plan).**
 - Al empezar: `/arranque`. Al terminar un bloque: `/cierre`. Sincronización: `/sync`.
 - Estado vivo: `docs/05_plan/dos_sesiones/estado/` (sesion_A.md, sesion_B.md, placa.md).
 
@@ -44,7 +44,8 @@ Congelamiento: 4 de noviembre a las 12:00.** Idioma: español.
 - Números: **solo** `docs/02_requisitos/constantes.md` (se replican con el mismo nombre en `config.h` y `constantes.py`).
 - Contratos: `04_diseno/protocolo_paquetes.md`, `enlace_lora_tdma.md`, `maquina_estados.md`,
   `visionpack_integracion.md` y los contratos C-02 a C-05 (en `04_diseno/` cuando se promuevan;
-  hasta entonces en `05_plan/dos_sesiones/06_contratos/`). **Primero el documento y una decisión;
+  hasta entonces en `05_plan/dos_sesiones/06_contratos/`). La salida del servicio de tierra es `web-1`
+  (`docs/08_gui/05_contrato_datos_web.md`, del plan web: solo lectura). **Primero el documento y una decisión;
   después el código.**
 - Hardware: `03_hardware/componentes.md` y `buses_y_pines.md`. No leas datasheets completos: ficha + grep.
 - `docs/99_archivo/` es historia: no lo uses para decidir.
@@ -91,7 +92,7 @@ Los scripts van **en Python** (los dos usan Windows), en `.claude/hooks/`. Cada 
 | --- | --- | --- | --- |
 | `proteger_contratos.py` | `PreToolUse` sobre `Edit\|Write` | Si la ruta es un contrato (`docs/04_diseno/{protocolo_paquetes,enlace_lora_tdma,maquina_estados,visionpack_integracion}.md`, `docs/02_requisitos/constantes.md`, `docs/05_plan/dos_sesiones/06_contratos/**`, `firmware/src/estado/**`, `firmware/include/config.h`, `estacion/constantes.py`) **y** la rama actual no empieza por `contrato/` ni `docs/consolidacion-`, termina con código 2 y el mensaje "contrato: usa el protocolo de 08 §3" | Sí (código 2) |
 | `respetar_propiedad.py` | `PreToolUse` sobre `Edit\|Write` | Lee `SESION`. Si la ruta pertenece a la **otra** sesión según una tabla en `.claude/hooks/propiedad.json` (copia de C-01), termina con código 2. Si `SESION` no está definida, no bloquea y avisa | Sí (código 2) |
-| `no_gui.py` | `PreToolUse` sobre `Edit\|Write` | Bloquea las ediciones en `gui/**` | Sí (código 2) |
+| `no_gui.py` | `PreToolUse` sobre `Edit\|Write` | Bloquea las ediciones en `gui/**`, `docs/08_gui/**` y `tools/web_datos/**` (el plan web). **En las sesiones del plan web** este hook no se activa: lo controla `SESION` | Sí (código 2) |
 | `contexto_inicio.py` | `SessionStart` (inicio, reanudación, compactación) | Imprime el resumen de `estado/sesion_A.md`, `sesion_B.md` y la última entrada de `estado/placa.md` (Claude Code lo agrega al contexto). En la compactación también recuerda la tarea en curso | No |
 | `antes_de_parar.py` (opcional) | `Stop` | Si hay cambios sin commit en un worktree de `desarrollador`, recuerda correr las pruebas y escribir la bitácora | No (solo avisa) |
 
@@ -132,7 +133,7 @@ Eres el revisor del proyecto Hermes + Demeter. Recibes una rama o PR de una tare
 3. Verifica: (a) el criterio de aceptación; (b) que respeta los contratos (formatos, offsets,
    nombres de constantes, transiciones); (c) que no hay números mágicos; (d) que las pruebas
    existen, se corrieron y su evidencia está; (e) que no edita carpetas de la otra sesión,
-   `gui/` ni contratos sin decisión; (f) seguridad del hardware (TX con antena, potencia de banco).
+   `gui/`, `docs/08_gui/` ni contratos sin decisión; que la salida de tierra respete `web-1`; (f) seguridad del hardware (TX con antena, potencia de banco).
 4. Corre las pruebas que se puedan correr en el PC (`pio test -e native`, `pytest`) y pega la salida.
 5. Reporta SOLO hallazgos que afecten la corrección, los contratos o el "hecho", cada uno con
    archivo:línea, el escenario que falla y la gravedad. No reportes preferencias de estilo.

@@ -28,7 +28,7 @@ Lo mismo de [plan_maestro §1](../plan_maestro.md), con un cambio en el punto 4:
 5. El buzzer al aterrizar.
 6. Demeter: los bloqueantes de la Pi corregidos, la secuencia UART y la Pi encendida antes del despegue.
 
-**Debería estar:** EKF, Madgwick, backfill, volcado por Wi-Fi, la alarma de descenso, los cálculos de tierra completos (elipse, tiempos), la API del back-end estable para la GUI, el reenviador y la ingesta (por confirmar).
+**Debería estar:** EKF, Madgwick, backfill, volcado por Wi-Fi, la alarma de descenso, los cálculos de tierra completos (elipse, tiempos), la salida `web-1` estable para la GUI (C-05) y el reenviador (T-605a).
 
 **Si da el tiempo:** pesos dinámicos, `SET_CANAL`, la hora del RTC al arrancar (T-S15).
 
@@ -41,9 +41,9 @@ Lo mismo de [plan_maestro §1](../plan_maestro.md), con un cambio en el punto 4:
 | T-S03 | Congelar C-03 (trama USB del módem), con vectores golden | A redacta, B revisa | M | — | Aprobado en H0, con los vectores en `tools/vectores/usb/` |
 | T-S04 | **CLI del operador** sobre la API del back-end | A | M | T-602, T-S06 | Desde la CLI, contra el módem falso: Go/No-Go por cohete, ARM, DISARM, FORZAR_ATERRIZADO, PING, comandos de la Pi; LKP y fase en texto; ningún comando entra si no es local |
 | T-S05 | Congelar C-04 (formato del log y del replay); adelanta T-202 | B redacta, A revisa | M | — | Aprobado en H0. Incluye los tamaños de registro y la tasa recalculada |
-| T-S06 | Congelar C-05 (API del back-end) e implementar el servidor local | A | M | T-602 | Contrato aprobado en H0; servidor local que cumple los vectores de C-05 |
+| T-S06 | Congelar C-05 (API del back-end, **alineada con `web-1`** del plan web) e implementar el servidor local: las rutas `web-1` por misión más las extensiones `/api/v1/local/` | A | M | T-602; `web-1` congelado (T-611 del plan web) | Contrato aprobado en H0, el mismo día que `web-1`; los mensajes del servidor validan contra el esquema de `web-1`; los comandos solo funcionan desde `127.0.0.1` |
 | T-S07 | **Módem falso** (emite tramas C-03 a partir de vuelos sintéticos de los dos cohetes) | A | M | T-S03, T-304 | T-602 corre 30 min contra él sin perder nada |
-| T-S08 | Cálculos de tierra: distancia, azimut, elevación, elipse, tiempos, alarma de descenso, retención de la LKP, URL del QR | A | S | T-602 | Pruebas con casos conocidos; publicados en C-05 |
+| T-S08 | Cálculos de tierra: distancia, azimut, elevación, elipse, tiempos, alarma de descenso, retención de la LKP, URL del QR | A | S | T-602 | Pruebas con casos conocidos; publicados en `estado.calc`, `estado.alarmas` y `salud.go_nogo` de `web-1` |
 | T-S09 | Chequeo automático de que `config.h` y `constantes.py` coinciden con [constantes.md](../../02_requisitos/constantes.md) | B | M | T-002 | Falla en la integración continua si hay un nombre o valor distinto |
 | T-S10 | Aplicar la integración continua especificada en [15](15_CLAUDE_md_propuesto.md) §4 | Ambos | M | **Aprobación aparte** | El workflow corre en cada PR |
 | T-S11 | Aplicar los hooks, las skills y el agente `revisor` de [15](15_CLAUDE_md_propuesto.md) | Ambos | S | **Aprobación aparte** | Funcionan en las dos cuentas |
@@ -63,7 +63,7 @@ Lo mismo de [plan_maestro §1](../plan_maestro.md), con un cambio en el punto 4:
 | 25 T | Redactar C-03 y C-05 (T-S03, T-S06); vectores USB | Redactar C-02 y C-04 (T-S02, T-S05) |
 | 26 M | **Pareja con la placa:** PEN-18 + T-S12 (B maneja la placa, A registra) | Ídem; T-003 |
 | 26 T | T-502 (códec C y Python + vectores), T-304 (empieza), **ping LoRa T-006** con la V1.2 (ventana de placa de A) | T-002 (PlatformIO, 3 environments), T-S09 |
-| Cierre | **Sincronización H0:** C-01 a C-05 congelados; D-022 cerrada (B′ o A′); el radio de la V1.2 identificado | |
+| Cierre | **Sincronización H0:** C-01 a C-05 congelados (C-05 junto con `web-1` del plan web); D-022 cerrada (B′ o A′); el radio de la V1.2 identificado | |
 
 **Criterio de H0:**
 - compilan los 3 environments;
@@ -100,7 +100,7 @@ Lo mismo de [plan_maestro §1](../plan_maestro.md), con un cambio en el punto 4:
 
 | Sesión A | Sesión B |
 | --- | --- |
-| T-504 (backfill), T-801 (volcado), T-S08 (cálculos), P-11; reenviador e ingesta si se confirman y hay tiempo | P-02 completo con la SD de vuelo, T-302 (Madgwick) y T-303 (EKF) si hay tiempo, P-04 |
+| T-504 (backfill), T-801 (volcado), T-S08 (cálculos), P-11; reenviador (T-605a) si hay tiempo, para la T-641 del plan web | P-02 completo con la SD de vuelo, T-302 (Madgwick) y T-303 (EKF) si hay tiempo, P-04 |
 
 **Jornadas conjuntas (2 y 3 de noviembre):** P-06 (alcance), P-07 (integración en 15 min), P-12 (autonomía) y **dos ensayos de misión completos** con los dos cohetes y la CLI.
 
@@ -124,7 +124,7 @@ C-02 (B) ─┬─► T-501/T-503/T-702 (A) usan las interfaces de la máquina d
           └─► T-301/T-401 (B)
 C-03 (A) ─► T-601 (A) ↔ T-602 (A), y el módem falso (A)
 C-04 (B) ─► T-201 (B), T-203 y T-304 (A) ─► T-305 (B)
-C-05 (A) ─► T-S04 (A); la GUI del otro plan (fuera)
+web-1 (plan web) ─► C-05 (A) ─► T-S04 CLI (A), T-605a reenviador (A); el dashboard, el relay y la web del otro plan (fuera)
 T-502 (A) ─► NAV/STATUS armados en el firmware (A, con datos de B por C-02)
 T-105 (A, tiempo) ─► T-501 (A); el EKF de B (T-303) consume la posición por C-02
 PEN-17 (Hw) ─► T-004 (B) ─► T-101..T-103 (B) ─► P-02
@@ -147,7 +147,7 @@ PEN-17 (Hw) ─► T-004 (B) ─► T-101..T-103 (B) ─► P-02
 
 ## 6. Recortes (en este orden, si un hito se atrasa más de medio día)
 
-1. Reenviador e ingesta del servidor (T-605, back-end).
+1. Reenviador (T-605a). El relay y la ingesta (T-640) son del plan web, que según su propia regla se pausa si el back-end se atrasa.
 2. T-303 (EKF): NAV sale con el GNSS crudo y `EKF_OK = 0`, como ya está previsto.
 3. T-302 (Madgwick): el cuaternión sale como "sin dato".
 4. T-801 (volcado por Wi-Fi): la SD se lee a mano después de la recuperación.

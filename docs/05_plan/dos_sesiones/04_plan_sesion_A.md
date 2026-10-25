@@ -18,7 +18,7 @@ Las carpetas exactas están en [C-01](06_contratos/01_propiedad_y_carpetas.md).
 | **Módem V1.2** | T-601 |
 | **VisionPack** | T-702 (`t_visionpack`), T-701 (**por confirmar**), T-704, T-S13 |
 | **Volcado** | T-801 (el lado del cohete y el cliente de tierra) |
-| **Servicio de tierra** | T-602, T-S04 (CLI), T-S06 (API, C-05), T-S07 (módem falso), T-S08 (cálculos), reenviador e ingesta (**por confirmar**) |
+| **Servicio de tierra** | T-602, T-S04 (CLI), T-S06 (API, C-05), T-S07 (módem falso), T-S08 (cálculos), T-605a (reenviador hacia el relay del plan web). El relay y la ingesta (T-640) son del plan web |
 | **Herramientas** | T-304 (generador sintético), T-203 (decodificador), T-802 (motor, después del concurso si hace falta) |
 | **Contratos que redacta** | C-03, C-05. Revisa C-02 y C-04 |
 
@@ -26,7 +26,7 @@ Las carpetas exactas están en [C-01](06_contratos/01_propiedad_y_carpetas.md).
 
 | Día | Bloque | Tarea | ¿Placa? | Modelo |
 | --- | --- | --- | --- | --- |
-| 25 oct | T | C-03 y C-05 (T-S03, T-S06), con vectores USB | No | Opus (si Pro lo permite) |
+| 25 oct | T | C-03 y C-05 (T-S03, T-S06), con vectores USB. **C-05 alineado con `web-1`**: revisar `docs/08_gui/05_contrato_datos_web.md` (rama `docs/plan-web`) y llevar las propuestas PA-22 y PA-23 al plan web | No | Opus (si Pro lo permite) |
 | 26 oct | M | **Pareja con la placa:** PEN-18 + T-S12. A registra y verifica la V1.2 | Sí (conjunta) | — |
 | 26 oct | T | T-502 (códec y vectores) · **T-006 ping LoRa** (ventana corta) · H0 | Sí (corta) | Sonnet |
 | 27 oct | M | T-304 (generador) · T-S07 (módem falso) | No | Sonnet |

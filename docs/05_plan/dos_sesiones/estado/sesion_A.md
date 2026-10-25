@@ -16,7 +16,7 @@ actualizado: 2026-10-25
 | --- | --- |
 | Hito actual | H0 (26 de octubre) |
 | Tarea en curso | — |
-| Siguiente | Refinar C-03 y C-05 ([06_contratos](../06_contratos/)); revisar C-02 y C-04 |
+| Siguiente | Refinar C-03 y C-05 ([06_contratos](../06_contratos/); C-05 ya adopta `web-1`, DP-17); revisar C-02 y C-04; llevar PA-22 y PA-23 al plan web |
 | Ramas abiertas | — |
 | PR esperando revisión de B | — |
 | Bloqueos | — |
@@ -25,6 +25,12 @@ actualizado: 2026-10-25
 | Cuota (`/status`) | — |
 
 ## Entradas
+
+### 2026-10-25, noche
+
+- **Hecho:** C-05 v2 alineado con `web-1` del plan web (DP-17). PR #2 actualizado.
+- **Siguiente:** revisar C-05 v2 junto con `web-1` antes de H0; llevar PA-22 (campo `lkp` opcional) y PA-23 (el dashboard local usa `/api/v1/local/`) al plan web.
+- **Bloqueos:** `web-1` todavía no está en `develop` (rama `docs/plan-web`).
 
 ### 2026-10-25, tarde (plantilla inicial)
 

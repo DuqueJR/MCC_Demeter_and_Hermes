@@ -135,7 +135,7 @@ El hardware es idéntico. **Lo único que cambia** se fija en la compilación, c
 | Canal LoRa | `LORA_FREQ_MHZ` | **El mismo** | **Los tres nodos comparten el canal** ([enlace_lora_tdma](../../../04_diseno/enlace_lora_tdma.md) §6). Los cohetes se separan por el slot |
 | SSID del volcado | `EIA-1` | `EIA-2` | `WIFI_AP_SSID` |
 
-- **En tierra**, el "panel Demeter o Hermes" es responsabilidad de la GUI (otro plan). La API lo facilita etiquetando cada mensaje con `cohete` ([C-05](05_api_backend_tierra.md)).
+- **En tierra**, el "panel Demeter o Hermes" es responsabilidad de la GUI (otro plan). La API lo facilita con un flujo `web-1` por misión (`demeter` / `hermes`) ([C-05](05_api_backend_tierra.md)).
 - **Al arrancar**, el firmware publica `ROCKET_ID`, `MODULO_VISIONPACK` y **la versión (hash de git)**, en el log, en la OLED (solo en tierra) y en STATUS (DP-07, que espera a que se aplique [12](../12_cambios_a_aplicar_en_lo_existente.md)).
 
 ## 8. Buses y pines

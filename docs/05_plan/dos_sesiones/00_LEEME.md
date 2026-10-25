@@ -10,7 +10,7 @@ Esta carpeta organiza el trabajo **en paralelo** de dos personas, cada una con s
 
 - **No reemplaza** el plan existente ([plan_maestro](../plan_maestro.md), [backlog](../backlog.md), [plan_pruebas](../plan_pruebas.md)). Es **una capa de coordinación** encima: quién es dueño de qué, qué contratos se fijan primero, cuándo se sincroniza, cómo se comparte la placa y cómo arranca cada sesión.
 - **No toca nada existente.** Las correcciones aprobadas a los documentos existentes están descritas en [12_cambios_a_aplicar_en_lo_existente.md](12_cambios_a_aplicar_en_lo_existente.md) y se aplican después, en otra tarea, con aprobación aparte.
-- **La GUI y el dashboard están fuera de alcance**: los lleva otro plan. Aquí solo se define el back-end que la GUI consumirá ([06_contratos/05_api_backend_tierra.md](06_contratos/05_api_backend_tierra.md)).
+- **La GUI y el dashboard están fuera de alcance**: los lleva otro plan (rama `docs/plan-web`, carpeta `docs/08_gui/`). Aquí solo se define el back-end que la GUI consumirá ([06_contratos/05_api_backend_tierra.md](06_contratos/05_api_backend_tierra.md)). **Su salida es el contrato `web-1` del plan web** (DP-17).
 
 ## Orden de lectura
 
@@ -29,6 +29,7 @@ Esta carpeta organiza el trabajo **en paralelo** de dos personas, cada una con s
 | 11 | [15_CLAUDE_md_propuesto.md](15_CLAUDE_md_propuesto.md) | Borrador del CLAUDE.md compartido, hooks, CI, skills y el agente revisor |
 | — | [estado/](estado/) | Estado vivo: una ficha por sesión y la bitácora de la placa |
 | — | [bitacora_2026-10-25_plan_dos_sesiones.md](bitacora_2026-10-25_plan_dos_sesiones.md) | La entrada de bitácora de la sesión que creó esta carpeta |
+| — | [bitacora_2026-10-25_ajuste_C-05_web-1.md](bitacora_2026-10-25_ajuste_C-05_web-1.md) | El ajuste de C-05 al contrato `web-1` del plan web (DP-17) |
 
 ## Sesiones
 

@@ -71,7 +71,8 @@ depende_de: [dos_sesiones_decisiones]
 | [decisiones.md](../../04_diseno/decisiones.md) | Agregar D-034 en adelante con DP-01 a DP-09 y DP-15 (más las DP propuestas que se ratifiquen). **D-028 → "Reemplazada por D-0xx (DP-01)"** | — |
 | [flujo_trabajo.md](../flujo_trabajo.md) | §1: el rol `revisor`. §2: ramas ≤ 1 día. §5: "mostrar" o "preguntar" según [08](08_sincronizacion_y_merge.md) §4 | — |
 | [plan_maestro.md](../plan_maestro.md) | §1, punto 4: "dashboard" → **"CLI del operador (DP-15)"**. §4: enlace al reparto de DP-11 | — |
-| [backlog.md](../backlog.md) | T-603, T-604 y T-605: separar **el back-end (nuestro)** de **la vista (otro plan)**. Agregar T-S01 a T-S15. Cambiar el responsable según DP-11 | — |
+| [backlog.md](../backlog.md) | T-603, T-604 y T-605: separar **el back-end (nuestro)** de **la vista (otro plan)**. **T-605 → T-605a** (reenviador, nuestro) **+ T-640** (relay, plan web), como propone `docs/08_gui/04` §4. Agregar T-S01 a T-S15. Cambiar el responsable según DP-11. **Coordinar con la épica E10 (T-610 a T-699)** que agrega el plan web | ⚠️ Plan web (que haga sus cambios a la par, sin pisarse) |
+| [estacion_terrena.md](../../04_diseno/estacion_terrena.md) §2.4 | "Contrato de la ingesta: … el mismo JSON que usa el dashboard local" → **"es `web-1` (DP-17)"** | ⚠️ Plan web |
 | [requisitos.md](../../02_requisitos/requisitos.md) | Requisito nuevo **GS-15** (M): "Todas las operaciones críticas se hacen desde la CLI; el vuelo no depende de la GUI" | — |
 | [riesgos.md](../riesgos.md) / [pendientes.md](../pendientes.md) | Enlazar a RP-xx y PA-xx, o copiarlos con IDs R-16 y PEN-21 en adelante | — |
 
@@ -82,7 +83,7 @@ depende_de: [dos_sesiones_decisiones]
 | [C-02](06_contratos/02_interfaces_firmware.md) | `docs/04_diseno/interfaces_firmware.md` | Al congelarse en H0 |
 | [C-03](06_contratos/03_trama_usb_modem.md) | `docs/04_diseno/trama_usb_modem.md`, y enlazarlo desde [estacion_terrena](../../04_diseno/estacion_terrena.md) §2.1 | Ídem |
 | [C-04](06_contratos/04_formato_log_y_replay.md) | `docs/04_diseno/formato_log.md` (el nombre que pide T-202), y enlazarlo desde [firmware_vuelo](../../04_diseno/firmware_vuelo.md) §6 | Ídem |
-| [C-05](06_contratos/05_api_backend_tierra.md) | `docs/04_diseno/api_backend_tierra.md`, y enlazarlo desde [estacion_terrena](../../04_diseno/estacion_terrena.md) §2.4 | Ídem |
+| [C-05](06_contratos/05_api_backend_tierra.md) | `docs/04_diseno/api_backend_tierra.md`, y enlazarlo desde [estacion_terrena](../../04_diseno/estacion_terrena.md) §2.4. **Enlaza a `web-1` (`docs/08_gui/05_contrato_datos_web.md`) sin copiarlo** (DP-17); solo se promueve cuando `docs/plan-web` esté en `develop` | Junto con `web-1` |
 | — | [constantes.md](../../02_requisitos/constantes.md): nueva constante **`API_PUERTO`** (se propone 8765) | Ídem |
 | — | [00_INDICE.md](../../00_INDICE.md): filas para los contratos nuevos y para esta carpeta | Ídem |
 
@@ -90,7 +91,7 @@ depende_de: [dos_sesiones_decisiones]
 
 | Archivo | Cambio |
 | --- | --- |
-| `.gitignore` | Agregar `.claude/worktrees/` y `CLAUDE.local.md` |
+| `.gitignore` | Agregar `.claude/worktrees/` y `CLAUDE.local.md`. ⚠️ La rama `docs/plan-web` también lo cambia (agrega `generated_images/`): el conflicto es trivial ([PA-24](11_preguntas_abiertas.md)) |
 | `CLAUDE.md` | Reemplazarlo por el borrador de [15](15_CLAUDE_md_propuesto.md) §1 |
 | `.claude/settings.json` | Los hooks de [15](15_CLAUDE_md_propuesto.md) §3 |
 | `.claude/agents/revisor.md` | El agente de [15](15_CLAUDE_md_propuesto.md) §5 |
@@ -103,4 +104,5 @@ depende_de: [dos_sesiones_decisiones]
 ## 10. Bitácora
 
 - Copiar [bitacora_2026-10-25_plan_dos_sesiones.md](bitacora_2026-10-25_plan_dos_sesiones.md) a `docs/07_bitacora/2026-10-25_sesion_plan_dos_sesiones.md`.
+- Copiar [bitacora_2026-10-25_ajuste_C-05_web-1.md](bitacora_2026-10-25_ajuste_C-05_web-1.md) a `docs/07_bitacora/2026-10-25_decision_C-05_web-1.md`.
 - Agregar su fila al índice de [07_bitacora/README.md](../../07_bitacora/README.md).

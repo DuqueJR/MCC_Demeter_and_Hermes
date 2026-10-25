@@ -12,7 +12,7 @@ depende_de: [flujo_trabajo, dos_sesiones_decisiones]
 | --- | --- | --- | --- | --- |
 | **Mañana** | Todos los días al empezar (la hora la fijan ustedes) | 15 min | Los dos, en persona | (1) Qué se terminó y qué se integró. (2) Bloqueos. (3) **Ventanas de la placa del día** (§3 de [07](07_pruebas_y_placas.md)). (4) Orden de los merges del día. (5) Cuota: `/status` de las dos cuentas. |
 | **Cierre de bloque** | Al terminar cada bloque | 5 min, cada uno | Cada uno, por escrito | `/cierre`: actualizar `estado/sesion_X.md`, la bitácora, push |
-| **H0** | 26 oct, tarde | 45 min | Los dos | Congelar C-01 a C-05; cerrar D-022 (B′ o A′) con la evidencia de PEN-18; resultado de T-S12 (TG28, BM8563, QMC6309, el radio de la V1.2); activar el plan B de RP-02 si aplica; ratificar DP-10 a DP-16 |
+| **H0** | 26 oct, tarde | 45 min | Los dos | Congelar C-01 a C-05. **C-05 junto con `web-1`**: el plan web lo congela en su T-611; son las mismas dos personas, así que se aprueban en la misma reunión. Cerrar D-022 (B′ o A′) con la evidencia de PEN-18; resultado de T-S12 (TG28, BM8563, QMC6309, el radio de la V1.2); activar el plan B de RP-02 si aplica; ratificar DP-10 a DP-16 |
 | **H1** | 29 oct, tarde | 30 min | Los dos | Resultado de P-02 parcial; la cadena NAV → PC; ¿T-701 confirmado?; recortes si hay atraso; consolidar el backlog |
 | **H2** | 1 nov, después de la jornada | 30 min | Los dos | P-03, P-05, P-09 y P-10; ARM y DISARM por la CLI; ¿se activan los recortes 1–3? |
 | **H3** | 3 nov, después de la jornada | 30 min | Los dos | Ensayos de misión; lista de correcciones para antes del congelamiento |

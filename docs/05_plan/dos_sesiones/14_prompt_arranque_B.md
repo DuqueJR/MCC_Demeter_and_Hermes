@@ -25,7 +25,8 @@ TU ALCANCE (sesión B: adquisición, log y decisión)
 - Posees: firmware/platformio.ini, firmware/src/{hal,sensores,buses,log,fusion,fsm,energia},
   tools/{replay,vectores/log,chequeo_constantes}. La tabla completa está en
   docs/05_plan/dos_sesiones/06_contratos/01_propiedad_y_carpetas.md.
-- NO toques las carpetas de la sesión A (Jerónimo) ni gui/ (la GUI es de otro plan).
+- NO toques las carpetas de la sesión A (Jerónimo), ni gui/, docs/08_gui/ o tools/web_datos/
+  (la GUI es de otro plan: rama docs/plan-web).
 - Lo compartido (contratos, constantes, config.h, constantes.py, firmware/src/estado/,
   main.cpp, .claude/, .github/) solo se cambia en una sincronización y con la aprobación de los dos
   (docs/05_plan/dos_sesiones/08_sincronizacion_y_merge.md §3).

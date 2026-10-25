@@ -78,7 +78,7 @@ La frontera sale de [proyecto.md](../../01_contexto/proyecto.md), sección "Alca
 | S2 | Enlace LoRa y TDMA (las dos puntas) | Ciclo de 100 ms, 4 slots, sincronía por PPS, protocolo v2 | DAT-07/08, GS-01, GS-07 | Contrato aprobado; sin código | **Sí** |
 | S3 | Firmware del módem (V1.2) | Maestro del TDMA, beacon y CMD, reenvío crudo por USB | GS-01, GS-07 | Propuesta (D-024); **la trama USB no está definida** | **Sí** |
 | S4 | Servicio de tierra (back-end) | Log crudo, decodificación, estado por cohete, comandos con reintento, cálculos, **CLI**, **API para la GUI**, reenviador | GS-02, 03, 05, 06, 07, 08, 13, 14 (la lógica) | Sin código | **Sí** |
-| S5 | GUI, dashboard y frontend público | Visualización | GS-04, 09, 10, 11, 12 (lo visual) | — | **No: otro plan** |
+| S5 | GUI, dashboard y frontend público, más el relay público (T-640) | Visualización y difusión | GS-04, 09, 10, 11, 12 (lo visual) | Plan propio en la rama `docs/plan-web` (`docs/08_gui/`), con su contrato de datos `web-1` | **No: otro plan** |
 | S6 | Energía y encendido | PMIC, % de batería, encendido por imán, bloqueo del apagado | HW-01, HW-02 | D-031 aprobada; cableado de Hw | **Firmware sí, cableado no** |
 | S7 | Integración con el VisionPack (Demeter) | UART AA 55, pulso de encendido, comandos por fase; daemons de la Pi | HW-03, HW-04 | D-023 en propuesta; la Pi tiene bugs | **Sí.** T-701 es back-end de la Pi: nuestro **por confirmar** |
 | S8 | Datos y post-vuelo | Decodificador del log, volcado por Wi-Fi, backfill, motor, generador sintético, replay | DAT-09, DAT-10, GS-08 | Sin código | **Sí** |
@@ -86,7 +86,11 @@ La frontera sale de [proyecto.md](../../01_contexto/proyecto.md), sección "Alca
 | S10 | Cohete, estructura, motor, masa, OpenRocket | — | — | Lo da otro equipo | **No** (pero dependemos de sus datos) |
 | S11 | Operación de campo | Checklists, integración en ≤ 15 min, kit | REG-02, REG-03 | Sin hacer (T-901..903) | Compartido |
 
-**Por confirmar** (criterio de back-end): **T-701**, **el reenviador** y **la ingesta del servidor** ([PA-02](11_preguntas_abiertas.md)).
+**Por confirmar** ([PA-02](11_preguntas_abiertas.md)):
+- **T-701:** nuestro según el criterio de back-end, pero sin confirmar.
+- **El reenviador:** el plan web (rama `docs/plan-web`) lo deja en el back-end como **T-605a**, así que es **nuestro**.
+- **La ingesta y el relay:** el plan web los toma como **T-640**, así que **no son nuestros**.
+- Los dos últimos esperan que el plan web cierre su PEN-W06.
 
 ## 4. Mapa de hardware (T-Beam Supreme V3.1)
 
@@ -189,8 +193,8 @@ t_fsm/t_fusion/t_house ─► estado de vuelo ─► NAV 44 B (≈ 9 Hz) / STATU
    ─► t_radio (slot = ROCKET_ID) ─► LoRa SF6/BW500 ─► módem V1.2 (slot 0: BEACON o CMD)
    ─► USB [C-03] ─► servicio de tierra: log crudo → decodificar → estado por cohete → cálculos
          ├─► CLI del operador (Go/No-Go, ARM, DISARM, FORZAR_ATERRIZADO)
-         ├─► API del back-end [C-05] ─► (GUI del otro plan: fuera de alcance)
-         └─► reenviador ─► ingesta del servidor (por confirmar)
+         ├─► API del back-end [C-05], que emite web-1 ─► (dashboard y web del otro plan: fuera de alcance)
+         └─► reenviador (T-605a) ─► relay del plan web (T-640)
 Post-vuelo: LANDED → backfill de NAV + Wi-Fi AP → decodificador [C-04] → análisis del motor
 ```
 
@@ -228,7 +232,7 @@ Post-vuelo: LANDED → backfill de NAV + Wi-Fi AP → decodificador [C-04] → a
 | --- | --- | --- | --- | --- |
 | Cohete ↔ módem | NAV, STATUS, BEACON, CMD, ACK, BACKFILL | [protocolo_paquetes](../../04_diseno/protocolo_paquetes.md) v2 + [enlace_lora_tdma](../../04_diseno/enlace_lora_tdma.md) | S1/S2 ↔ S3 | ✅ Aprobado (con la corrección a 58 B) |
 | Módem ↔ PC | Paquetes crudos más sus metadatos; pedidos de TX | **[C-03](06_contratos/03_trama_usb_modem.md)** (nuevo) | S3 ↔ S4 | Borrador |
-| Servicio de tierra ↔ GUI y servidor | Estado, eventos, comandos | **[C-05](06_contratos/05_api_backend_tierra.md)** (nuevo) | S4 → GUI (otro plan) | Borrador |
+| Servicio de tierra ↔ GUI y servidor | Estado, eventos (y comandos, solo en local) | **`web-1`** (lo define el plan web) + **[C-05](06_contratos/05_api_backend_tierra.md)** (lo adopta y agrega las extensiones locales) | S4 → GUI y relay (otro plan) | Borradores; se congelan el mismo día |
 | Firmware ↔ SD ↔ PC | Registros binarios; archivos de replay | **[C-04](06_contratos/04_formato_log_y_replay.md)** (nuevo; adelanta T-202) | S1 → S8 | Borrador |
 | Módulos del firmware entre sí | Estado de vuelo, eventos de fase, comandos hacia la máquina de estados, tiempo, capa de hardware | **[C-02](06_contratos/02_interfaces_firmware.md)** (nuevo) | Sesión A ↔ sesión B | Borrador |
 | LilyGO ↔ Pi | UART AA 55, pulso | [visionpack_integracion](../../04_diseno/visionpack_integracion.md) | S1 ↔ equipo de visión | ⚠️ Falta el orden de Euler (PEN-15) y la Pi tiene bugs |
@@ -281,7 +285,7 @@ Post-vuelo: LANDED → backfill de NAV + Wi-Fi AP → decodificador [C-04] → a
 | 35 | GS-09 | Vista 3D | F | OS 7.A | GUI (fuera) |
 | 36 | GS-10 | Mapa 2D con elipse | F | OS 7.A | **Cálculo de la elipse**: nuestro; **mapa**: GUI |
 | 37 | GS-11 | Gráficas personalizables | F | OS 7.F | GUI (fuera) |
-| 38 | GS-12 | Retransmisión web | F | OS 7.F | **Reenviador e ingesta**: por confirmar; **frontend**: GUI |
+| 38 | GS-12 | Retransmisión web | F | OS 7.F | **Reenviador (T-605a)**: nuestro; **relay e ingesta (T-640)** y **frontend**: plan web |
 | 39 | GS-13 | Tiempos estimados | F | OS 6, 7.B | **Cálculo**: nuestro |
 | 40 | GS-14 | Ningún comando desde internet | R | U (D-025) | Nuestro |
 | 41 | — | Vuelo el 8 de noviembre, sin vuelo de prueba | R | constantes §1 | Calendario |
@@ -364,7 +368,10 @@ Están en [10_riesgos.md](10_riesgos.md). Los principales:
 - **Pablo Tilano:** requisitos, regulación, alarma de descenso (PEN-20).
 - **Equipo de Hermes:** la simulación (PEN-07).
 - **Equipo de visión de Demeter:** el código y los archivos de la Pi.
-- **El otro plan (GUI):** consume C-05 y el protocolo. **Hay que avisarle de PROTO_VERSION 3** (DP-07).
+- **El otro plan (GUI, rama `docs/plan-web`):**
+  - define `web-1`, que C-05 adopta (DP-17);
+  - consume el protocolo: **hay que avisarle de PROTO_VERSION 3** (DP-07);
+  - lo llevan **las mismas dos personas** ([RP-15](10_riesgos.md)).
 - **CCCD:** del 6 al 8 de noviembre; la ubicación de la estación.
 - **ANE:** la regulación.
 - **LilyGO, Semtech, ST, AP Memory:** documentación.

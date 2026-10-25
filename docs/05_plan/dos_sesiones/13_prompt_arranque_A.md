@@ -25,7 +25,8 @@ TU ALCANCE (sesión A: enlace, tiempo, tierra y Pi)
 - Posees: firmware/src/{tiempo,protocolo,radio,visionpack,volcado,modem}, estacion/,
   visionpack/ (T-701 por confirmar), tools/{sintetico,decodificador,motor,vectores/protocolo,
   vectores/usb,vectores/api}. La tabla completa está en docs/05_plan/dos_sesiones/06_contratos/01_propiedad_y_carpetas.md.
-- NO toques las carpetas de la sesión B (Juan Pablo) ni gui/ (la GUI es de otro plan).
+- NO toques las carpetas de la sesión B (Juan Pablo), ni gui/, docs/08_gui/ o tools/web_datos/
+  (la GUI es de otro plan: rama docs/plan-web).
 - Lo compartido (contratos, constantes, config.h, constantes.py, firmware/src/estado/,
   main.cpp, .claude/, .github/) solo se cambia en una sincronización y con la aprobación de los dos
   (docs/05_plan/dos_sesiones/08_sincronizacion_y_merge.md §3).
@@ -54,7 +55,9 @@ REGLAS DURAS
   el modelo más caro para los contratos y la revisión crítica; /clear entre tareas.
 
 PRIMERAS TAREAS (según el plan; confírmalas con docs/05_plan/dos_sesiones/estado/sesion_A.md)
-- 25 de octubre, tarde: refinar los borradores C-03 (trama USB) y C-05 (API del back-end y CLI)
+- 25 de octubre, tarde: refinar los borradores C-03 (trama USB) y C-05 (API del back-end y CLI;
+  adopta el contrato web-1 del plan web, docs/08_gui/05_contrato_datos_web.md en la rama
+  docs/plan-web; los cambios a web-1 se PROPONEN, no se editan: PA-22, PA-23)
   en docs/05_plan/dos_sesiones/06_contratos/, con sus vectores de prueba de ejemplo.
   Revisar los borradores C-02 y C-04 de la sesión B.
 - 26 de octubre, mañana: sesión de pareja con la placa (PEN-18 + T-S12). Yo registro; Juan

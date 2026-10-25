@@ -45,7 +45,7 @@ Lo **compartido** solo se cambia en una sincronización, con las dos aprobacione
 | `estacion/cli/` | La CLI del operador (T-S04) |
 | `estacion/calculos/` | Distancia, azimut, elevación, elipse, tiempos (T-S08) |
 | `estacion/modem_falso/` | El doble del módem (T-S07) |
-| `estacion/reenviador/` | Reenviador hacia el servidor (por confirmar) |
+| `estacion/reenviador/` | T-605a: el reenviador de los mensajes `web-1` hacia el relay del plan web ([C-05](05_api_backend_tierra.md) §6) |
 | `estacion/constantes.py` | **Compartido**: copia de `constantes.md`; T-S09 la verifica |
 
 ## 3. Herramientas (`tools/`)
@@ -67,7 +67,8 @@ Lo **compartido** solo se cambia en una sincronización, con las dos aprobacione
 | Ruta | Dueño | Nota |
 | --- | --- | --- |
 | `visionpack/` | **A** | T-701 por confirmar. Los archivos que faltan los entrega el equipo de visión |
-| `gui/` | **Otro plan** | **No se toca** |
+| `gui/` (web, relay T-640, dashboard) | **Otro plan** | **No se toca** |
+| `docs/08_gui/` (incluido `web-1`), `tools/web_datos/` | **Otro plan** (rama `docs/plan-web`) | **No se toca.** Los cambios a `web-1` se le **proponen** al plan web |
 | `datos/` | Nadie (solo lectura) | Los datos originales no se editan ([datos/README](../../../../datos/README.md)) |
 | `docs/02_requisitos/`, `docs/04_diseno/` (contratos) | **Compartido** | Solo con una decisión aprobada ([08](../08_sincronizacion_y_merge.md) §3) |
 | `docs/05_plan/dos_sesiones/estado/sesion_A.md` / `sesion_B.md` | A / B | Cada uno edita la suya |

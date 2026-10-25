@@ -35,7 +35,7 @@ depende_de: [plan_pruebas, dos_sesiones_metodo, dos_sesiones_plan_maestro]
 | **P-05 TDMA** | El calendario TDMA, la sincronía y ALOHA con reloj falso y radio falsa | **Las 3 placas** (jornada conjunta) |
 | P-06 Alcance | — | Supreme-R o Supreme-D + V1.2 (jornada) |
 | P-07 Integración | La CLI completa contra el módem falso | Las 3 placas (jornada) |
-| P-08 Web | Fuera de alcance (otro plan), salvo el reenviador si se confirma | — |
+| P-08 Web | Del plan web, salvo el reenviador (T-605a), que es nuestro: se prueba contra el relay o el repetidor del plan web con mensajes `web-1` | — |
 | **P-09 VisionPack** | **La secuencia completa con la Pi falsa y la LilyGO falsa** (T-S13) | Supreme-D + la Pi real |
 | P-10 Reinicio en vuelo | La persistencia con un mapa en memoria y el modo reanudado en replay | Supreme-D |
 | P-11 Volcado y backfill | El backfill con radio falsa | Supreme-D + V1.2 |
