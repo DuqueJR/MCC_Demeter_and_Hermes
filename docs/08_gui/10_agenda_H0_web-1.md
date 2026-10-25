@@ -1,6 +1,6 @@
 ---
 id: gui_agenda_h0
-estado: propuesta para la sincronización H0 (26 de octubre de 2026)
+estado: **decidida** el 2026-10-25 por el documentador, con delegación del usuario (D-W18). Jerónimo aprueba al integrar el PR #7.
 actualizado: 2026-10-25
 depende_de: [gui_contrato_datos, gui_experiencia, C-05, T-611]
 ---
@@ -8,6 +8,12 @@ depende_de: [gui_contrato_datos, gui_experiencia, C-05, T-611]
 
 **Quiénes:** Juan Pablo y Jerónimo, en la misma reunión que C-05 ([08 del back](../05_plan/dos_sesiones/08_sincronizacion_y_merge.md) §1).
 **Qué se decide:** si el PR #7 se integra y `web-1` queda congelado. Después, solo entran campos opcionales sin pasar a `web-2` (R-W8).
+> **Resultado (2026-10-25):** Juan Pablo delegó las decisiones ("decide tú; Jerónimo hará el merge"). Se aplicaron **todas las recomendaciones**, con dos ajustes:
+> - **A1** quedó así: "sin transmisión" aplica si nunca llegó un dato del cohete, o si la última fase es BOOT, PREFLIGHT o ERROR y pasaron `WEB_SIN_TRANSMISION_MIN` (para que las pruebas de banco no muestren alarma de LKP). Desde ARMED, nunca.
+> - **A2** quedó en la opción (b): solo se congela el lado de lectura.
+>
+> El agente aplica las correcciones en el PR #7. Los documentos (05, 03 §4, `constantes.md` §9 y C-05) ya están actualizados.
+
 **Cómo leer esto:** cada punto trae una recomendación. Si los dos están de acuerdo, se marca ✅ y el documentador la pasa a [05](05_contrato_datos_web.md), a [03](03_experiencia_y_pantallas.md) o a [constantes](../02_requisitos/constantes.md).
 
 ## A. Lo que hay que corregir antes de congelar (revisión del documentador)

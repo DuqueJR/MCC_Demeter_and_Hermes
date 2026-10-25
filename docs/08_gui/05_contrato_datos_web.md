@@ -1,6 +1,6 @@
 ---
 id: gui_contrato_datos
-estado: propuesta. **Es un contrato:** se congela en la sincronización H0 (T-611), **en la misma reunión que C-05**, con el visto bueno de Juan Pablo y Jerónimo.
+estado: **contrato.** Preguntas de T-611 cerradas el 2026-10-25 (D-W18); queda congelado al integrar el PR #7 con la aprobación de Jerónimo.
 version: web-1
 actualizado: 2026-10-25
 depende_de: [protocolo_paquetes, maquina_estados, estacion_terrena, constantes]
@@ -27,6 +27,17 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
   - g, con 3;
   - grados, con 1.
 - **`null` = sin dato.** Corresponde a los valores reservados de [protocolo_paquetes](../04_diseno/protocolo_paquetes.md) §0. Un campo nunca se omite: está o es `null`.
+- **Qué campos pueden ser `null`** (D-W18). Todos los demás son obligatorios y nunca `null`.
+  - `estado`: `utc_ms`, `relay_utc_ms` (siempre `null` en el servicio local, que no tiene relay), `pos` completo, `pos.alt_msl_m`, `bat_pct`, `secundario`, cada `calc.*`, cada `enlace.*` y `lkp`.
+  - `salud`: las lecturas de los sensores y los contadores que el cohete no reporte (por ejemplo `temp_pi_c` en Hermes y `fw_version` con el protocolo v2).
+  - `estacion`: `pos`, sin GNSS, y `ultimo_paquete_hace_ms`, mientras no haya llegado ningún paquete del cohete.
+  - `evento`: `valor`, `fase` y `activa` (§2.5).
+  - Snapshot: `estado`, `salud`, `estacion` y `backfill` (§3). `meta` nunca es `null`.
+- **El esquema es estricto** (`additionalProperties: false`, en `gui/web/src/contrato/esquema.json`). Con él se prueban los que producen datos: el generador de T-612, el servicio de tierra y la ingesta del relay. La web no valida en tiempo de ejecución. **Un campo opcional nuevo se agrega en el mismo PR a este documento, al esquema y a los tipos.**
+- **Lo que el esquema no expresa** lo comprueba `src/contrato/validacion_extra.ts` en las pruebas:
+  - las 8 columnas de la `serie` con el mismo largo y como máximo `WEB_SERIE_MAX_PUNTOS`;
+  - `mision` ↔ `nodo`;
+  - `fase` ↔ `fase_cod`.
 - **Tiempos:**
   - `t_ms`: el reloj del cohete;
   - `utc_ms`: la hora UTC estimada por el cohete (ya convertida con STATUS);
@@ -42,8 +53,8 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 ## 1. Transporte
 
 - **Stream** (`GET /api/v1/{mision}/stream`, SSE):
-  - cada mensaje es un evento SSE con `id: <seq_relay>`, `event: <tipo>` y `data: <JSON>`;
-  - `seq_relay` es creciente por misión, para reanudar con `Last-Event-ID`.
+  - cada mensaje es un evento SSE con `id`, `event: <tipo>` y `data: <JSON>`;
+  - **`id` es un contador creciente por misión del que emite el SSE** (D-W18): `seq_relay` en el relay y `seq` en el servicio local (C-05). La web lo trata como opaco y solo lo devuelve en `Last-Event-ID` para reanudar.
 - **Snapshot** (`GET /api/v1/{mision}/snapshot`): §3.
 - **Ingesta** (`POST /api/v1/ingesta`, solo el reenviador): `{"mensajes": [ {"tipo": "...", "mision": "...", "datos": {...}} ]}`.
 
@@ -127,6 +138,8 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 
 - Con `ultimo_paquete_hace_ms`, la web decide si está en vivo, con señal débil o sin señal (LKP) ([03_experiencia_y_pantallas](03_experiencia_y_pantallas.md) §4).
 - **Si el latido deja de llegar**, el problema es del relay o del internet, no del cohete.
+- `ultimo_paquete_hace_ms` es `null` mientras no haya llegado ningún paquete del cohete, y `pos` es `null` sin GNSS.
+- El latido es de la estación, no de una misión: **cada stream de misión lleva una copia del mismo latido**, sin campo de misión (D-W18).
 
 ### 2.5 `evento`: hechos puntuales, que la web usa para la línea de fases y los objetivos
 
@@ -136,6 +149,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 
 - **Tipos:** `despegue` (fase → BOOST), `fin_combustion` (→ COAST), `eyeccion` (`flags.eyeccion` pasa a 1), `apogeo` (`flags.apogeo` pasa a 1, `valor` = altitud), `fase` (todo cambio de fase, con `fase`), `aterrizaje` (→ LANDED), `alarma_descenso` (`valor` = Vz, con `activa` true o false), `camaras` (`act.cam_ok` cambia; solo Deméter).
 - **`t_mas_s`** es el tiempo desde el despegue (T+), que calcula el servicio de tierra.
+- **`fase` y `activa` van siempre presentes** (D-W18). `fase` tiene valor solo en el tipo `fase`, y `activa` solo en `alarma_descenso`; en los demás tipos son `null`. `valor` es `null` cuando el tipo no lo usa.
 
 ### 2.6 `backfill`
 

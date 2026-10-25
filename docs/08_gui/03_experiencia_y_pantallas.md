@@ -211,21 +211,24 @@ La web distingue **dos conexiones distintas**: la del cohete con la estación y 
 | Estado | Cuándo | Qué se ve |
 | --- | --- | --- |
 | **Cargando** | Antes del primer dato | El esqueleto de la página con los últimos datos del *snapshot* (sin spinners vacíos) |
-| **Sin transmisión todavía** | El servidor responde pero la estación no ha mandado nada en `WEB_SIN_TRANSMISION_MIN` | "La transmisión en vivo empieza el día del lanzamiento", con el botón **"Ver la simulación del vuelo"** |
+| **Sin transmisión todavía** | El servidor responde y **nunca llegó un dato del cohete** en esta misión, o la última fase es BOOT, PREFLIGHT o ERROR y no llega nada del cohete desde hace `WEB_SIN_TRANSMISION_MIN` (pruebas de banco). **Desde ARMED, la página nunca vuelve a este estado** (D-W18) | "La transmisión en vivo empieza el día del lanzamiento", con el botón **"Ver la simulación del vuelo"** |
 | **Simulación** | El usuario la eligió, o el servidor está en modo demo | El banner ⓘ cian "SIMULACIÓN: así será el vuelo" fijo, y la marca "SIM" en la barra. **Nunca se confunde con lo real.** |
 | **En vivo** | Datos con menos de `WEB_DATO_VIEJO_S` | ● verde "EN VIVO" |
-| **Señal débil** | El último dato tiene entre `WEB_DATO_VIEJO_S` y `WEB_SIN_SENAL_S` | ⚠ ámbar "Señal débil" y los números atenuados |
-| **Sin señal del cohete (LKP)** | Más de `WEB_SIN_SENAL_S` sin datos del cohete, con el servidor conectado | ⛔ "Sin señal del cohete · última posición hace 38 s". Todo se congela, y la posición y la altitud quedan en rojo (GS-03). |
+| **Señal débil** | El último dato tiene `WEB_DATO_VIEJO_S` o más, y menos de `WEB_SIN_SENAL_S` | ⚠ ámbar "Señal débil" y los números atenuados |
+| **Sin señal del cohete (LKP)** | `WEB_SIN_SENAL_S` o más sin datos del cohete, con el servidor conectado. **Desde ARMED dura sin límite de tiempo: el LKP nunca desaparece** (GS-03) | ⛔ "Sin señal del cohete · última posición hace 38 s". Todo se congela, y la posición y la altitud quedan en rojo (GS-03). |
 | **Sin conexión con el servidor** | El SSE se cayó (tu internet) | Una barra gris "Reconectando…" con reintento automático. Los datos se mantienen. **No se confunde con un problema del cohete.** |
 | **Aterrizado** | `fase = LANDED` | La sección Recuperación sube al inicio. Se muestra el resumen del vuelo: apogeo, duración, velocidad máxima y deriva. |
 | **Reconstruyendo** | Hay un backfill en curso | La barra de progreso en Gráficas |
-| **Alarma de descenso** | `alarmas.descenso_rapido` | Un banner rojo fijo bajo la barra de misión, mientras dure y 10 s más |
+| **Alarma de descenso** | `alarmas.descenso_rapido` | Un banner rojo fijo bajo la barra de misión, mientras dure y `WEB_ALARMA_SOSTENER_S` más |
 
 **Umbrales de la web** (provisionales, `(P)`, a consolidar en [constantes](../02_requisitos/constantes.md) en una sección nueva "Web"):
 - `WEB_DATO_VIEJO_S` = 2;
 - `WEB_SIN_SENAL_S` = 5;
 - `WEB_SIN_TRANSMISION_MIN` = 10;
-- `WEB_RECONEXION_MAX_S` = 15.
+- `WEB_RECONEXION_MAX_S` = 15;
+- `WEB_ALARMA_SOSTENER_S` = 10.
+
+**Cómo se combinan (D-W18):** hay un estado **principal** que excluye a los demás (cargando, sin transmisión, en vivo, señal débil, sin señal o sin servidor). Simulación, aterrizado, reconstruyendo y alarma de descenso son **avisos** que se suman encima. `edad < WEB_DATO_VIEJO_S` es en vivo; desde ahí y hasta antes de `WEB_SIN_SENAL_S`, señal débil; desde `WEB_SIN_SENAL_S`, sin señal.
 
 ## 5. Interpolación y fluidez
 
