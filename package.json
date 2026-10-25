@@ -9,6 +9,7 @@
   "scripts": {
     "web": "npm --prefix gui/web run dev -- --open /dev/",
     "web:instalar": "npm --prefix gui/web ci && npm --prefix gui/web run e2e:instalar",
+    "repetidor": "npm --prefix gui/web run repetidor --",
     "web:build": "npm --prefix gui/web run build",
     "web:test": "npm --prefix gui/web test",
     "web:e2e": "npm --prefix gui/web run e2e",
