@@ -55,6 +55,25 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 - **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
 - Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
 
+## Imágenes con Hugging Face (D-W20)
+
+Las imágenes de la web se generan con el MCP de Hugging Face: fondos, íconos ilustrativos (partes del cohete, objetivos, equipo) y otras ilustraciones. Los íconos de interfaz (estado, navegación, flechas) siguen con `lucide-preact` (D-W17).
+
+- **Conexión:** el servidor `huggingface` de `.mcp.json` usa el token de la variable `HF_TOKEN`, de la cuenta gratuita `apnauj`.
+- **Spaces agregados** en huggingface.co/settings/mcp, con **Dynamic Spaces** activado:
+
+| Space | Para qué |
+| --- | --- |
+| `evalstate/flux1_schnell` | Borradores rápidos (FLUX.1 schnell, hecho para MCP) |
+| `mcp-tools/Z-Image-Turbo` | Borradores rápidos (alternativa) |
+| `black-forest-labs/FLUX.2-klein-9B` | Versión final (oficial de Black Forest Labs) |
+| `black-forest-labs/flux-3-image-klein` | Versión final, la más reciente: se prueba si FLUX.2 no convence |
+
+- **Si las herramientas de los Spaces no aparecen en la sesión,** hay que reconectar el MCP con `/mcp` (o reiniciar Claude Code). Se cargan al conectar.
+- **Cuota:** los Spaces usan ZeroGPU, con una cuota gratuita por día. La API de *Inference Providers* **no tiene créditos** en esta cuenta: responde 402. No se usa sin decidirlo antes (PEN-W11).
+- **Quién genera:** el Claude principal, en su rol de diseñador, con el usuario. El agente `desarrollador` no genera imágenes.
+- **Flujo y prompts:** en `docs/08_gui/07_assets_e_imagenes.md`. Las imágenes generadas van a `generated_images/`, que no se versiona; las elegidas se copian a `gui/web/src/assets/<misión>/`.
+
 ## graphify
 
 Búsqueda en el repo con un grafo de conocimiento (D-036). [Graphify](https://github.com/Graphify-Labs/graphify) `0.9.95` convierte el código y los `.md` de `docs/` en un grafo que se consulta en vez de leer archivo por archivo.
