@@ -1,0 +1,1371 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes-demeter.eia/web-1/esquema.json",
+  "title": "Contrato de datos de la web (web-1)",
+  "description": "Fuente: docs/08_gui/05_contrato_datos_web.md. La raíz valida un snapshot; cada mensaje se valida con #/$defs/<nombre>.",
+  "$ref": "#/$defs/snapshot",
+  "$defs": {
+    "mision": {
+      "enum": ["demeter", "hermes"]
+    },
+    "lat": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "lon": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "contrato_version": {
+          "const": "web-1"
+        },
+        "mision": {
+          "$ref": "#/$defs/mision"
+        },
+        "nodo": {
+          "enum": [1, 2]
+        },
+        "modo": {
+          "enum": ["vivo", "simulacion", "sintetico"]
+        },
+        "mission_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proto_version": {
+          "enum": [2, 3]
+        },
+        "sitio": {
+          "type": "object",
+          "properties": {
+            "lat": {
+              "$ref": "#/$defs/lat"
+            },
+            "lon": {
+              "$ref": "#/$defs/lon"
+            },
+            "alt_msl_m": {
+              "type": "number"
+            }
+          },
+          "required": ["lat", "lon", "alt_msl_m"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["contrato_version", "mision", "nodo", "modo", "mission_id", "sitio"],
+      "additionalProperties": false
+    },
+    "lkp": {
+      "type": "object",
+      "properties": {
+        "lat": {
+          "$ref": "#/$defs/lat"
+        },
+        "lon": {
+          "$ref": "#/$defs/lon"
+        },
+        "alt_agl_m": {
+          "type": "number"
+        },
+        "utc_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["lat", "lon", "alt_agl_m", "utc_ms"],
+      "additionalProperties": false
+    },
+    "estado": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "utc_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rx_utc_ms": {
+          "type": "integer"
+        },
+        "relay_utc_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fase": {
+          "enum": [
+            "BOOT",
+            "PREFLIGHT",
+            "ARMED",
+            "BOOST",
+            "COAST",
+            "APOGEE",
+            "FREE_FALL",
+            "DESCENT",
+            "LANDED",
+            "ERROR"
+          ]
+        },
+        "fase_cod": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "pos": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "$ref": "#/$defs/lat"
+                },
+                "lon": {
+                  "$ref": "#/$defs/lon"
+                },
+                "alt_agl_m": {
+                  "type": "number"
+                },
+                "alt_msl_m": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fuente": {
+                  "enum": ["ekf", "gnss"]
+                }
+              },
+              "required": ["lat", "lon", "alt_agl_m", "alt_msl_m", "fuente"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vel": {
+          "type": "object",
+          "properties": {
+            "n_ms": {
+              "type": "number"
+            },
+            "e_ms": {
+              "type": "number"
+            },
+            "u_ms": {
+              "type": "number"
+            },
+            "total_ms": {
+              "type": "number"
+            }
+          },
+          "required": ["n_ms", "e_ms", "u_ms", "total_ms"],
+          "additionalProperties": false
+        },
+        "acc_g": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "z": {
+              "type": "number"
+            }
+          },
+          "required": ["x", "y", "z"],
+          "additionalProperties": false
+        },
+        "q": {
+          "type": "object",
+          "properties": {
+            "w": {
+              "type": "number"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "z": {
+              "type": "number"
+            }
+          },
+          "required": ["w", "x", "y", "z"],
+          "additionalProperties": false
+        },
+        "flags": {
+          "type": "object",
+          "properties": {
+            "gnss_fix": {
+              "type": "boolean"
+            },
+            "ekf_ok": {
+              "type": "boolean"
+            },
+            "falla_activa": {
+              "type": "boolean"
+            },
+            "eyeccion": {
+              "type": "boolean"
+            },
+            "apogeo": {
+              "type": "boolean"
+            },
+            "log_activo": {
+              "type": "boolean"
+            },
+            "reanudado": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "gnss_fix",
+            "ekf_ok",
+            "falla_activa",
+            "eyeccion",
+            "apogeo",
+            "log_activo",
+            "reanudado"
+          ],
+          "additionalProperties": false
+        },
+        "act": {
+          "type": "object",
+          "properties": {
+            "pi_pulso": {
+              "type": "boolean"
+            },
+            "cam_ok": {
+              "type": "boolean"
+            },
+            "buzzer": {
+              "type": "boolean"
+            },
+            "wifi_ap": {
+              "type": "boolean"
+            },
+            "backfill": {
+              "type": "boolean"
+            }
+          },
+          "required": ["pi_pulso", "cam_ok", "buzzer", "wifi_ap", "backfill"],
+          "additionalProperties": false
+        },
+        "bat_pct": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secundario": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                },
+                "texto": {
+                  "type": "string"
+                }
+              },
+              "required": ["codigo", "texto"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calc": {
+          "type": "object",
+          "properties": {
+            "dist_horiz_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "azimut_deg": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "elevacion_deg": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "elipse": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "lat": {
+                      "$ref": "#/$defs/lat"
+                    },
+                    "lon": {
+                      "$ref": "#/$defs/lon"
+                    },
+                    "semieje_mayor_m": {
+                      "type": "number"
+                    },
+                    "semieje_menor_m": {
+                      "type": "number"
+                    },
+                    "rumbo_deg": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["lat", "lon", "semieje_mayor_m", "semieje_menor_m", "rumbo_deg"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "t_a_apogeo_s": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "t_restante_s": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "siguiente_fase": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BOOT",
+                    "PREFLIGHT",
+                    "ARMED",
+                    "BOOST",
+                    "COAST",
+                    "APOGEE",
+                    "FREE_FALL",
+                    "DESCENT",
+                    "LANDED",
+                    "ERROR"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "t_siguiente_fase_s": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "dist_horiz_m",
+            "azimut_deg",
+            "elevacion_deg",
+            "elipse",
+            "t_a_apogeo_s",
+            "t_restante_s",
+            "siguiente_fase",
+            "t_siguiente_fase_s"
+          ],
+          "additionalProperties": false
+        },
+        "enlace": {
+          "type": "object",
+          "properties": {
+            "rssi_dbm": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "snr_db": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "perdidos_pct_10s": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["rssi_dbm", "snr_db", "perdidos_pct_10s"],
+          "additionalProperties": false
+        },
+        "alarmas": {
+          "type": "object",
+          "properties": {
+            "descenso_rapido": {
+              "type": "boolean"
+            }
+          },
+          "required": ["descenso_rapido"],
+          "additionalProperties": false
+        },
+        "lkp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/lkp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "t_ms",
+        "utc_ms",
+        "rx_utc_ms",
+        "relay_utc_ms",
+        "fase",
+        "fase_cod",
+        "pos",
+        "vel",
+        "acc_g",
+        "q",
+        "flags",
+        "act",
+        "bat_pct",
+        "secundario",
+        "calc",
+        "enlace",
+        "alarmas"
+      ],
+      "additionalProperties": false
+    },
+    "salud": {
+      "type": "object",
+      "properties": {
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "utc_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mission_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "boot_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gnss": {
+          "type": "object",
+          "properties": {
+            "fix": {
+              "enum": [0, 2, 3]
+            },
+            "sv": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hacc_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["fix", "sv", "hacc_m"],
+          "additionalProperties": false
+        },
+        "bat_mv": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "temp_esp_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "temp_pi_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fallas_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "calib": {
+          "type": "object",
+          "properties": {
+            "giro": {
+              "type": "boolean"
+            },
+            "mag": {
+              "type": "boolean"
+            },
+            "baro": {
+              "type": "boolean"
+            },
+            "origen": {
+              "type": "boolean"
+            },
+            "actitud": {
+              "type": "boolean"
+            }
+          },
+          "required": ["giro", "mag", "baro", "origen", "actitud"],
+          "additionalProperties": false
+        },
+        "nav_innov_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "apogeo_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alt_origen_msl_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sd_libre_mb": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rssi_tierra_dbm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ultimo_cmd_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "go_nogo": {
+          "type": "object",
+          "properties": {
+            "listo": {
+              "type": "boolean"
+            },
+            "condiciones": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "nombre": {
+                    "type": "string"
+                  },
+                  "ok": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["id", "nombre", "ok"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["listo", "condiciones"],
+          "additionalProperties": false
+        },
+        "fw_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "t_ms",
+        "utc_ms",
+        "mission_id",
+        "boot_count",
+        "gnss",
+        "bat_mv",
+        "temp_esp_c",
+        "temp_pi_c",
+        "fallas",
+        "fallas_bits",
+        "calib",
+        "nav_innov_m",
+        "apogeo_m",
+        "alt_origen_msl_m",
+        "sd_libre_mb",
+        "rssi_tierra_dbm",
+        "ultimo_cmd_seq",
+        "go_nogo"
+      ],
+      "additionalProperties": false
+    },
+    "estacion": {
+      "type": "object",
+      "properties": {
+        "utc_ms": {
+          "type": "integer"
+        },
+        "pos": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "$ref": "#/$defs/lat"
+                },
+                "lon": {
+                  "$ref": "#/$defs/lon"
+                },
+                "alt_msl_m": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["lat", "lon", "alt_msl_m"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gnss_ok": {
+          "type": "boolean"
+        },
+        "ultimo_paquete_hace_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["utc_ms", "pos", "gnss_ok", "ultimo_paquete_hace_ms"],
+      "additionalProperties": false
+    },
+    "evento": {
+      "type": "object",
+      "properties": {
+        "tipo": {
+          "enum": [
+            "despegue",
+            "fin_combustion",
+            "eyeccion",
+            "apogeo",
+            "fase",
+            "aterrizaje",
+            "alarma_descenso",
+            "camaras"
+          ]
+        },
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "utc_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "t_mas_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fase": {
+          "enum": [
+            "BOOT",
+            "PREFLIGHT",
+            "ARMED",
+            "BOOST",
+            "COAST",
+            "APOGEE",
+            "FREE_FALL",
+            "DESCENT",
+            "LANDED",
+            "ERROR"
+          ]
+        },
+        "activa": {
+          "type": "boolean"
+        }
+      },
+      "required": ["tipo", "t_ms", "utc_ms", "t_mas_s", "valor"],
+      "additionalProperties": false
+    },
+    "backfill": {
+      "type": "object",
+      "properties": {
+        "activo": {
+          "type": "boolean"
+        },
+        "recibidos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "esperados": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "progreso": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "completo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["activo", "recibidos", "esperados", "progreso", "completo"],
+      "additionalProperties": false
+    },
+    "serie": {
+      "type": "object",
+      "properties": {
+        "t_mas_s": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "lat": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "lon": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "alt_agl_m": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "vz_ms": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "acc_x_g": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "acc_y_g": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "acc_z_g": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "required": ["t_mas_s", "lat", "lon", "alt_agl_m", "vz_ms", "acc_x_g", "acc_y_g", "acc_z_g"],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "meta": {
+          "$ref": "#/$defs/meta"
+        },
+        "estado": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/estado"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "salud": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/salud"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "estacion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/estacion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eventos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evento"
+          }
+        },
+        "serie": {
+          "$ref": "#/$defs/serie"
+        },
+        "backfill": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/backfill"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vuelo_completo_url": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri-reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "meta",
+        "estado",
+        "salud",
+        "estacion",
+        "eventos",
+        "serie",
+        "backfill",
+        "vuelo_completo_url"
+      ],
+      "additionalProperties": false
+    },
+    "tipo_mensaje": {
+      "enum": ["meta", "estado", "salud", "estacion", "evento", "backfill"]
+    },
+    "linea_jsonl": {
+      "type": "object",
+      "properties": {
+        "t_rel_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "evento": {
+          "$ref": "#/$defs/tipo_mensaje"
+        },
+        "datos": {
+          "type": "object"
+        }
+      },
+      "required": ["t_rel_ms", "evento", "datos"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "meta"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/meta"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "estado"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/estado"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "salud"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/salud"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "estacion"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/estacion"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "evento"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/evento"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evento": {
+                "const": "backfill"
+              }
+            },
+            "required": ["evento"]
+          },
+          "then": {
+            "properties": {
+              "datos": {
+                "$ref": "#/$defs/backfill"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ingesta": {
+      "type": "object",
+      "properties": {
+        "mensajes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tipo": {
+                "$ref": "#/$defs/tipo_mensaje"
+              },
+              "mision": {
+                "$ref": "#/$defs/mision"
+              },
+              "datos": {
+                "type": "object"
+              }
+            },
+            "required": ["tipo", "mision", "datos"],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "meta"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/meta"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "estado"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/estado"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "salud"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/salud"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "estacion"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/estacion"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "evento"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/evento"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "tipo": {
+                      "const": "backfill"
+                    }
+                  },
+                  "required": ["tipo"]
+                },
+                "then": {
+                  "properties": {
+                    "datos": {
+                      "$ref": "#/$defs/backfill"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "required": ["mensajes"],
+      "additionalProperties": false
+    }
+  }
+}
