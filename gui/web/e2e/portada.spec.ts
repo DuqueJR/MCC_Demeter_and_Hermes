@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { PRESUPUESTO_PORTADA_BYTES, pesoDePortada } from "../scripts/peso-portada.mjs";
 
 // Portada (T-620, 03 §1): dos enlaces accesibles, teclado, sin JS, sin desborde y bajo presupuesto.
-const CAPTURAS = "../../docs/07_bitacora/capturas/T-620";
+const CAPTURAS = "../../docs/07_bitacora/capturas/T-621";
 const MEDIDAS = [
   { ancho: 390, alto: 844, nombre: "celular-vertical" },
   { ancho: 844, alto: 390, nombre: "celular-horizontal" },

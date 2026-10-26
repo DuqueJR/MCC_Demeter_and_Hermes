@@ -81,6 +81,54 @@ describe("prueba de aislamiento (D-W01) con dist falso", () => {
     expect(v.every((x) => x.pagina === "demeter")).toBe(true);
   });
 
+  describe("íconos y otras imágenes generadas por imagetools (T-621)", () => {
+    // imagetools nombra los archivos `<parte>-<hash>.webp`, sin la misión: se detecta lo que se comparte.
+    const CON_ICONOS = {
+      ...BASE_LIMPIA,
+      "assets/nariz-aaaa1111.webp": "icono de Deméter",
+      "assets/nariz-bbbb2222.webp": "icono de Hermes",
+      "assets/visionpack-cccc3333.webp": "solo de Deméter",
+      "assets/demeter-aaaa1111.js":
+        'import{p}from"./preact-cccc3333.js";console.log(p,"/assets/nariz-aaaa1111.webp","/assets/visionpack-cccc3333.webp");',
+      "assets/hermes-bbbb2222.js":
+        'import{p}from"./preact-cccc3333.js";console.log(p,"/assets/nariz-bbbb2222.webp");',
+    };
+
+    it("pasa si cada misión trae solo sus íconos (Hermes sin VisionPack)", () => {
+      expect(revisar(distFalso("iconos-propios", CON_ICONOS))).toEqual([]);
+    });
+
+    it("FALLA si /hermes/ trae un ícono de Deméter, aunque el archivo no diga 'demeter'", () => {
+      const dist = distFalso("icono-ajeno", {
+        ...CON_ICONOS,
+        "assets/hermes-bbbb2222.js":
+          'import{p}from"./preact-cccc3333.js";console.log(p,"/assets/nariz-bbbb2222.webp","/assets/visionpack-cccc3333.webp");',
+      });
+      const v = revisar(dist);
+      expect(v.length).toBeGreaterThan(0);
+      expect(v.every((x) => x.archivo === "assets/visionpack-cccc3333.webp")).toBe(true);
+      expect(v.some((x) => x.pagina === "hermes")).toBe(true);
+    });
+
+    it("FALLA con una imagen compartida que no está declarada como común", () => {
+      const dist = distFalso("imagen-compartida", {
+        ...CON_ICONOS,
+        "assets/otra-dddd4444.webp": "x",
+        "assets/preact-cccc3333.js": 'export const p="/assets/otra-dddd4444.webp";',
+      });
+      expect(revisar(dist).some((x) => x.motivo.includes("las dos misiones"))).toBe(true);
+    });
+
+    it("pasa con el logo común de la EIA en las dos misiones", () => {
+      const dist = distFalso("logo-comun", {
+        ...CON_ICONOS,
+        "assets/eia_blanco-eeee5555.webp": "logo",
+        "assets/preact-cccc3333.js": 'export const p="/assets/eia_blanco-eeee5555.webp";',
+      });
+      expect(revisar(dist)).toEqual([]);
+    });
+  });
+
   it("FALLA si /demeter/ referencia hermes.css", () => {
     const dist = distFalso("falso-css", {
       ...BASE_LIMPIA,

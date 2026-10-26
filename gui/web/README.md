@@ -32,6 +32,7 @@ Solo `npm` y Node (Windows y macOS), sin bash.
 Variables: ver `.env.example` (`VITE_API_BASE`).
 
 Imágenes: `vite-imagetools` está activo. Ejemplo: `import src from "./foto.png?format=avif;webp&w=256;512&as=srcset"`.
+Íconos de las partes (T-621): `node scripts/iconos-transparentes.mjs [carpeta]` les quita el fondo plano y los deja a 512 px en `src/assets/<misión>/iconos/`; se vuelve a correr si el diseñador cambia las imágenes (cabecera del script: el método).
 
 ## Tema y tokens (T-613)
 

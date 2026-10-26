@@ -72,7 +72,7 @@ Jerónimo integró los PR #23 (T-631) y #24 (su [consolidación](2026-10-25_sesi
 **Antes de T-640 y T-633:** resolver D1, D3, D5, D6 y D7 de la agenda.
 
 ## Pendiente / siguiente paso
-1. **Lanzar T-634** ya. Lanzar **T-624** cuando se integre el #25 (T-621). Las dos se toman con un PR en borrador (D-W16).
+1. **Lanzar T-634 y T-624.** Actualización: el usuario pidió integrar los PR abiertos, y **el #25 y el #26 se integraron el 2026-10-25** (antes, el #25 se probó sobre `develop`: 245 pruebas, `tsc`, build con aislamiento y lint). Por eso T-624 ya no espera. T-621 queda hecha en el backlog. Las dos se toman con un PR en borrador (D-W16).
    - El PR #26 (Juan Pablo) y este PR agregan una fila al final del índice de la bitácora. El que se integre segundo tiene un conflicto trivial en `docs/07_bitacora/README.md`: hay que quedarse con las dos filas.
 2. **Resolver la sección D de la agenda** (Juan Pablo y Jerónimo).
 3. **`fix/T-632-*`:** la e2e de los gestos (`mapa.spec.ts:196`), que falla en `develop`.

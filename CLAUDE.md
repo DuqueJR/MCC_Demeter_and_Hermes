@@ -56,24 +56,31 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 - **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
 - Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
 
-## Imágenes con Hugging Face (D-W20)
+## Imágenes generadas (D-W20)
 
-Las imágenes de la web se generan con el MCP de Hugging Face: fondos, íconos ilustrativos (partes del cohete, objetivos, equipo) y otras ilustraciones. Los íconos de interfaz (estado, navegación, flechas) siguen con `lucide-preact` (D-W17).
+Las imágenes de la web se generan con IA: fondos, íconos ilustrativos (partes del cohete, objetivos, equipo) y otras ilustraciones. Los íconos de interfaz (estado, navegación, flechas) siguen con `lucide-preact` (D-W17).
 
-- **Conexión:** el servidor `huggingface` de `.mcp.json` usa el token de la variable `HF_TOKEN`, de la cuenta gratuita `apnauj`.
-- **Spaces agregados** en huggingface.co/settings/mcp, con **Dynamic Spaces** activado:
+- **Generador principal (desde el 2026-10-25, a pedido del usuario): el MCP de Replicate con `black-forest-labs/flux-schnell`.**
+  - **Herramienta:** `mcp__replicate__create_models_predictions` con `Prefer: wait`.
+  - **Entrada:** `prompt`, `aspect_ratio`, `output_format: png`, `num_outputs`, `seed` y `megapixels: "1"`.
+  - **Descargar enseguida:** las URL de `replicate.delivery` caducan en 1 h.
+  - Cobra por imagen, poco: no generar en exceso.
+- **Respaldo: los Spaces de Hugging Face** (servidor `huggingface` de `.mcp.json`, token `HF_TOKEN`, cuenta gratuita `apnauj`, con Dynamic Spaces):
 
 | Space | Para qué |
 | --- | --- |
-| `evalstate/flux1_schnell` | Borradores rápidos (FLUX.1 schnell, hecho para MCP) |
-| `mcp-tools/Z-Image-Turbo` | Borradores rápidos (alternativa) |
-| `black-forest-labs/FLUX.2-klein-9B` | Versión final (oficial de Black Forest Labs) |
-| `black-forest-labs/flux-3-image-klein` | Versión final, la más reciente: se prueba si FLUX.2 no convence |
+| `mcp-tools/Z-Image-Turbo` | Borradores (funcionó el 2026-10-25) |
+| `evalstate/flux1_schnell` | Borradores (falló por su API el 2026-10-25) |
+| `black-forest-labs/FLUX.2-klein-9B` | Versión final |
+| `black-forest-labs/flux-3-image-klein` | Versión final, la más reciente |
 
-- **Si las herramientas de los Spaces no aparecen en la sesión,** hay que reconectar el MCP con `/mcp` (o reiniciar Claude Code). Se cargan al conectar.
-- **Cuota:** los Spaces usan ZeroGPU, con una cuota gratuita por día. La API de *Inference Providers* **no tiene créditos** en esta cuenta: responde 402. No se usa sin decidirlo antes (PEN-W11).
-- **Quién genera:** el Claude principal, en su rol de diseñador, con el usuario. El agente `desarrollador` no genera imágenes.
-- **Flujo y prompts:** en `docs/08_gui/07_assets_e_imagenes.md`. Las imágenes generadas van a `generated_images/`, que no se versiona; las elegidas se copian a `gui/web/src/assets/<misión>/`.
+  - **Cuota:** ZeroGPU gratis, de unas 5 imágenes al día, porque cada llamado reserva 60 s. **Generar de a una, nunca en paralelo.**
+  - **Inference Providers no tiene créditos** (responde 402).
+  - Si los Spaces no aparecen en la sesión, reconectar con `/mcp`.
+- **Quién genera:** el Claude principal, en su rol de diseñador, con el usuario.
+  - El agente `desarrollador` no genera: solo integra los archivos elegidos.
+  - Las elegidas se toman de `generated_images/…/elegidos/` con rutas absolutas, porque esa carpeta no se versiona y no está en su worktree.
+- **Flujo y prompts:** en `docs/08_gui/07_assets_e_imagenes.md`. Lo generado va a `generated_images/`; lo elegido termina en `gui/web/src/assets/<misión>/`.
 
 ## graphify
 

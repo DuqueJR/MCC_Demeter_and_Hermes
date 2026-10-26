@@ -6,6 +6,10 @@
     <title>Hermes y Deméter · Universidad EIA</title>
     <meta name="description" content="Sigue en vivo el vuelo de los cohetes Hermes y Deméter de la Universidad EIA en el CCCD 2026." />
     <link rel="stylesheet" href="/src/portada/portada.css" />
+    <!-- Las fuentes se piden en paralelo con el CSS, no después de leerlo: el primer pintado baja de 1,5 s a 0,75 s (Lighthouse móvil, T-621). -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/inter-latin-wght-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/marcellus-latin-400-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/montserrat-latin-800-normal.woff2" />
   </head>
   <body>
     <!-- Portada (T-620, 03 §1): sin JavaScript. Toda la mitad es el enlace (D-W10). -->
@@ -24,7 +28,21 @@
     <main>
       <h1 class="solo-lectores">Hermes y Deméter</h1>
       <div class="mitades">
+        <!--
+          Fondos pintados (T-621, 07 §2): la imagen es el elemento más grande de la portada, o sea, el LCP.
+          - Van bajo un velo del tema (portada.css), así que la calidad es baja a propósito (quality=).
+          - sizes dice 70vw en el celular, no 100vw: el celular baja 576 px (unos 7 KB en Deméter) y el LCP queda en
+            < 2 s; en el portátil, cada mitad es 50vw y baja 768 px (o 1152 px con pantalla densa).
+          - Con 576 px a calidad 24 (7,4 KB) o más, el LCP simulado sube a 2,03 s: no subir la calidad de ese tamaño sin medir.
+        -->
         <a class="mitad" data-mision="demeter" href="/demeter/" aria-label="Entrar a la misión Deméter">
+          <span class="fondo" aria-hidden="true">
+            <picture>
+              <source type="image/avif" srcset="/src/assets/demeter/fondo_portada.webp?w=576&format=avif&quality=20 576w, /src/assets/demeter/fondo_portada.webp?w=768&format=avif&quality=34 768w, /src/assets/demeter/fondo_portada.webp?w=1152&format=avif&quality=40 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <source type="image/webp" srcset="/src/assets/demeter/fondo_portada.webp?w=576&format=webp&quality=60 576w, /src/assets/demeter/fondo_portada.webp?w=768&format=webp&quality=60 768w, /src/assets/demeter/fondo_portada.webp?w=1152&format=webp&quality=60 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <img src="/src/assets/demeter/fondo_portada.webp?w=768&format=webp&quality=60" alt="" width="1152" height="1280" fetchpriority="high" />
+            </picture>
+          </span>
           <span class="parche">
             <picture>
               <source
@@ -46,6 +64,13 @@
         </a>
 
         <a class="mitad" data-mision="hermes" href="/hermes/" aria-label="Entrar a la misión Hermes">
+          <span class="fondo" aria-hidden="true">
+            <picture>
+              <source type="image/avif" srcset="/src/assets/hermes/fondo_portada.webp?w=576&format=avif&quality=20 576w, /src/assets/hermes/fondo_portada.webp?w=768&format=avif&quality=34 768w, /src/assets/hermes/fondo_portada.webp?w=1152&format=avif&quality=40 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <source type="image/webp" srcset="/src/assets/hermes/fondo_portada.webp?w=576&format=webp&quality=60 576w, /src/assets/hermes/fondo_portada.webp?w=768&format=webp&quality=60 768w, /src/assets/hermes/fondo_portada.webp?w=1152&format=webp&quality=60 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <img src="/src/assets/hermes/fondo_portada.webp?w=768&format=webp&quality=60" alt="" width="1152" height="1280" fetchpriority="high" />
+            </picture>
+          </span>
           <span class="parche">
             <picture>
               <source
