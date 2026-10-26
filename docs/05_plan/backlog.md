@@ -122,7 +122,7 @@ actualizado: 2026-10-25
 | T-621 | Assets de marca y fondos (lo hace el diseñador con el usuario) | M | E | PEN-W08 | hecha (2026-10-25, PR #25 y #26; D-W21). Queda PEN-W10, el parche con transparencia |
 | T-622 | Armazón de la página de misión (barra, navegación, Inicio, Equipo, Pie) | M | E | T-611, T-613 | hecha (2026-10-25, PR #17). Quedan 5 preguntas sobre 03 en su bitácora |
 | T-623 | Contenido provisional de cada misión | M | E | T-622 | pendiente |
-| T-624 | Estado de la misión, Telemetría y banner de alarma. **Incluye conectar el cliente:** `iniciarCliente({ mision })` en `entradas/demeter.tsx` y `hermes.tsx`, sin arrancarlo con `?ejemplo` ([consolidación de T-631](../07_bitacora/2026-10-25_sesion_consolidacion_T-631.md)) | M | E | T-622, T-631 | pendiente (lista) |
+| T-624 | Estado de la misión, Telemetría y banner de alarma. **Incluye conectar el cliente:** `iniciarCliente({ mision })` en `entradas/demeter.tsx` y `hermes.tsx`, sin arrancarlo con `?ejemplo` ([consolidación de T-631](../07_bitacora/2026-10-25_sesion_consolidacion_T-631.md)) | M | E | T-622, T-631 | en curso (PR del agente, 2026-10-26) |
 | T-625 | Recuperación y Salud del cohete | M/S | E | T-622, T-631 | pendiente (lista) |
 | T-626 | Los ojos de Deméter | S | E | T-622, T-631 | pendiente (lista) |
 | T-630 | Repetidor de desarrollo (snapshot y SSE desde JSONL) | M | D | T-612 | hecha (2026-10-25, PR #18). Propuestas abiertas para H0: cursor del snapshot, `meta` sin `id`, `serie.t_mas_s` en la espera y backfill completo ([consolidación](../07_bitacora/2026-10-25_sesion_consolidacion_T-630.md)) |
