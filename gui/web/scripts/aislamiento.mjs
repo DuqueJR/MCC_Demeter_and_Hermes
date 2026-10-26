@@ -10,6 +10,9 @@ import { brotliDecompressSync } from "node:zlib";
 
 const PAGINAS = ["demeter", "hermes"];
 const EXT_TEXTO = new Set([".html", ".js", ".mjs", ".css"]);
+const EXT_IMAGEN = new Set([".avif", ".webp", ".png", ".jpg", ".jpeg", ".svg"]);
+// Imágenes de `src/assets/comun/` que las dos misiones pueden compartir (T-621). Salen con su nombre de archivo.
+const IMAGENES_COMUNES = [/(^|\/)eia_blanco-/];
 const EXT_RECURSO = "js|mjs|css|avif|webp|png|jpe?g|svg|woff2?|json|pmtiles";
 const RE_REFERENCIA = new RegExp(
   `["'(=\\s]([^"'()\\s<>]+\\.(?:${EXT_RECURSO}))(?:[?#][^"'()\\s<>]*)?`,
@@ -179,6 +182,8 @@ export function revisarAislamiento(distRuta) {
   const dist = resolve(distRuta);
   /** @type {Violacion[]} */
   const violaciones = [];
+  /** @type {Map<string, Set<string>>} imágenes alcanzables por página (T-621) */
+  const imagenesDe = new Map();
   for (const pagina of PAGINAS) {
     if (!existsSync(join(dist, pagina, "index.html"))) {
       violaciones.push({
@@ -190,8 +195,11 @@ export function revisarAislamiento(distRuta) {
     }
     const otra = PAGINAS.find((p) => p !== pagina);
     const patrones = patronesDeContenido(otra);
+    const imagenes = new Set();
+    imagenesDe.set(pagina, imagenes);
     for (const archivo of alcanzables(dist, pagina)) {
       const rel = aPosix(relative(dist, archivo));
+      if (EXT_IMAGEN.has(extension(archivo))) imagenes.add(rel);
       if (rutaDeLaOtra(rel, otra)) {
         violaciones.push({
           pagina,
@@ -236,6 +244,23 @@ export function revisarAislamiento(distRuta) {
         archivo: "(fuentes)",
         motivo: `no carga su fuente de títulos (${FAMILIA_DE[pagina]})`,
       });
+    }
+  }
+  // Las imágenes que genera `vite-imagetools` salen como `<parte>-<hash>.webp`, sin el nombre de la misión
+  // (por ejemplo un ícono). Si una imagen es alcanzable desde las dos páginas, una misión importó un archivo
+  // de la otra (o de una carpeta compartida): solo se admite lo declarado como común.
+  const [primera, segunda] = PAGINAS.map((p) => imagenesDe.get(p));
+  if (primera && segunda) {
+    for (const rel of primera) {
+      if (!segunda.has(rel) || IMAGENES_COMUNES.some((re) => re.test(rel))) continue;
+      for (const pagina of PAGINAS) {
+        violaciones.push({
+          pagina,
+          archivo: rel,
+          motivo:
+            "imagen alcanzable desde las dos misiones (D-W01): solo lo común puede compartirse",
+        });
+      }
     }
   }
   return violaciones;

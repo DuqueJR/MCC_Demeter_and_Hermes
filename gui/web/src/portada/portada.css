@@ -1,6 +1,5 @@
 /*
- * Portada (`/`) según 03 §1 [T-620]. HTML y CSS puros, sin JS. Solo tokens de src/tema/.
- * Los fondos son provisionales (degradado con tokens) hasta T-621.
+ * Portada (`/`) según 03 §1 [T-620] y 07 §2 [T-621]. HTML y CSS puros, sin JS. Solo tokens de src/tema/.
  */
 @import "../tema/comun.css";
 @import "../tema/demeter.css"; /* solo por el @font-face de Marcellus */
@@ -12,6 +11,11 @@
   --parche: min(32svh, 68vw);
   --crecer: 1.08;
   --oscurecer-otra: 0.85;
+  /* Velo sobre el fondo pintado (07 §2): oscurecido general y degradado hacia abajo. */
+  --velo-general: 0.3;
+  --velo-abajo: 0.85;
+  --velo-llega: 90%;
+  --velo-arriba-llega: 30%;
 }
 
 html,
@@ -66,12 +70,66 @@ body {
   color: var(--texto);
   text-align: center;
   text-decoration: none;
-  /* Fondo provisional: de la marca hacia el fondo del tema, más oscuro abajo (07 §2). */
-  background:
-    linear-gradient(to bottom, transparent 0%, var(--fondo) 100%),
-    radial-gradient(ellipse at 50% 38%, var(--marca-1) 0%, var(--fondo) 80%);
+  /* Mientras llega la imagen (o si falla), el color del tema; el fondo pintado va en `.fondo`. */
+  background: var(--fondo);
+  isolation: isolate;
   transition: filter var(--dur-media) var(--curva);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Todo lo que no es el fondo queda por encima de la imagen y de su velo. */
+.mitad > :not(.fondo) {
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * Fondo pintado de cada mitad (T-621, 07 §2): la imagen cubre la mitad (`object-fit: cover`) y encima
+ * van dos capas con el `--fondo` del tema, para que el texto y el parche mantengan el contraste AA:
+ * un oscurecido general (`::before`) y un degradado que crece hacia abajo (`::after`).
+ * El contraste se comprueba en e2e/portada.spec.ts (método en la bitácora de T-621).
+ */
+.fondo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+}
+
+.fondo picture,
+.fondo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fondo img {
+  object-fit: cover;
+  object-position: 50% 40%;
+}
+
+.fondo::before,
+.fondo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--fondo);
+}
+
+.fondo::before {
+  opacity: var(--velo-general);
+}
+
+.fondo::after {
+  /* Arriba, una franja para la cabecera (logo y texto); abajo, el degradado de 07 §2. */
+  background: linear-gradient(
+    to bottom,
+    var(--fondo) 0%,
+    transparent var(--velo-arriba-llega),
+    transparent 35%,
+    var(--fondo) var(--velo-llega)
+  );
+  opacity: var(--velo-abajo);
 }
 
 /* Aclara el fondo de la mitad con hover o foco. */
@@ -79,6 +137,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1; /* sobre el fondo pintado y bajo el contenido */
   background: radial-gradient(ellipse at 50% 38%, var(--superficie-2) 0%, transparent 70%);
   opacity: 0;
   transition: opacity var(--dur-media) var(--curva);
@@ -88,6 +147,7 @@ body {
 .mitad::after {
   content: "";
   position: absolute;
+  z-index: 3;
   background: var(--texto);
   opacity: 0.2;
   inset: auto 0 0 0;

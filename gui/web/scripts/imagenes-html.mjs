@@ -7,8 +7,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 
-// /src/assets/<carpeta>/<nombre>.png?w=512&format=avif
-const RE_URL = /\/src\/assets\/([\w-]+)\/([\w-]+)\.png\?([^\s"')]+)/g;
+// /src/assets/<carpeta>/<nombre>.<png|webp>?w=512&format=avif  (T-621: los fondos de la portada son WebP)
+const RE_URL = /\/src\/assets\/([\w-]+)\/([\w-]+)\.(png|webp)\?([^\s"')]+)/g;
 
 /** @param {string} raiz carpeta gui/web */
 export function imagenesDeHtml(raiz, paginas = ["index.html"]) {
@@ -18,18 +18,23 @@ export function imagenesDeHtml(raiz, paginas = ["index.html"]) {
   const archivos = [];
   const cache = new Map();
 
-  async function generar(url, carpeta, nombre, consulta) {
+  async function generar(url, carpeta, nombre, extension, consulta) {
     const params = new URLSearchParams(consulta);
     const ancho = Number(params.get("w"));
     const formato = params.get("format");
+    // `quality=<1-100>` es opcional y es el mismo nombre que usa imagetools (T-621: los fondos van bajo un velo).
+    const calidad = params.has("quality") ? Number(params.get("quality")) : null;
     if (!ancho || !["avif", "webp"].includes(formato)) {
       throw new Error(`imagenes-html: ${url} necesita w=<px> y format=avif|webp`);
     }
-    const origen = join(raiz, "src", "assets", carpeta, `${nombre}.png`);
+    const origen = join(raiz, "src", "assets", carpeta, `${nombre}.${extension}`);
     if (!cache.has(origen)) cache.set(origen, readFileSync(origen));
     const salida = await sharp(cache.get(origen))
       .resize({ width: ancho, withoutEnlargement: true })
-      .toFormat(formato, formato === "avif" ? { quality: 55, effort: 4 } : { quality: 80 })
+      .toFormat(
+        formato,
+        formato === "avif" ? { quality: calidad ?? 55, effort: 4 } : { quality: calidad ?? 80 },
+      )
       .toBuffer();
     const hash = createHash("sha1").update(salida).digest("hex").slice(0, 8);
     const ruta = `assets/${carpeta}-${nombre}-${ancho}-${hash}.${formato}`;
@@ -44,7 +49,7 @@ export function imagenesDeHtml(raiz, paginas = ["index.html"]) {
       for (const pagina of paginas) {
         const html = readFileSync(join(raiz, pagina), "utf8");
         for (const m of html.matchAll(RE_URL)) {
-          if (!reescritura.has(m[0])) await generar(m[0], m[1], m[2], m[3]);
+          if (!reescritura.has(m[0])) await generar(m[0], m[1], m[2], m[3], m[4]);
         }
       }
       for (const { ruta, datos } of archivos) {

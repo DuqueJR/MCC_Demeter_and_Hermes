@@ -56,6 +56,21 @@ export function Inicio({ contenido }: { contenido: Contenido }) {
                 abierta.value = abierta.value === p.id ? null : p.id;
               }}
             >
+              {p.icono && (
+                // Decorativo (el nombre ya está en el texto). Si el archivo no carga, se oculta y el chip queda con su texto.
+                <img
+                  class="chip-icono"
+                  src={p.icono}
+                  alt=""
+                  width="40"
+                  height="40"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.currentTarget.hidden = true;
+                  }}
+                />
+              )}
               {p.nombre}
             </button>
           </li>
