@@ -5,7 +5,12 @@ import { SostenedorAlarma } from "../src/mision/alarma";
 import { numero } from "../src/mision/formato";
 import { construirPasos } from "../src/mision/linea_fases";
 import { calcularObjetivos } from "../src/mision/objetivos";
-import { datoViejo, sentidoVertical, textoONulo, vistaTelemetria } from "../src/mision/telemetria";
+import {
+  datoViejo,
+  sentidoVertical,
+  textoONulo,
+  vistaTelemetria,
+} from "../src/mision/vista_telemetria";
 
 const estadoEn = (fase: Fase, resto: Partial<Estado> = {}): Estado => ({
   ...estadoEjemplo,

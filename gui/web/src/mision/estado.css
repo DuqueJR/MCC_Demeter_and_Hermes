@@ -1,0 +1,346 @@
+/*
+ * Estado de la misión, Telemetría y banner de alarma (03 §3.2, §3.3 y §4) [T-624].
+ * SOLO tokens de src/tema/ (06 §6): nada de colores literales. El color nunca va solo (02 §4):
+ * cada estado lleva un ícono y una palabra. Los tamaños de texto vienen de mision.css (--t-*).
+ */
+
+.etiqueta {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Banner de alarma de descenso (fijo bajo la barra) ---------- */
+
+.banner-alarma {
+  padding: var(--e-2) var(--e-4);
+  border-top: 0;
+  background: var(--estado-alarma);
+  color: var(--fondo);
+  font-size: 1rem;
+}
+
+.banner-alarma svg {
+  width: var(--e-5);
+  height: var(--e-5);
+}
+
+.banner-alarma .banner-texto {
+  min-width: 0;
+}
+
+/* ---------- Estado de la misión ---------- */
+
+.estado-aviso {
+  margin: 0 0 var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  background: var(--superficie-2);
+  border-left: var(--e-1) solid var(--estado-sin-dato);
+  border-radius: var(--radio);
+  font-weight: 600;
+}
+
+.estado-ahora {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e-3) var(--e-5);
+  margin-bottom: var(--e-4);
+}
+
+.estado-t {
+  display: grid;
+}
+
+.estado-t-valor {
+  font-size: var(--t-num-gran);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.estado-fase {
+  display: grid;
+  min-width: 0;
+}
+
+.estado-fase-titulo {
+  font-size: var(--t-titulo);
+  font-weight: 700;
+}
+
+.estado-fase-sub {
+  color: var(--texto-2);
+}
+
+/* La línea de fases: una lista vertical, legible a una mano en el celular. */
+.fases,
+.objetivos {
+  display: grid;
+  gap: var(--e-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paso {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: var(--toque-min);
+  padding: 0 var(--e-2);
+  border-radius: var(--radio);
+}
+
+.paso svg,
+.objetivo svg,
+.telemetria-edad svg,
+.celda svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  stroke-width: 1.75;
+}
+
+.paso-titulo {
+  font-weight: 600;
+}
+
+.paso-t {
+  color: var(--texto-2);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.paso-ahora {
+  padding: 0 var(--e-1);
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  color: var(--acento);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.paso-hecho svg {
+  color: var(--estado-ok);
+}
+
+.paso-actual {
+  background: var(--superficie-2);
+  outline: 1px solid var(--acento);
+}
+.paso-actual svg,
+.paso-actual .paso-t {
+  color: var(--acento);
+}
+
+.paso-pendiente {
+  color: var(--texto-2);
+}
+.paso-pendiente svg {
+  color: var(--estado-sin-dato);
+}
+
+/* ---------- Objetivos que se encienden solos ---------- */
+
+.objetivo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "i t"
+    "i e";
+  align-items: center;
+  gap: 0 var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  transition:
+    border-color var(--dur-media) var(--curva),
+    opacity var(--dur-media) var(--curva);
+}
+
+.objetivo-icono {
+  grid-area: i;
+  display: grid;
+  place-items: center;
+  width: var(--e-7);
+  height: var(--e-7);
+  background: var(--fondo);
+  border-radius: 50%;
+  color: var(--texto-2);
+}
+
+.objetivo-titulo {
+  grid-area: t;
+  font-weight: 700;
+}
+
+.objetivo-estado {
+  grid-area: e;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--e-2);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 600;
+}
+
+.objetivo-estado svg {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+.objetivo-apagado {
+  opacity: 0.75;
+}
+
+.objetivo-encendido {
+  border-color: var(--acento);
+}
+.objetivo-encendido .objetivo-icono {
+  color: var(--acento);
+}
+.objetivo-logrado {
+  color: var(--estado-ok);
+}
+.objetivo-encendido .objetivo-estado {
+  color: var(--texto);
+}
+
+.objetivo-dato {
+  font-weight: 700;
+}
+
+.objetivo .unidad {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* ---------- Telemetría ---------- */
+
+.telemetria-edad {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-3);
+  color: var(--estado-sin-dato);
+  font-weight: 600;
+}
+
+.rejilla {
+  display: grid;
+  /* 2 columnas en el celular; si la columna es angosta (panel de 1024 px), 1 sola. */
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--e-8) * 2 + var(--e-5)), 1fr));
+  gap: var(--e-3);
+  margin: 0;
+}
+
+.celda {
+  min-width: 0;
+  padding: var(--e-3) var(--e-2);
+  background: var(--superficie-2);
+  border-radius: var(--radio);
+}
+
+.celda dt {
+  display: flex;
+  align-items: center;
+  gap: var(--e-1);
+  margin-bottom: var(--e-1);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.celda dt svg {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+.celda dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--e-1);
+  margin: 0;
+}
+
+.celda .num {
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.celda .unidad,
+.celda .apogeo-t,
+.celda .antiguedad,
+.celda .eje-nombre {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.celda-altitud,
+.celda-aceleracion {
+  grid-column: 1 / -1;
+}
+
+.celda-altitud .num {
+  font-size: var(--t-num-gran);
+  line-height: 1.1;
+}
+
+.celda dd svg {
+  align-self: center;
+}
+
+.flecha {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+}
+
+.celda-aceleracion dd {
+  gap: var(--e-1) var(--e-5);
+}
+
+.eje {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e-1);
+}
+
+/* Dato viejo (>= WEB_DATO_VIEJO_S): todo en gris de "sin dato", con su antigüedad arriba. */
+[data-viejo="si"] .celda .num,
+[data-viejo="si"] .celda .unidad,
+[data-viejo="si"] .celda .flecha,
+[data-viejo="si"] .celda .apogeo-t {
+  color: var(--estado-sin-dato);
+}
+
+/* Última posición conocida (GS-03): la altitud, en rojo y con su pin, aunque el resto esté gris. */
+.celda-altitud.lkp .num,
+.celda-altitud.lkp .unidad,
+.celda-altitud.lkp svg,
+.celda-altitud.lkp .antiguedad,
+[data-viejo="si"] .celda-altitud.lkp .num,
+[data-viejo="si"] .celda-altitud.lkp .unidad {
+  color: var(--estado-alarma);
+}
