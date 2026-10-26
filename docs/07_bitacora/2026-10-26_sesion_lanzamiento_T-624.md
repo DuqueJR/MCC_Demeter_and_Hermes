@@ -32,3 +32,34 @@ El usuario pidió lanzar T-624 del plan web ([06_plan_web](../08_gui/06_plan_web
 
 ## Documentos afectados
 - [backlog](../05_plan/backlog.md) (la fila de T-624)
+
+## Revisión del PR #30 (mismo día)
+El agente abrió el **PR #30** (`feature/T-624-estado-telemetria-alarma`, 7 commits `[T-624]`, desde `1ec4e1b`), sin merge y listo para revisión. El detalle técnico está en su [entrada](2026-10-26_T-624_estado_telemetria_alarma.md), que llega con el PR.
+
+- **Alcance respetado:** el diff no toca `src/datos/`, `src/contrato/`, `src/mapa/`, `src/actitud/`, `src/tema/` ni `package.json`. Lo nuevo está en `src/mision/` (`EstadoMision`, `Telemetria`, `BannerAlarma`, `objetivos`, `linea_fases`, `vista_telemetria`, `alarma`, `arranque` y `estado.css`) y en las dos entradas. Fuera de `src/mision/` solo cambian pruebas e2e y `vite.config.ts` (`hookTimeout`). GitHub lo marca `MERGEABLE`.
+- **Lógica revisada:**
+  - el cliente arranca siempre en producción; en desarrollo no arranca con `?ejemplo` ni con `?sin_cliente` (nuevo, solo para las e2e);
+  - el banner lee `alarmas.descenso_rapido` sin recalcularla y se sostiene con un temporizador local;
+  - los objetivos se encienden por evento o por el `estado`, así que la lista es correcta si la página se abre a mitad del vuelo.
+- **Verificación del documentador**, en el worktree del agente:
+  - `npm run build`: OK, con la prueba de aislamiento y sin datos de ejemplo en el `dist/`;
+  - `npm test`: **327 pasan y 1 saltada** (antes eran 298);
+  - `npm run e2e`: **129 pasan, 14 saltadas y 1 falla**: `mapa.spec.ts:198`, los gestos de T-632, que falla igual en `develop`.
+- **Prueba intermitente, encontrada en la revisión:** en la primera corrida completa fallaron las dos de anclas (`mision.spec.ts:92`); en la segunda, no. El agente descartó con mediciones la hipótesis del documentador (que la barra "Reconectando…" cambiaba la altura de la cabecera) y no logró reproducirla (40 de 40). Como esas pruebas no necesitan el cliente, les puso `apiColgada`. En la misma búsqueda encontró y arregló una falla suya del reloj falso del banner (commit `3fdf5f4`). Después del arreglo, la suite dio el mismo resultado de arriba en tres corridas: dos del agente y una del documentador.
+- **Capturas revisadas:** Deméter con `descenso_rapido` (390×844) y Hermes con `nominal` (1440×900): la línea de fases con su T+, los objetivos con su ícono, la telemetría y el banner rojo bajo la barra.
+
+### Observaciones y propuestas (abiertas, no aplicadas)
+| # | Observación o propuesta | Quién o dónde |
+| --- | --- | --- |
+| 1 | El banner pone la unidad en mayúsculas: "14,8 M/S". Las unidades no deberían heredar el `text-transform` | Ajuste menor en `estado.css` (E) |
+| 2 | En los datos sintéticos de Hermes, la eyección (T+ 00:08) llega antes del apogeo (T+ 00:10). ¿Es lo esperado del firmware o un error del generador? | Área D / `tools/web_datos/` |
+| 3 | El botón "Ver la simulación del vuelo" no se puso: el cliente no deja elegir la simulación. Le falta a D una opción del cliente, un endpoint del relay (T-640) y la forma de pedir el cambio | Nueva tarea de D, o dentro de T-640 |
+| 4 | GS-13: el contrato ya trae `calc.t_siguiente_fase_s`, `calc.siguiente_fase` y `calc.t_restante_s`, así que cabe después con la etiqueta "estimado" | Tarea S de E |
+| 5 | Los eventos `camaras` del generador traen `activa: true`, y 05 §2.5 dice `null` salvo en `alarma_descenso` | Alinear el generador o el contrato (D) |
+| 6 | El banner usa `role="status"`. ¿Debe interrumpir al lector de pantalla (`role="alert"`)? | Decisión de diseño (02 §10) |
+| 7 | Promover los tamaños `--t-*` de `mision.css` a tokens de `tema/comun.css` | Tarea que toque tokens |
+| 8 | Documentar `?sin_cliente` junto a `?ejemplo` | README de `gui/web/` |
+| 9 | Abrir un `fix/T-632-*` para la e2e de gestos que falla en `develop` | Área D |
+
+### Siguiente paso
+- El usuario aprueba y hace el merge del PR #30. Después: T-624 `hecha` en el backlog, HW1 revisado, `CLAUDE.md` al día y `graphify update .` en la carpeta principal.
