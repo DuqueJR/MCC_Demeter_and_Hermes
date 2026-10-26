@@ -17,6 +17,15 @@ import urlTrabajador from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { Protocol } from "pmtiles";
 import { type ComponentChild, render } from "preact";
 import { edad, estacion, estado, estadoPagina, meta, serie } from "../datos/api";
+import {
+  ampliarParaIncluir,
+  ampliarParaVista,
+  areaPorDefecto,
+  encoger,
+  mismosLimites,
+  zoomMaximo,
+  zoomMinimo,
+} from "./area";
 import { detectarBase } from "./base";
 import {
   MAPA_CENTRO_POR_DEFECTO,
@@ -25,7 +34,6 @@ import {
   MAPA_ZOOM_AJUSTE_MAX,
   MAPA_ZOOM_CENTRAR,
   MAPA_ZOOM_INICIAL,
-  MAPA_ZOOM_MAX,
 } from "./constantes";
 import { construirEstilo, FUENTE, leerTokensDelDocumento, type Tokens } from "./estilo";
 import {
@@ -50,6 +58,9 @@ import {
   MarcadorLkp,
   MarcadorRampa,
 } from "./marcadores";
+
+/** Diferencia de zoom que no vale la pena aplicar a MapLibre. */
+const ZOOM_EPSILON = 1e-6;
 
 /** Textos de MapLibre en español (sus controles y el aviso de gestos cooperativos). */
 const TEXTOS_MAPA: Record<string, string> = {
@@ -135,15 +146,33 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   const tokens = leerTokensDelDocumento();
   const protocolo = new Protocol();
   addProtocol("pmtiles", protocolo.tile);
-  const base = await detectarBase(protocolo);
+  const detectada = await detectarBase(protocolo);
+  const base = detectada?.base ?? null;
+  const cobertura = detectada?.cobertura ?? null;
 
   const centro = meta.peek()?.sitio ?? MAPA_CENTRO_POR_DEFECTO;
+  // El área navegable (T-634): con PMTiles, el recuadro de su cabecera metido un poco hacia
+  // adentro; sin él, un área alrededor de la rampa. Se amplía si lo dibujado cae afuera (GS-03).
+  // El zoom máximo también sale de la cabecera (`area.ts`).
+  let sitioDelArea = centro;
+  const areaBase = () => (cobertura ? encoger(cobertura.limites) : areaPorDefecto(sitioDelArea));
+  let limitesAplicados = areaBase();
+  /** La caja de todo lo dibujado (LKP, cohete, trayectoria, estación, rampa, elipse). */
+  let dibujado: Limites | null = null;
+  const zoomMax = zoomMaximo(cobertura);
+  const zoomMinPara = (l: Limites) =>
+    Math.min(zoomMinimo(l, contenedor.clientWidth, contenedor.clientHeight), zoomMax);
   const mapa = new MapaGL({
     container: contenedor,
     style: construirEstilo(tokens, base),
     center: [centro.lon, centro.lat],
     zoom: MAPA_ZOOM_INICIAL,
-    maxZoom: MAPA_ZOOM_MAX,
+    maxZoom: zoomMax,
+    minZoom: zoomMinPara(limitesAplicados),
+    maxBounds: [
+      [limitesAplicados[0], limitesAplicados[1]],
+      [limitesAplicados[2], limitesAplicados[3]],
+    ],
     // En el celular el mapa no captura el desplazamiento de la página: un dedo desplaza la página y
     // dos dedos mueven el mapa (03 §3.4). En el portátil, Ctrl + rueda acerca.
     cooperativeGestures: true,
@@ -206,6 +235,52 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   const destinoDe = (c: Capas): Coord | null =>
     c.marcadores.lkp?.pos ?? c.marcadores.cohete?.pos ?? null;
 
+  // ---- Límites del mapa (T-634)
+  /** Anota en el lienzo lo que las pruebas necesitan leer (como `data-mapa-reposos`). */
+  const publicarVista = () => {
+    const v = visibles();
+    contenedor.dataset.mapaLimites = limitesAplicados.join(",");
+    contenedor.dataset.mapaVista = v.join(",");
+    contenedor.dataset.mapaZoom = mapa.getZoom().toFixed(3);
+    contenedor.dataset.mapaZoomMin = mapa.getMinZoom().toFixed(3);
+    contenedor.dataset.mapaZoomMax = mapa.getMaxZoom().toFixed(3);
+    const c = mapa.getCenter();
+    contenedor.dataset.mapaCentro = `${c.lng},${c.lat}`;
+  };
+  /**
+   * El área navegable ahora: la base, ampliada para incluir todo lo dibujado (GS-03) y para que
+   * "Ver todo" pueda mostrarlo entero en este contenedor. Depende del tamaño del contenedor.
+   */
+  const calcularArea = (): Limites => {
+    const incluida = ampliarParaIncluir(areaBase(), dibujado);
+    return ampliarParaVista(
+      incluida,
+      dibujado,
+      contenedor.clientWidth,
+      contenedor.clientHeight,
+      MAPA_RELLENO_PX,
+    );
+  };
+  /**
+   * Aplica el área y el zoom mínimo a MapLibre. Solo lo toca si cambiaron (los datos llegan a
+   * ~9 Hz y casi nunca mueven el área); el zoom mínimo depende del tamaño del contenedor, por eso
+   * también se llama al redimensionar y al entrar o salir de pantalla completa.
+   */
+  const aplicarLimites = () => {
+    if (contenedor.clientWidth === 0 || contenedor.clientHeight === 0) return;
+    const l = calcularArea();
+    if (!mismosLimites(l, limitesAplicados)) {
+      limitesAplicados = l;
+      mapa.setMaxBounds([
+        [l[0], l[1]],
+        [l[2], l[3]],
+      ]);
+    }
+    const z = zoomMinPara(limitesAplicados);
+    if (Math.abs(z - mapa.getMinZoom()) > ZOOM_EPSILON) mapa.setMinZoom(z);
+    publicarVista();
+  };
+
   const actualizar = (entrada: EntradaMapa) => {
     if (entrada.serie !== serieAnterior) {
       serieAnterior = entrada.serie;
@@ -217,6 +292,10 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     if (!decision.activo && pos) rastro = agregarPunto(rastro, [pos.lon, pos.lat]);
 
     capas = construirCapas(entrada, decision, rastro);
+    // Sin PMTiles el área sigue a la rampa, que puede llegar después del mapa.
+    if (entrada.sitio) sitioDelArea = entrada.sitio;
+    dibujado = capas.limites;
+    aplicarLimites();
     const m = capas.marcadores;
     if (rastro !== rastroPublicado) {
       rastroPublicado = rastro;
@@ -257,6 +336,8 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   };
   mapa.on("dragstart", alMoverUsuario);
   mapa.on("zoomstart", alMoverUsuario);
+  mapa.on("resize", aplicarLimites);
+  mapa.on("moveend", publicarVista);
 
   // Contador de "reposos" (MapLibre terminó de dibujar): las pruebas esperan a que suba para
   // capturar el mapa ya dibujado, sin dormir un tiempo fijo.
@@ -292,7 +373,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
       interactuo = true;
       mapa.easeTo({
         center: destino,
-        zoom: Math.max(mapa.getZoom(), MAPA_ZOOM_CENTRAR),
+        zoom: Math.min(mapa.getMaxZoom(), Math.max(mapa.getZoom(), MAPA_ZOOM_CENTRAR)),
         duration: duracion(),
       });
     },
