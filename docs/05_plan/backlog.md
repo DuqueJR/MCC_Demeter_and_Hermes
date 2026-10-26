@@ -129,7 +129,7 @@ actualizado: 2026-10-25
 | T-631 | Cliente de datos (snapshot, SSE, edad, estados de la página, interpolación) | M | D | T-611, T-630 | hecha (2026-10-25, PR #23 y #24). Propuestas abiertas en la agenda de H0, sección D ([consolidación](../07_bitacora/2026-10-25_sesion_consolidacion_T-631.md)) |
 | T-632 | Mapa (MapLibre y PMTiles de la zona, capas, LKP) | M | D | T-611 | hecha (2026-10-25, PR #21 y #22). Falta el PMTiles real (Juan Pablo). La e2e `mapa.spec.ts:196` (gestos) falla en `develop` en la máquina de Jerónimo: `fix/T-632-*` |
 | T-633 | Gráficas (uPlot) y backfill | S | D | T-631, agenda H0 D5 y D6 | pendiente |
-| T-634 | Actitud 2D | S | D | T-631 | pendiente (lista) |
+| T-634 | Actitud 2D. **Incluye limitar el mapa (`src/mapa/`, T-632) al área del PMTiles** (decisión de Juan Pablo, 2026-10-25): límites y zoom máximo leídos del encabezado del archivo en tiempo de ejecución, un área por defecto alrededor de `meta.sitio` si no hay PMTiles, y el LKP, el cohete, la trayectoria y la estación siempre dentro del área navegable (GS-03). **Criterio extra:** e2e que arrastran y alejan al máximo sin salir del área, y un LKP fuera del recorte que sigue visible ([entrada](../07_bitacora/2026-10-25_sesion_lanzamiento_T-634.md)) | S | D | T-631 | hecha (2026-10-25, PR #28). Propuestas abiertas en la [entrada](../07_bitacora/2026-10-25_sesion_lanzamiento_T-634.md) |
 | T-640 | Relay público (FastAPI: ingesta con token, snapshot, SSE, 1 Hz en tierra) | S | D | T-611, T-630 | pendiente |
 | T-641 | Conectar con el back (log crudo reprocesado y luego una placa real) | S | Ambos | T-640, T-602, T-S06, T-605a | pendiente |
 | T-642 | Despliegue (CDN, relay con TLS, dominio) | S | Ambos | T-640 | pendiente |
