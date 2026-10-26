@@ -3,9 +3,10 @@ const SEGUNDOS_POR_MIN = 60;
 const SEGUNDOS_POR_HORA = 3600;
 const MS_POR_S = 1000;
 
-/** `9.2` -> `"9,2"`. */
+/** `9.2` -> `"9,2"`. Un valor que redondea a cero no lleva signo (`−0,0` no existe). */
 export function numero(valor: number, decimales = 0): string {
-  return valor.toFixed(decimales).replace(".", ",").replace("-", "−");
+  const redondeado = Number(valor.toFixed(decimales));
+  return (redondeado === 0 ? 0 : valor).toFixed(decimales).replace(".", ",").replace("-", "−");
 }
 
 const dos = (n: number) => String(n).padStart(2, "0");
