@@ -1,6 +1,7 @@
 // Armazón común de la página de misión (03 §2). Lo reciben las dos entradas con su contenido.
 // No importa nada específico de una misión (D-W01): lo propio llega por props.
 import type { ComponentChildren } from "preact";
+import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
 import { SeccionMapa } from "../mapa/SeccionMapa";
 import { BarraMision } from "./BarraMision";
@@ -29,7 +30,7 @@ export function Pagina({ contenido, extra }: Props) {
         <Hueco id="telemetria" titulo="Telemetría" />
         <SeccionMapa />
         <Hueco id="recuperacion" titulo="Recuperación" />
-        <Hueco id="actitud" titulo="Actitud" />
+        <Actitud />
         <Hueco id="graficas" titulo="Gráficas" />
         <Hueco id="salud" titulo="Salud del cohete" />
         {extra}

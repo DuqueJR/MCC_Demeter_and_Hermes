@@ -6,8 +6,38 @@ import { WEB_SERIE_MAX_PUNTOS } from "../datos/constantes";
 export const MAPA_CENTRO_POR_DEFECTO = { lat: 6.582, lon: -75.823 } as const;
 /** Zoom con el que abre el mapa, centrado en la rampa. */
 export const MAPA_ZOOM_INICIAL = 14.5;
-/** Zoom máximo de la interfaz (el PMTiles se extrae hasta el zoom 15; lo demás es ampliación). */
+/**
+ * Zoom máximo SIN mapa base (no hay teselas que ampliar: solo la cuadrícula y las capas de la
+ * misión). Con PMTiles manda el archivo: su `maxZoom` más `MAPA_SOBREZOOM` (`area.ts`).
+ */
 export const MAPA_ZOOM_MAX = 18;
+/**
+ * Niveles de zoom que se permite pasar del `maxZoom` del PMTiles (se amplía la tesela del último
+ * nivel). El mapa es vectorial, así que no se pixela, pero no hay más detalle que el del último
+ * nivel: con 1 nivel de más las calles se leen con comodidad; con 2 solo quedan líneas más
+ * anchas y vacío (capturas de T-634 en la bitácora).
+ */
+export const MAPA_SOBREZOOM = 1;
+/** Lado en px del mundo con zoom 0 en MapLibre (teselas de 512 px). */
+export const MAPA_MUNDO_PX = 512;
+/** Límites del área navegable: cuánto se meten hacia adentro del recuadro del PMTiles, como fracción de cada lado. */
+export const MAPA_MARGEN_LIMITES = 0.02;
+/**
+ * Si lo dibujado (LKP, cohete, trayectoria, estación, elipse) cae fuera del área, o a menos de
+ * esto del borde, el área se amplía para incluirlo (GS-03). Holgura mínima, en grados (unos 1,1 km).
+ */
+export const MAPA_MARGEN_INCLUIR_GRADOS = 0.01;
+/**
+ * La holgura de esa ampliación crece con el tamaño del conjunto: esta fracción de su lado más
+ * largo. Al alejar el mapa para verlo todo, deja sitio para el marcador y su texto (unos 15 % de
+ * la pantalla), que una holgura fija en grados no daría.
+ */
+export const MAPA_MARGEN_INCLUIR_FRACCION = 0.15;
+/**
+ * Sin PMTiles: mitad del lado del área navegable alrededor de `meta.sitio`, en grados. Es el mismo
+ * recorte con que se genera el archivo (±0,05°, unos 11 × 11 km; README del módulo).
+ */
+export const MAPA_AREA_DEFECTO_GRADOS = 0.05;
 /** Zoom máximo al ajustar la vista a todo lo dibujado (evita acercarse al infinito si todo coincide). */
 export const MAPA_ZOOM_AJUSTE_MAX = 16;
 /** Zoom mínimo al "centrar en el cohete": si el usuario ya está más cerca, se respeta. */
