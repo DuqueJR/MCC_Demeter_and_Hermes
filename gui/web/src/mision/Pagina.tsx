@@ -4,12 +4,15 @@ import type { ComponentChildren } from "preact";
 import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
 import { SeccionMapa } from "../mapa/SeccionMapa";
+import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
 import { Equipo } from "./Equipo";
+import { EstadoMision } from "./EstadoMision";
 import { Hueco } from "./Hueco";
 import { Inicio } from "./Inicio";
 import { Navegacion } from "./Navegacion";
 import { Pie } from "./Pie";
+import { Telemetria } from "./Telemetria";
 
 interface Props {
   contenido: Contenido;
@@ -22,12 +25,13 @@ export function Pagina({ contenido, extra }: Props) {
     <>
       <header class="cabecera-mision">
         <BarraMision contenido={contenido} />
+        <BannerAlarma />
         <Navegacion />
       </header>
       <main class="panel">
         <Inicio contenido={contenido} />
-        <Hueco id="estado" titulo="Estado de la misión" />
-        <Hueco id="telemetria" titulo="Telemetría" />
+        <EstadoMision mision={contenido.mision} />
+        <Telemetria />
         <SeccionMapa />
         <Hueco id="recuperacion" titulo="Recuperación" />
         <Actitud />

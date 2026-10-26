@@ -4,10 +4,14 @@ import "../tema/hermes.css";
 import "../mision/mision.css";
 import { render } from "preact";
 import { hermes } from "../contenido/hermes";
+import { arrancarDatos } from "../mision/arranque";
 import { Pagina } from "../mision/Pagina";
 
 const raiz = document.getElementById("app");
 if (raiz) render(<Pagina contenido={hermes} />, raiz);
+
+// Los datos en vivo (T-624): el cliente de T-631 alimenta las signals de `datos/api.ts`.
+arrancarDatos("hermes");
 
 // Solo en desarrollo: `?ejemplo` carga datos de ejemplo. Vite elimina este bloque del build.
 if (import.meta.env.DEV) {

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiColgada } from "./api_colgada";
 
 // T-613: el tema se aplica en las páginas de misión y la página de tokens se ve en los dos temas.
 // Valores esperados: 02_identidad_visual §6.
@@ -13,6 +14,7 @@ const MEDIDAS = [
 
 for (const tema of TEMAS) {
   test(`/${tema.mision}/ aplica su tema y carga su fuente de títulos`, async ({ page }) => {
+    await apiColgada(page); // sin servidor (T-624)
     await page.goto(`/${tema.mision}/`);
     const leido = await page.evaluate(() => {
       const estilo = getComputedStyle(document.documentElement);

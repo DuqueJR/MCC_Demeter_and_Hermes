@@ -264,8 +264,6 @@ button:focus-visible,
   color: var(--texto-2);
 }
 
-#estado,
-#telemetria,
 #mapa,
 #recuperacion,
 #actitud,

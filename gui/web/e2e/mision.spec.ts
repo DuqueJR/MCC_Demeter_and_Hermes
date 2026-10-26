@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { apiColgada } from "./api_colgada";
 
 // T-622: armazón de la página de misión. La producción (vite preview, :4173) arranca sin datos
 // (D-W18); el servidor de desarrollo (:5174) acepta `?ejemplo` para ver la barra con datos.
@@ -47,6 +48,7 @@ for (const m of MISIONES) {
       test.use({ viewport: { width: med.ancho, height: med.alto } });
 
       test("producción, sin datos: barra en 'Cargando' y sin desborde", async ({ page }) => {
+        await apiColgada(page); // el cliente (T-624) pide /api y no responde nadie: sigue "Cargando"
         const errores = vigilarErrores(page);
         await page.goto(`/${m.id}/`);
         await expect(page.locator("h1")).toHaveText(m.nombre);
@@ -86,6 +88,9 @@ for (const m of MISIONES) {
 }
 
 test.describe("navegación por anclas", () => {
+  // El cliente (T-624) no debe interferir: sin servidor reintenta a cada rato y carga el hilo de la página.
+  test.beforeEach(async ({ page }) => apiColgada(page));
+
   for (const med of [MEDIDAS[0], MEDIDAS[2]]) {
     test(`${med.ancho}x${med.alto}: cada enlace lleva a su sección`, async ({ page }) => {
       await page.setViewportSize({ width: med.ancho, height: med.alto });
@@ -206,12 +211,14 @@ test.describe("el texto del estado no se recorta", () => {
 test("producción: ?ejemplo no hace nada (los ejemplos no existen en el dist/)", async ({
   page,
 }) => {
+  await apiColgada(page);
   await page.goto("/demeter/?ejemplo");
   await expect(page.locator(".indicador")).toContainText("Cargando");
   await expect(page.locator(".barra-alt")).toContainText("sin dato");
 });
 
 test("los chips de partes abren y cierran su tarjeta", async ({ page }) => {
+  await apiColgada(page);
   await page.goto("/hermes/");
   const tarjeta = page.locator("#tarjeta-parte");
   await expect(tarjeta).toBeHidden();
@@ -222,6 +229,7 @@ test("los chips de partes abren y cierran su tarjeta", async ({ page }) => {
 });
 
 test("el pie solo enlaza a la otra misión, sin precargarla", async ({ page }) => {
+  await apiColgada(page);
   for (const m of MISIONES) {
     await page.goto(`/${m.id}/`);
     await expect(page.locator(".pie-enlace")).toHaveAttribute("href", m.otra);

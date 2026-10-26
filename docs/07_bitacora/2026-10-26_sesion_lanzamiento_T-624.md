@@ -61,5 +61,22 @@ El agente abrió el **PR #30** (`feature/T-624-estado-telemetria-alarma`, 7 comm
 | 8 | Documentar `?sin_cliente` junto a `?ejemplo` | README de `gui/web/` |
 | 9 | Abrir un `fix/T-632-*` para la e2e de gestos que falla en `develop` | Área D |
 
+## Cierre (mismo día)
+El usuario hizo el merge del **PR #30** en `develop` (`7cf4679`). **T-624 queda hecha.**
+
+- **Backlog:** T-624 `hecha` (PR #30 y #31). T-625 queda lista, porque `src/mision/` quedó libre.
+- **`CLAUDE.md`:** la lista de código integrado suma T-624. También suma T-621, que estaba hecha desde el 2026-10-25 y faltaba en esa lista.
+- **HW1** ([06_plan_web](../08_gui/06_plan_web.md) §2, 29 de octubre). Sus tres criterios ya tienen código en `develop`:
+  - la portada (T-620 y T-621);
+  - la barra en vivo desde el repetidor (T-624 conecta el cliente; lo comprueba `en_vivo.spec.ts`);
+  - el mapa con la trayectoria y el LKP (T-632 y T-634).
+  - **Falta verlo de punta a punta:** las páginas con el repetidor, el mapa con el PMTiles real y un celular. Nadie lo ha hecho todavía, porque las capturas de T-624 no tienen el PMTiles. Lo hace un humano con `npm run repetidor -- demeter nominal` y `npm run web`.
+- **Grafo:** se corrió `graphify update .` en la carpeta principal.
+- **El PR #31** (esta entrada, el backlog y `CLAUDE.md`) se integra después del #30, ya con `develop` mezclado.
+
 ### Siguiente paso
-- El usuario aprueba y hace el merge del PR #30. Después: T-624 `hecha` en el backlog, HW1 revisado, `CLAUDE.md` al día y `graphify update .` en la carpeta principal.
+- **Web, lista:** T-625 (Recuperación y Salud) en `src/mision/`. En paralelo con ella, pueden ir T-626 (Los ojos de Deméter) o T-623 (contenido), siempre que no toquen los mismos archivos.
+- **Arreglos menores que salieron de esta revisión** (la tabla de arriba):
+  - la unidad del banner en mayúsculas (n.º 1);
+  - la eyección antes del apogeo en el generador (n.º 2);
+  - el `fix/T-632-*` de la e2e de gestos (n.º 9).

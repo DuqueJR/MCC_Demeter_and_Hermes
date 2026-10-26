@@ -99,3 +99,70 @@ test("relay_caido: el navegador muestra 'reconectando', respeta el 503 y se pone
   // el navegador registra los 503 como errores de red en la consola: son esperados
   expect(errores.filter((e) => !e.includes("503"))).toEqual([]);
 });
+
+// T-624: las páginas de misión REALES (el dist/ de producción, :4173, con el proxy de /api al
+// repetidor) arrancan el cliente de datos y pintan el Estado de la misión y el banner de alarma.
+// Va en este archivo porque comparte el puerto del repetidor (8787) con las pruebas de arriba.
+for (const mision of ["demeter", "hermes"] as const) {
+  test(`${mision}: la página de misión enciende los objetivos en orden con el vuelo nominal en vivo`, async ({
+    page,
+  }) => {
+    await levantar("nominal", VELOCIDAD);
+    const errores = vigilarErrores(page);
+    // Anota en qué orden se encienden los objetivos (las cámaras se prenden con el despegue y se omiten).
+    await page.addInitScript(() => {
+      const w = window as unknown as { __orden: string[] };
+      w.__orden = [];
+      new MutationObserver((cambios) => {
+        for (const c of cambios) {
+          const el = c.target as HTMLElement;
+          const id = el.getAttribute?.("data-objetivo");
+          if (id && el.getAttribute("data-encendido") === "si" && !w.__orden.includes(id))
+            w.__orden.push(id);
+        }
+      }).observe(document, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-encendido"],
+      });
+    });
+    await page.goto(`/${mision}/`);
+
+    await expect(page.locator(".indicador")).toContainText("EN VIVO", { timeout: 15_000 });
+    await expect(page.locator(".marca-sim")).toHaveText("SIM");
+    await expect(page.locator('#estado .objetivo[data-objetivo="despegue"]')).toHaveAttribute(
+      "data-encendido",
+      "si",
+      { timeout: 15_000 },
+    );
+    await expect(page.locator('#estado .objetivo[data-objetivo="aterrizaje"]')).toHaveAttribute(
+      "data-encendido",
+      "si",
+      { timeout: 20_000 },
+    );
+    const orden = (
+      await page.evaluate(() => (window as unknown as { __orden: string[] }).__orden)
+    ).filter((id) => id !== "camaras");
+    expect(orden).toEqual(["despegue", "fin_combustion", "eyeccion", "apogeo", "aterrizaje"]);
+    // La línea de fases termina en "En tierra", con su T+ del vuelo.
+    await expect(page.locator('#estado .paso[data-paso="tierra"]')).toHaveAttribute(
+      "data-situacion",
+      "actual",
+    );
+    await expect(page.locator('#estado .paso[data-paso="tierra"] .paso-t')).toHaveText(
+      /^T\+ \d\d:\d\d$/,
+    );
+    // La telemetría trae números con coma decimal.
+    await expect(page.locator("#telemetria [data-celda='total'] .num")).toHaveText(/^\d+,\d$/);
+    expect(errores).toEqual([]);
+  });
+
+  test(`${mision}: con descenso_rapido en vivo sale el banner de alarma`, async ({ page }) => {
+    await levantar("descenso_rapido", VELOCIDAD);
+    const errores = vigilarErrores(page);
+    await page.goto(`/${mision}/`);
+    await expect(page.locator(".banner-alarma")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(".banner-alarma")).toContainText("Descenso rápido");
+    expect(errores).toEqual([]);
+  });
+}
