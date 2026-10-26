@@ -72,7 +72,7 @@ export function Telemetria() {
               <>
                 {alt.lkp && <MapPin aria-hidden="true" />}
                 <Valor texto={numero(alt.valor, DECIMALES_ALTITUD)} unidad="m" />
-                {alt.lkp && <span class="antiguedad">última conocida</span>}
+                {alt.lkp && <span class="altitud-nota">última conocida</span>}
               </>
             )}
           </dd>

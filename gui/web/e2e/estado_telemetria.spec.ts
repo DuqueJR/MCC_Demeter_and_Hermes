@@ -303,7 +303,7 @@ test.describe("telemetría", () => {
     const alt = page.locator("#telemetria [data-celda='altitud']");
     await expect(alt).toHaveClass(/lkp/);
     await expect(alt.locator("svg")).toHaveCount(1); // el pin
-    await expect(alt.locator(".antiguedad")).toHaveText("última conocida");
+    await expect(alt.locator(".altitud-nota")).toHaveText("última conocida");
     expect(await alt.locator(".num").evaluate((el) => getComputedStyle(el).color)).toBe(
       ROJO_ALARMA,
     );

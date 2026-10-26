@@ -291,7 +291,7 @@
 
 .celda .unidad,
 .celda .apogeo-t,
-.celda .antiguedad,
+.celda .altitud-nota,
 .celda .eje-nombre {
   color: var(--texto-2);
   font-size: var(--t-etiqueta);
@@ -339,7 +339,7 @@
 .celda-altitud.lkp .num,
 .celda-altitud.lkp .unidad,
 .celda-altitud.lkp svg,
-.celda-altitud.lkp .antiguedad,
+.celda-altitud.lkp .altitud-nota,
 [data-viejo="si"] .celda-altitud.lkp .num,
 [data-viejo="si"] .celda-altitud.lkp .unidad {
   color: var(--estado-alarma);

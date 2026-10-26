@@ -38,5 +38,7 @@ export default defineConfig({
   test: {
     include: ["pruebas/**/*.test.ts"],
     testTimeout: 60_000,
+    // El build real de la prueba de aislamiento (beforeAll) tarda ~12 s: el plugin de imágenes.
+    hookTimeout: 60_000,
   },
 });
