@@ -3,7 +3,8 @@
 // contiene (lo comprueba `buscarEjemplosEnDist` en scripts/aislamiento.mjs).
 //
 // Variantes: `?ejemplo` o `?ejemplo=en_vivo`, `senal_debil`, `sin_senal`, `sin_transmision`,
-// `simulacion` y `reconectando`. El reloj local no avanza: el estado queda fijo para verlo.
+// `simulacion`, `reconectando` y `descenso_rapido` (T-624: alarma activa, baja a 14,2 m/s).
+// El reloj local no avanza: el estado queda fijo para verlo.
 import type { Mision, Snapshot } from "../contrato/tipos";
 import { alimentar } from "../datos/api";
 
@@ -12,6 +13,8 @@ const EDAD_SENAL_DEBIL_S = 3;
 /** T+ del estado de ejemplo. El `ejemplos.ts` original trae el estado ANTES de sus eventos. */
 const T_MAS_EJEMPLO_S = 42;
 const EDAD_SIN_SENAL_S = 38;
+/** La velocidad de caída de la variante `descenso_rapido` (solo para verla). */
+const VEL_DESCENSO_RAPIDO_MS = 14.2;
 
 export async function cargarEjemplo(mision: Mision): Promise<void> {
   const params = new URLSearchParams(location.search);
@@ -56,6 +59,16 @@ export async function cargarEjemplo(mision: Mision): Promise<void> {
       ...base.estado,
       t_ms: tDespegueMs === null ? base.estado.t_ms : tDespegueMs + T_MAS_EJEMPLO_S * MS_POR_S,
       secundario: hermes ? null : base.estado.secundario,
+      ...(variante === "descenso_rapido" && base.estado.vel !== null
+        ? {
+            vel: {
+              ...base.estado.vel,
+              u_ms: -VEL_DESCENSO_RAPIDO_MS,
+              total_ms: VEL_DESCENSO_RAPIDO_MS,
+            },
+            alarmas: { descenso_rapido: true },
+          }
+        : {}),
     },
     salud: base.salud && { ...base.salud, temp_pi_c: hermes ? null : base.salud.temp_pi_c },
     estacion:

@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { apiColgada, esperarPintado } from "./api_colgada";
 
 // T-621: cada chip de "Partes del cohete" lleva el ícono ilustrativo de su misión a la izquierda del texto.
 const CAPTURAS = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-621");
@@ -22,6 +23,7 @@ for (const m of MISIONES) {
   for (const med of MEDIDAS) {
     test.describe(`chips con ícono, ${m.id} ${med.ancho}x${med.alto}`, () => {
       test.use({ viewport: { width: med.ancho, height: med.alto } });
+      test.beforeEach(async ({ page }) => apiColgada(page)); // sin servidor (T-624)
 
       test("cada chip trae su ícono (40 px) a la izquierda del texto, sin desborde", async ({
         page,
@@ -93,9 +95,10 @@ for (const m of MISIONES) {
 test("Hermes no trae VisionPack ni ningún ícono de Deméter (D-W01)", async ({ page }) => {
   const pedidas: string[] = [];
   page.on("request", (r) => pedidas.push(r.url()));
+  await apiColgada(page);
   await page.goto("/hermes/");
   await page.locator("#inicio .chips").scrollIntoViewIfNeeded();
-  await page.waitForLoadState("networkidle");
+  await esperarPintado(page);
   expect(pedidas.filter((u) => /visionpack/i.test(u))).toEqual([]);
   expect(pedidas.filter((u) => /\/assets\/demeter/i.test(u))).toEqual([]);
   await expect(page.locator("#inicio .chip", { hasText: "VisionPack" })).toHaveCount(0);

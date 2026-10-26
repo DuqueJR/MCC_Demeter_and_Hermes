@@ -165,7 +165,7 @@ test.describe("con el PMTiles de la zona", () => {
       const h = cabecera();
       await page.setViewportSize({ width: med.ancho, height: med.alto });
       await page.emulateMedia({ reducedMotion: "reduce" });
-      await page.goto(`${DEV}/demeter/`);
+      await page.goto(`${DEV}/demeter/?sin_cliente`);
       await irAlMapa(page);
       await expect(page.locator(".mapa-lienzo")).toHaveAttribute("data-mapa-base", "vectorial");
       await dibujado(page, () => alimentar(page, snapshotDe("demeter", "nominal", 70_000)));
@@ -215,7 +215,7 @@ test.describe("con el PMTiles de la zona", () => {
   test("los botones de zoom se desactivan en el mínimo y en el máximo", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(`${DEV}/hermes/`);
+    await page.goto(`${DEV}/hermes/?sin_cliente`);
     await irAlMapa(page);
     const alejar = page.getByRole("button", { name: "Alejar" });
     const acercar = page.getByRole("button", { name: "Acercar" });
@@ -238,7 +238,7 @@ test.describe("con el PMTiles de la zona", () => {
   test("el zoom mínimo se recalcula al redimensionar y en pantalla completa", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAlMapa(page);
     const antes = await leerMapa(page);
     expect(antes.zoomMin).toBeCloseTo(zoomMinimo(antes.limites, antes.ancho, antes.alto), 2);
@@ -284,7 +284,7 @@ test.describe("sin PMTiles (el archivo no se encuentra)", () => {
     await sinPmtiles(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAlMapa(page);
     await expect(page.locator(".mapa-lienzo")).toHaveAttribute("data-mapa-base", "sin-base");
     const snap = snapshotDe("demeter", "nominal", 70_000);
@@ -321,7 +321,7 @@ for (const conPmtiles of [true, false]) {
         if (!conPmtiles) await sinPmtiles(page);
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.emulateMedia({ reducedMotion: "reduce" });
-        await page.goto(`${DEV}/${mision}/`);
+        await page.goto(`${DEV}/${mision}/?sin_cliente`);
         await irAlMapa(page);
         // Primero, un vuelo normal: el área es la del recorte.
         await dibujado(page, () => alimentar(page, snapshotDe(mision, "nominal", 70_000)));
@@ -388,7 +388,7 @@ test.describe("el cohete y la trayectoria reales, con el área por defecto", () 
     }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.emulateMedia({ reducedMotion: "reduce" });
-      await page.goto(`${DEV}/${mision}/`);
+      await page.goto(`${DEV}/${mision}/?sin_cliente`);
       await irAlMapa(page);
       await dibujado(page, () => alimentar(page, snapshotDe(mision, "nominal", 70_000)));
       await expect(page.locator(".mapa-cohete")).toBeVisible();
@@ -410,7 +410,7 @@ test.describe("capturas: alejado al máximo y arrastrado al borde (con PMTiles)"
       test(`${mision} ${med.ancho}x${med.alto}`, async ({ page }) => {
         await page.setViewportSize({ width: med.ancho, height: med.alto });
         await page.emulateMedia({ reducedMotion: "reduce" });
-        await page.goto(`${DEV}/${mision}/`);
+        await page.goto(`${DEV}/${mision}/?sin_cliente`);
         await irAlMapa(page);
         await dibujado(page, () => alimentar(page, snapshotDe(mision, "nominal", 70_000)));
         await ruedaConCtrl(page, 800, 12);
