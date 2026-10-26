@@ -3,6 +3,7 @@
 import type { ComponentChildren } from "preact";
 import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
+import { estadoPagina } from "../datos/api";
 import { SeccionMapa } from "../mapa/SeccionMapa";
 import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
@@ -12,6 +13,8 @@ import { Hueco } from "./Hueco";
 import { Inicio } from "./Inicio";
 import { Navegacion } from "./Navegacion";
 import { Pie } from "./Pie";
+import { Recuperacion } from "./Recuperacion";
+import { Salud } from "./Salud";
 import { Telemetria } from "./Telemetria";
 
 interface Props {
@@ -21,6 +24,9 @@ interface Props {
 }
 
 export function Pagina({ contenido, extra }: Props) {
+  // Aterrizado (03 §4): Recuperación sube al inicio del <main>, en el DOM y no solo a la vista,
+  // para que el orden de lectura y del teclado coincida con lo que se ve.
+  const aterrizado = estadoPagina.value.aterrizado;
   return (
     <>
       <header class="cabecera-mision">
@@ -28,15 +34,16 @@ export function Pagina({ contenido, extra }: Props) {
         <BannerAlarma />
         <Navegacion />
       </header>
-      <main class="panel">
+      <main class="panel" data-aterrizado={aterrizado ? "si" : "no"}>
+        {aterrizado && <Recuperacion />}
         <Inicio contenido={contenido} />
         <EstadoMision mision={contenido.mision} />
         <Telemetria />
         <SeccionMapa />
-        <Hueco id="recuperacion" titulo="Recuperación" />
+        {!aterrizado && <Recuperacion />}
         <Actitud />
         <Hueco id="graficas" titulo="Gráficas" />
-        <Hueco id="salud" titulo="Salud del cohete" />
+        <Salud mision={contenido.mision} />
         {extra}
         <Equipo contenido={contenido} />
       </main>

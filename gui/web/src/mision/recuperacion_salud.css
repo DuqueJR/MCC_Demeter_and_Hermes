@@ -1,0 +1,461 @@
+/*
+ * Recuperación y Salud del cohete (03 §3.5 y §3.8) [T-625].
+ * SOLO tokens de src/tema/ (06 §6): nada de colores literales. El color nunca va solo (02 §4):
+ * cada estado lleva un ícono y una palabra. Los tamaños de texto vienen de mision.css (--t-*).
+ */
+
+/* ---------- Botones (solo estas dos secciones los usan) ---------- */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  min-height: var(--toque-min);
+  padding: 0 var(--e-4);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--dur-rapida) var(--curva);
+}
+
+.boton:hover {
+  border-color: var(--acento);
+}
+
+.boton svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  stroke-width: 1.75;
+}
+
+.boton-principal {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: var(--fondo);
+  font-weight: 700;
+}
+
+.boton-principal:hover {
+  border-color: var(--texto);
+}
+
+/* ---------- Recuperación ---------- */
+
+.recup-cuerpo {
+  display: grid;
+  gap: var(--e-4);
+}
+
+.recup-coords,
+.recup-mapa {
+  display: grid;
+  align-content: start;
+  gap: var(--e-3);
+  min-width: 0;
+}
+
+.recup-rotulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-1) var(--e-2);
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.recup-rotulo svg,
+.recup-vacio svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  stroke-width: 1.75;
+}
+
+.recup-chip {
+  padding: 0 var(--e-2);
+  border: 1px solid var(--estado-info);
+  border-radius: var(--radio);
+  color: var(--estado-info);
+}
+
+/* La última posición conocida va en rojo con su antigüedad (GS-03, 02 §4). */
+.recup-rotulo[data-origen="lkp"],
+.recup-rotulo[data-origen="lkp"] .recup-edad {
+  color: var(--estado-alarma);
+}
+
+.recup-datos {
+  display: grid;
+  gap: var(--e-2);
+  max-width: calc(var(--e-8) * 6);
+  margin: 0;
+}
+
+.recup-datos > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--e-3);
+}
+
+.recup-datos dt {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.recup-datos dd {
+  margin: 0;
+}
+
+/* Coordenadas grandes, en alto contraste. Un toque las selecciona para copiarlas a mano. */
+.recup-coords .recup-datos dd {
+  color: var(--texto);
+  font-size: calc(var(--t-num-sec) * 1.25);
+  font-weight: 700;
+  line-height: 1.2;
+  user-select: all;
+}
+
+.recup-aviso {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.recup-aviso[data-copia="fallo"] {
+  color: var(--estado-aviso);
+}
+
+.recup-vacio {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-2);
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.recup-vacio svg {
+  color: var(--estado-aviso);
+}
+
+/* El QR: a un toque en el celular y a la vista desde 1024 px. */
+.recup-qr {
+  display: none;
+  justify-items: center;
+  gap: var(--e-2);
+}
+
+.recup-qr[data-abierto="si"] {
+  display: grid;
+}
+
+.qr {
+  width: calc(var(--e-8) * 2 + var(--e-5));
+  height: calc(var(--e-8) * 2 + var(--e-5));
+  max-width: 100%;
+  border-radius: var(--radio);
+}
+
+.qr-fondo {
+  fill: var(--texto);
+}
+
+.qr-modulos {
+  fill: var(--fondo);
+}
+
+.recup-qr-nota {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* Vector de navegación y brújula (con el norte fijo arriba). */
+.recup-vector {
+  margin-top: var(--e-4);
+  padding-top: var(--e-2);
+  border-top: 1px solid var(--linea);
+}
+
+.recup-vector .subtitulo {
+  margin-top: var(--e-2);
+}
+
+.recup-vector-cuerpo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-4);
+}
+
+.brujula {
+  flex: none;
+  width: calc(var(--e-8) + var(--e-6));
+  height: calc(var(--e-8) + var(--e-6));
+}
+
+.brujula-aro {
+  fill: var(--superficie-2);
+  stroke: var(--linea);
+  stroke-width: 2;
+}
+
+.brujula text {
+  font-family: var(--fuente-texto), sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.brujula-norte {
+  fill: var(--texto);
+}
+
+.brujula-punto {
+  fill: var(--texto-2);
+}
+
+.brujula-flecha {
+  fill: var(--acento);
+  stroke: var(--texto);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.recup-datos-vector {
+  flex: 1;
+  min-width: calc(var(--e-8) * 2);
+}
+
+.recup-datos-vector .num {
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+}
+
+.recup-datos-vector .unidad,
+.recup-nota {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.recup-nota {
+  margin: var(--e-2) 0 0;
+}
+
+/* ---------- Salud del cohete ---------- */
+
+.salud-resumen {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  background: var(--superficie-2);
+  border-left: var(--e-1) solid var(--estado-sin-dato);
+  border-radius: var(--radio);
+  font-size: var(--t-titulo);
+  font-weight: 700;
+}
+
+.salud-resumen svg,
+.salud-edad svg,
+.salud-causas svg,
+.salud-condiciones svg,
+.salud-estado svg,
+.chip-go svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  stroke-width: 1.75;
+}
+
+.salud-resumen[data-nivel="ok"] {
+  border-left-color: var(--estado-ok);
+}
+.salud-resumen[data-nivel="ok"] svg {
+  color: var(--estado-ok);
+}
+.salud-resumen[data-nivel="aviso"] {
+  border-left-color: var(--estado-aviso);
+}
+.salud-resumen[data-nivel="aviso"] svg {
+  color: var(--estado-aviso);
+}
+.salud-resumen[data-nivel="falla"] {
+  border-left-color: var(--estado-alarma);
+}
+.salud-resumen[data-nivel="falla"] svg {
+  color: var(--estado-alarma);
+}
+.salud-resumen[data-nivel="sin_dato"] {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.salud-edad {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-3);
+  color: var(--estado-sin-dato);
+  font-weight: 600;
+}
+
+.salud-causas,
+.salud-condiciones {
+  display: grid;
+  gap: var(--e-1);
+  margin: 0 0 var(--e-3);
+  padding: 0;
+  list-style: none;
+}
+
+.salud-causas li,
+.salud-condiciones li {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-width: 0;
+  font-weight: 600;
+}
+
+.salud-falla,
+.salud-falla svg {
+  color: var(--estado-alarma);
+}
+
+.salud-aviso,
+.salud-aviso svg {
+  color: var(--estado-aviso);
+}
+
+.salud-ok svg {
+  color: var(--estado-ok);
+}
+
+/* El chip maestro Go/No-Go (solo en PREFLIGHT y ARMED). */
+.chip-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: var(--toque-min);
+  margin: 0 0 var(--e-2);
+  padding: 0 var(--e-4);
+  border: 2px solid var(--estado-sin-dato);
+  border-radius: var(--radio);
+  font-weight: 700;
+}
+
+.chip-go-si {
+  border-color: var(--estado-ok);
+}
+.chip-go-si svg {
+  color: var(--estado-ok);
+}
+.chip-go-no {
+  border-color: var(--estado-alarma);
+}
+.chip-go-no svg {
+  color: var(--estado-alarma);
+}
+
+/* El detalle desplegable. */
+.salud-detalle {
+  border-top: 1px solid var(--linea);
+}
+
+.salud-detalle summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--toque-min);
+  color: var(--acento);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.salud-lista {
+  display: grid;
+  gap: var(--e-1);
+  margin: 0;
+}
+
+.salud-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--e-3);
+  padding: var(--e-1) 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+.salud-fila dt {
+  color: var(--texto-2);
+}
+
+.salud-fila dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.salud-fila .unidad {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.salud-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+}
+
+/* Datos viejos: el resumen se atenúa; la nota de arriba dice hace cuánto fue el último dato. */
+[data-viejo="si"] .salud-resumen {
+  opacity: 0.75;
+}
+
+/* ---------- Distribución ---------- */
+
+/* Aterrizado (03 §4): Recuperación sube al inicio de la página y toma todo el ancho. */
+@media (min-width: 600px) {
+  #recuperacion[data-aterrizado="si"] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Con espacio (tableta y portátil) las coordenadas y el mapa van lado a lado, y el QR siempre se ve. */
+@media (min-width: 1024px) {
+  .recup-qr {
+    display: grid;
+  }
+
+  .boton-qr {
+    display: none;
+  }
+
+  #recuperacion[data-aterrizado="si"] .recup-cuerpo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  #recuperacion[data-aterrizado="si"] .recup-mapa {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  #recuperacion[data-aterrizado="si"] .recup-mapa .boton-principal {
+    align-self: start;
+  }
+}

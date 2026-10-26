@@ -583,38 +583,56 @@ button:focus-visible,
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
   }
 
+  /*
+   * Aterrizado (03 §4, T-625): Recuperación sube a la fila 1 a todo el ancho y el resto baja una fila
+   * (--fila-extra = 1). Salud toma el lugar que dejó Recuperación en la columna 3, así no queda un hueco.
+   */
+  .panel {
+    --fila-extra: 0;
+  }
+  .panel[data-aterrizado="si"] {
+    --fila-extra: 1;
+  }
+
   #inicio {
     grid-column: 1 / -1;
-    grid-row: 1;
+    grid-row: calc(1 + var(--fila-extra));
   }
   #estado {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: calc(2 + var(--fila-extra));
   }
   #telemetria {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: calc(3 + var(--fila-extra));
   }
   #mapa {
     grid-column: 2;
-    grid-row: 2 / span 2;
+    grid-row: calc(2 + var(--fila-extra)) / span 2;
     min-height: 0;
   }
   #recuperacion {
     grid-column: 3;
     grid-row: 2;
   }
+  #recuperacion[data-aterrizado="si"] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
   #salud {
     grid-column: 3;
     grid-row: 3;
   }
+  .panel[data-aterrizado="si"] #salud {
+    grid-row: 3 / span 2;
+  }
   #graficas {
     grid-column: 1 / span 2;
-    grid-row: 4;
+    grid-row: calc(4 + var(--fila-extra));
   }
   #actitud {
     grid-column: 3;
-    grid-row: 4;
+    grid-row: calc(4 + var(--fila-extra));
   }
   /* Sin fila fija: Los ojos (solo en una misión) y Equipo ocupan las filas libres, sin huecos. */
   #ojos,
