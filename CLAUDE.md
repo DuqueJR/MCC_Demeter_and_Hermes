@@ -51,7 +51,8 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 
 ## Estado
 
-- Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`. Desde el 2026-10-24 todavía no hay código propio.
+- Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`.
+- **Código propio integrado en `develop`** (al 2026-10-25): solo la web: `gui/web/` y `tools/web_datos/` (T-610 a T-614, T-620, T-622 y T-630 a T-632). El firmware y la estación todavía no tienen código; `visionpack/` solo tiene el código heredado de la Pi.
 - **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
 - Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
 
