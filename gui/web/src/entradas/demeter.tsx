@@ -4,6 +4,7 @@ import "../tema/demeter.css";
 import "../mision/mision.css";
 import { render } from "preact";
 import { demeter } from "../contenido/demeter";
+import { arrancarDatos } from "../mision/arranque";
 import { Hueco } from "../mision/Hueco";
 import { Pagina } from "../mision/Pagina";
 
@@ -15,6 +16,9 @@ if (raiz) {
     raiz,
   );
 }
+
+// Los datos en vivo (T-624): el cliente de T-631 alimenta las signals de `datos/api.ts`.
+arrancarDatos("demeter");
 
 // Solo en desarrollo: `?ejemplo` carga datos de ejemplo. Vite elimina este bloque del build.
 if (import.meta.env.DEV) {

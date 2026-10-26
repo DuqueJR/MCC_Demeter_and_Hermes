@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { apiColgada, esperarPintado } from "./api_colgada";
 import { alimentar, DEV, moverReloj, ponerConexion, reposos, snapshotDe } from "./mapa_ayudas";
 
 // T-632: el mapa. La producción (vite preview, :4173) no tiene datos de ejemplo (D-W18): ahí se
@@ -50,9 +51,10 @@ test.describe("carga diferida (producción)", () => {
       page.on("request", (r) => pedidos.push(new URL(r.url()).pathname));
       const delMapa = () => pedidos.filter((p) => /\/assets\/(Mapa|maplibre)/.test(p));
 
+      await apiColgada(page);
       await page.goto(`/${mision}/`);
       await expect(page.locator("h1")).toBeVisible();
-      await page.waitForLoadState("networkidle");
+      await esperarPintado(page);
       // En la parte alta de la página, el mapa está lejos: no se pidió nada de MapLibre.
       await expect(page.locator(".mapa-marco")).toHaveAttribute("data-mapa-fase", "esperando");
       expect(delMapa()).toEqual([]);
@@ -77,7 +79,7 @@ test.describe("capas y LKP (desarrollo)", () => {
 
   for (const mision of MISIONES) {
     test(`${mision}: el estilo toma el fondo de los tokens de su tema`, async ({ page }) => {
-      await page.goto(`${DEV}/${mision}/`);
+      await page.goto(`${DEV}/${mision}/?sin_cliente`);
       await irAlMapa(page);
       await expect(page.locator(".mapa-lienzo")).toHaveAttribute(
         "data-tema-fondo",
@@ -90,7 +92,7 @@ test.describe("capas y LKP (desarrollo)", () => {
     page,
   }) => {
     const errores = vigilarErrores(page);
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAlMapa(page);
     await dibujado(page, () => alimentar(page, snapshotDe("demeter", "nominal", 70_000)));
     await expect(page.locator(".mapa-rampa")).toBeVisible();
@@ -106,7 +108,7 @@ test.describe("capas y LKP (desarrollo)", () => {
     page,
   }) => {
     const errores = vigilarErrores(page);
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAlMapa(page);
     await dibujado(page, () => alimentar(page, snapshotDe("demeter", "lkp_descenso")));
 
@@ -134,7 +136,7 @@ test.describe("capas y LKP (desarrollo)", () => {
   });
 
   test("controles: centrar, ver todo y pantalla completa", async ({ page }) => {
-    await page.goto(`${DEV}/hermes/`);
+    await page.goto(`${DEV}/hermes/?sin_cliente`);
     await irAlMapa(page);
     const centrar = page.getByRole("button", { name: "Centrar en el cohete" });
     await expect(centrar).toBeDisabled();
@@ -169,7 +171,7 @@ test.describe("con el PMTiles de la zona", () => {
         const errores = vigilarErrores(page);
         await page.setViewportSize({ width: med.ancho, height: med.alto });
         await page.emulateMedia({ reducedMotion: "reduce" });
-        await page.goto(`${DEV}/${mision}/`);
+        await page.goto(`${DEV}/${mision}/?sin_cliente`);
         await irAlMapa(page);
         await expect(page.locator(".mapa-lienzo")).toHaveAttribute("data-mapa-base", "vectorial");
         await dibujado(page, () => alimentar(page, snapshotDe(mision, "nominal", 70_000)));
@@ -194,7 +196,7 @@ test.describe("gestos en el celular", () => {
   });
 
   test("un dedo sobre el mapa desplaza la página: no queda atrapada", async ({ page }) => {
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAlMapa(page);
     await alimentar(page, snapshotDe("demeter", "nominal", 70_000));
     await expect(page.locator(".mapa-cohete")).toBeVisible();
@@ -233,7 +235,7 @@ test.describe("capturas de la sección", () => {
           ["lkp", "lkp_descenso", undefined],
         ] as const) {
           test(`${nombre}`, async ({ page }) => {
-            await page.goto(`${DEV}/${mision}/`);
+            await page.goto(`${DEV}/${mision}/?sin_cliente`);
             await irAlMapa(page);
             await dibujado(page, () => alimentar(page, snapshotDe(mision, escenario, hasta)));
             await expect(

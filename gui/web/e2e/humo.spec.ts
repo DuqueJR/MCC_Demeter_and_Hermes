@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiColgada } from "./api_colgada";
 
 // Prueba de humo (T-610): las 3 páginas cargan, sin errores y sin desborde horizontal,
 // a las dos medidas de referencia (06 §6): celular y portátil.
@@ -18,6 +19,7 @@ for (const medida of MEDIDAS) {
 
     for (const pagina of PAGINAS) {
       test(`${pagina.nombre} carga sin errores`, async ({ page }) => {
+        await apiColgada(page); // las páginas de misión piden /api (T-624); aquí no hay servidor
         const errores: string[] = [];
         page.on("pageerror", (e) => errores.push(e.message));
         page.on("console", (m) => {

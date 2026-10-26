@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { apiColgada } from "./api_colgada";
 
 // T-622: armazón de la página de misión. La producción (vite preview, :4173) arranca sin datos
 // (D-W18); el servidor de desarrollo (:5174) acepta `?ejemplo` para ver la barra con datos.
@@ -47,6 +48,7 @@ for (const m of MISIONES) {
       test.use({ viewport: { width: med.ancho, height: med.alto } });
 
       test("producción, sin datos: barra en 'Cargando' y sin desborde", async ({ page }) => {
+        await apiColgada(page); // el cliente (T-624) pide /api y no responde nadie: sigue "Cargando"
         const errores = vigilarErrores(page);
         await page.goto(`/${m.id}/`);
         await expect(page.locator("h1")).toHaveText(m.nombre);
@@ -206,6 +208,7 @@ test.describe("el texto del estado no se recorta", () => {
 test("producción: ?ejemplo no hace nada (los ejemplos no existen en el dist/)", async ({
   page,
 }) => {
+  await apiColgada(page);
   await page.goto("/demeter/?ejemplo");
   await expect(page.locator(".indicador")).toContainText("Cargando");
   await expect(page.locator(".barra-alt")).toContainText("sin dato");

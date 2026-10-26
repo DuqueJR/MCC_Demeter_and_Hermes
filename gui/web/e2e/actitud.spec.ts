@@ -52,7 +52,7 @@ test.describe("los ángulos que se leen salen del cuaternión del contrato", () 
       const esperado = angulosDeCuaternion(q);
       if (!esperado) throw new Error("el cuaternión del escenario no es válido");
 
-      await page.goto(`${DEV}/${mision}/`);
+      await page.goto(`${DEV}/${mision}/?sin_cliente`);
       await irAActitud(page);
       // Sin datos: guiones y sin horizonte (el instrumento no finge estar vivo).
       await expect(page.locator("#actitud")).toHaveAttribute("data-vista", "sin-dato");
@@ -88,7 +88,7 @@ test.describe("estados de la página", () => {
       ...snap,
       estado: { ...snap.estado, flags: { ...snap.estado.flags, ekf_ok: false } },
     };
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAActitud(page);
     await alimentar(page, sinEkf);
     await expect(page.locator("#actitud")).toHaveAttribute("data-vista", "no-disponible");
@@ -102,7 +102,7 @@ test.describe("estados de la página", () => {
   test("sin señal: la última actitud queda atenuada y rotulada, nunca como si fuera viva", async ({
     page,
   }) => {
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAActitud(page);
     await alimentar(page, enVuelo("demeter"));
     await expect(page.locator("#actitud")).toHaveAttribute("data-vista", "vivo");
@@ -118,7 +118,7 @@ test.describe("estados de la página", () => {
   });
 
   test("señal débil y sin servidor: se atenúa y avisa", async ({ page }) => {
-    await page.goto(`${DEV}/hermes/`);
+    await page.goto(`${DEV}/hermes/?sin_cliente`);
     await irAActitud(page);
     await alimentar(page, enVuelo("hermes"));
     await ponerConexion(page, "reconectando");
@@ -136,7 +136,7 @@ test.describe("movimiento", () => {
   test("el horizonte sigue la muestra interpolada del cliente de datos", async ({ page }) => {
     const snap = enVuelo("demeter");
     if (!snap.estado) throw new Error("sin estado");
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAActitud(page);
     await alimentar(page, snap);
     await expect(page.locator("#actitud")).toHaveAttribute("data-vista", "vivo");
@@ -184,7 +184,7 @@ test.describe("movimiento", () => {
       reducedMotion: "reduce",
     });
     const page = await contexto.newPage();
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAActitud(page);
     const snap = enVuelo("demeter");
     await alimentar(page, snap);
@@ -214,7 +214,7 @@ test.describe("casi vertical (bloqueo de cardán)", () => {
   test("a 90° de cabeceo no se inventan el rumbo ni el alabeo", async ({ page }) => {
     const snap = enVuelo("demeter");
     if (!snap.estado) throw new Error("sin estado");
-    await page.goto(`${DEV}/demeter/`);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
     await irAActitud(page);
     // La nariz exactamente arriba (así se publica en el escenario antes del despegue).
     await alimentar(page, {
@@ -235,7 +235,7 @@ test.describe("capturas de la sección", () => {
       test(`${mision} ${medida}`, async ({ page }) => {
         await page.setViewportSize({ width: med.ancho, height: med.alto });
         await page.emulateMedia({ reducedMotion: "reduce" });
-        await page.goto(`${DEV}/${mision}/`);
+        await page.goto(`${DEV}/${mision}/?sin_cliente`);
         await irAActitud(page);
         await alimentar(page, enVuelo(mision));
         await expect(page.locator("#actitud")).toHaveAttribute("data-vista", "vivo");
