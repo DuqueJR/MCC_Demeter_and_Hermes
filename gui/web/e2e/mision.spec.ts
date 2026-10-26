@@ -88,6 +88,9 @@ for (const m of MISIONES) {
 }
 
 test.describe("navegación por anclas", () => {
+  // El cliente (T-624) no debe interferir: sin servidor reintenta a cada rato y carga el hilo de la página.
+  test.beforeEach(async ({ page }) => apiColgada(page));
+
   for (const med of [MEDIDAS[0], MEDIDAS[2]]) {
     test(`${med.ancho}x${med.alto}: cada enlace lleva a su sección`, async ({ page }) => {
       await page.setViewportSize({ width: med.ancho, height: med.alto });
@@ -215,6 +218,7 @@ test("producción: ?ejemplo no hace nada (los ejemplos no existen en el dist/)",
 });
 
 test("los chips de partes abren y cierran su tarjeta", async ({ page }) => {
+  await apiColgada(page);
   await page.goto("/hermes/");
   const tarjeta = page.locator("#tarjeta-parte");
   await expect(tarjeta).toBeHidden();
@@ -225,6 +229,7 @@ test("los chips de partes abren y cierran su tarjeta", async ({ page }) => {
 });
 
 test("el pie solo enlaza a la otra misión, sin precargarla", async ({ page }) => {
+  await apiColgada(page);
   for (const m of MISIONES) {
     await page.goto(`/${m.id}/`);
     await expect(page.locator(".pie-enlace")).toHaveAttribute("href", m.otra);

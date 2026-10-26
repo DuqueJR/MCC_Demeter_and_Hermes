@@ -23,6 +23,7 @@ for (const m of MISIONES) {
   for (const med of MEDIDAS) {
     test.describe(`chips con ícono, ${m.id} ${med.ancho}x${med.alto}`, () => {
       test.use({ viewport: { width: med.ancho, height: med.alto } });
+      test.beforeEach(async ({ page }) => apiColgada(page)); // sin servidor (T-624)
 
       test("cada chip trae su ícono (40 px) a la izquierda del texto, sin desborde", async ({
         page,

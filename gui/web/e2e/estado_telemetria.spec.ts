@@ -50,10 +50,13 @@ const abrir = (page: Page, mision: Mision) => page.goto(`${DEV}/${mision}/?sin_c
  * solo avanzan cuando la prueba lo manda con `page.clock.runFor`. Sin esto el reloj sigue al real.
  */
 const INICIO_RELOJ = new Date("2026-11-08T12:00:00Z");
+const MARGEN_PAUSA_MS = 10 * 60 * 1000;
 async function abrirConRelojFijo(page: Page, mision: Mision) {
   await page.clock.install({ time: INICIO_RELOJ });
   await abrir(page, mision);
-  await page.clock.pauseAt(new Date(INICIO_RELOJ.getTime() + 1000));
+  // Un margen grande: tras `install` el reloj sigue al real y, con la máquina cargada, un margen de
+  // 1 s ya había pasado ("Cannot fast-forward to the past").
+  await page.clock.pauseAt(new Date(INICIO_RELOJ.getTime() + MARGEN_PAUSA_MS));
 }
 
 /** Los objetivos como `[id, encendido]`, en el orden de la página. */
