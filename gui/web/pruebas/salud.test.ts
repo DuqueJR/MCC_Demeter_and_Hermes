@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { estadoEjemplo, saludEjemplo } from "../src/contrato/ejemplos";
 import type { Estado, Fase, Salud } from "../src/contrato/tipos";
-import { BAT_MIN_ARM_PCT } from "../src/mision/constantes_salud";
 import {
   BITS_FALLA,
   fallasActivas,
@@ -101,7 +100,7 @@ describe("resumen siempre visible (03 §3.8)", () => {
   });
 });
 
-describe("avisos: calibraciones, EKF y batería", () => {
+describe("avisos: calibraciones y EKF; la batería baja es solo el bit 13", () => {
   it("calibraciones sin terminar: un solo aviso que las nombra", () => {
     const s = saludCon({ calib: { ...saludEjemplo.calib, giro: false, mag: false } });
     const v = vistaSalud(s, estadoEjemplo, "demeter");
@@ -127,18 +126,22 @@ describe("avisos: calibraciones, EKF y batería", () => {
     expect(v.avisos).toEqual([]);
   });
 
-  it("batería por debajo de BAT_MIN_ARM_PCT: aviso; justo en el umbral, no", () => {
-    const baja = estadoEn("ARMED", { bat_pct: BAT_MIN_ARM_PCT - 1 });
-    expect(vistaSalud(saludEjemplo, baja, "demeter").avisos.map((a) => a.id)).toEqual(["bateria"]);
-    const justa = estadoEn("ARMED", { bat_pct: BAT_MIN_ARM_PCT });
-    expect(vistaSalud(saludEjemplo, justa, "demeter").avisos).toEqual([]);
+  it("la web no recalcula la batería: un % bajo sin el bit 13 no genera aviso ni falla", () => {
+    const v = vistaSalud(saludEjemplo, estadoEn("ARMED", { bat_pct: 5 }), "demeter");
+    expect(v.avisos).toEqual([]);
+    expect(v.fallas).toEqual([]);
+    expect(v.nivel).toBe("ok");
+    expect(v.bateria.pct).toBe(5);
   });
 
-  it("batería baja ya reportada como falla (bit 13): no se duplica como aviso", () => {
+  it("batería baja = la falla del bit 13 que manda el firmware, y el detalle sigue con % y V", () => {
     const s = saludCon({ fallas: ["Batería baja"], fallas_bits: bits(13) });
     const v = vistaSalud(s, estadoEn("ARMED", { bat_pct: 40 }), "demeter");
     expect(v.avisos).toEqual([]);
     expect(v.fallas).toEqual(["Batería baja"]);
+    expect(v.nivel).toBe("falla");
+    expect(v.sistemas.find((f) => f.nombre === "Batería baja")?.falla).toBe(true);
+    expect(v.bateria).toEqual({ pct: 40, voltios: 3.98 });
   });
 
   it("batería sin dato (`bat_pct` null): ni aviso ni número inventado", () => {
@@ -149,12 +152,9 @@ describe("avisos: calibraciones, EKF y batería", () => {
 
   it("varios avisos: 'N avisos'", () => {
     const s = saludCon({ calib: { ...saludEjemplo.calib, baro: false } });
-    const e = estadoEn("PREFLIGHT", {
-      bat_pct: 30,
-      flags: { ...estadoEjemplo.flags, ekf_ok: false },
-    });
+    const e = estadoEn("PREFLIGHT", { flags: { ...estadoEjemplo.flags, ekf_ok: false } });
     const v = vistaSalud(s, e, "demeter");
-    expect(v.resumen).toBe("3 avisos");
+    expect(v.resumen).toBe("2 avisos");
   });
 });
 

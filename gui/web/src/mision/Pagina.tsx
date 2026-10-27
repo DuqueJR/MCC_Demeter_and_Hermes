@@ -3,8 +3,8 @@
 import type { ComponentChildren } from "preact";
 import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
-import { estadoPagina } from "../datos/api";
 import { SeccionMapa } from "../mapa/SeccionMapa";
+import { aterrizado } from "./aterrizado";
 import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
 import { Equipo } from "./Equipo";
@@ -26,7 +26,7 @@ interface Props {
 export function Pagina({ contenido, extra }: Props) {
   // Aterrizado (03 §4): Recuperación sube al inicio del <main>, en el DOM y no solo a la vista,
   // para que el orden de lectura y del teclado coincida con lo que se ve.
-  const aterrizado = estadoPagina.value.aterrizado;
+  const enTierra = aterrizado.value;
   return (
     <>
       <header class="cabecera-mision">
@@ -34,13 +34,13 @@ export function Pagina({ contenido, extra }: Props) {
         <BannerAlarma />
         <Navegacion />
       </header>
-      <main class="panel" data-aterrizado={aterrizado ? "si" : "no"}>
-        {aterrizado && <Recuperacion />}
+      <main class="panel" data-aterrizado={enTierra ? "si" : "no"}>
+        {enTierra && <Recuperacion />}
         <Inicio contenido={contenido} />
         <EstadoMision mision={contenido.mision} />
         <Telemetria />
         <SeccionMapa />
-        {!aterrizado && <Recuperacion />}
+        {!enTierra && <Recuperacion />}
         <Actitud />
         <Hueco id="graficas" titulo="Gráficas" />
         <Salud mision={contenido.mision} />

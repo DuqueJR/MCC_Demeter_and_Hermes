@@ -67,5 +67,10 @@ Desde `gui/web/`:
 - Decidir los puntos 1, 3, 4 y 6.
 - El PR #32 queda listo para revisión; sin merge.
 
+## Actualización tras la revisión del PR (mismo día)
+- **Decisión del usuario sobre la batería: solo el bit 13.** La web no recalcula: se quitó el aviso por `BAT_MIN_ARM_PCT` y se borró `constantes_salud.ts`. La batería baja sale únicamente como la falla "Batería baja" que manda el firmware; el detalle sigue con el % y los V. Esto reemplaza lo dicho en las decisiones 1 y en "Qué se hizo" sobre el aviso de batería. La captura `salud-fallas-*` se regeneró (3 fallas, sin aviso de batería).
+- **Render a 10 Hz corregido:** `Pagina` leía `estadoPagina.value.aterrizado` y se volvía a dibujar entera con cada tic del reloj (el objeto cambia a 10 Hz). Ahora usa `aterrizado` (`src/mision/aterrizado.ts`, un `computed` de un booleano, que solo avisa cuando cambia). Prueba unitaria `pruebas/aterrizado.test.ts` (3 pruebas): leer `estadoPagina` directo avisa en la mayoría de los 50 tics; el booleano avisa 1 vez (la inicial) y una sola más al pasar a LANDED. No se cuentan los renders de `Pagina` porque vitest corre en Node sin DOM.
+- Resultados: `npm run build` ok; `npm test` 19 archivos, 377 ok, 1 omitida; e2e completa en una segunda corrida: 164 ok, 14 omitidas, 1 falla preexistente (`mapa.spec.ts:198`). En la primera corrida fallaron además `mapa_limites.spec.ts:320` y `mision.spec.ts:186` (por carga de la máquina: pasan solas y en la segunda corrida).
+
 ## Documentos afectados
 - Ninguno de los contratos. Para el documentador: `backlog.md` (T-625), `constantes.md` (si se agrega un umbral de batería de la web) y `05_contrato_datos_web.md` (si se acepta la propuesta del punto 3).

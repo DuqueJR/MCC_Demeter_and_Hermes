@@ -5,10 +5,11 @@
 // Qué es una falla y qué un aviso (propuesta de T-625; 03 §3.8 no lo define):
 //   - FALLA (⛔): algún bit en `fallas` (protocolo_paquetes §3). Se muestran sus nombres.
 //   - AVISO (⚠), una causa cuenta una vez: calibraciones sin terminar; EKF no listo (`flags.ekf_ok`
-//     en falso); batería por debajo de `BAT_MIN_ARM_PCT`. No hay umbral en constantes.md para la
-//     innovación del EKF, así que solo se muestra su valor: no genera aviso.
+//     en falso). No hay umbral en constantes.md para la innovación del EKF, así que solo se muestra
+//     su valor: no genera aviso.
+//   - Batería (decisión del usuario): la web no recalcula. La batería baja sale solo como la falla
+//     del bit 13 que manda el firmware; el detalle muestra el % y los V.
 import type { CondicionGoNogo, Estado, Fase, Mision, Salud } from "../contrato/tipos";
-import { BAT_MIN_ARM_PCT } from "./constantes_salud";
 
 const MV_POR_V = 1000;
 /** Las fases en las que el Go/No-Go es lo que importa: antes del despegue (maquina_estados §4). */
@@ -42,7 +43,6 @@ export const BITS_FALLA: readonly {
 ];
 
 const NOMBRE_EKF_DIVERGENTE = "EKF divergente";
-const NOMBRE_BATERIA_BAJA = "Batería baja";
 
 /** Las calibraciones de `salud.calib`, con su nombre público (protocolo_paquetes §3). */
 export const CALIBRACIONES = [
@@ -54,7 +54,7 @@ export const CALIBRACIONES = [
 ] as const;
 export type IdCalibracion = (typeof CALIBRACIONES)[number]["id"];
 
-export type IdAviso = "calibraciones" | "ekf" | "bateria";
+export type IdAviso = "calibraciones" | "ekf";
 export interface Aviso {
   id: IdAviso;
   texto: string;
@@ -135,10 +135,6 @@ function avisosDe(salud: Salud, estado: Estado | null, fallas: string[]): Aviso[
   // Un EKF divergente ya es una falla: no se repite como aviso.
   if (estado !== null && !estado.flags.ekf_ok && !fallas.includes(NOMBRE_EKF_DIVERGENTE)) {
     avisos.push({ id: "ekf", texto: "El EKF aún no está listo" });
-  }
-  const pct = estado?.bat_pct ?? null;
-  if (pct !== null && pct < BAT_MIN_ARM_PCT && !fallas.includes(NOMBRE_BATERIA_BAJA)) {
-    avisos.push({ id: "bateria", texto: `Batería baja (${pct} %)` });
   }
   return avisos;
 }

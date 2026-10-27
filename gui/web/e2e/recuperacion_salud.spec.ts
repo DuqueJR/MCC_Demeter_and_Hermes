@@ -24,6 +24,7 @@ const T_ARMADO = 10_000;
 const T_DESCENSO = 40_000;
 const BIT_BMP581 = 1;
 const BIT_SD = 7;
+const BIT_BATERIA_BAJA = 13;
 
 const sinDesborde = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
@@ -460,6 +461,25 @@ test.describe("Salud del cohete", () => {
     await expect(salud(page).locator('[data-salud="go-nogo"]')).toHaveCount(0);
   });
 
+  test("batería baja: solo la falla del bit 13; la web no recalcula con el %", async ({ page }) => {
+    await abrir(page, "demeter");
+    const base = nominalEn("demeter", T_DESCENSO);
+    const baja = { ...base, estado: base.estado && { ...base.estado, bat_pct: 5 } };
+    await alimentar(page, baja);
+    await expect(resumen(page)).toContainText("Todo en orden");
+    await expect(salud(page).locator('[data-aviso="bateria"]')).toHaveCount(0);
+    await salud(page).locator("summary").click();
+    await expect(salud(page).locator('[data-fila="bateria-pct"]')).toContainText("5");
+
+    await alimentar(
+      page,
+      conSalud(baja, { fallas: ["Batería baja"], fallas_bits: 1 << BIT_BATERIA_BAJA }),
+    );
+    await expect(resumen(page)).toContainText("Falla en un sistema");
+    await expect(salud(page).locator('[data-salud="fallas"]')).toContainText("Batería baja");
+    await expect(salud(page).locator('[data-fila="bateria-v"]')).toContainText("V");
+  });
+
   test("Hermes: sin fila de temperatura de la Pi ni del UART del VisionPack", async ({ page }) => {
     await abrir(page, "hermes");
     await alimentar(page, aterrizado("hermes"));
@@ -506,14 +526,17 @@ test.describe("capturas de la bitácora", () => {
         await salud(page).screenshot({ path: `${CAPTURAS}/salud-nominal-${medida}.png` });
       });
 
-      test("fallas y avisos", async ({ page }) => {
+      test("fallas (incluida la batería baja, bit 13)", async ({ page }) => {
         await abrir(page, "demeter");
         const base = nominalEn("demeter", T_DESCENSO);
         await alimentar(
           page,
           conSalud(
             { ...base, estado: base.estado && { ...base.estado, bat_pct: 41 } },
-            { fallas: ["BMP581", "SD"], fallas_bits: (1 << BIT_BMP581) | (1 << BIT_SD) },
+            {
+              fallas: ["BMP581", "SD", "Batería baja"],
+              fallas_bits: (1 << BIT_BMP581) | (1 << BIT_SD) | (1 << BIT_BATERIA_BAJA),
+            },
           ),
         );
         await salud(page).locator("summary").click();
