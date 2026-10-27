@@ -85,3 +85,16 @@ El agente abrió el **PR #32** (`feature/T-625-recuperacion-salud`, 6 commits `[
 | 7 | `grid-row: calc(N + var(--fila-extra))` funciona en Chromium. Falta verlo en Safari (iPhone real) | T-644 |
 | 8 | Un escenario JSONL con fallas para ver Salud con el repetidor | `tools/web_datos/` (D) |
 | 9 | Abrir el QR en un celular real, que es el criterio del plan | Un humano después del merge, con `npm run web` |
+
+## Cierre (mismo día)
+El usuario hizo el merge del **PR #32** en `develop` (`95b20e1`). **T-625 queda hecha.**
+
+- **Backlog:** T-625 `hecha` (PR #32). Con T-624 y T-625 hechas, **T-644** (pulido para el celular) queda lista.
+- **`CLAUDE.md`:** la lista de código integrado suma T-625.
+- **Grafo:** se corrió `graphify update .` en la carpeta principal.
+- **Criterio del plan que falta:** abrir el QR en un celular real. Lo hace un humano con el repetidor y `npm run web` (en el celular, con `--host 0.0.0.0`).
+- **El PR de esta entrada** (la entrada, el backlog y `CLAUDE.md`) sale de `docs/T-625-lanzamiento`, ya con `develop` mezclado.
+
+### Siguiente paso
+- **Web, lista:** T-626 (Los ojos de Deméter) y T-623 (contenido), ya sin el candado de `src/mision/`. Después, T-644.
+- **Propuestas de la revisión** (la tabla de arriba): la n.º 1 (distancia y azimut al punto estimado) pide un cambio de contrato con su decisión; la n.º 5 (resumen del vuelo en Aterrizado) cabe como tarea S de E.
