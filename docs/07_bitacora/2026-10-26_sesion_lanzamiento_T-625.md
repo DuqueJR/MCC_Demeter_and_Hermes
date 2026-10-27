@@ -51,3 +51,37 @@ Es la última sección M de E en W2 (Recuperación es M; Salud es S). El dashboa
 
 ## Documentos afectados
 - [backlog](../05_plan/backlog.md) (la fila de T-625)
+
+## Revisión del PR #32 (mismo día)
+El agente abrió el **PR #32** (`feature/T-625-recuperacion-salud`, 6 commits `[T-625]`, desde `c445406`), sin merge y listo para revisión. El detalle técnico está en su [entrada](2026-10-26_T-625_recuperacion_salud.md), que llega con el PR.
+
+- **Alcance respetado:** el diff no toca `src/datos/`, `src/contrato/`, `src/mapa/`, `src/actitud/`, `src/tema/`, `tools/web_datos/` ni `package.json`.
+  - Lo nuevo está en `src/mision/`: `Recuperacion`, `Salud`, `Qr`, `vista_recuperacion`, `vista_salud`, `datos_qr`, `copiar`, `aterrizado` y `recuperacion_salud.css`.
+  - Los archivos compartidos que cambian son `Pagina.tsx` y `mision.css` (la rejilla del portátil con `--fila-extra` para Aterrizado).
+  - GitHub lo marca `MERGEABLE`.
+- **Lógica revisada:**
+  - qué punto se muestra: sin señal, el LKP con su antigüedad; con LANDED, la `pos` real; antes, el centro de la elipse "estimado"; sin elipse, la posición actual, marcada como no estimado;
+  - con coordenadas nulas o inválidas no hay enlace, ni botón, ni QR;
+  - con LANDED, Recuperación es el primer hijo del `<main>` en el DOM, no solo a la vista;
+  - el resumen de Salud y el Go/No-Go (solo en PREFLIGHT y ARMED) salen de `salud` sin recalcular nada del firmware.
+- **Dos hallazgos del documentador, corregidos en `2a8f9b6`:**
+  1. **`Pagina` se volvía a dibujar entera a 10 Hz.** Leía `estadoPagina.value` directo, y ese `computed` devuelve un objeto nuevo en cada tic del reloj local. Ahora usa `computed(() => estadoPagina.value.aterrizado)` (`aterrizado.ts`), el mismo patrón de `EstadoMision` y `Telemetria`, con 3 pruebas en `pruebas/aterrizado.test.ts`.
+  2. **La batería baja salía dos veces y se contradecía:** la web la recalculaba con una copia de `BAT_MIN_ARM_PCT` y, en el mismo detalle, el bit 13 decía "Sin falla". **Decisión del usuario: solo el bit 13** (la web no recalcula, como con la alarma de descenso). Se borró `constantes_salud.ts`. El detalle sigue mostrando el % y los V.
+- **Verificación del documentador**, en el worktree del agente, en serie:
+  - `npm test`: **377 pasan y 1 saltada** (antes eran 327);
+  - `npm run e2e` (incluye el build y la prueba de aislamiento): **164 pasan, 14 saltadas y 1 falla**, `mapa.spec.ts:198`, los gestos de T-632, que falla igual en `develop`.
+  - **Ojo:** con `npm test` corriendo en paralelo a la e2e fallaron por tiempo 4 pruebas más (`mapa_limites.spec.ts:320` y `:386`, y `mision.spec.ts:65`). Solas pasan. La e2e se corre sin nada más encima.
+- **Capturas revisadas:** `salud-fallas` (390×844, ya con "3 fallas" y el bit 13 en falla), `aterrizado-1440x900` (Recuperación a todo el ancho, con el QR al lado) y `recuperacion-lkp-390x844` (el LKP en rojo, "hace 38 s", con el QR a un toque).
+
+### Observaciones y propuestas (abiertas, no aplicadas)
+| # | Observación o propuesta | Quién o dónde |
+| --- | --- | --- |
+| 1 | `calc.dist_horiz_m` y `calc.azimut_deg` van de la estación al cohete, no al punto estimado. Antes del aterrizaje la pantalla lo aclara. Propuesta: campos opcionales con la distancia y el azimut al centro de la elipse | Servicio de tierra y `web-1` (D, con decisión) |
+| 2 | No hay umbral para la innovación del EKF: solo se muestra el valor. Los umbrales del Go/No-Go (`SD_MIN_LIBRE_MB`, `GO_SV_MIN`, `GO_HACC_MAX_M`) tampoco generan avisos | `constantes.md` si se quieren como avisos |
+| 3 | Sin elipse antes del aterrizaje se muestra la posición actual. No está en 03 §3.5: es una decisión del agente | Confirmar en 03 §3.5 o quitarlo |
+| 4 | "Copiar" usa punto decimal (para pegar en Maps) y la pantalla usa coma | Aceptable; dejarlo dicho en 03 §3.5 |
+| 5 | El resumen del vuelo en Aterrizado (apogeo, duración, velocidad máxima y deriva, 03 §4) no está hecho | Tarea S de E |
+| 6 | En el portátil, el QR va debajo del botón en la columna de ≈300 px. Al lado solo queda en LANDED, a todo el ancho | Revisar en T-644 |
+| 7 | `grid-row: calc(N + var(--fila-extra))` funciona en Chromium. Falta verlo en Safari (iPhone real) | T-644 |
+| 8 | Un escenario JSONL con fallas para ver Salud con el repetidor | `tools/web_datos/` (D) |
+| 9 | Abrir el QR en un celular real, que es el criterio del plan | Un humano después del merge, con `npm run web` |
