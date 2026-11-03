@@ -1,6 +1,6 @@
 ---
 id: enlace_lora_tdma
-estado: aprobado-v2. Describe el firmware de Pablo (ptilanom/DEMETER @ 17139b2). La fuente de verdad es su código, `common/net_proto/net_proto.h` (en nuestro repo, `firmware/common/net_proto/`).
+estado: aprobado-v2. Describe el firmware de Pablo (ptilanom/DEMETER @ 17139b2). Desde D-045 es nuestro contrato: un cambio se hace primero aquí y luego en `firmware/common/net_proto/net_proto.h`.
 actualizado: 2026-11-03
 depende_de: [protocolo_paquetes, constantes, sincronizacion_firmware_pablo]
 decisiones: [D-038]
@@ -9,7 +9,7 @@ reemplaza: 99_archivo/diseno_v1/enlace_lora_tdma.md (D-001 a D-004)
 # Enlace LoRa y TDMA (v2, el de Pablo)
 
 **Cómo leer este documento:**
-- Describe **lo que hace el firmware**. Si el código y este documento difieren, gana el código, y este documento se corrige en la siguiente sincronización ([sincronizacion_firmware_pablo](../05_plan/sincronizacion_firmware_pablo.md) §4.8).
+- Describe **lo que hace el firmware**. Se escribió desde el código importado (`17139b2`). Desde D-045, **primero se cambia este documento** (con una decisión) y después el código. Si se encuentra una diferencia con el código importado, se reporta y se decide cuál se corrige.
 - **[Pablo]** = validado en hardware según él · **[código]** = leído del código · (V) = sin verificar.
 
 ## 1. Radio (`net_proto.h`)

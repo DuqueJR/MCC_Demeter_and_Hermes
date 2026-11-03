@@ -5,6 +5,12 @@ actualizado: 2026-11-03
 depende_de: [revision_firmware_pablo, sincronizacion_firmware_pablo, decisiones, backlog]
 decisiones: [D-037, D-038, D-039, D-040, D-041, D-042, D-043, D-044]
 ---
+
+> **⚠️ Actualización del 2026-11-03, tarde (respuestas del usuario):**
+> - **D-045:** todo queda en nuestro repo; Pablo trabaja aquí. Donde abajo dice "Pablo dueño", "sincronizar" o "PR a su repo", ya no aplica.
+> - **D-046:** el dashboard de operación es `dashboard.py` de Pablo, adaptado (backlog E10).
+> - **D-047:** `web-1` acepta `proto_version = 4`.
+> - **Todo lo que falta** para los objetivos finales está en [brechas_objetivos](brechas_objetivos.md) y el backlog E10–E12. Esa lista reemplaza el "mínimo para volar" de §4 como plan completo; §4 sigue siendo el orden de prioridad.
 # Qué cambia en nuestro plan con el firmware de Pablo
 
 **Situación al 3 de noviembre:**

@@ -1,6 +1,6 @@
 ---
 id: protocolo_paquetes
-estado: aprobado-v3 ("net_proto" de Pablo). Describe ptilanom/DEMETER @ 17139b2. La fuente de verdad es `firmware/common/net_proto/net_proto.h`.
+estado: aprobado-v3 ("net_proto" de Pablo). Describe ptilanom/DEMETER @ 17139b2. Desde D-045 es nuestro contrato: primero se cambia este documento y después `firmware/common/net_proto/net_proto.h`.
 actualizado: 2026-11-03
 depende_de: [enlace_lora_tdma, maquina_estados, constantes, gui_contrato_datos]
 decisiones: [D-039, D-041]

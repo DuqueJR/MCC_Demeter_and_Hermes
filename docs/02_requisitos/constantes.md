@@ -6,9 +6,9 @@ actualizado: 2026-11-03
 # Constantes y límites
 
 **Reglas para agentes y humanos:**
-- **Firmware (desde D-037):** el dueño es Pablo, y sus valores viven en su código (`net_proto.h`, `mission_config.h`, `platformio.ini`…).
-  - Aquí se **copian con su nombre en el código** y su archivo, para que el resto del sistema (estación, web, documentos) los use.
-  - Si una sincronización cambia un valor, se actualiza aquí en la misma tarea ([sincronizacion_firmware_pablo](../05_plan/sincronizacion_firmware_pablo.md) §4.8).
+- **Firmware (D-037, D-045):** los valores vienen del código de Pablo (`net_proto.h`, `mission_config.h`, `platformio.ini`…) y aquí van **con su nombre en el código** y su archivo.
+  - Desde D-045, **un cambio se hace primero aquí** y después en el código.
+  - La última importación (T-008), si cambia un valor, lo actualiza aquí en la misma tarea.
 - **Estación, web y herramientas propias:** este documento sigue siendo la fuente. `constantes.py` y `constantes.ts` lo replican con los mismos nombres.
 - `(P)` = provisional · `(V)` = falta verificar contra el hardware.
 - **Los valores de la v1** (radio SF6 a 919 MHz, ciclo de 100 ms, protocolo v2, umbrales de las 10 fases, pines B′) están en [99_archivo/diseno_v1](../99_archivo/diseno_v1/). Solo los usa todavía el generador sintético de la web (`tools/web_datos/`), que produce `web-1` y no depende del protocolo de radio.

@@ -3,16 +3,19 @@ id: sincronizacion_firmware_pablo
 estado: vivo (2026-11-03)
 actualizado: 2026-11-03
 depende_de: [cambios_por_firmware_pablo, revision_firmware_pablo, flujo_trabajo]
-decisiones: [D-037, D-043]
+decisiones: [D-037, D-043, D-045]
 ---
-# Sincronización con el repo de Pablo (ptilanom/DEMETER)
+# Importación del firmware de Pablo y guía para trabajar en nuestro repo
 
-**El modelo (D-037):**
-- **Pablo es el dueño del firmware** y lo desarrolla en [ptilanom/DEMETER](https://github.com/ptilanom/DEMETER) (el *upstream*).
-- **Nuestro `firmware/` es una copia** que solo cambia en las **tareas de sincronización** (T-007 la primera vez, T-008 las siguientes).
-- **No se edita a mano:** un cambio que hagamos se le propone a Pablo (§5) y vuelve con la siguiente sincronización.
-
-**Regla de oro:** los archivos fuente se copian **byte a byte**. La única excepción son los parches locales de §3, que son pocos y están listados, y que se le proponen a Pablo para que desaparezcan.
+**El modelo (D-045, que reemplaza en parte a D-037):**
+- **Todo vive en nuestro repo.** El firmware, la estación y las herramientas de Pablo se importaron una vez (T-007). Si Pablo tiene commits nuevos, entran en una **última importación** (T-008).
+- Desde ahí, [ptilanom/DEMETER](https://github.com/ptilanom/DEMETER) queda **congelado como origen histórico**, y **Pablo trabaja aquí** (§5).
+- El firmware se cambia como todo lo demás:
+  1. una tarea del backlog;
+  2. primero el contrato (las v2 y v3 de `04_diseno/`);
+  3. el agente `desarrollador` o una persona, en una rama `feature/`;
+  4. un PR a `develop`.
+- **Pablo revisa los PR de firmware** porque es quien mejor lo conoce.
 
 ## 1. Snapshots
 
@@ -20,7 +23,7 @@ decisiones: [D-037, D-043]
 | --- | --- | --- | --- |
 | 2026-11-03 | `17139b2` | T-007 ([PR #35](https://github.com/DuqueJR/MCC_Demeter_and_Hermes/pull/35)) | Primera importación. Revisión: [revision_firmware_pablo](../06_revisiones/revision_firmware_pablo.md). **Compilación sin verificar** (sin red hacia PlatformIO en la sesión en la nube). `lilygo_local.patch` aplica con avisos de espacios en blanco |
 
-Cada sincronización agrega una fila. El commit de importación lleva en el mensaje `Upstream: ptilanom/DEMETER@<hash>`.
+Solo quedan dos filas posibles: T-007 y la última importación (T-008). El commit de importación lleva en el mensaje `Upstream: ptilanom/DEMETER@<hash>`.
 
 ## 2. Mapa de carpetas (D-043)
 
@@ -60,7 +63,7 @@ Cada sincronización agrega una fila. El commit de importación lleva en el mens
 
 Si una sincronización necesita otro parche, se agrega aquí con su ID **antes** de aplicarlo.
 
-## 4. Procedimiento de sincronización (T-007 / T-008)
+## 4. Procedimiento de importación (T-007 y la última, T-008)
 
 1. Clonar el upstream en una carpeta temporal y anotar el hash: `git clone --depth 1 https://github.com/ptilanom/DEMETER <tmp>`.
 2. Crear la rama `feature/T-00x-sync-pablo-<hash>` desde `develop`.
@@ -79,24 +82,46 @@ Si una sincronización necesita otro parche, se agrega aquí con su ID **antes**
 7. Actualizar la tabla de §1, la bitácora de la tarea y el PR hacia `develop` con `Upstream: ptilanom/DEMETER@<hash>`.
 8. El documentador revisa qué cambió en los contratos ([protocolo_paquetes](../04_diseno/protocolo_paquetes.md), [maquina_estados](../04_diseno/maquina_estados.md), [enlace_lora_tdma](../04_diseno/enlace_lora_tdma.md)) y los actualiza.
 
-## 5. Cómo le llegan a Pablo nuestros cambios
+## 5. Guía para Pablo: trabajar desde nuestro repo (T-009)
 
-- **Camino preferido:** un *fork* de ptilanom/DEMETER y un PR hacia su `main`, con el mismo estilo de su código (C++11 y comentarios en español).
-  - Esta sesión de Claude **no puede hacer push** a su repo (no tiene permiso).
-  - Lo hace una persona, o se le da acceso al GitHub App de Claude.
-- **Si Pablo prefiere otro camino** (por ejemplo, un parche por correo), se anota aquí. **Lo decide él** (PEN-22).
-- **Mientras tanto, ningún cambio de firmware vuela si no está en el repo de Pablo.** Así se evita que existan dos versiones del firmware de vuelo.
+Es lo mismo que hacías en `C:\Users\ptila\TBEAM`, con otras rutas.
 
-## 6. Peticiones a Pablo (PEN-23)
+**1. Clonar:**
 
-El "contrato de interfaz" que su `CLAUDE.md` dice que le debe al resto del equipo. Por orden:
+```
+git clone --recurse-submodules https://github.com/DuqueJR/MCC_Demeter_and_Hermes.git
+cd MCC_Demeter_and_Hermes
+git checkout develop
+```
 
-1. **Detección de BOOST** (C1 de la revisión), con persistencia en vuelo (C2). Si él no puede, lo hacemos nosotros por PR.
-2. **Por el USB de tierra:**
-   - `@R <hex>` con cada CmdResp;
-   - `@E <lat> <lon> <alt_msl> <n>` a 1 Hz (la posición promediada de la estación);
-   - RSSI y SNR también en `@L`.
-3. **TELEM:** la altura barométrica sobre `p0` (`alt_baro_dm`, int16) y `hacc` (u8, en m). Si no caben, se usa `temp_c[1]` (reservado) o se cambia el tamaño, con una nueva constante.
-4. **Versión:** el hash de git en el `FILEHDR` y, si se puede, un byte de versión en BEACON/TELEM.
-5. **Rutas relativas** en los `platformio.ini` (P1).
-6. **Confirmar los pines y el circuito** del buzzer (IO46, activo de 5 V) y de PWR_ON (IO45), para la tarea del buzzer.
+**2. La librería de LilyGO, una vez por copia** (igual que antes):
+
+```
+git -C firmware/vendor/Lilygo-LoRa-Series apply ../../common/lilygo_local.patch
+```
+
+**3. La clave:**
+- Copiar `firmware/common/net_proto/secrets.h.ejemplo` a `secrets.h` y poner la clave de siempre.
+- Está ignorado por git: nunca se sube.
+
+**4. Compilar y cargar** (los mismos envs y puertos COM de antes; el `platformio.ini` ya usa rutas relativas):
+
+| Antes (`TBEAM\`) | Ahora |
+| --- | --- |
+| `tbeam_fw\` | `firmware\cohete\` → `pio run -d firmware/cohete -e demeter_campo -t upload` |
+| `tbeam_tierra\` | `firmware\tierra\` → `pio run -d firmware/tierra -e tierra_campo -t upload` |
+| `common\net_proto\` | `firmware\common\net_proto\` |
+| `tbeam_fw\tools\` | `tools\tbeam\` (y **`estacion\`** desde T-660) → `python dashboard.py` |
+| Los logs `*.BIN` y `sesiones\` | Igual, y siguen fuera del repo |
+
+**5. Cambios:**
+- Una rama por cambio (`feature/T-xxx-...` desde `develop`) y un PR a `develop`. Juan Pablo o Jerónimo lo revisan.
+- **Si el cambio toca el protocolo, los estados o los pines**, primero se actualiza su documento en `docs/04_diseno/` (o se le pide al documentador).
+- **Tu `CLAUDE.md`** quedó como fuente en `docs/fuentes/demeter_pablo/CLAUDE_17139b2.md`.
+  - Sus hallazgos están repartidos en `docs/04_diseno/` y en la revisión.
+  - **El `CLAUDE.md` de nuestro repo es el que manda** cuando trabajas con Claude aquí.
+- **Lo que falta del firmware** está en el backlog, E11 (T-410 BOOST primero), y en [brechas_objetivos](brechas_objetivos.md).
+
+## 6. Peticiones de contrato
+
+Pasaron a ser la tarea **T-414** del backlog (ya no son peticiones: las hacemos nosotros).

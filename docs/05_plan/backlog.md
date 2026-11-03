@@ -11,24 +11,63 @@ actualizado: 2026-11-03
 - **Estado:** `pendiente` · `en curso` · `bloqueada` · `hecha`.
 - **Leer:** los documentos que la tarea necesita. Las rutas son relativas a `docs/`, y siempre se lee también [constantes.md](../02_requisitos/constantes.md).
 
-## Replan del 2026-11-03: el firmware de Pablo (D-037)
+## Replan del 2026-11-03: el firmware de Pablo, en nuestro repo (D-037, D-045, D-046)
 
-**Desde hoy, el firmware de vuelo y el de la estación son los de Pablo** ([cambios_por_firmware_pablo](cambios_por_firmware_pablo.md)). Muchas tareas de E0–E5 quedan **hechas por Pablo** o **reemplazadas** (ver su estado). El mínimo para volar nuevo está en cambios §4. Las tareas de firmware (T-410 a T-414) **se hacen en el repo de Pablo** (por él, o por nosotros con un PR, [sincronizacion](sincronizacion_firmware_pablo.md) §5), y llegan aquí con T-008.
+- **El firmware y las herramientas de Pablo se importaron a nuestro repo (T-007), y desde ahora viven aquí** (D-045). Muchas tareas de E0–E5 quedan **hechas por Pablo** o **reemplazadas** (ver su estado).
+- **Todo lo que falta para los objetivos finales está en [brechas_objetivos](brechas_objetivos.md)**, con su tarea. Las tareas de firmware (T-4xx) las hace el agente `desarrollador` sobre `firmware/`, con **primero el contrato** (las v2 de 04_diseno), como cualquier otra.
+- **El dashboard de operación es el de Pablo, adaptado** (D-046): E10 se redefine más abajo.
+- Prioridad: M = antes del 8 de noviembre · S = debería · C = si da el tiempo.
+- **Orden de ataque:** T-410 → T-413 → T-411 → T-412, en paralelo con T-415, T-701 y T-660 a T-663.
 
-## E11. Integración del firmware de Pablo
+## E11. Firmware (sobre el de Pablo)
 
 | ID | Tarea | Pri | Resp. | Depende de | Leer | Criterio de aceptación | Estado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-007 | **Importar el snapshot `17139b2`** según el mapa de carpetas, con el parche P1, la plantilla `secrets.h.ejemplo`, el `.gitignore`, `firmware/README.md` y la fila de Hermes en `datos/README.md` | M | `desarrollador` | — | [sincronizacion_firmware_pablo](sincronizacion_firmware_pablo.md) §2–4, D-043 | Los archivos fuente son idénticos a los de Pablo (`diff -r` sin diferencias salvo P1); compilan `demeter`, `hermes` y `tierra` (o queda dicho que no se pudo verificar); `dashboard.py --demo` responde; PR a `develop` | **PR [#35](https://github.com/DuqueJR/MCC_Demeter_and_Hermes/pull/35) abierto (2026-11-03).** Copia verificada (`diff -r` limpio, salvo P1); `dashboard.py --demo` y `tblog.py` funcionan. **Compilación sin verificar:** el proxy de la sesión bloquea el registro de PlatformIO. Falta compilar en un portátil (T-902) |
-| T-008 | Sincronización final antes del congelamiento (5 de noviembre), con lo que Pablo tenga de T-410 a T-414 | M | Ambos | T-007, T-410 | sincronizacion §4 | El mismo hash en los tres firmware, `dashboard.py` y la bitácora | pendiente |
-| T-410 | **Detección de BOOST** (criterio de Pablo: dv = 5 m/s con `\|a\| > 2 g`, o un salto del BMP de 10 m en 0,5 s): pone `s_boosted`, pasa de ARMED a FLY y registra. Con BOOST sin armar, `TF_BOOST_SIN_ARMAR` | **M (crítica)** | Pablo (o nosotros por PR) | — | [maquina_estados](../04_diseno/maquina_estados.md) §1–3, revisión C1 | Un replay de las sims. de Demeter y Hermes detecta BOOST en < 0,2 s; 30 min de manipulación en el banco sin falsos positivos; la prueba de "launch no llega" registra igual | pendiente |
-| T-411 | **Persistencia en vuelo:** el estado, `s_boosted` y `p0` en RTC + NVS al entrar a FLY; al arrancar, retomar FLY y registrar (D-015) | S | Pablo (o PR) | T-410 | maquina_estados §3, revisión C2 | Un reinicio forzado en FLY vuelve a FLY y registra en < 3 s | pendiente |
-| T-412 | Detección de COAST, APOGEO, PARACAIDAS y ATERRIZAJE (criterios de Pablo) | C | Pablo | T-410 | maquina_estados §1 | Replay de las dos sims. con los eventos dentro de la tolerancia | pendiente |
-| T-413 | **Buzzer** (IO46) al entrar a RECOVERY o ATERRIZAJE, y el **actuador IO45** (el pulso de PWR_ON de la Pi solo si consta apagada) | S | Pablo (o PR) | — | buses_y_pines §1.2 | El buzzer suena al pasar a RECOVERY; `actuators` en TELEM refleja el estado | pendiente |
-| T-414 | Peticiones de contrato (PEN-23): `alt_baro_dm` y `hacc` en TELEM; `@R`, `@E` y el RSSI en `@L` por el USB de tierra; el hash de git en `FILEHDR` | S | Pablo | — | sincronizacion §6 | Las líneas nuevas aparecen en la sesión de `dashboard.py` | pendiente |
-| T-415 | **Prueba de alcance a 22 dBm** (envs `_campo`), los dos cohetes cerrados, ≥ 1 km, midiendo `perdidos`, RSSI y las palabras malas del hub de Hermes | **M** | Ambos + Pablo | — | enlace_lora_tdma §6, plan_pruebas P-06 | Pérdidas < 5 % a la distancia del vuelo; la bitácora con las cifras | pendiente |
-| T-416 | **Calibración final** de los dos cohetes a cielo abierto y cerrados (`calib.py`) | M | Pablo + U | — | firmware_vuelo §3 | `calib_<cohete>.json` aceptado por Pablo y versionado con T-008 | pendiente |
-| T-602 | **Servicio de tierra (redefinido):** lee **en vivo el archivo de sesión** de `dashboard.py` (`tools/tbeam/sesiones/*_tierra.txt`), o el puerto si el dashboard no corre; decodifica TELEM y LogInfo; produce `web-1` según [protocolo](../04_diseno/protocolo_paquetes.md) §6 y [maquina_estados](../04_diseno/maquina_estados.md) §5; log crudo propio; API local de C-05 §2 | S | J | T-007 | protocolo §5–6, 08_gui/05, C-05 | Un archivo de sesión real reproducido produce `web-1` válido contra `esquema.json`; la web local lo muestra | pendiente |
+| T-007 | **Importar el snapshot `17139b2`** del repo de Pablo | M | `desarrollador` | — | sincronizacion_firmware_pablo | Las fuentes idénticas (salvo P1); compila; `dashboard.py --demo` responde | **PR [#35](https://github.com/DuqueJR/MCC_Demeter_and_Hermes/pull/35) abierto.** Copia verificada; **compilación sin verificar** (la sesión en la nube no llega a PlatformIO) |
+| T-008 | **Última importación del repo de Pablo** (si hizo commits después de `17139b2`); desde ahí, su repo queda congelado | M | Ambos | T-007, T-009 | sincronizacion §4 | El diff aplicado y la bitácora; Pablo confirma que trabajará en nuestro repo | pendiente |
+| T-009 | **Guía para Pablo:** cómo clonar, preparar, compilar, cargar y operar desde nuestro repo, igual que lo hacía en el suyo | M | Documentador | T-007 | sincronizacion §5 | Pablo compila y carga desde nuestro repo | hecha (2026-11-03, [sincronizacion](sincronizacion_firmware_pablo.md) §5); falta que Pablo la pruebe |
+| T-410 | **Detección de BOOST:** dv = 5 m/s integrando el exceso sobre 1 g con `\|a\| > 2 g` (LSM y QMI), o un salto del BMP de 10 m en 0,5 s sostenido 5 muestras. Pone `s_boosted`, pasa de ARMED a FLY y registra. Sin armar, `TF_BOOST_SIN_ARMAR` | **M (crítica)** | `desarrollador` + revisión de Pablo | T-007 | maquina_estados §1–3, revisión C1, mission_config | Replay (T-305) de las dos sims.: BOOST en < 0,2 s; 30 min de manipulación en el banco (P-04) sin falsos positivos; "LAUNCH no llega" y aun así registra | pendiente |
+| T-411 | **Persistencia en vuelo:** el estado, `s_boosted`, `p0` y el instante de BOOST en RTC + NVS; al arrancar, retomar FLY y registrar (D-015) | M | `desarrollador` | T-410 | maquina_estados §3, revisión C2 | P-10: un reinicio forzado en FLY vuelve a FLY y registra en < 3 s | pendiente |
+| T-412 | **Detección de COAST, APOGEO, CAIDA, PARACAIDAS y ATERRIZAJE** (criterios de Pablo; apogeo por el baro, verificado por la IMU, sin GNSS) y **paso automático a RECOVERY** | M | `desarrollador` + Pablo | T-410, T-305 | maquina_estados §1 y §4 | Replay de las dos sims. y de las variantes de la eyección: la secuencia correcta, apogeo con error < 0,3 s; P-14 (frasco) en verde | pendiente |
+| T-413 | **Buzzer** (IO46) en RECOVERY/ATERRIZAJE y **actuador IO45** (pulso de PWR_ON de 1,5 s solo si la Pi consta apagada; comando de tierra `pi encender` con aptitud); `actuators` en TELEM | M | `desarrollador` | T-007 | buses_y_pines §1.2, visionpack_integracion | El buzzer suena al pasar a RECOVERY; el pulso enciende la Pi de Demeter; con la Pi encendida, el comando sale "no apto" | pendiente |
+| T-414 | **Contrato (antes PEN-23):** `alt_baro_dm` y `hacc` en TELEM; `@R <hex>`, `@E lat lon alt n` y RSSI y SNR en `@L` por el USB de tierra; el hash de git en `FILEHDR` y un byte de versión | S | `desarrollador` | T-007 | protocolo_paquetes §2 y §5 | Primero se actualiza el protocolo; el dashboard y `tblog` leen los campos nuevos | pendiente |
+| T-417 | **Salud en TELEM:** el % de batería (PMU), un bitmap de fallas por sensor y la acel. del LSM en el cuerpo, promediada en 100 ms | S | `desarrollador` | T-414, T-416 | protocolo §2, requisitos DAT-08 y HW-02 | Los campos llegan y el dashboard los muestra | pendiente |
+| T-420 | **EKF a bordo:** portar `ekf.py` (17 errores, IMU virtual 0,8/0,2, baro para la altura, GNSS horizontal, mags para el rumbo); posición, velocidad y cuaternión en TELEM; el estado en el log | S | `desarrollador` + Pablo | T-421 | firmware_vuelo §3, `ekf.py` | Sobre DEM 0091 y HER 0023, la salida a bordo coincide con `ekf.py` (< 1° y < 1 m); núcleo 1 sin pérdidas | pendiente |
+| T-421 | **La calibración viaja al cohete:** `calib_<cohete>.json` → `config` por cohete (compilado) o NVS por comando firmado | S | `desarrollador` | T-416 | firmware_vuelo §3 | El cohete reporta qué calibración usa | pendiente |
+| T-425 | **Recalibrar desde tierra:** medir el sesgo del giro en reposo al armar (Pablo: cambia entre corridas) | S | `desarrollador` | T-410 | requisitos GS-07 | El sesgo queda en el log `T_MISSION` y se aplica | pendiente |
+| T-422 | Pesos dinámicos por fase en el EKF (NAV-03) | C | `desarrollador` | T-420 | requisitos NAV-03 | Replay | pendiente |
+| T-423 | **Goteo** de datos almacenados en RECOVERY, por las ranuras de extensión (≈ 416 B/s), para reconstruir en tierra | C | `desarrollador` | T-412 | protocolo, revisión | La web reconstruye el vuelo con mayor resolución | pendiente |
+| T-424 | **Supervivencia en RECOVERY por batería:** dormir y despertar cada 2 h para mandar la posición (requisito de Pablo); el umbral se define con P-12 | S | `desarrollador` | T-412 | maquina_estados | P-12 | pendiente |
+| T-702 | **UART con la Pi** (reemplaza la fila de E7): estado a 20–50 Hz con UTC hacia la Pi; el `StatusCode` de la Pi en TELEM (`cam`); comandos de tierra reenviados | S | `desarrollador` + J | T-701 | visionpack_integracion | P-09 | pendiente |
+
+## E12. Operación y pruebas de campo
+
+| ID | Tarea | Pri | Resp. | Criterio de aceptación | Estado |
+| --- | --- | --- | --- | --- | --- |
+| T-415 | **Prueba de alcance a 22 dBm** (envs `_campo`), los dos cohetes cerrados, ≥ 1 km; medir `perdidos`, RSSI y las palabras malas del hub de Hermes | **M** | Ambos + Pablo | Pérdidas < 5 % a la distancia del vuelo, con las cifras en la bitácora | pendiente |
+| T-416 | **Calibración final** de los dos cohetes, a cielo abierto y cerrados (`calib.py`) | M | Pablo + U | `calib_<cohete>.json` aceptados y versionados | pendiente |
+| T-305 | **Banco de replay en PC** para la detección: la lógica de T-410/T-412 se compila también en un env `native` y se alimenta con las sims. de OpenRocket (T-304) y con los logs `rec` reales | M | `desarrollador` | Un reporte con los eventos y tiempos de cada vuelo | pendiente |
+| T-670 | **Ensayo completo** con los dos cohetes y el dashboard: imán → ARM → LAUNCH → "vuelo" en carro → RECOVERY → descarga, cronometrado (P-07) | M | Todos | ≤ 15 min hasta ARM; el checklist se cumple sin improvisar | pendiente |
+
+## E10 (redefinido por D-046). El dashboard de Pablo como nuestra estación y nuestro dashboard de operación
+
+**Arquitectura:**
+- **Un solo proceso:** `dashboard.py`, que es el dueño de los puertos (tierra y los dos cohetes), de los comandos, de las descargas y de la calibración.
+- Además produce `web-1` y sirve en local la API de C-05 §2 y las páginas de misión de `gui/web/`.
+- **Sigue escuchando solo en 127.0.0.1** (GS-14).
+- **Reemplaza:** T-660 a T-670 del plan de 09, la CLI T-S04 y el servicio separado (T-602).
+
+| ID | Tarea | Pri | Resp. | Depende de | Criterio de aceptación | Estado |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-660 | **Ordenar:** `tools/tbeam/` → `estacion/` (el paquete completo: `dashboard.py`, `dashboard.html`, `tbget.py`, `tblog.py`, `calib.py`, `ekf.py` y las calibraciones; todos se referencian por su carpeta). Se actualizan los README y el `.gitignore`. **También `firmware/README.md`:** ya no es "una copia que no se edita a mano", sino nuestro firmware (D-045), con la guía de sincronización §5 | M | `desarrollador` | T-007 | `dashboard.py --demo`, `tblog.py` y `calib.py --help` funcionan desde `estacion/` | pendiente |
+| T-611b | `web-1`: `meta.proto_version` acepta **4** (`net_proto`), en el documento, el esquema y los tipos (D-047) | M | `desarrollador` | — | Las pruebas de la web en verde con 2, 3 y 4 | pendiente |
+| T-661 | **Módulo `web1.py`:** TELEM, LogInfo, CmdResp y la posición de la estación → `meta`, `estado`, `salud`, `estacion` y `evento` (protocolo §6, maquina_estados §5), con `calc` (GS-02 distancia, azimut y elevación; elipse GS-10), LKP, alarma de descenso, `go_nogo` y la `serie` | M | `desarrollador` | T-660, T-611b | Pruebas con pytest: una sesión real de `sesiones/` → `web-1` válido contra `esquema.json` | pendiente |
+| T-662 | **API local y páginas de misión en el dashboard:** `/api/v1/{mision}/snapshot` y `/stream` (SSE), y servir el `dist/` de `gui/web` (Vuelo, mapa, actitud, Recuperación con LKP y QR) como pestañas del dashboard | M | `desarrollador` | T-661 | Con `--demo` y con una sesión reproducida, las páginas de misión se ven en el dashboard; sin internet; solo en 127.0.0.1 | pendiente |
+| T-663 | **Preparar / Go-No-Go permanente:** un panel por cohete con los motivos de aptitud (sensores, reserva, SD, fix, batería, quietud, Pi), RSSI y satélites, y los comandos con confirmación por nombre | M | `desarrollador` | T-661 | Usable en T-670 | pendiente |
+| T-664 | Alarmas sonoras y visuales (descenso rápido, enlace perdido, `TF_BOOST_SIN_ARMAR`, batería) con reconocimiento | S | `desarrollador` | T-661 | Revisión en T-670 | pendiente |
+| T-605a | **Reenviador** desde el dashboard: los mensajes `web-1` → `POST /api/v1/ingesta` del relay, con token, cola en disco y solo de salida | S | `desarrollador` | T-661, T-640 | Una sesión reproducida llega a la web pública | pendiente |
+| T-665 | Tiempos estimados (GS-13): al apogeo, el restante y la siguiente fase, con las sims. | C | `desarrollador` | T-661 | Revisión visual | pendiente |
+| T-666 | Gráficas personalizables (GS-11) | C | `desarrollador` | T-662 | Revisión visual | pendiente |
 
 ## E0. Arranque (F0)
 
@@ -93,7 +132,7 @@ actualizado: 2026-11-03
 | ID | Tarea | Pri | Resp. | Depende de | Leer | Criterio de aceptación | Estado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-601 | Firmware del módem V1.2: maestro del TDMA, beacon y CMD, RX con destino al USB | M | J | T-005, T-006, T-502 | estacion_terrena §2.1, tbeam_v12_estacion | P-05 en verde, del lado de la estación | hecha por Pablo (`firmware/tierra`, D-041) |
-| T-602 | Servicio de tierra: serial, log crudo, decodificación, estado por cohete y comandos con reintento | M | J | T-601, T-502 | estacion_terrena §2.2 | Recibe dos cohetes durante 30 min sin perder nada en el PC | pendiente, **redefinida** en E11 (2026-11-03) |
+| T-602 | Servicio de tierra: serial, log crudo, decodificación, estado por cohete y comandos con reintento | M | J | T-601, T-502 | estacion_terrena §2.2 | Recibe dos cohetes durante 30 min sin perder nada en el PC | **reemplazada por D-046:** la estación es `dashboard.py` + T-661 y T-662 |
 | T-603 | ~~Dashboard local mínimo~~ → **se reparte (D-034):** la operación crítica pasa a la CLI (T-S04, DP-15) y la vista pasa al dashboard de operación (E10: T-660 a T-664 y T-668) | — | — | — | 08_gui/09 | — | reemplazada |
 | T-604 | ~~Dashboard completo~~ → **dashboard de operación** (E10: T-665 a T-669) | — | — | — | 08_gui/09 | — | reemplazada |
 | T-605a | **Reenviador:** los mensajes `web-1` de los dos cohetes → `POST /api/v1/ingesta` del relay, con token, cola en disco y solo de salida | S | J | T-602, T-S06 | 05_plan/dos_sesiones/06_contratos/05_api_backend_tierra §6, 08_gui/05 | Con el relay de T-640: un log crudo reprocesado llega a la web pública | pendiente |
@@ -104,9 +143,10 @@ actualizado: 2026-11-03
 | ID | Tarea | Pri | Resp. | Depende de | Leer | Criterio de aceptación | Estado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-701 | Corregir los bloqueantes 1–4 y los riesgos 5, 7 y 8 de la revisión de la Pi | M | J | — | 06_revisiones/revision_codigo_pi_demeter | La secuencia completa simulada por UART llega a COMPLETE | pendiente |
-| T-702 | Tarea `t_visionpack` en la LilyGO, según la tabla de visionpack_integracion §2 | M | J o JP | T-401 | visionpack_integracion | P-09 en verde | pospuesta (la Pi vuela autónoma; se rediseña con Pablo) |
-| T-703 | Circuito del pulso de encendido (drenador abierto) y entrada `cam=1` | M | Hardware de Demeter | PEN-10 | visionpack_integracion §3, raspberry_pi_5 | La Pi arranca con el comando `PI_ENCENDER` | hardware hecho por Pablo (IO45); falta el firmware (T-413) |
-| T-704 | Medir el tiempo de arranque de la Pi y su consumo con las cámaras | M | J | T-703 | raspberry_pi_5 | Cifras en constantes | pendiente |
+| T-702 | Tarea `t_visionpack` en la LilyGO, según la tabla de visionpack_integracion §2 | M | J o JP | T-401 | visionpack_integracion | P-09 en verde | reemplazada por la nueva T-702 de E11 |
+| T-703 | Circuito del pulso de encendido (drenador abierto) y entrada `cam=1` | M | Hardware de Demeter | PEN-10 | visionpack_integracion §3, raspberry_pi_5 | La Pi arranca con el comando `PI_ENCENDER` | hardware hecho por Pablo (IO45); el firmware va en T-413 |
+| T-704 | Medir el tiempo de arranque de la Pi y su consumo con las cámaras | M | J | T-413 (o a mano) | raspberry_pi_5 | Cifras en constantes | pendiente |
+| T-705 | **Validar la Pi autónoma:** encendida a mano antes de cerrar el cohete, sin UART, solo con sus watchdogs (15 s y 95 s), sobre el perfil de tiempos de las sims. de Demeter (apogeo a 11,5 s, suelo a 85 s) | M | J | T-701 | revision_codigo_pi_demeter, visionpack_integracion | Tres corridas seguidas llegan a COMPLETE, con el video del ascenso y el RAW del descenso | pendiente |
 
 ## E8. Post-vuelo (F3)
 

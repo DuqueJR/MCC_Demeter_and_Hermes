@@ -253,8 +253,8 @@ Pablo llegó a lo mismo en varias cosas, a veces mejor:
 
 ## 6. Recomendación para el 8 de noviembre
 
-1. **Volar con el firmware de Pablo** tal como está, **más C1 (BOOST)**, y si da el tiempo C2 (persistencia) y el buzzer. Lo escribe Pablo, o nosotros por PR a su repo ([sincronizacion](../05_plan/sincronizacion_firmware_pablo.md) §5).
+1. **Volar con el firmware de Pablo, más C1 (BOOST, T-410), C2 (persistencia, T-411), el buzzer y la Pi (T-413) y los momentos (T-412).** Desde D-045, lo hacemos nosotros en nuestro repo, y Pablo revisa.
 2. **Prueba de alcance a 22 dBm** con los envs `_campo` y el cohete cerrado (A4).
-3. **Operar con `dashboard.py` de Pablo;** nuestra web lee su archivo de sesión (M3).
+3. **Operar con `dashboard.py` de Pablo, adaptado como nuestro dashboard** (D-046): él mismo produce `web-1` y le sirve a la web (T-661, T-662).
 4. **Checklist** con C3, A6, M1, M5 y M7.
 5. **Pi de Demeter autónoma** (A2), con T-701.

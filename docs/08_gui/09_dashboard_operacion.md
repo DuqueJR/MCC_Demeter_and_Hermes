@@ -5,6 +5,8 @@ actualizado: 2026-10-25
 depende_de: [requisitos, estacion_terrena, protocolo_paquetes, maquina_estados, gui_contrato_datos, C-05, gui_identidad, gui_arquitectura]
 decisiones: [D-025, DP-15, DP-17, D-W14]
 ---
+
+> **⚠️ 2026-11-03 (D-046):** el dashboard de operación **es `dashboard.py` de Pablo, adaptado** (pasa a `estacion/`). Las tareas T-660 a T-670 de §7 quedan **reemplazadas** por las de E10 del [backlog](../05_plan/backlog.md). Las pantallas y los principios de abajo siguen como guía de lo que debe cubrir, sobre todo §3 y §5.
 # Dashboard de operación (estación terrena)
 
 Es **nuestro panel de control y de datos** en la estación: el *Ground Station Dashboard* de *Objetivos* §7. A diferencia de la web pública:

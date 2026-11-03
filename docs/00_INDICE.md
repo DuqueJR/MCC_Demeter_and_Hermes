@@ -11,6 +11,7 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | Si vas a… | Lee primero |
 | --- | --- |
 | **Qué cambió con el firmware de Pablo (2026-11-03)** | [05_plan/cambios_por_firmware_pablo.md](05_plan/cambios_por_firmware_pablo.md), [06_revisiones/revision_firmware_pablo.md](06_revisiones/revision_firmware_pablo.md) y [05_plan/sincronizacion_firmware_pablo.md](05_plan/sincronizacion_firmware_pablo.md) |
+| **Qué falta para los objetivos finales, y con qué tarea** | [05_plan/brechas_objetivos.md](05_plan/brechas_objetivos.md) |
 | Entender el proyecto | [01_contexto/proyecto.md](01_contexto/proyecto.md) |
 | Saber qué hay que construir | [02_requisitos/requisitos.md](02_requisitos/requisitos.md) |
 | Saber cómo vuela cada cohete (simulación) | [02_requisitos/perfiles_vuelo.md](02_requisitos/perfiles_vuelo.md) y [../datos/README.md](../datos/README.md) |
