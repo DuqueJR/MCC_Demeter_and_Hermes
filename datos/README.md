@@ -7,7 +7,7 @@ Datos de entrada del proyecto: simulaciones, y más adelante los logs de prueba 
 | Archivo | Cohete | Motor | Sitio | Fuente | Fecha | Análisis |
 | --- | --- | --- | --- | --- | --- | --- |
 | [`simulaciones/openrocket/demeter_H135W-8_santa-fe-antioquia_sim2.csv`](simulaciones/openrocket/demeter_H135W-8_santa-fe-antioquia_sim2.csv) | Demeter | H135W-8 (el retardo de 8 s se deduce de BURNOUT a 2,07 s y EJECTION_CHARGE a 10,07 s) | Santa Fe de Antioquia (6,582° N, −75,823° E, 510 m s.n.m.) | OpenRocket, "Simulation 2", exportación completa (58 variables, 454 puntos), entregada por el usuario | 2026-10-24 | [perfiles_vuelo.md](../docs/02_requisitos/perfiles_vuelo.md) |
-| *(falta)* `simulaciones/openrocket/hermes_*.csv` | Hermes | G80-7T (por confirmar) | Santa Fe de Antioquia | Equipo de Hermes | — | — |
+| [`simulaciones/openrocket/hermes_G80-7T_santa-fe-antioquia_pablo.csv`](simulaciones/openrocket/hermes_G80-7T_santa-fe-antioquia_pablo.csv) | Hermes | G80-7T | Santa Fe de Antioquia | OpenRocket, entregada por Pablo Tilano en ptilanom/DEMETER@17139b2 (masa 1,157 kg) | 2026-11-03 | pendiente |
 
 ## Formato de las exportaciones de OpenRocket
 

@@ -1,0 +1,80 @@
+archivo: .\DEM_M00_20261101_175859_0056.BIN  tamano=5623808 B  registros=50075  bytes_saltados=0  resync=0
+por tipo: PVT=1269, PPS=127, LINK=250, HEARTBEAT=125, FILEHDR=1, IMU=3280, MAG=12547, BAR=5340, BARCAL=5, EXT_LSM=13547, EXT_MMC=13567, EVENT=17
+duracion (reloj local): 126.1 s
+cabecera: TBLG v1 rocket_id=1 mission_id=0 arranque=64 archivo=56 fw=Nov  1 2026
+ultimo latido: t=136 s  descartes anillos=[0, 0, 0, 0]  escritura_max=300.5 ms  flush_max=61.2 ms  bytes=5582651  time_flags=0x04
+
+PVT: 1269 en 126.8 s -> 10.01 Hz   ultimo: fix=3 sv=7 hAcc=3.78 m tAcc=33 ns
+huecos: 0 (0.0 % de las epocas)  tamanos: {}
+
+PPS: 127 registros, 127 anclados
+error del reloj local (negativo = va lento): media por segundo=-54.11 ppm  sd=2.68 ppm  (ventana completa: -54.11 ppm)
+  (la sd por segundo refleja el jitter del PPS: ~2.7 us)
+
+retraso de entrega del PVT (ms desde el inicio de su epoca, por fase de 100 ms):
+  fase 0: n= 127  mediana=  69.0  p95=  81.2  max=  89.6
+  fase 1: n= 127  mediana=  37.0  p95=  42.1  max=  48.2
+  fase 2: n= 127  mediana=  37.6  p95=  41.0  max=  44.6
+  fase 3: n= 127  mediana=  37.4  p95=  41.0  max=  44.7
+  fase 4: n= 127  mediana=  37.2  p95=  41.6  max=  44.6
+  fase 5: n= 126  mediana=  37.6  p95=  41.9  max=  46.7
+  fase 6: n= 126  mediana=  36.8  p95=  40.8  max=  48.7
+  fase 7: n= 126  mediana=  37.6  p95=  41.9  max=  49.7
+  fase 8: n= 126  mediana=  35.6  p95=  41.8  max=  44.8
+  fase 9: n= 126  mediana=  34.9  p95=  40.8  max=  44.6
+
+IMU: 3280 registros, 55784 muestras  (rango +-16 g, +-1024 dps)
+  muestras por registro: 1:3, 2:6, 3:5, 4:3, 5:2, 6:2, 7:3, 9:1, 10:2, 11:1, 12:1, 16:1975, 17:587, 18:335, 19:87, 20:73, 21:39, 22:35, 23:20, 24:14, 25:11, 26:7, 27:6, 28:2, 29:11, 30:10, 31:2, 32:37
+  banderas: continuacion=33, hueco=281, est_ok=3270
+  lotes: 3247  marca de agua deducida: 16 muestras
+  periodo por indice = 2247.231 us -> 444.992 Hz (reloj local)   residuo de la interrupcion: sd=4.8 us  (3212/3247 lotes usados)
+  corregido con el PPS (reloj local -54.11 ppm): 444.968 Hz por segundo real   (nominal del chip 448.4)
+  lotes/s=25.77  muestras/lote=17.18  recibidas/s=442.9
+  huecos en los indices: 281 lotes, 282 muestras (0.50 %)  tamanos: {2: 1, 1: 280}
+  flancos contra el reloj del chip: coherencia 1.000 en el ODR por indice; pico 300-600 Hz en 444.992 Hz (1.000)
+  tiempo de lectura del FIFO: mediana=477.0 us  p95=625 us  max=1659 us
+  |a| = 0.9747 g (sd 0.0130)
+  giro medio: x=+3.682 y=-4.058 z=-0.098 dps   ruido sd: 1.529 1.498 1.583 dps
+
+LSM: 13547 registros, 202871 acel, 202871 giro  (rango +-32 g, +-2000 dps)
+  palabras: giro=202871, acel=202871, marca=25359, hub=12679
+  banderas: est_ok=13540, hueco=2
+  huecos en los indices: 2, 2 muestras (0.001 %)
+  marcas: 25359  ticks por ranura: mediana=24.000  min=24.000  max=24.000  (se espera 24: si no, revisar TS_TICKS_PER_SLOT)
+  periodo estimado: 620.943 us -> 1610.454 Hz (reloj local)  marca real=25.873 us (nominal 25: comparte oscilador con el ODR)
+  tiempo de lectura del FIFO: mediana=770 us  p95=891 us  max=2099 us
+  |a| = 0.9610 g (sd 0.0076)   medio: x=+0.4312 y=+0.0250 z=-0.8584 g
+  giro medio: x=+0.413 y=-0.425 z=+0.385 dps   ruido sd: 0.189 0.242 0.156 dps
+
+BMP581: 12679 en 126.0 s -> 100.66 Hz   P = 84228.4 Pa (sd 0.67, min 84226.2, max 84230.4)   T = 28.83 C (sd 0.015)
+
+RADIO: 250 TX en 124.2 s -> 2.01 Hz   balizas=1
+  ranuras: {1: 125, 13: 124}
+  inicio respecto al previsto: mediana=-11 us  p95=68  max=99   aire: mediana=29751 us  max=29762
+
+MAG: 12547 en 126.9 s -> 98.85 Hz  (rango +-8 G)   intervalo: mediana=10.00 ms  p95=12.92  max=40.00  pausas >25 ms: 6
+  saturadas=0   medio: x=-0.4135 y=+0.4020 z=+0.0856 G   ruido sd: 5.11 3.49 4.78 mG
+  |B| = 0.5830 G (sd 2.87 mG, min 0.5744, max 0.5950)
+
+MMC5983MA: 13565 en 126.9 s -> 106.87 Hz  (rango +-8 G)   intervalo: mediana=9.03 ms  p95=11.34  max=22.04  pausas >25 ms: 0
+  saturadas=0   medio: x=-0.7168 y=+1.5353 z=+2.6622 G   ruido sd: 1.33 3.71 2.62 mG
+  |B| = 3.1557 G (sd 3.00 mG, min 3.1390, max 3.1617)
+  par SET/RESET: H = -0.6824 +1.5018 +2.7059 G  |H| = 3.1691 G   offset del puente = -33.9 +19.3 -40.2 mG
+
+BAR: 5340 en 126.9 s -> 42.08 Hz   intervalo: mediana=23.31 ms  p95=26.11  max=33.44   medicion: mediana=22.82 ms  max=32.96
+  P = 84157.3 Pa (sd 1.97, min 84150.3, max 84164.7)   T = 29.36 C (sd 0.033)   H = 65.6 %
+  calibraciones registradas: 5
+
+SD: 17 incidentes
+  (archivo, tipo, errno): ('activo', 'escritura', 9): 10, ('reserva', 'escritura', 5): 3, ('reserva', 'escritura', 9): 1, ('reserva', 'reabierto', 0): 3
+  ACTIVO t=0.71 s  escritura errno=9 pos=28672 duracion=0.2 ms
+  ACTIVO t=6.76 s  escritura errno=9 pos=297955 duracion=0.3 ms
+  ACTIVO t=7.14 s  escritura errno=9 pos=314157 duracion=0.2 ms
+  ACTIVO t=13.14 s  escritura errno=9 pos=581688 duracion=0.3 ms
+  ACTIVO t=36.25 s  escritura errno=9 pos=1611786 duracion=0.2 ms
+  ACTIVO t=47.98 s  escritura errno=9 pos=2133381 duracion=0.4 ms
+  ACTIVO t=59.63 s  escritura errno=9 pos=2652579 duracion=0.6 ms
+  ACTIVO t=68.56 s  escritura errno=9 pos=3050545 duracion=0.3 ms
+  ACTIVO t=72.58 s  escritura errno=9 pos=3229221 duracion=0.2 ms
+  ACTIVO t=78.96 s  escritura errno=9 pos=3513707 duracion=0.2 ms
+  silencios de mas de 100 ms en todos los sensores: 0
