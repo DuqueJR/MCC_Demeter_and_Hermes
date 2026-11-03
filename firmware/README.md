@@ -1,6 +1,6 @@
 # firmware/
 
-**Copia del firmware de Pablo Tilano** (`ptilanom/DEMETER`, snapshot `17139b2`; D-037). **No se edita a mano:** los cambios se hacen en el repo de Pablo y se re-sincronizan aquí (T-007). El único cambio local es el parche P1: rutas relativas en los `platformio.ini` y sin `build_cache_dir`.
+**Nuestro firmware de vuelo y de tierra.** Partió del de Pablo Tilano (`ptilanom/DEMETER`, snapshot `17139b2`) y desde D-045 **este repo es la fuente única**: el repo de Pablo queda como origen histórico. Los archivos se cambian como todo lo demás: una tarea del backlog, **primero el contrato** (las v2 y v3 de `docs/04_diseno/`), una rama `feature/T-xxx-*` desde `develop` y un PR a `develop`, que Pablo revisa junto con Juan Pablo o Jerónimo. Cómo trabaja Pablo desde aquí: [sincronizacion_firmware_pablo](../docs/05_plan/sincronizacion_firmware_pablo.md) §5. El único cambio sobre el snapshot hasta ahora es el parche P1: rutas relativas en los `platformio.ini` y sin `build_cache_dir`.
 
 | Carpeta | Contenido |
 | --- | --- |
@@ -43,4 +43,4 @@ pio run -d firmware/cohete -e demeter_campo -t upload --upload-port <puerto>
 
 Los `upload_port` y `monitor_port` de los `platformio.ini` son los COM de la máquina de Pablo: usa `--upload-port`.
 
-Herramientas de PC (dashboard, descarga y análisis de logs): `tools/tbeam/`.
+Herramientas de PC (dashboard, descarga y análisis de logs): [`estacion/`](../estacion/README.md).
