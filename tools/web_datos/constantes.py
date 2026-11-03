@@ -59,6 +59,7 @@ WEB_DATO_VIEJO_S = 2  # (P)
 WEB_SIN_SENAL_S = 5  # (P)
 WEB_SIN_TRANSMISION_MIN = 10  # (P)
 WEB_RECONEXION_MAX_S = 15
+WEB_ALARMA_SOSTENER_S = 10  # el banner de alarma de descenso sigue 10 s después de que se apaga (D-W18)
 WEB_TASA_TIERRA_HZ = 1  # el relay baja a 1 Hz en BOOT, PREFLIGHT, ARMED y LANDED
 WEB_SSE_LATIDO_S = 15
 WEB_SSE_MAX_POR_IP = 10
