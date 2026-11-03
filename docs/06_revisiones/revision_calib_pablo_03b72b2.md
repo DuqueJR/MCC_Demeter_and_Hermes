@@ -3,7 +3,7 @@ id: revision_calib_pablo_03b72b2
 estado: vivo (2026-11-03). Revisión para Pablo; él revisa a su vez T-416b.
 actualizado: 2026-11-03
 depende_de: [revision_firmware_pablo, sincronizacion_firmware_pablo]
-revisa: ptilanom/DEMETER @ 9b59e86 (rutas relativas) y 03b72b2 (calib.py tolera posiciones sobre algo magnético y en otro orden)
+revisa: ptilanom/DEMETER @ 9b59e86 (rutas relativas), 03b72b2 y 3108b42 (calib.py)
 ---
 # Revisión de los commits de Pablo del 3 de noviembre (`9b59e86`, `03b72b2`)
 
@@ -59,3 +59,16 @@ Es mejor que nuestro reproceso, sobre todo en Hermes.
 - **Ya en `develop`, para que lo mires cuando puedas:**
   - **T-410, la detección de BOOST:** `boost_detect.*` y maquina_estados §6. Te toca validar los valores (P). **Hallazgo:** con el reinicio de 50 ms, una sacudida de ±3 g a 5 Hz daba un falso BOOST; se agregó un decaimiento de dv a 3 g (D-048).
   - **T-413, el buzzer y `pi encender`:** ext_act y maquina_estados §7. **Revisa PEN-27:** IO45 e IO46 son pines de arranque del S3.
+
+## 4. Actualización: `3108b42` (el nombrado sin una calibración previa)
+
+**Qué cambia:**
+- `LSM_NOMINAL`: el montaje medido, igual en los dos cohetes (X del cuerpo = +Y del chip). Si no hay una calibración anterior **con `ok: true`**, las posiciones se nombran con ese montaje.
+- **Verificado:** sin ninguna calibración en la carpeta, DEM 0092 y HER 0024 salen **COMPLETAS** ("por orientación (montaje nominal)", 3,4° y 4,0°).
+- **Resuelve el bug de §1**, y es mejor que nuestro nombrado por geometría: con el montaje conocido, arriba y abajo no son ambiguos.
+
+**Qué hacemos:**
+- **T-416b se rehace sobre `3108b42`:** su `calib.py` byte a byte.
+- **Lo nuestro queda solo como último recurso:** el nombrado por geometría cuando ni la calibración anterior ni el montaje nominal cuadran (hoy, en ese caso, cae al orden de aparición), además de la guardia y el aviso.
+
+**Una observación:** si algún día un cohete se monta con el LSM girado, `LSM_NOMINAL` deja de cuadrar (más de 45°) y entra el último recurso. Conviene anotar el montaje en el checklist de integración.
