@@ -1,0 +1,326 @@
+diff --git a/lib/SensorLib/src/SensorQMI8658.hpp b/lib/SensorLib/src/SensorQMI8658.hpp
+index ed3d4df..cf19224 100644
+--- a/lib/SensorLib/src/SensorQMI8658.hpp
++++ b/lib/SensorLib/src/SensorQMI8658.hpp
+@@ -359,6 +359,20 @@ public:
+         return comm->readRegister(QMI8658_REG_STATUS_INT);
+     }
+ 
++    bool readFifoInterruptConfig(uint8_t &ctrl1, uint8_t &watermark, uint8_t &fifoCtrl)
++    {
++        int ctrl1Value = comm->readRegister(QMI8658_REG_CTRL1);
++        int watermarkValue = comm->readRegister(QMI8658_REG_FIFO_WTM_TH);
++        int fifoCtrlValue = comm->readRegister(QMI8658_REG_FIFO_CTRL);
++        if (ctrl1Value < 0 || watermarkValue < 0 || fifoCtrlValue < 0) {
++            return false;
++        }
++        ctrl1 = (uint8_t)ctrl1Value;
++        watermark = (uint8_t)watermarkValue;
++        fifoCtrl = (uint8_t)fifoCtrlValue;
++        return true;
++    }
++
+     /**
+      * @brief  Enable or disable the Data Ready interrupt
+      * @param  enable: True to enable, false to disable
+diff --git a/platformio.ini b/platformio.ini
+index cdcba76..b68fb86 100644
+--- a/platformio.ini
++++ b/platformio.ini
+@@ -220,96 +220,95 @@ build_flags =
+ ; ======================= T3 series ===============================;
+ 
+ 
+-[env:T3_V1_3_SX1276]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V1_3_SX1276
+-
+-[env:T3_V1_3_SX1278]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V1_3_SX1278
+-
+-[env:T3_V1_6_SX1276]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V1_6_SX1276
+-
+-[env:T3_V1_6_SX1278]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V1_6_SX1278
+-
+-[env:T3_V1_6_SX1276_TCXO]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V1_6_SX1276_TCXO
+-
+-[env:T3_V3_0_SX1276_TCXO]
+-extends = esp32
+-board = esp32dev
+-build_flags = ${esp32.build_flags}
+-    -DT3_V3_0
+-    -DUSING_SX1276
+-
+-[env:T3_S3_V1_2_SX1262]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_SX1262
+-
+-[env:T3_S3_V1_2_SX1276]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_SX1276
+-
+-[env:T3_S3_V1_2_SX1278]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_SX1278
+-
+-[env:T3_S3_V1_2_SX1280]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_SX1280
+-
+-[env:T3_S3_V1_2_SX1280_PA]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_SX1280_PA
+-
+-[env:T3_S3_V1_2_LR1121]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_LR1121
+-
+-[env:T3_S3_V1_2_LR1121_PA]
+-extends = esp32s3
+-board = t3_s3_v1_x
+-build_flags = ${esp32s3.build_flags}
+-    -DT3_S3_V1_2_LR1121_PA
++    [env:T3_V1_3_SX1276]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V1_3_SX1276
++
++    [env:T3_V1_3_SX1278]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V1_3_SX1278
++
++    [env:T3_V1_6_SX1276]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V1_6_SX1276
++
++    [env:T3_V1_6_SX1278]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V1_6_SX1278
++
++    [env:T3_V1_6_SX1276_TCXO]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V1_6_SX1276_TCXO
++
++    [env:T3_V3_0_SX1276_TCXO]
++    extends = esp32
++    board = esp32dev
++    build_flags = ${esp32.build_flags}
++        -DT3_V3_0
++        -DUSING_SX1276
++
++    [env:T3_S3_V1_2_SX1262]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_SX1262
++
++    [env:T3_S3_V1_2_SX1276]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_SX1276
++
++    [env:T3_S3_V1_2_SX1278]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_SX1278
++
++    [env:T3_S3_V1_2_SX1280]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_SX1280
++
++    [env:T3_S3_V1_2_SX1280_PA]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_SX1280_PA
++
++    [env:T3_S3_V1_2_LR1121]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_LR1121
++
++    [env:T3_S3_V1_2_LR1121_PA]
++    extends = esp32s3
++    board = t3_s3_v1_x
++    build_flags = ${esp32s3.build_flags}
++        -DT3_S3_V1_2_LR1121_PA
+ 
+ ; ======================= TBEAM  series===============================;
+ 
+ [env:T_BEAM_BPF]
+-extends = esp32s3
+-board = ESP32-S3-WROOM-1-N16R8
+-build_flags = 
+-    ${esp32s3.build_flags}
+-    -DT_BEAM_S3_BPF
+-    -USING_SX1278
+-    -DCONFIG_RADIO_FREQ=144.0
+-
++    extends = esp32s3
++    board = ESP32-S3-WROOM-1-N16R8
++    build_flags = 
++        ${esp32s3.build_flags}
++        -DT_BEAM_S3_BPF
++        -USING_SX1278
++        -DCONFIG_RADIO_FREQ=144.0
+ [env:T_BEAM_SX1262]
+ extends = esp32_psram
+ board = esp32dev
+@@ -318,18 +317,18 @@ build_flags =
+     -DT_BEAM_SX1262
+ 
+ [env:T_BEAM_SX1276]
+-extends = esp32_psram
+-board = esp32dev
+-build_flags = 
+-    ${esp32_psram.build_flags}
+-    -DT_BEAM_SX1276
++    extends = esp32_psram
++    board = esp32dev
++    build_flags = 
++        ${esp32_psram.build_flags}
++        -DT_BEAM_SX1276
+ 
+ [env:T_BEAM_SX1278]
+-extends = esp32_psram
+-board = esp32dev
+-build_flags = 
+-    ${esp32_psram.build_flags}
+-    -DT_BEAM_SX1278
++    extends = esp32_psram
++    board = esp32dev
++    build_flags = 
++        ${esp32_psram.build_flags}
++        -DT_BEAM_SX1278
+ 
+ [env:T_BEAM_S3_SUPREME_SX1262]
+ extends = esp32s3
+@@ -340,48 +339,48 @@ build_flags =
+     -DBOARD_HAS_PSRAM
+ 
+ [env:T_BEAM_S3_SUPREME_LR1121]
+-extends = esp32s3
+-board = t-beams3-supreme
+-build_flags = 
+-    ${esp32s3.build_flags}
+-    -DT_BEAM_S3_SUPREME_LR1121
+-    -DBOARD_HAS_PSRAM
++    extends = esp32s3
++    board = t-beams3-supreme
++    build_flags = 
++        ${esp32s3.build_flags}
++        -DT_BEAM_S3_SUPREME_LR1121
++        -DBOARD_HAS_PSRAM
+ 
+ [env:T_BEAM_1W_SX1262]
+-extends = esp32s3
+-board = ESP32-S3-WROOM-1-N16R8
+-build_flags = 
+-    ${esp32s3.build_flags}
+-    -DT_BEAM_1W_SX1262
++    extends = esp32s3
++    board = ESP32-S3-WROOM-1-N16R8
++    build_flags = 
++        ${esp32s3.build_flags}
++        -DT_BEAM_1W_SX1262
+ 
+ [env:T_BEAM_1W_LR1121]
+-extends = esp32s3
+-board = ESP32-S3-WROOM-1-N16R8
+-build_flags = 
+-    ${esp32s3.build_flags}
+-    -DT_BEAM_1W_LR1121
++    extends = esp32s3
++    board = ESP32-S3-WROOM-1-N16R8
++    build_flags = 
++        ${esp32s3.build_flags}
++        -DT_BEAM_1W_LR1121
+ 
+ [env:T_BEAM_1W_LR2021]
+-extends = esp32s3
+-board = ESP32-S3-WROOM-1-N16R8
+-build_flags = 
+-    ${esp32s3.build_flags}
+-    -DT_BEAM_1W_LR2021
++    extends = esp32s3
++    board = ESP32-S3-WROOM-1-N16R8
++    build_flags = 
++        ${esp32s3.build_flags}
++        -DT_BEAM_1W_LR2021
+ 
+ ; ========================= other ================
+ 
+ [env:T_MOTION]
+-platform = ststm32
+-framework = arduino
+-board = nucleo_l073rz
+-upload_protocol = dfu
+-build_flags =
+-    -DPIO_FRAMEWORK_ARDUINO_ENABLE_CDC
+-	-DUSBCON
+-    -DT_MOTION_S76G
+-
+-; TODO: platformio not support esp32c6 yet
+-; [env:T3_C6]
+-; board = esp32-c6-devkitc-1
+-; build_flags = 
+-;     -DT3_C6
+\ No newline at end of file
++    platform = ststm32
++    framework = arduino
++    board = nucleo_l073rz
++    upload_protocol = dfu
++    build_flags =
++        -DPIO_FRAMEWORK_ARDUINO_ENABLE_CDC
++        -DUSBCON
++        -DT_MOTION_S76G
++
++    ; TODO: platformio not support esp32c6 yet
++    ; [env:T3_C6]
++    ; board = esp32-c6-devkitc-1
++    ; build_flags = 
++    ;     -DT3_C6
+\ No newline at end of file

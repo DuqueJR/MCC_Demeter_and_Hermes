@@ -1,0 +1,3 @@
+[submodule "firmware/vendor/Lilygo-LoRa-Series"]
+	path = firmware/vendor/Lilygo-LoRa-Series
+	url = https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series.git
