@@ -43,7 +43,7 @@ reemplaza: 99_archivo/diseno_v1/firmware_vuelo.md (D-016 a D-021)
   - A bordo correrá unos 150 ms atrasado y llevará la salida al presente.
   - **No está portado** (se queda en "debería").
 
-## 4. Herramientas de PC (`tools/tbeam/`; pasan a `estacion/` en T-660, D-046)
+## 4. Herramientas de PC (`estacion/`, desde T-660; D-046)
 
 | Herramienta | Uso |
 | --- | --- |
