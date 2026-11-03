@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Proto dashboard</title>
+<style>
+html,body{height:100%}
+body{font:14px system-ui,sans-serif;margin:0;background:#f4f4f4;color:#111;display:flex;flex-direction:column}
+#banner{position:sticky;top:0;z-index:2;background:#1c2530;color:#fff;padding:8px;display:flex;justify-content:center}
+#banner table{border-collapse:collapse}#banner td,#banner th{padding:2px 14px;text-align:left}#banner th{font-weight:400;color:#9ab}
+#banner .name{font-weight:700}.stale{opacity:.5}.warn{color:#ffb000;font-weight:700}
+nav{padding:6px 10px;background:#ddd}nav button{margin-right:4px}nav button.on{font-weight:700;background:#fff}
+#conn{padding:6px 10px;background:#eee}#conn span{margin-right:16px}
+main{padding:10px;flex:0 1 auto;overflow:auto}body.big main{flex:1 1 0;min-height:0}body.big #evbox{flex:0 0 110px}
+.fill{height:100%;box-sizing:border-box;display:flex;flex-direction:column}.fill pre{flex:1;min-height:0;max-height:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{background:#fff;border:1px solid #ccc;padding:8px;overflow:auto}
+h3{margin:0 0 6px}table.t{border-collapse:collapse;width:100%}table.t td,table.t th{border:1px solid #ddd;padding:2px 5px;text-align:left;font-size:13px}
+.kv{display:inline-block;margin-right:10px;white-space:nowrap}.kv b{font-weight:600}.alert{color:#b45000;font-weight:700}.bad{color:#c00;font-weight:700}.old{color:#999}
+button{padding:3px 8px;margin:2px}pre{margin:0;white-space:pre-wrap;font:12px monospace;overflow:auto}
+#evbox{flex:1 1 0;min-height:120px;display:flex;flex-direction:column;margin:0 10px 10px}#evbox button{align-self:flex-start}
+#events{flex:1;min-height:0;overflow:auto;white-space:pre;font:12px monospace;background:#fff;border:1px solid #ccc;padding:4px;user-select:text}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;height:calc(100% - 40px)}.three pre{white-space:pre;font-size:11px}
+#modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:5}
+#modal div{background:#fff;padding:16px;max-width:520px;min-width:320px}
+input{width:75px}input.wide{width:110px}.note{color:#555;margin:4px 0}
+</style></head><body>
+<div id="banner"><table id="bt"></table></div>
+<div id="conn"></div>
+<nav id="nav"></nav>
+<main id="main"></main>
+<div id="evbox"><div><b>Historial</b> <button id="evcopy">Copiar todo</button> <button id="evclear">Limpiar</button></div><div id="events"></div></div>
+<div id="modal"><div><h3 id="mq"></h3><ul id="mr"></ul><p id="ml"></p><button id="myes"></button> <button id="mno">Cancelar</button></div></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const post=(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(async r=>{if(!r.ok){const e=await r.json();alert(e.error)}return r});
+const TABS=['Mando','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
+const ROCKETS=[['demeter','d','Demeter'],['hermes','h','Hermes']];
+const STATES=['tierra','armed','fly','recovery'];
+const MOMENTS=['launch','boost','coast','apogeo','caida','paracaidas','aterrizaje'];
+const MFIELDS=[['mission_id','MISSION_ID'],['motor','Motor'],['masa_kg','Masa (kg)'],['apogeo_m','Apogeo esperado (m)'],['vmax_mps','Velocidad maxima (m/s)'],['vpara_mps','Velocidad con paracaidas (m/s)'],['t_apogeo_min','Sin apogeo antes de (s)'],['t_abort','Tiempo sin BOOST tras LAUNCH (s)']];
+const MTIMES=[['burn','COAST (fin de quemado)'],['apogeo','APOGEO'],['para','PARACAIDAS (carga)'],['suelo','ATERRIZAJE']];
+const MDEF={demeter:{mission_id:0,motor:'H135 8W',masa_kg:1.469,apogeo_m:669,vmax_mps:129,vpara_mps:9.3,t_apogeo_min:7,t_abort:120,burn_e:2.07,burn_l:3,apogeo_e:11.54,apogeo_l:16,para_e:10.07,para_l:13,suelo_e:85,suelo_l:210},
+hermes:{mission_id:0,motor:'G80 7T',masa_kg:1.157,apogeo_m:409,vmax_mps:94,vpara_mps:8.9,t_apogeo_min:5.5,t_abort:120,burn_e:1.81,burn_l:2.7,apogeo_e:9.26,apogeo_l:13,para_e:8.81,para_l:12,suelo_e:56,suelo_l:140}};
+let lastDl='',lastEv='',mission=null,dlArgs={role:'demeter',n:1,names:'',an:true},S=null,portsSeen='';
+
+$('nav').innerHTML=TABS.map(t=>`<button data-t="${t}">${t}</button>`).join('');
+$('nav').onclick=e=>{if(e.target.dataset.t){tab=e.target.dataset.t;build()}};
+
+function cmd(line){post('/api/cmd',{line})}
+const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+function spareText(l){if(l.spare===null||l.spare===undefined)return '-';if(l.spare==2)return 'lista';if(l.spare==1)return 'creando '+l.spare_pct+' %';return l.rec||l.prep?'ya en uso: es este archivo':'no hay'}
+function logText(l){if(!l)return '-';if(l.rec)return 'REGISTRANDO '+l.name+' | '+mmss(l.elapsed)+' | '+l.pct+' % | quedan '+mmss(l.remain);if(l.prep)return 'PREPARADO '+l.name;return 'sin registrar | reserva '+spareText(l)}
+function copyText(t,b){const l=b.textContent;navigator.clipboard.writeText(t).then(()=>{b.textContent='Copiado';setTimeout(()=>b.textContent=l,1200)},()=>{b.textContent='No se pudo copiar';setTimeout(()=>b.textContent=l,1500)})}
+$('evcopy').onclick=e=>copyText($('events').textContent,e.target);
+$('evclear').onclick=()=>post('/api/clear',{}).then(tick);
+let paused=false,rawData={};
+const pauseBtn=()=>`<button id="pz" onclick="togglePause()">${paused?'Seguir':'Pausar'}</button>`;
+window.togglePause=()=>{paused=!paused;$('pz').textContent=paused?'Seguir':'Pausar'};
+window.copyDiag=e=>copyText(['tierra','demeter','hermes'].map(r=>'== '+r+'\n'+S.diag[r].map(x=>x.raw).join('\n')).join('\n'),e.target);
+window.copyRaw=(r,e)=>copyText((rawData[r]||[]).join('\n'),e.target);
+window.cmd=cmd;
+
+function build(){
+ document.querySelectorAll('#nav button').forEach(b=>b.className=b.dataset.t==tab?'on':'');
+ document.body.className=tab=='Mando'?'':'big';lastDl='';paused=false;
+ const m=$('main');
+ if(tab=='Mando') m.innerHTML='<div class="two">'+ROCKETS.map(([r,k,n])=>`<div class="box"><h3>${n}</h3>
+  <table class="t" id="tm_${r}"></table><p>
+  <button onclick="cmd('${k} ping')">Ping</button><button onclick="cmd('${k} armar')">Armar</button><button onclick="cmd('${k} launch')">Launch</button>
+  <button onclick="cmd('${k} abortar')">Abortar</button><button onclick="cmd('${k} desarmar')">Desarmar</button><button onclick="cmd('${k} dormir')">Dormir</button><button onclick="if(confirm('Reiniciar ${n}?'))cmd('${k} reiniciar')">Reiniciar</button></p>
+  <p>Forzar estado <select id="fs_${r}">${STATES.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} estado '+$('fs_${r}').value)">Enviar</button>
+  &nbsp; momento <select id="fm_${r}">${MOMENTS.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} momento '+$('fm_${r}').value)">Enviar</button></p></div>`).join('')+'</div>';
+ if(tab=='Monitores') m.innerHTML='<div class="three">'+[['tierra','Tierra'],...ROCKETS.map(([r,,n])=>[r,n])].map(([r,n])=>`<div class="box fill"><div><b>${n}</b> <button onclick="copyRaw('${r}',event)">Copiar</button></div><pre id="raw_${r}"></pre></div>`).join('')+'</div><p class="note" style="margin:6px 0 0">'+pauseBtn()+' Pausa para seleccionar texto. Solo se ven las placas conectadas arriba.</p>';
+ if(tab=='Diagnostico') m.innerHTML='<p class="note">'+pauseBtn()+'<button onclick="copyDiag(event)">Copiar todo</button> Lecturas por USB directo a cada cohete: conecta su puerto arriba.</p><div class="two">'+ROCKETS.map(([r,,n])=>`<div class="box"><h3>${n}</h3><div id="dg_${r}"></div></div>`).join('')+'</div><div class="box" style="margin-top:10px"><h3>Tierra</h3><div id="dg_tierra"></div></div>';
+ if(tab=='Descargas') m.innerHTML=`<div class="box fill"><p>Cohete <select id="dr">${ROCKETS.map(([r,,n])=>`<option value="${r}">${n}</option>`).join('')}</select>
+  &nbsp; ultimos <input id="dn" type="number" min="0" value="${dlArgs.n}"> &nbsp; o indices <input id="dx" class="wide" placeholder="46 47" value="${esc(dlArgs.names)}">
+  &nbsp; <label><input id="da" type="checkbox" style="width:auto" ${dlArgs.an?'checked':''}> analizar</label>
+  &nbsp; <label><input id="dc" type="checkbox" style="width:auto" ${dlArgs.csv?'checked':''}> CSV</label></p>
+  <div><button onclick="tb(['list'])">Listar</button><button onclick="tbGet()">Bajar</button><button onclick="post('/api/tbget/abort',{})">Abortar</button><button onclick="tb(['reset'])">Reset de la placa</button></div>
+  <pre id="dl"></pre></div>`;
+ if(tab=='Mision') buildMission();
+ if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calm"></div><pre id="calo"></pre></div>';lastCal='';calRender()}
+ $('dr')&&($('dr').value=dlArgs.role);
+ render();
+}
+window.tb=args=>{dlArgs.role=$('dr').value;post('/api/tbget',{role:dlArgs.role,args})};
+window.tbGet=()=>{dlArgs.role=$('dr').value;dlArgs.n=+$('dn').value;dlArgs.names=$('dx').value.trim();dlArgs.an=$('da').checked;dlArgs.csv=$('dc').checked;
+ const a=['get'].concat(dlArgs.names?dlArgs.names.split(/\s+/):[]);if(!dlArgs.names&&dlArgs.n>0)a.push('--ultimos',String(dlArgs.n));if(dlArgs.an)a.push('--analizar');if(dlArgs.csv)a.push('--csv');post('/api/tbget',{role:dlArgs.role,args:a})};
+
+async function buildMission(){
+ if(!mission){const d=await (await fetch('/api/mission')).json();mission={demeter:Object.assign({},MDEF.demeter,d.demeter),hermes:Object.assign({},MDEF.hermes,d.hermes)}}
+ if(tab!='Mision')return;
+ $('main').innerHTML='<p class="note">Se guarda en la laptop (mision.json). Aun no viaja al cohete: llegara con la deteccion de momentos.</p><div class="two">'+ROCKETS.map(([r,,n])=>`<div class="box"><h3>${n}</h3><table class="t">`+
+  MFIELDS.map(([k,l])=>`<tr><td>${l}</td><td colspan="2"><input class="wide" data-r="${r}" data-k="${k}" value="${esc(mission[r][k])}"></td></tr>`).join('')+
+  `<tr><th>Momento</th><th>Esperado (s)</th><th>Limite de espera (s)</th></tr>`+
+  MTIMES.map(([k,l])=>`<tr><td>${l}</td><td><input data-r="${r}" data-k="${k}_e" value="${mission[r][k+'_e']}"></td><td><input data-r="${r}" data-k="${k}_l" value="${mission[r][k+'_l']}"> <span class="alert" id="w_${r}_${k}"></span></td></tr>`).join('')+
+  `</table></div>`).join('')+'</div><p><button id="ms">Guardar</button></p>';
+ const check=()=>ROCKETS.forEach(([r])=>MTIMES.forEach(([k])=>{$(`w_${r}_${k}`).textContent=+mission[r][k+'_l']<=+mission[r][k+'_e']?'menor o igual al esperado':''}));
+ $('main').oninput=e=>{const d=e.target.dataset;if(d.k){mission[d.r][d.k]=e.target.value;check()}};
+ check();
+ $('ms').onclick=()=>post('/api/mission',mission).then(r=>{if(r.ok)$('ms').textContent='Guardado'});
+}
+
+// Guia de calibracion. El analisis reconoce las posiciones por orden de aparicion en el log.
+const POSE_TXT=['Nariz hacia ARRIBA, vertical','Nariz hacia ABAJO, vertical','Horizontal, con la MARCA hacia arriba','Horizontal, con la MARCA hacia abajo','Horizontal, con el costado DERECHO hacia arriba (derecho: mirando de la cola a la nariz con la marca arriba)','Horizontal, con el costado IZQUIERDO hacia arriba'];
+const HOLD_S=8,SPIN_S=120,STILL_MG=80;
+let lastCal='',cal={role:'demeter',step:0,name:'',holdT:0,win:[],spinT:0,sent:false,moved:false};
+const calR=()=>ROCKETS.find(r=>r[0]==cal.role);
+const calView=()=>S.rockets[ROCKETS.findIndex(r=>r[0]==cal.role)];
+window.calSet=o=>{Object.assign(cal,o);lastCal='';calRender()};
+window.calStartRec=()=>{cmd(calR()[1]+' estado fly');calSet({sent:true})};
+window.calEndRec=()=>{cmd(calR()[1]+' estado tierra');calSet({sent:true})};
+window.calRun=()=>post('/api/calib/run',{role:cal.role,name:cal.name}).then(r=>{if(r.ok){S.job.running=true;calSet({step:10})}});
+window.calExisting=()=>{const x=$('calname').value.trim();if(x){cal.name=x;calRun()}};
+window.calAccept=()=>post('/api/calib/accept',{role:cal.role}).then(r=>{if(r.ok)calSet({step:11})});
+function calTick(){
+ const v=calView(),l=v.log,now=Date.now()/1000;
+ if(cal.step==0&&cal.sent&&l&&l.rec){cal.name=l.name;cal.sent=false;cal.step=1}
+ if(cal.step>=1&&cal.step<=6&&cal.holdT){
+  const t=v.telem;
+  if(!t||t.age>1.5){cal.holdT=now;cal.win=[];cal.moved=true}
+  else{cal.win.push(t.acc);if(cal.win.length>6)cal.win.shift();
+   const spread=[0,1,2].map(i=>Math.max(...cal.win.map(a=>a[i]))-Math.min(...cal.win.map(a=>a[i])));
+   if(Math.max(...spread)>STILL_MG){cal.holdT=now;cal.moved=true}
+   else if(now-cal.holdT>=HOLD_S){cal.step++;cal.holdT=0;cal.win=[];cal.moved=false}}
+ }
+ if(cal.step==7&&cal.spinT&&now-cal.spinT>=SPIN_S){cal.step=8;cal.spinT=0}
+ if(cal.step==8&&cal.sent&&l&&!l.rec){cal.sent=false;cal.step=9}
+}
+function calRender(){
+ const el=$('calm');if(!el||!S)return;calTick();
+ const [r,,n]=calR(),v=calView(),now=Date.now()/1000,c=S.calib[r];let h='';
+ const sel=`<p>Cohete <select ${cal.step?'disabled':''} onchange="calSet({role:this.value})">${ROCKETS.map(([x,,y])=>`<option value="${x}" ${x==r?'selected':''}>${y}</option>`).join('')}</select> &nbsp; Calibracion vigente: ${c.vigente?'si':'no'} &nbsp; Paso ${Math.min(cal.step,10)} de 10</p>`;
+ if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion.</p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}<p class="note">Si ya hiciste la captura: conecta el USB, escribe el archivo (lo da Listar, en Descargas) <input id="calname" class="wide" placeholder="DEM_M00_..._0091.BIN"> <button onclick="calExisting()">Bajar y analizar</button></p>`;
+ else if(cal.step<=6){const left=cal.holdT?Math.max(0,Math.ceil(HOLD_S-(now-cal.holdT))):HOLD_S;
+  h=`<p>Registrando en ${esc(cal.name)}</p><h3>Posicion ${cal.step} de 6</h3><p style="font-size:20px">${POSE_TXT[cal.step-1]}</p>`+(cal.holdT?`<p style="font-size:20px">Quieto: ${left} s ${cal.moved?'<span class="alert">(se movio, reinicia)</span>':''}</p>`:`<button onclick="calSet({holdT:Date.now()/1000,win:[],moved:false})">Ya esta, capturar</button>`)}
+ else if(cal.step==7)h=cal.spinT?`<h3>Gira el cohete despacio, en todas las direcciones</h3><p style="font-size:20px">${Math.max(0,Math.ceil(SPIN_S-(now-cal.spinT)))} s</p><p>Que la nariz apunte a todos lados, y gira tambien sobre su eje. Sin movimientos bruscos.</p><button onclick="calSet({step:8,spinT:0})">Ya cubri todo</button>`:`<h3>Magnetometros</h3><p>Durante ${SPIN_S} s, gira el cohete despacio en todas las direcciones.</p><button onclick="calSet({spinT:Date.now()/1000})">Empezar</button>`;
+ else if(cal.step==8)h=`<p>Listo. Termina el registro.</p><button onclick="calEndRec()">Terminar registro</button> ${cal.sent?'esperando que cierre el archivo...':''}`;
+ else if(cal.step==9)h=`<p>Conecta el <b>USB</b> de ${n} y espera a que Windows lo reconozca. El archivo es ${esc(cal.name)}.</p><button onclick="calRun()">Bajar y analizar</button>`;
+ else if(cal.step==10)h=S.job.running?'<p>Bajando y analizando...</p>':S.job.rc?`<p class="alert">No se pudo bajar o analizar ${esc(cal.name)}. La captura sigue en la SD del cohete.</p><button onclick="calRun()">Reintentar</button> <button onclick="if(confirm('Descartar esta captura y empezar otra?'))calSet({step:0,name:''})">Hacer otra captura</button>`:`<p>Revisa el resultado abajo.</p><button ${c.nuevo?'':'disabled'} onclick="calAccept()">Aceptar</button> <button onclick="calSet({step:0,name:''})">Repetir</button>`;
+ else h=`<p>Calibracion guardada en calib_${r}.json. Aun no viaja al cohete: la usara el EKF.</p><button onclick="calSet({step:0,name:''})">Otra calibracion</button>`;
+ h=sel+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
+ if(h!=lastCal){lastCal=h;el.innerHTML=h}
+ const o=$('calo');if(o&&cal.step<10&&o.textContent)o.textContent='';if(o&&cal.step>=10){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(o.textContent!=txt){o.textContent=txt;o.scrollTop=o.scrollHeight}}
+}
+
+function renderDiag(id,rows){
+ const el=$(id);if(!el)return;
+ el.innerHTML=rows.length?'<table class="t">'+rows.map(x=>`<tr title="${esc(x.raw)}" class="${x.age>3?'old':''}"><td><b>${esc(x.tag)}</b></td><td class="${x.bad?'bad':''}">${esc(x.status)}</td><td>${x.kv.map(([k,v])=>`<span class="kv ${x.alert.includes(k)?'alert':''}">${esc(k)}=<b>${esc(v)}</b></span>`).join('')}</td></tr>`).join('')+'</table>':'<span class="old">sin datos: conecta su puerto</span>';
+}
+
+function render(){
+ if(!S)return;
+ $('bt').innerHTML='<tr><th></th><th>Estado</th><th>Momento</th><th>Modo</th><th>Registro</th></tr>'+[...S.rockets,S.ground].map(b=>`<tr class="${b.stale?'stale':''}"><td class="name">${b.name}</td><td>${esc(b.estado)}</td><td>${esc(b.momento)}</td><td class="${b.modo&&b.modo!='NORMAL'&&b.modo!='CON HORA'?'warn':''}">${esc(b.modo)}</td><td class="${b.log&&b.log.rec?'warn':''}">${b.name=='Tierra'?'':esc(logText(b.log))}</td></tr>`).join('');
+ ROCKETS.forEach(([r],i)=>{const el=$('tm_'+r);if(!el)return;const t=S.rockets[i].telem,l=S.rockets[i].log;
+  const reg=l?[['Registro',l.rec?'REGISTRANDO':(l.prep?'PREPARADO':'sin registrar')],['Archivo',l.name||'-'],...(l.rec?[['Tiempo / lleno',mmss(l.elapsed)+' / '+l.pct+' %'],['Cabe aun en este archivo',mmss(l.remain)+' min:s']]:[]),['Reserva',spareText(l)]]:[];
+  el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
+ if(!paused){ROCKETS.forEach(([r])=>renderDiag('dg_'+r,S.diag[r]));renderDiag('dg_tierra',S.diag.tierra)}
+ const dl=$('dl');if(dl){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(txt!=lastDl){lastDl=txt;const near=dl.scrollTop+dl.clientHeight>=dl.scrollHeight-20;dl.textContent=txt;if(near)dl.scrollTop=dl.scrollHeight}}
+ const ev=$('events'),evt=S.events.join('\n');if(evt!=lastEv){lastEv=evt;const near=ev.scrollTop+ev.clientHeight>=ev.scrollHeight-20;ev.textContent=evt;if(near)ev.scrollTop=ev.scrollHeight}  // solo si cambio: reescribirlo borraria la seleccion
+ calRender();
+ const md=$('modal');if(S.ask){md.style.display='flex';$('mq').textContent=S.ask.question;$('mr').innerHTML=S.ask.reasons.map(x=>`<li>${esc(x)}</li>`).join('');$('ml').textContent='Vence en '+S.ask.left+' s';$('myes').textContent=S.ask.reasons.length?'Forzar':'Confirmar'}else md.style.display='none';
+}
+$('myes').onclick=()=>cmd('si');$('mno').onclick=()=>cmd('no');
+
+async function conn(){
+ const ports=await (await fetch('/api/ports')).json();const key=JSON.stringify([ports,S&&S.conn,S&&S.job.running,S&&S.job.role]);if(key==portsSeen)return;portsSeen=key;
+ $('conn').innerHTML=(S&&S.demo?'<b>DEMO</b> &nbsp;':'')+['tierra','demeter','hermes'].map(r=>{const c=S?S.conn[r]:'';const d=S?S.defaults[r]:'';
+  if(S&&S.job.running&&S.job.role==r)return `<span>${r}: <b class="warn">OCUPADO DESCARGANDO (${S.job.port})</b></span>`;
+  return `<span>${r}: ${c?`<b>${c}</b> <button onclick="post('/api/disconnect',{role:'${r}'}).then(tick)">Soltar</button>${r=='tierra'?`<button onclick="if(confirm('Reiniciar tierra?'))cmd('reset')">Reiniciar</button>`:''}`:`<select id="cp_${r}">${ports.map(p=>`<option ${p==d?'selected':''}>${p}</option>`).join('')}</select> <button onclick="post('/api/connect',{role:'${r}',port:$('cp_${r}').value}).then(tick)">Conectar</button>`}</span>`}).join('');
+}
+window.post=post;
+async function pollRaw(){if(tab!='Monitores'||paused)return;const d=await (await fetch('/api/raw')).json();if(paused)return;rawData=d;for(const r in rawData){const el=$('raw_'+r);if(!el)continue;const near=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.textContent=rawData[r].join('\n');if(near)el.scrollTop=el.scrollHeight}}
+async function tick(){try{S=await (await fetch('/api/state')).json();render();conn();pollRaw()}catch(e){}}
+window.tick=tick;build();tick();setInterval(tick,500);
+</script></body></html>
