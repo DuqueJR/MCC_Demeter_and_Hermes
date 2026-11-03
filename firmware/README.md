@@ -25,9 +25,11 @@
 
 ## Preparar
 
+En Windows, la librería de LilyGO trae rutas muy largas: antes de clonar, `git config --global core.longpaths true` (Pablo, 03b72b2).
+
 ```
 git submodule update --init firmware/vendor/Lilygo-LoRa-Series
-git -C firmware/vendor/Lilygo-LoRa-Series apply ../../common/lilygo_local.patch
+git -C firmware/vendor/Lilygo-LoRa-Series apply --ignore-whitespace ../../common/lilygo_local.patch
 cp firmware/common/net_proto/secrets.h.ejemplo firmware/common/net_proto/secrets.h
 ```
 
