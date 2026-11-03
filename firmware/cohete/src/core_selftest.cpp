@@ -10,6 +10,7 @@
 #include "net_radio.h"
 #include "log_download.h"
 #include "ext_drv.h"
+#include "ext_act.h"
 #include "ext_lsm.h"
 #include "ext_bmp.h"
 #include "ext_mmc.h"
@@ -24,6 +25,7 @@
 #endif
 
 void coreSelftestBegin() {
+    extActBegin();                 // lo primero: buzzer (IO46) y encendido de la Pi (IO45) en bajo
     extDrvBegin();
     bus_begin();
     gnssBegin();
