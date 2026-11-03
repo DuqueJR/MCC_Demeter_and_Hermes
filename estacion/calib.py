@@ -294,9 +294,11 @@ def qmi_gyro_vs_lsm(lsm, qmi):
 def mag_at_poses(m, cal, poses):
     """Campo corregido, sin alinear, en cada posicion quieta."""
     out = []
-    for p in poses:
+    for k, p in enumerate(poses):
         w = (m[:, 0] > p['t1'] + 5e5) & (m[:, 0] < p['t2'] - 5e5)
         v = (m[w, 1:] - np.asarray(cal['centro'])) @ np.asarray(cal['A']).T if w.any() else None
+        if v is None:
+            print(f'  posicion {POSES[k]}: sin muestras limpias del magnetometro (campo anomalo en todo el tramo); no cuenta para la inclinacion')
         if v is not None and abs(np.median(np.linalg.norm(v, axis=1)) / cal['radio_G'] - 1) >= POSE_FIELD_TOL:
             print(f'  posicion {POSES[poses.index(p)]}: campo anomalo, algo magnetico debajo o cerca; no cuenta para la inclinacion')
             v = None
@@ -304,20 +306,61 @@ def mag_at_poses(m, cal, poses):
     return out
 
 
-def label_poses(poses, t, a, prev):
-    """Ordena las posiciones halladas como POSES. Con una calibracion anterior, por orientacion; sin ella, por orden de aparicion."""
-    if prev is None or len(poses) != len(POSES):
-        return poses, 'por orden de aparicion'
-    R = np.array(prev['R'])
-    got = [R @ ((window_mean(t, a, p) - np.array(prev['sesgo_g'])) / np.array(prev['escala'])) for p in poses]
+def match_orientation(poses, t, a, ref):
+    """Las posiciones como POSES segun lo que el montaje `ref` (R, sesgo_g, escala) dice que mide cada una; None si no cuadran."""
+    R = np.array(ref['R'])
+    got = [R @ ((window_mean(t, a, p) - np.array(ref['sesgo_g'])) / np.array(ref['escala'])) for p in poses]
     out = []
     for e in POSE_BODY:
         ang = [np.degrees(np.arccos(np.clip(g @ e / np.linalg.norm(g), -1, 1))) for g in got]
         i = int(np.argmin(ang))
         if ang[i] > POSE_MATCH_DEG or poses[i] in out:
-            return poses, 'por orden de aparicion: no cuadran con la calibracion anterior'
+            return None
         out.append(poses[i])
-    return out, 'por orientacion' + (' (montaje nominal)' if prev is LSM_NOMINAL else ' (calibracion anterior)')
+    return out
+
+
+def label_geometry(poses):
+    """Ultimo recurso, sin saber como esta montado el chip: nombra las posiciones solo por geometria.
+    Nariz arriba es la primera direccion quieta; nariz abajo, la mas opuesta a ella; marca arriba, la primera de las que
+    quedan en orden de aparicion; marca abajo, la mas opuesta a esa. Las dos que quedan se ordenan con la regla de la mano
+    derecha del cuerpo FRD: Y = Z x X, y 'derecha arriba' es la que apunta hacia +Y. Mide las direcciones sin calibrar:
+    basta para nombrar. No puede saber cual de dos direcciones opuestas es 'arriba': depende de que la primera sea nariz
+    arriba y de que marca arriba aparezca antes que marca abajo."""
+    u = [p['u'] for p in poses]
+    resto = list(range(len(poses)))
+
+    def opuesta(i):
+        j = min(resto, key=lambda k: u[i] @ u[k])
+        resto.remove(j)
+        return j
+
+    n0 = resto.pop(0)
+    n1 = opuesta(n0)
+    m0 = resto.pop(0)
+    m1 = opuesta(m0)
+    z = u[m1] - (u[m1] @ u[n0]) * u[n0]
+    y = np.cross(z, u[n0])
+    d, i = resto
+    if u[d] @ y < 0:
+        d, i = i, d
+    return [poses[k] for k in (n0, n1, m0, m1, d, i)]
+
+
+def label_poses(poses, t, a, prev):
+    """Ordena las posiciones halladas como POSES. Por orientacion, con la calibracion anterior y, si no cuadra, con el montaje
+    nominal; si tampoco cuadra (un cohete montado distinto), por geometria."""
+    if len(poses) != len(POSES):
+        return poses, 'por orden de aparicion'
+    refs = [(prev, 'calibracion anterior')] if prev is not None and prev is not LSM_NOMINAL else []
+    refs.append((LSM_NOMINAL, 'montaje nominal'))
+    for ref, nombre in refs:
+        out = match_orientation(poses, t, a, ref)
+        if out is not None:
+            return out, f'por orientacion ({nombre})'
+    out = label_geometry(poses)
+    note = '' if all(x is y for x, y in zip(out, poses)) else '; el orden fue distinto al de la guia'
+    return out, f'por geometria: no cuadran con ' + ' ni con '.join(n for _, n in refs) + note
 
 
 def dips(b_imu, ups):
@@ -426,12 +469,16 @@ def run(path):
                         v[i] = None
                     dp = dp[~np.isnan(dp) & ~off]
                     body_mag[name] = v
-                    print(f'  inclinacion en las posiciones: media {dp.mean():.1f} grados, rango {np.ptp(dp):.1f}, con {len(dp)} posiciones')
-                    if len(dp) < 3:
+                    if not len(dp):
+                        out['avisos'].append(f'{name}: ninguna posicion con campo limpio: repite las posiciones lejos de metal y aparatos')
+                        print('  inclinacion en las posiciones: ninguna posicion limpia')
+                    else:
+                        print(f'  inclinacion en las posiciones: media {dp.mean():.1f} grados, rango {np.ptp(dp):.1f}, con {len(dp)} posiciones')
+                    if 0 < len(dp) < 3:
                         out['avisos'].append(f'{name}: solo {len(dp)} posiciones con campo limpio: repite las posiciones lejos de metal y aparatos')
-                    if dp.mean() < DIP_MIN_DEG:
+                    if len(dp) and dp.mean() < DIP_MIN_DEG:
                         out['avisos'].append(f'{name}: inclinacion de {dp.mean():.1f} grados: signo del campo dudoso')
-                    if np.ptp(dp) > DIP_RANGE_WARN_DEG:
+                    if len(dp) and np.ptp(dp) > DIP_RANGE_WARN_DEG:
                         out['avisos'].append(f'{name}: la inclinacion cambia {np.ptp(dp):.1f} grados entre posiciones: metal cerca o mala calibracion; repite')
                 print(f'  ejes respecto al LSM: {Rm.round(3).tolist()}  ({msg})')
                 cal['R_imu_desde_mag'] = Rm.tolist()
@@ -441,8 +488,11 @@ def run(path):
 
     if len(body_mag) == 2:
         par = [np.degrees(np.arccos(np.clip(a @ b / np.linalg.norm(a) / np.linalg.norm(b), -1, 1))) for a, b in zip(body_mag['mmc'], body_mag['qmc']) if a is not None and b is not None]
-        print(f'MMC contra QMC en las posiciones: {min(par):.1f} a {max(par):.1f} grados')
-        if max(par) > MAG_AGREE_WARN_DEG:
+        if par:
+            print(f'MMC contra QMC en las posiciones: {min(par):.1f} a {max(par):.1f} grados')
+        else:
+            out['avisos'].append('MMC y QMC: ninguna posicion limpia en los dos para compararlos')
+        if par and max(par) > MAG_AGREE_WARN_DEG:
             out['avisos'].append(f'MMC y QMC difieren hasta {max(par):.1f} grados: revisar ejes o signo')
 
     out['ok'] = not out['avisos'] and all(k in out for k in ('lsm', 'qmi', 'mmc', 'qmc'))
