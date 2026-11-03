@@ -52,3 +52,13 @@ generated_images/
 
 # Grafo de graphify: generado y local, cada persona lo construye (D-036)
 graphify-out/
+
+# Firmware de Pablo (T-007): la clave de red y las salidas locales de las herramientas
+firmware/common/net_proto/secrets.h
+tools/tbeam/sesiones/
+tools/tbeam/mision.json
+*.BIN
+*.BIN.part
+*_csv/
+*_ekf.csv
+pio_cache/
