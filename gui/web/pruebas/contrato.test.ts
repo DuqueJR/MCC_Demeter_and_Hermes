@@ -157,8 +157,22 @@ describe("el esquema rechaza casos falsos", () => {
     }
   });
 
-  it("valores fuera de lo permitido (proto_version 4, fase inventada, lat 91)", () => {
-    expect(validar("meta", { ...metaEjemplo, proto_version: 4 })).not.toEqual([]);
+  it("proto_version admite 2, 3 y 4 (4 = net_proto, D-047) y rechaza 5", () => {
+    for (const v of [2, 3, 4]) {
+      expect(validar("meta", { ...metaEjemplo, proto_version: v }), `proto_version=${v}`).toEqual(
+        [],
+      );
+    }
+    for (const v of [0, 1, 5, "4", null]) {
+      expect(
+        validar("meta", { ...metaEjemplo, proto_version: v }),
+        `proto_version=${JSON.stringify(v)}`,
+      ).not.toEqual([]);
+    }
+  });
+
+  it("valores fuera de lo permitido (proto_version 5, fase inventada, lat 91)", () => {
+    expect(validar("meta", { ...metaEjemplo, proto_version: 5 })).not.toEqual([]);
     expect(validar("estado", { ...estadoEjemplo, fase: "VOLANDO" })).not.toEqual([]);
     const e = copia(estadoEjemplo);
     if (e.pos) e.pos.lat = 91;

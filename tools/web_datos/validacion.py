@@ -81,7 +81,7 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         "nodo": I(opciones=(C.NODO_DEMETER, C.NODO_HERMES)),
         "modo": S(opciones=("vivo", "simulacion", "sintetico")),
         "mission_id": I(nulo=True, minimo=1),
-        "proto_version": I(opciones=(2, 3)),
+        "proto_version": I(opciones=(2, 3, 4)),
         "sitio": O({**_LATLON, "alt_msl_m": N(C.DECIMALES_M)}),
     },
     "estado": {

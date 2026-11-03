@@ -38,8 +38,8 @@ export interface Meta {
   modo: Modo;
   /** STATUS.mission_id; null antes de ARM. */
   mission_id: number | null;
-  /** Opcional (PA-15 / D-W13). 2 o 3; v3 = STATUS con `fw_version` (DP-07). */
-  proto_version?: 2 | 3;
+  /** Opcional (PA-15 / D-W13). 2, 3 o 4; v3 = STATUS con `fw_version` (DP-07); 4 = `net_proto` (D-047). */
+  proto_version?: 2 | 3 | 4;
   sitio: { lat: number; lon: number; alt_msl_m: number };
 }
 

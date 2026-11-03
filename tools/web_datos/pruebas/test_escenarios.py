@@ -354,6 +354,16 @@ class ValidadorPropio(unittest.TestCase):
     def test_acepta_un_mensaje_correcto(self):
         self.assertEqual(validar_mensaje("estado", self.base()), [])
 
+    def test_proto_version_admite_2_3_y_4_pero_no_5(self):
+        # D-047: 4 = net_proto (el protocolo de radio de Pablo)
+        meta = json.loads(json.dumps(de_tipo("demeter", "nominal", "meta")[0]))
+        for v in (2, 3, 4):
+            meta["proto_version"] = v
+            self.assertEqual(validar_mensaje("meta", meta), [], v)
+        for v in (0, 1, 5, "4", None):
+            meta["proto_version"] = v
+            self.assertTrue(validar_mensaje("meta", meta), v)
+
     def test_campo_omitido(self):
         d = self.base()
         del d["lkp"]

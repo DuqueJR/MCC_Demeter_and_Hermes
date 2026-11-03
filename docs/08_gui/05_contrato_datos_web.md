@@ -14,8 +14,11 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 - **Lo que no está aquí** (comandos, paquetes crudos, diagnóstico) vive en las extensiones `/api/v1/local/` de C-05 §3. **Nunca se reenvía a internet.**
 
 **Cambios aceptados del back** (el 2026-10-25, antes de congelar; son compatibles):
-- **PA-15:** `meta.proto_version` es `2` o `3`. Con el protocolo v3 (DP-07), `salud` trae `fw_version`.
+- **PA-15:** `meta.proto_version` es `2` o `3` (y, desde D-047, también `4`). Con el protocolo v3 (DP-07), `salud` trae `fw_version`.
 - **PA-22:** `estado.lkp`, la última posición **válida**. Así el cliente no tiene que buscarla en la `serie`.
+
+**Cambio aceptado después de congelar** (el 2026-11-03, aprobado por el usuario; es compatible y no crea `web-2`):
+- **D-047:** `meta.proto_version` admite también `4` (= `net_proto`, el protocolo de radio de Pablo). Es un valor nuevo de un campo existente: la web no cambia su comportamiento con él (como con `2`, no hay `fw_version`). Este documento es del plan web; el cambio se hizo en T-611b.
 
 ## 0. Reglas
 
@@ -66,7 +69,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 { "contrato_version": "web-1", "mision": "demeter", "nodo": 1,
   "modo": "vivo",                       // "vivo" | "simulacion" | "sintetico"
   "mission_id": 1793980800,             // STATUS.mission_id; null antes de ARM
-  "proto_version": 3,                   // 2 o 3 (PA-15; v3 = STATUS con fw_version, DP-07)
+  "proto_version": 3,                   // 2, 3 o 4 (PA-15; v3 = STATUS con fw_version, DP-07; 4 = net_proto, D-047)
   "sitio": { "lat": 6.582, "lon": -75.823, "alt_msl_m": 510.0 } }
 ```
 
