@@ -27,7 +27,7 @@ static const int64_t  RX_OPEN_US    = 6000;    // el cohete abre recepcion antes
 static const int64_t  RX_CLOSE_US   = 24000;   // y la cierra aqui: alcanza para un paquete de tierra de hasta 32 B
 
 enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5 };
-enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8 };
+enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8, TF_REANUDADO = 16 };
 
 // Estados de la LilyGo y momentos del vuelo. En telemetria van juntos: estado en los 4 bits bajos, momento en los 4 altos.
 enum State  : uint8_t { ST_NONE = 0, ST_TIERRA = 1, ST_ARMED = 2, ST_FLY = 3, ST_RECOVERY = 4 };
