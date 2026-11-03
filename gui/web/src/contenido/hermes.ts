@@ -1,4 +1,13 @@
-// Contenido de Hermes. PROVISIONAL: los textos reales son de T-623 (PEN-W02 y PEN-W03).
+// Contenido de Hermes. PROVISIONAL: textos redactados en T-623 para que el usuario los revise
+// en el PR; siguen provisionales hasta que cierren PEN-W02 (nombres y roles) y PEN-W03 (textos).
+// Dónde se apoya cada cifra:
+// - Motor G80-7T: `MOTORES` de docs/02_requisitos/constantes.md.
+// - CanSat de 250 a 300 g: `CANSAT_MASA_G` de constantes.md (es el rango del reglamento, no una medida).
+// - Recuperación solo por la carga de eyección del motor, sin despliegue electrónico: constantes.md.
+// - NO hay altura ni tiempos de vuelo de Hermes: docs/02_requisitos/perfiles_vuelo.md §2 dice que
+//   falta la simulación del G80-7T (PEN-07, PEN-W04). Cuando exista, se agrega la altura al texto
+//   del motor; hasta entonces no se inventa ninguna cifra.
+// El tono (se tutea, cercano, números exactos con su unidad) sale de 02_identidad_visual §9.
 import iconoAletas from "../assets/hermes/iconos/aletas.png?w=96&format=webp";
 import iconoCansat from "../assets/hermes/iconos/cansat.png?w=96&format=webp";
 import iconoMotor from "../assets/hermes/iconos/motor.png?w=96&format=webp";
@@ -13,45 +22,49 @@ export const hermes: Contenido = {
   mision: "hermes",
   nombre: "Hermes",
   lema: "El mensajero",
-  frase: "Un cohete que es un mensaje que sube entre las nubes y cuenta cómo va, en vivo.",
+  frase:
+    "Hermes sube con un CanSat que mide el vuelo y lo cuenta por radio, en vivo, mientras el cohete se eleva.",
   motor: "G80-7T",
   parcheChico,
   parcheGrande,
   fotos: [
-    { src: null, alt: "El cohete Hermes", pie: "El cohete" },
-    { src: null, alt: "El equipo de Hermes", pie: "El equipo" },
-    { src: null, alt: "El CanSat de Hermes", pie: "El CanSat" },
+    { src: null, alt: "El cohete Hermes", pie: "El cohete Hermes" },
+    { src: null, alt: "El equipo de Hermes", pie: "El equipo de Hermes" },
+    { src: null, alt: "El CanSat de Hermes", pie: "El CanSat, la carga útil" },
   ],
   partes: [
     {
       id: "nariz",
       nombre: "Nariz",
       icono: iconoNariz,
-      texto: "La punta del cohete. Corta el aire al subir.",
+      texto: "La punta del cohete. Abre paso al aire para que la subida sea más fácil.",
     },
     {
       id: "cansat",
       nombre: "CanSat",
       icono: iconoCansat,
-      texto: "La carga útil de la competencia, de 250 a 300 g.",
+      texto:
+        "La carga útil de la competencia: un pequeño computador de vuelo que mide la altura, el movimiento y la posición por GPS. Manda esos datos por radio a la estación en tierra. Por reglamento pesa entre 250 y 300 g.",
     },
     {
       id: "motor",
       nombre: "Motor",
       icono: iconoMotor,
-      texto: "G80-7T: empuja al cohete hacia el cielo.",
+      texto:
+        "G80-7T: el motor que impulsa a Hermes hacia el cielo. Cuando se le acaba el empuje, su carga de eyección es la que se encarga de abrir el paracaídas.",
     },
     {
       id: "paracaidas",
       nombre: "Paracaídas",
       icono: iconoParacaidas,
-      texto: "Se abre con la carga de eyección del motor.",
+      texto:
+        "Lo abre la carga de eyección del motor, sin electrónica de por medio. Así lo exige el reglamento, y es lo que baja a Hermes y a su CanSat juntos.",
     },
     {
       id: "aletas",
       nombre: "Aletas",
       icono: iconoAletas,
-      texto: "Mantienen al cohete derecho mientras sube.",
+      texto: "Mantienen al cohete derecho mientras sube, como las plumas de una flecha.",
     },
   ],
   integrantes: [
