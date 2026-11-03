@@ -169,7 +169,7 @@ Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal
 | --- | --- | --- |
 | `meta.proto_version` | — | **`4` = `net_proto`.** El esquema hoy solo admite 2 o 3, así que hay que **proponerle el valor al plan web** (PEN-24). Mientras tanto, 3 con una nota en la bitácora |
 | `meta.mission_id` | `TELEM.mission_id` | |
-| `estado.seq` | `utc_ms / 40` (el índice absoluto de ranura) | Con `utc_ms = 0` (baliza lenta): un contador local |
+| `estado.seq` | `utc_ms / 40` (el índice absoluto de ranura, ≈ 4,4·10¹⁰) | Con `utc_ms = 0` (baliza lenta): un contador local. No es el `seq` de 8 bits de la cabecera NAV v2 |
 | `estado.t_ms`, `utc_ms` | `TELEM.utc_ms` | `null` si es 0 |
 | `estado.fase`, `fase_cod` | `state`, `moment` | Tabla de [maquina_estados](maquina_estados.md) §5 |
 | `pos.lat/lon` | `lat_e7`, `lon_e7` / 1e7 | `null` si `fix < 2` |
@@ -188,8 +188,8 @@ Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal
 | `secundario` | `null` (no hay UART con la Pi) | |
 | `enlace.rssi_dbm`, `snr_db` | De la línea `@T` | |
 | `enlace.perdidos_pct_10s` | Ranuras propias esperadas frente a recibidas (como `gnd_rx.cpp:accept`) | |
-| `salud` (a 1 Hz) | TELEM (`fix`, `nsv`, `vbat`, `temp_c[0]`) + el último LogInfo + la última CmdResp | `hacc_m`, `temp_esp_c`, `nav_innov_m` y `fw_version` en `null` |
-| `salud.go_nogo` | Los `reasons` de la última respuesta a ARM, con `reasonText` | `listo` = sin motivos |
+| `salud` (a 1 Hz) | TELEM (`fix`, `nsv`, `vbat`) + el último LogInfo + la última CmdResp | `hacc_m`, `temp_esp_c`, `nav_innov_m` y `fw_version` en `null`; **`boot_count` y `calib.*` en `null` (D-050)**. `temp_c[0]` (BME280) no tiene campo en `web-1` y no se publica |
+| `salud.go_nogo` | Los `reasons` de la última respuesta a ARM, con `reasonText` | `listo` = sin motivos. **El dashboard le dice al traductor qué orden mandó** (`Traductor.comando()`, T-662); sin eso, el texto `[cmd ]` no dice a qué orden responde |
 | `estacion.pos` | `@E` o, mientras no exista, el texto `[time] … pos(n)=` | `gnss_ok` ← `@G 1` |
 | `evento` | Los cambios de `state` y `moment` | `despegue` ← momento BOOST; `apogeo` ← APOGEO; `eyeccion` ← PARACAIDAS; `aterrizaje` ← ATERRIZAJE o RECOVERY |
 | `backfill` | `null` | No hay backfill: el "goteo" en RECOVERY no existe todavía |
