@@ -111,7 +111,7 @@ git -C firmware/vendor/Lilygo-LoRa-Series apply ../../common/lilygo_local.patch
 | `tbeam_fw\` | `firmware\cohete\` → `pio run -d firmware/cohete -e demeter_campo -t upload` |
 | `tbeam_tierra\` | `firmware\tierra\` → `pio run -d firmware/tierra -e tierra_campo -t upload` |
 | `common\net_proto\` | `firmware\common\net_proto\` |
-| `tbeam_fw\tools\` | `tools\tbeam\` (y **`estacion\`** desde T-660) → `python dashboard.py` |
+| `tbeam_fw\tools\` | **`estacion\`** (desde T-660) → `python estacion/dashboard.py` |
 | Los logs `*.BIN` y `sesiones\` | Igual, y siguen fuera del repo |
 
 **5. Cambios:**

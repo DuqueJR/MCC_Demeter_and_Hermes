@@ -83,6 +83,14 @@ actualizado: 2026-11-03
 | `ALARMA_DESCENSO_MS` | 10,0 | Se evalúa en DESCENT (= momento PARACAIDAS). PEN-20 propone 11 m/s con una ventana de 2 s. El descenso de la sim. es de 9,3 m/s en Demeter y 8,9 m/s en Hermes |
 | `BAT_PCT_VMIN_MV` / `BAT_PCT_VMAX_MV` | 3300 / 4200 (P) | Para pasar `vbat_mv` a `bat_pct` en `web-1` |
 
+**Los que usa el generador sintético de la web** (`tools/web_datos/`, que simula la máquina v1; los verifica `test_escenarios.ConstantesReplicadas`):
+
+| Nombre | Valor | Notas |
+| --- | --- | --- |
+| `APOGEO_VZ_SALIDA_MS` | 2,0 (P) | De la v1 ([99_archivo/diseno_v1](../99_archivo/diseno_v1/maquina_estados.md)): solo el generador |
+| `BAT_MIN_ARM_PCT` | 60 (P) | De la v1: solo el generador. El firmware usa `vbat_arm_mv` |
+| `GO_SV_MIN` | 6 | De la v1: solo el generador. El firmware exige fix 3D |
+
 ## 5. Adquisición ([firmware_vuelo](../04_diseno/firmware_vuelo.md))
 
 | Sensor | Tasa real [Pablo] | Rango / nota |

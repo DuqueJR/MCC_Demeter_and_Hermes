@@ -50,7 +50,7 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 | `gui/` | Dashboard local y frontend público (web) |
 | `visionpack/` | El código de la Pi de Demeter (`demeter_*.py`). **Tiene bugs bloqueantes:** ver `docs/06_revisiones/revision_codigo_pi_demeter.md` |
 | `datos/` | Datos de entrada que no se editan: las simulaciones de OpenRocket (`datos/simulaciones/openrocket/`), con su catálogo en `datos/README.md` y su análisis en `docs/02_requisitos/perfiles_vuelo.md` |
-| `tools/` | Herramientas de PC. `tools/tbeam/` tiene las de Pablo (`dashboard.py`, `tbget.py`, `tblog.py`, `calib.py`, `ekf.py`), y pasa a `estacion/` en T-660; `tools/web_datos/` es el generador de datos de la web |
+| `tools/` | Herramientas de PC. las de Pablo (`dashboard.py`, `tbget.py`, `tblog.py`, `calib.py`, `ekf.py`) están en `estacion/` desde T-660; `tools/web_datos/` es el generador de datos de la web |
 | `docs/` | La bóveda de Obsidian con toda la documentación |
 | `docs/fuentes/` | Los documentos originales: `Objetivos_Sistemas.pdf`, `Tabla_componentes.xlsx` y los `.docx`, ya traducidos a `docs/` |
 
