@@ -4,6 +4,8 @@ estado: borrador v2 (lo redacta A y lo revisa B). Se alinea con el contrato web-
 actualizado: 2026-10-25
 depende_de: [estacion_terrena, protocolo_paquetes, maquina_estados, requisitos, dos_sesiones_C-03, gui_contrato_datos (web-1)]
 ---
+
+> **⚠️ 2026-11-03 (D-041): la entrada cambia.** El servicio ya no lee C-03: lee las líneas USB de la estación de Pablo ([protocolo_paquetes](../../../04_diseno/protocolo_paquetes.md) §5). **En el lanzamiento, las lee del archivo de sesión de `tools/tbeam/dashboard.py`**, que es el dueño del puerto. La traducción a `web-1` está en protocolo §6. La API local, el reenviador y `web-1` siguen igual; los comandos los manda `dashboard.py`, no la CLI.
 # C-05. API del back-end de tierra (alineada con `web-1`)
 
 **Para qué:**

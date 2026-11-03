@@ -5,6 +5,8 @@ actualizado: 2026-10-25
 depende_de: [estacion_terrena, protocolo_paquetes, enlace_lora_tdma, visionpack_integracion, constantes]
 completa: estacion_terrena §2.1 ("los tipos se definen al implementar")
 ---
+
+> **⚠️ 2026-11-03: REEMPLAZADO (D-041).** La estación usa el firmware de Pablo, que habla por USB con líneas de texto (`@T`, `@L`, `@G` y órdenes como `d armar`): [protocolo_paquetes](../../../04_diseno/protocolo_paquetes.md) §5. Este documento queda como historia.
 # C-03. Trama USB entre el módem (T-Beam V1.2) y el servicio de tierra
 
 **Para qué:** que el firmware del módem (T-601) y el servicio de tierra (T-602) se desarrollen por separado, y que exista un **módem falso** (T-S07) para probar todo el servicio de tierra sin la V1.2.

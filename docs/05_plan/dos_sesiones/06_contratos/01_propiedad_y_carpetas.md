@@ -4,6 +4,8 @@ estado: borrador (se congela en H0, T-S01)
 actualizado: 2026-10-25
 depende_de: [flujo_trabajo, firmware_vuelo, dos_sesiones_plan_maestro]
 ---
+
+> **⚠️ 2026-11-03 (D-037, D-043): la parte de `firmware/` (§1) queda reemplazada.** El firmware es de Pablo y se copia de su repo: `firmware/cohete/`, `firmware/tierra/`, `firmware/common/` y `firmware/vendor/` son de Pablo, importados. **Con D-045 son nuestros:** se cambian por tareas del backlog (E11), con primero el contrato. Lo demás (tierra, herramientas, otras carpetas) sigue vigente; `tools/tbeam/` también es una copia de Pablo.
 # C-01. Propiedad de carpetas y archivos
 
 **Para qué:** que las dos sesiones nunca editen el mismo archivo sin acordarlo. Cada carpeta tiene **un dueño**:

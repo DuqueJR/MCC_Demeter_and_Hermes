@@ -1,6 +1,6 @@
 ---
 id: indice
-actualizado: 2026-10-25
+actualizado: 2026-11-03
 ---
 # Índice de la documentación: software Hermes + Demeter (CCCD 2026)
 
@@ -10,6 +10,8 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 
 | Si vas a… | Lee primero |
 | --- | --- |
+| **Qué cambió con el firmware de Pablo (2026-11-03)** | [05_plan/cambios_por_firmware_pablo.md](05_plan/cambios_por_firmware_pablo.md), [06_revisiones/revision_firmware_pablo.md](06_revisiones/revision_firmware_pablo.md) y [05_plan/sincronizacion_firmware_pablo.md](05_plan/sincronizacion_firmware_pablo.md) |
+| **Qué falta para los objetivos finales, y con qué tarea** | [05_plan/brechas_objetivos.md](05_plan/brechas_objetivos.md) |
 | Entender el proyecto | [01_contexto/proyecto.md](01_contexto/proyecto.md) |
 | Saber qué hay que construir | [02_requisitos/requisitos.md](02_requisitos/requisitos.md) |
 | Saber cómo vuela cada cohete (simulación) | [02_requisitos/perfiles_vuelo.md](02_requisitos/perfiles_vuelo.md) y [../datos/README.md](../datos/README.md) |
@@ -18,7 +20,7 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | Radio, TDMA o sincronización | [04_diseno/enlace_lora_tdma.md](04_diseno/enlace_lora_tdma.md) |
 | El formato de los paquetes y los comandos | [04_diseno/protocolo_paquetes.md](04_diseno/protocolo_paquetes.md) |
 | Las fases de vuelo | [04_diseno/maquina_estados.md](04_diseno/maquina_estados.md) |
-| La arquitectura del firmware, el log o la caracterización del motor | [04_diseno/firmware_vuelo.md](04_diseno/firmware_vuelo.md) |
+| La arquitectura del firmware (la de Pablo) o el log | [04_diseno/firmware_vuelo.md](04_diseno/firmware_vuelo.md) y [04_diseno/formato_log.md](04_diseno/formato_log.md) |
 | La estación, el dashboard o la web | [04_diseno/estacion_terrena.md](04_diseno/estacion_terrena.md) |
 | **La web pública o el dashboard de operación** (diseño, contrato `web-1`, plan y tareas T-6xx) | [08_gui/00_README.md](08_gui/00_README.md) |
 | **El plan de dos sesiones del back** (Jerónimo y Juan Pablo: contratos C-01 a C-05, hitos H0–H4) | [05_plan/dos_sesiones/00_LEEME.md](05_plan/dos_sesiones/00_LEEME.md) |

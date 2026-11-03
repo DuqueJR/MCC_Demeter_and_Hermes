@@ -5,6 +5,12 @@ actualizado: 2026-10-25
 depende_de: [enlace_lora_tdma, protocolo_paquetes, tbeam_v12_estacion]
 decisiones: [D-024, D-025]
 ---
+
+> **⚠️ 2026-11-03 (D-041):**
+> - El firmware de la estación es el de Pablo (`firmware/tierra/`). **No es un módem tonto:** firma y reintenta los comandos, y habla por USB con líneas de texto ([protocolo_paquetes](protocolo_paquetes.md) §5).
+> - **El dashboard de operación del lanzamiento es `tools/tbeam/dashboard.py`** (de Pablo).
+> - Nuestro servicio de tierra produce `web-1` a partir del archivo de sesión de ese dashboard, y lo sube al relay.
+> - Lo de abajo que hable del módem tonto, de la trama `AA 55` o de SF6 queda reemplazado.
 # Estación terrena, dashboard local y web pública
 
 Lo que pide el usuario: **recibir los datos de los cohetes, enviarlos a un servidor con un frontend público y tener en local nuestro propio dashboard.**

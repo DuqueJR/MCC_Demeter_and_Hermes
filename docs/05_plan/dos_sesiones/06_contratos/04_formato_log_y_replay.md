@@ -4,6 +4,8 @@ estado: borrador v2 (refinado por B el 2026-10-25 con los formatos binarios exac
 actualizado: 2026-10-25
 depende_de: [firmware_vuelo, maquina_estados, protocolo_paquetes, perfiles_vuelo, constantes, C-02]
 ---
+
+> **⚠️ 2026-11-03: el formato del log queda REEMPLAZADO (D-044)** por el `rec` de Pablo ([formato_log](../../../04_diseno/formato_log.md)). La idea del replay sigue siendo útil, pero debe partir de ese formato y de `tblog.py`.
 # C-04. Formato del log de la SD y de los archivos de replay
 
 **Para qué:**

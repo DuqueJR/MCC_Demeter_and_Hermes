@@ -4,6 +4,8 @@ estado: borrador v2 (refinado por B el 2026-10-25; lo revisa A; se congela en H0
 actualizado: 2026-10-25
 depende_de: [firmware_vuelo, maquina_estados, protocolo_paquetes, enlace_lora_tdma, buses_y_pines, constantes]
 ---
+
+> **⚠️ 2026-11-03: REEMPLAZADO (D-037).** El firmware es el de Pablo, con su propia arquitectura ([firmware_vuelo](../../../04_diseno/firmware_vuelo.md)). Este documento queda como historia.
 # C-02. Interfaces internas del firmware, capa de hardware y configuración por cohete
 
 **Para qué:** que los módulos de la sesión A (tiempo, radio, Pi, volcado) y los de la sesión B (sensores, log, fusión, máquina de estados, energía) se conecten **sin editar el código del otro**, y que la lógica se pruebe **en el PC** sin placa.
