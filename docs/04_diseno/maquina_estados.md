@@ -108,3 +108,46 @@ Se cambia **solo recompilando:** ningún comando la altera en campo. La base son
 
 - `ERROR` (9) no se usa.
 - La alarma de descenso rápido (`web-1`) se evalúa en `DESCENT`, es decir, en el momento PARACAIDAS.
+
+## 6. Especificación de la detección de BOOST (T-410)
+
+Los criterios son de Pablo (§1). Lo marcado con (P) lo fijó el documentador para poder implementar, y **lo revisa Pablo en el PR**.
+
+**Entradas:**
+- **Aceleración:** la norma `|a|` en g de **cada muestra** del LSM6DSO32 (±32 g).
+  - Si el LSM no tiene datos frescos (`FRESH_US`), se usa el QMI8658 (±16 g).
+  - **Se usa la norma, no un eje:** no depende de la orientación ni de la calibración, que todavía no está en el cohete.
+- **Altura:** la barométrica sobre `p0` que ya calcula `mission.cpp` (el BMP581, o el BME280 de respaldo).
+
+**Integrador de velocidad (criterio inercial):**
+1. Mientras `|a| > BOOST_ACC_MIN_G` (2,0): `dv += (|a| − 1) · 9,80665 · dt`, con el `dt` real entre muestras (las marcas de `t_us`).
+2. Si `|a| ≤ BOOST_ACC_MIN_G` durante más de `BOOST_RESET_MS` (50 ms (P)) seguidos: `dv = 0`.
+3. **BOOST** cuando `dv ≥ boost_dv_mps` (5 m/s, `mission_config.h`).
+4. Se evalúa **a la tasa del IMU**, sin submuestrear a 50 Hz. Lo recomendado:
+   - un módulo puro (`boost_detect.h/.cpp`, C++11, sin dependencias de ESP32) alimentado desde el consumidor del FIFO del LSM;
+   - el resultado pasa a la tarea de misión por una bandera atómica.
+
+**Criterio barométrico (respaldo):**
+- BOOST si `alt(t) − alt(t − jump_s) ≥ jump_m` (10 m en 0,5 s) en `BOOST_BARO_EVAL` (5 (P)) evaluaciones seguidas de la tarea de misión (50 Hz).
+
+**Cuándo está activa y qué hace:**
+
+| Estado al detectar | Acción |
+| --- | --- |
+| ARMED | → FLY con momento BOOST; `s_boosted = true`; registra (el archivo ya está preparado); 10 Hz |
+| FLY, momento LAUNCH | Momento BOOST; `s_boosted = true`; se apaga el aviso de `t_abort` |
+| TIERRA | `TF_BOOST_SIN_ARMAR` (se mantiene hasta un reinicio) + FLY + BOOST + registra (sin reserva). Un falso positivo en TIERRA cuesta SD y batería, pero no se pierde un vuelo real |
+| FLY ya en BOOST o después, o RECOVERY | Nada |
+
+- **Siempre** queda un `T_MISSION` automático (`op = 0`) con el criterio que disparó (inercial o barométrico) y el `dv` o el salto.
+- **Los actuadores por BOOST sin armar** (el pulso de la Pi en Demeter) son de T-413, no de esta tarea.
+
+**Pruebas en el PC** (con `g++`; no hace falta PlatformIO):
+- **Positivas:**
+  - las sims. de OpenRocket de Demeter y Hermes (`datos/simulaciones/openrocket/`), pasadas a fuerza específica (`|a|` = la aceleración cinemática + 1 g en la vertical), remuestreadas a 1600 Hz, con el ruido del LSM en reposo (σ ≈ 0,01 g);
+  - **criterio: BOOST en < 0,2 s desde el despegue** (la referencia de Pablo es dv = 5 m/s a 0,074 y 0,084 s).
+- **Negativas (cero detecciones):**
+  - golpes de 10 g durante 20 ms;
+  - impacto de una caída de 1 m (20 g, 10 ms);
+  - sacudida de ±3 g a 5 Hz durante 5 s;
+  - 30 min de reposo con ruido.

@@ -72,6 +72,9 @@ actualizado: 2026-11-03
 | `VZ_MOVING_MPS` | 2,0 | | "Subiendo" o "bajando" |
 | `REF_TAU_S` / `ALT_TAU_S` | 60 / 0,2 s | | `p0` en TIERRA / el filtro de la altura |
 | `FRESH_US` | 500 000 | | Una fuente sin datos en este tiempo cuenta como caída |
+| `BOOST_ACC_MIN_G` | 2,0 | | Integrador de BOOST (T-410, maquina_estados §6) |
+| `BOOST_RESET_MS` | 50 (P) | | El integrador se reinicia tras este tiempo con `\|a\|` ≤ 2 g |
+| `BOOST_BARO_EVAL` | 5 (P) | | Evaluaciones seguidas del salto barométrico |
 
 **Los que usa la estación y la web** (siguen siendo nuestros):
 

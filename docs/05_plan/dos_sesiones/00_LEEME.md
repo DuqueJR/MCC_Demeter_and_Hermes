@@ -4,6 +4,19 @@ estado: propuesta (aprobada para crear el 2026-10-25 por Jerónimo; los contrato
 actualizado: 2026-10-25
 depende_de: [plan_maestro, backlog, flujo_trabajo, decisiones]
 ---
+
+> **⚠️ 2026-11-03: este plan quedó superado en buena parte** por la adopción del firmware de Pablo (D-037, D-045, D-046). **Lo vigente es el [backlog](../backlog.md), E10–E12, y [brechas_objetivos](../brechas_objetivos.md).**
+>
+> **Qué pasa con cada sesión:**
+>
+> | Sesión | Ya no aplica (lo hizo Pablo o quedó reemplazado) | Sigue / nuevo |
+> | --- | --- | --- |
+> | **A, Jerónimo** (enlace, tiempo, tierra y Pi) | C-03 (trama USB), el módem T-601, el módem falso T-S07, la CLI T-S04, el servicio T-602 separado, T-501 TDMA, T-S12 | **El dashboard como estación** (E10: T-661 `web1.py`, T-662 API local y páginas, T-605a reenviador) · **la Pi** (T-701, T-705, T-704, y T-702 con el firmware) · la web, carril D (T-633, T-640, T-642 a T-645) |
+> | **B, Juan Pablo** (adquisición, log y decisión) | C-02, C-04, T-101 a T-107, T-201 a T-203, T-002 a T-006 | **El firmware:** T-410, T-413, T-411, T-412, T-414, T-417 y T-420 a T-425 · T-305 replay · T-415 alcance · T-416 calibración |
+>
+> - C-01 (propiedad de carpetas) sigue para `estacion/`, `gui/`, `visionpack/` y `tools/`.
+> - `firmware/` es de B, y Pablo revisa sus PR.
+> - Las fichas de `estado/` las actualiza cada uno.
 # Plan de dos sesiones (Jerónimo y Juan Pablo)
 
 Esta carpeta organiza el trabajo **en paralelo** de dos personas, cada una con su cuenta de Claude y sus propias sesiones de Claude Code, sobre el **back-end** de Hermes y Demeter: firmware de vuelo, enlace LoRa, módem, servicio de tierra, VisionPack y datos.
