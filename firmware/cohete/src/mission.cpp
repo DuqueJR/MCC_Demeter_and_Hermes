@@ -1,7 +1,8 @@
 // mission.cpp - Un comando apto se ejecuta; uno no apto responde sus motivos y solo se ejecuta si tierra confirma esos mismos motivos a tiempo.
-// La deteccion de BOOST y de los demas momentos todavia no existe: hoy FLY solo se alcanza con LAUNCH y los momentos se fuerzan por comando.
+// BOOST se detecta solo (T-410, boost_detect.h): FLY ya no depende de LAUNCH. Los demas momentos todavia se fuerzan por comando.
 #include "mission.h"
 #include "mission_config.h"
+#include "boost_detect.h"
 #include "core_bus.h"
 #include "in_imu.h"
 #include "in_bar.h"
@@ -49,6 +50,8 @@ static float    s_ref[2] = {0, 0};
 static bool     s_refOk[2] = {false, false};
 static float    s_alt = 0, s_vz = 0, s_altHist[VZ_WINDOW];
 static uint8_t  s_histIdx = 0, s_histN = 0, s_src = 2;
+static BoostBaroJump s_jump;
+static bool     s_jumpHit = false;
 
 static bool readPress(uint8_t i, float &p) {
     const int64_t now = esp_timer_get_time();
@@ -74,10 +77,11 @@ static void baroStep() {
         else if (s_state == ST_TIERRA) s_ref[i] += (p[i] - s_ref[i]) * dt / REF_TAU_S;
     }
     const uint8_t src = ok[0] ? 0 : (ok[1] ? 1 : 2);
-    if (src != s_src) { s_src = src; s_histN = 0; s_histIdx = 0; }      // otro sensor: no se mezclan sus alturas
-    if (src == 2) return;
+    if (src != s_src) { s_src = src; s_histN = 0; s_histIdx = 0; s_jump.reset(); }      // otro sensor: no se mezclan sus alturas
+    if (src == 2) { s_jumpHit = false; return; }
 
     const float alt = 44330.0f * (1.0f - powf(p[src] / s_ref[src], 0.19029f));
+    s_jumpHit = s_jump.feed(esp_timer_get_time(), alt);                // BOOST barometrico: la altura sin filtrar, el filtro de ALT_TAU_S solo la atrasaria
     s_alt = s_histN ? s_alt + (alt - s_alt) * dt / ALT_TAU_S : alt;
     const float old = s_altHist[s_histN < VZ_WINDOW ? 0 : s_histIdx];
     s_vz = s_histN ? (s_alt - old) / ((s_histN < VZ_WINDOW ? s_histN : VZ_WINDOW) * dt) : 0.0f;
@@ -226,6 +230,29 @@ static void setState(uint8_t to) {
     }
 }
 
+// BOOST detectado (T-410). Se llama desde la tarea de mision, la misma que atiende los comandos.
+static void onBoost(uint8_t kind, uint32_t value) {
+    const uint8_t from = s_state;
+    if (from == ST_RECOVERY || (from == ST_FLY && s_moment >= M_BOOST)) return;      // ya en BOOST o despues: nada
+    if (from == ST_TIERRA) s_flags = (uint8_t)(s_flags | TF_BOOST_SIN_ARMAR);        // se mantiene hasta un reinicio
+    if (from != ST_FLY) setState(ST_FLY);                                            // desde ARMED: el archivo ya esta preparado
+    s_moment = M_BOOST; s_boosted = true; s_abortOn = false;
+    s_flags = (uint8_t)(s_flags & ~TF_LAUNCH_VENCIDO);
+    logTransition(0, kind, CR_OK, from, value, 0);                                   // op 0 = automatico; arg = criterio; counter = dv (cm/s) o salto (cm)
+}
+
+// Inercial (LSM; el QMI solo si el LSM no tiene datos frescos) y, de respaldo, barometrico
+static void boostStep() {
+    const int64_t now = esp_timer_get_time();
+    uint32_t vl = 0, vq = 0;
+    const uint8_t kl = boostTakeLsm(vl), kq = boostTakeQmi(vq);       // siempre se leen, para no arrastrar avisos viejos
+    ImuSample s;
+    const bool lsmFresh = g_ext_imu.get(s) && now - s.t_us < FRESH_US;
+    if (kl) onBoost(kl, vl);
+    else if (kq && !lsmFresh) onBoost(kq, vq);
+    else if (s_jumpHit) onBoost(BOOST_BARO, (uint32_t)lroundf(s_jump.jump() * 100.0f));
+}
+
 static void execute(uint8_t op, uint8_t arg) {
     switch (op) {
     case OP_ARM:       setState(ST_ARMED); break;
@@ -305,6 +332,7 @@ static void missionTask(void *) {
         last += TASK_MS;
         if (millis() - last > 10 * TASK_MS) last = millis();
         baroStep();
+        boostStep();
 
         // LAUNCH sin BOOST en el tiempo limite: se avisa y se sigue esperando; un fallback nunca anula el registro
         if (s_state == ST_RECOVERY && s_recEndAt && esp_timer_get_time() > s_recEndAt) { s_recEndAt = 0; loggerRecord(false); }
@@ -319,6 +347,8 @@ static void missionTask(void *) {
 void missionBegin(uint8_t rocketId) {
     s_rocket = rocketId;
     s_cfg = &missionCfg(rocketId);
+    boostSetTarget(s_cfg->boost_dv_mps);
+    s_jump.configure(s_cfg->jump_m, s_cfg->jump_s, BOOST_BARO_EVAL);
     s_prefs.begin("tbmis", false);
     s_lastCounter = s_prefs.getULong("ctr", 0);
     s_q = xQueueCreate(4, sizeof(Cmd));
