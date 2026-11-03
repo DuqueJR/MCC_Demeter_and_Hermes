@@ -4,6 +4,7 @@
 #include "ext_lsm.h"
 #include "ext_bmp.h"
 #include "imu_clock.h"
+#include "boost_detect.h"
 #include "logger.h"
 #include <soc/gpio_reg.h>
 #include <esp_timer.h>
@@ -303,7 +304,9 @@ static void lsmTask(void *) {
             for (uint16_t i = off; i < off + c; i++) {
                 const uint8_t *w = s_fifo + i * WORD_B;
                 switch (wordTag(w)) {
-                    case TAG_ACC:  memcpy(s.a, w + 1, 6); haveA = true; n++; break;
+                    case TAG_ACC:  memcpy(s.a, w + 1, 6); haveA = true;
+                                   boostLsmSample((int64_t)llround(s_clk.timeOf(n)), s.a, ACC_LSB_PER_G);   // T-410: |a| de cada muestra
+                                   n++; break;
                     case TAG_GYRO: memcpy(s.g, w + 1, 6); haveG = true; break;
                     case TAG_HUB0: extBmpOnWord(w + 1, (int64_t)llround(s_clk.timeOf(n))); break;
                     case TAG_HUB_NACK: extBmpOnNack(); break;

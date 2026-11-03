@@ -3,6 +3,7 @@
 // y la lectura debe terminar antes de la siguiente muestra (datasheet 8.1); si no, esta se pierde (LOG0023: 2 de cada 18, ODR real 445 Hz).
 #include "in_imu.h"
 #include "imu_clock.h"
+#include "boost_detect.h"
 #include "logger.h"
 #include "LoRaBoards.h"          // SDCardSPI, IMU_CS, IMU_INT
 #include "SensorQMI8658.hpp"
@@ -188,6 +189,12 @@ static void imuTask(void *) {
             memcpy(buf, &h, sizeof(h));
             memcpy(buf + sizeof(h), s_fifo + off * SAMPLE_B, SAMPLE_B * c);
             if (!bus_log(RING_IMU, rec::T_IMU, rec::S_IN_IMU, tIsr, buf, (uint16_t)(sizeof(h) + SAMPLE_B * c))) s_st.logDrops++;
+        }
+
+        for (uint16_t k = 0; k < cnt; k++) {                      // T-410: respaldo del LSM para BOOST, |a| de cada muestra
+            int16_t a[3];
+            memcpy(a, s_fifo + k * SAMPLE_B, 6);
+            boostQmiSample((int64_t)llround(s_clk.timeOf(n0 + k)), a, accLsb);
         }
 
         ImuSample s; s.n = n0 + cnt - 1; s.t_us = (int64_t)llround(s_clk.timeOf(s.n));
