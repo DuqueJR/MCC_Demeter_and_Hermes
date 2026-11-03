@@ -345,6 +345,12 @@
   color: var(--estado-ok);
 }
 
+/* Sin dato (D-050): gris neutro, ni aviso ni falla. */
+.salud-sin-dato,
+.salud-sin-dato svg {
+  color: var(--estado-sin-dato);
+}
+
 /* El chip maestro Go/No-Go (solo en PREFLIGHT y ARMED). */
 .chip-go {
   display: inline-flex;
