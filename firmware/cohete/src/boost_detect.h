@@ -1,5 +1,6 @@
 // boost_detect.h - Deteccion de BOOST (T-410, maquina_estados.md seccion 6). C++11, sin dependencias de ESP32.
-// Inercial: integra el exceso sobre 1 g de |a| (cada muestra del IMU, a su tasa) mientras |a| > BOOST_ACC_MIN_G; BOOST con dv >= boost_dv_mps.
+// Inercial: integra el exceso sobre 1 g de |a| (cada muestra del IMU, a su tasa) mientras |a| > BOOST_ACC_MIN_G, y lo hace decaer por debajo
+// (BOOST_DV_DECAY_G); BOOST con dv >= boost_dv_mps.
 // Barometrico (respaldo): salto de altura de jump_m en jump_s, BOOST_BARO_EVAL evaluaciones seguidas.
 #pragma once
 #include <stdint.h>
