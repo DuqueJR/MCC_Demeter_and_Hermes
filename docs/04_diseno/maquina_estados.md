@@ -121,14 +121,23 @@ Los criterios son de Pablo (§1). Lo marcado con (P) lo fijó el documentador pa
 
 **Integrador de velocidad (criterio inercial):**
 1. Mientras `|a| > BOOST_ACC_MIN_G` (2,0): `dv += (|a| − 1) · 9,80665 · dt`, con el `dt` real entre muestras (las marcas de `t_us`).
-2. Si `|a| ≤ BOOST_ACC_MIN_G` durante más de `BOOST_RESET_MS` (50 ms (P)) seguidos: `dv = 0`.
+2. **Mientras `|a| ≤ BOOST_ACC_MIN_G`, dv decae:** `dv −= BOOST_DV_DECAY_G · 9,80665 · dt`, sin bajar de 0 (D-048).
+   - Sin esto, una sacudida de ±3 g a 5 Hz en un eje horizontal llegaba a 52 m/s, porque sus bajadas de 39 ms nunca alcanzaban el reinicio de 50 ms (T-410).
+   - Con el decaimiento, el dv máximo es ≤ 1,8 m/s de 5 a 20 Hz en los dos ejes.
+   - En el despegue real no influye: `|a|` se mantiene > 2 g durante la combustión.
+   - Si `|a| ≤ BOOST_ACC_MIN_G` durante más de `BOOST_RESET_MS` (50 ms (P)) seguidos: `dv = 0`.
 3. **BOOST** cuando `dv ≥ boost_dv_mps` (5 m/s, `mission_config.h`).
-4. Se evalúa **a la tasa del IMU**, sin submuestrear a 50 Hz. Lo recomendado:
+4. **Huecos entre muestras** (D-048): un `dt` mayor que `BOOST_DT_MAX_US` (5 ms) no se integra, y un hueco mayor que `BOOST_RESET_MS` reinicia `dv`. Sin esto, una muestra suelta de 20 g tras un hueco de 40 ms sumaría 7,5 m/s de golpe.
+5. Después de disparar, el integrador vuelve a 0 y puede volver a disparar (la misión ignora los BOOST repetidos). Así no hay estado que sincronizar entre núcleos.
+6. **Respaldo del QMI:** su aviso vale solo si, cuando la misión lo lee, el LSM no tiene una muestra fresca (`FRESH_US`).
+7. Se evalúa **a la tasa del IMU**, sin submuestrear a 50 Hz. Lo recomendado:
    - un módulo puro (`boost_detect.h/.cpp`, C++11, sin dependencias de ESP32) alimentado desde el consumidor del FIFO del LSM;
    - el resultado pasa a la tarea de misión por una bandera atómica.
 
 **Criterio barométrico (respaldo):**
 - BOOST si `alt(t) − alt(t − jump_s) ≥ jump_m` (10 m en 0,5 s) en `BOOST_BARO_EVAL` (5 (P)) evaluaciones seguidas de la tarea de misión (50 Hz).
+- **Usa la altura sin filtrar** (el filtro de `ALT_TAU_S` la atrasaría) y se reinicia al cambiar de sensor (D-048).
+- **Limitación conocida:** un pulso de presión de +12 m que dure 120 ms o más sí dispara (5 evaluaciones × 20 ms).
 
 **Cuándo está activa y qué hace:**
 
