@@ -19,6 +19,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 
 **Cambio aceptado después de congelar** (el 2026-11-03, aprobado por el usuario; es compatible y no crea `web-2`):
 - **D-047:** `meta.proto_version` admite también `4` (= `net_proto`, el protocolo de radio de Pablo). Es un valor nuevo de un campo existente: la web no cambia su comportamiento con él (como con `2`, no hay `fw_version`). Este documento es del plan web; el cambio se hizo en T-611b.
+- **D-050:** `salud.boot_count` y cada `salud.calib.*` (`giro`, `mag`, `baro`, `origen`, `actitud`) admiten `null` = sin dato. `net_proto` no trae esos datos, y mandar `0` o `false` le mostraba al público "sin calibrar" aunque el cohete sí estuviera calibrado. La vista de Salud muestra "sin dato" (gris neutro, y no cuenta como aviso). Solo el productor es nuevo (el traductor de T-661), así que no hace falta `web-2`. Se aplicó en este documento, el esquema, los tipos, la vista y el validador de `tools/web_datos` en T-611d.
 
 ## 0. Reglas
 
@@ -32,7 +33,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 - **`null` = sin dato.** Corresponde a los valores reservados de [protocolo_paquetes](../04_diseno/protocolo_paquetes.md) §0. Un campo nunca se omite: está o es `null`.
 - **Qué campos pueden ser `null`** (D-W18). Todos los demás son obligatorios y nunca `null`.
   - `estado`: `utc_ms`, `relay_utc_ms` (siempre `null` en el servicio local, que no tiene relay), `pos` completo, **`vel` completo** (sin fix ni EKF no hay velocidad: el protocolo la manda como "sin dato", D-W19), `pos.alt_msl_m`, `bat_pct`, `secundario`, cada `calc.*`, cada `enlace.*` y `lkp`.
-  - `salud`: las lecturas de los sensores y los contadores que el cohete no reporte (por ejemplo `temp_pi_c` en Hermes y `fw_version` con el protocolo v2).
+  - `salud`: las lecturas de los sensores y los contadores que el cohete no reporte (por ejemplo `temp_pi_c` en Hermes y `fw_version` con el protocolo v2), y, desde D-050, **`boot_count` y cada `calib.*`** (con `net_proto` no hay dato: la web muestra "sin dato", no "no calibrado").
   - `estacion`: `pos`, sin GNSS, y `ultimo_paquete_hace_ms`, mientras no haya llegado ningún paquete del cohete.
   - `evento`: `valor`, `fase` y `activa` (§2.5).
   - Snapshot: `estado`, `salud`, `estacion` y `backfill` (§3). `meta` nunca es `null`.
@@ -97,7 +98,7 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 
 | Campo | Sale de | Notas |
 | --- | --- | --- |
-| `seq`, `t_ms` | NAV cabecera `seq`, `t_ms` | |
+| `seq`, `t_ms` | NAV cabecera `seq`, `t_ms` | Con `net_proto` (`proto_version` 4), `seq` es el **índice de ranura**, `utc_ms / 40` (del orden de 4,4e10, cabe en un `number` de JS): no es el contador de 8 bits de la cabecera NAV. El esquema no le pone tope. |
 | `utc_ms` | `t_ms` convertido con el último STATUS (`utc_ms` frente a `t_ms`) | `null` si no hay hora válida |
 | `fase`, `fase_cod` | NAV `fase` | Nombres de [maquina_estados](../04_diseno/maquina_estados.md) §1 |
 | `pos.lat/lon` | NAV `lat_e7`, `lon_e7` / 1e7 | `fuente`: `"ekf"` si `flags.EKF_OK`, si no `"gnss"` |
