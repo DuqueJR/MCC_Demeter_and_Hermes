@@ -19,6 +19,7 @@ button{padding:3px 8px;margin:2px}pre{margin:0;white-space:pre-wrap;font:12px mo
 .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;height:calc(100% - 40px)}.three pre{white-space:pre;font-size:11px}
 #modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:5}
 #modal div{background:#fff;padding:16px;max-width:520px;min-width:320px}
+iframe.web{flex:1 1 0;min-height:0;width:100%;border:0;background:#fff;display:block}
 input{width:75px}input.wide{width:110px}.note{color:#555;margin:4px 0}
 </style></head><body>
 <div id="banner"><table id="bt"></table></div>
@@ -31,7 +32,7 @@ input{width:75px}input.wide{width:110px}.note{color:#555;margin:4px 0}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const post=(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(async r=>{if(!r.ok){const e=await r.json();alert(e.error)}return r});
-const TABS=['Mando','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
+const TABS=['Mando','Vuelo Demeter','Vuelo Hermes','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
 const ROCKETS=[['demeter','d','Demeter'],['hermes','h','Hermes']];
 const STATES=['tierra','armed','fly','recovery'];
 const MOMENTS=['launch','boost','coast','apogeo','caida','paracaidas','aterrizaje'];
@@ -78,6 +79,9 @@ function build(){
   &nbsp; <label><input id="dc" type="checkbox" style="width:auto" ${dlArgs.csv?'checked':''}> CSV</label></p>
   <div><button onclick="tb(['list'])">Listar</button><button onclick="tbGet()">Bajar</button><button onclick="post('/api/tbget/abort',{})">Abortar</button><button onclick="tb(['reset'])">Reset de la placa</button></div>
   <pre id="dl"></pre></div>`;
+ if(tab.startsWith('Vuelo ')){const r=tab.slice(6).toLowerCase();
+  m.innerHTML=S&&!S.web?'<div class="box"><b>La web no esta compilada.</b> Compila la web: <code>npm run web:build</code> (desde la raiz del repo) y vuelve a abrir esta pestana.</div>'
+   :`<div class="fill"><p class="note" style="margin:0 0 4px">Pagina de mision (la misma de la web publica), con los datos de este dashboard. <a href="/web/${r}/" target="_blank">Abrir en una pestana nueva</a></p><iframe class="web" src="/web/${r}/" title="Vuelo ${r}"></iframe></div>`}
  if(tab=='Mision') buildMission();
  if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calm"></div><pre id="calo"></pre></div>';lastCal='';calRender()}
  $('dr')&&($('dr').value=dlArgs.role);
