@@ -7,7 +7,7 @@ Cuerpo FRD: X hacia la nariz, Z hacia el lado contrario a la marca, Y a la derec
 Salida: acel_cal = (crudo_g - sesgo) / escala por eje; v_cuerpo = R * v_chip.
         mag_cal = A * (crudo_G - centro), en G, en ejes del chip del magnetometro; R_mag lleva sus ejes a cuerpo.
 """
-import argparse, bisect, json, struct, sys
+import argparse, bisect, json, os, struct, sys
 import numpy as np
 from scipy.optimize import least_squares
 import tblog
@@ -24,7 +24,14 @@ COVER_MIN = 0.8
 RES_WARN_MG = 15.0
 DIP_MIN_DEG = 10.0         # con menos inclinacion, el signo del campo no se puede decidir
 DIP_RANGE_WARN_DEG = 25.0
+DIP_POSE_DEG = 12.0         # una posicion asi de lejos de la mediana estaba perturbada
 MAG_AGREE_WARN_DEG = 15.0
+MAG_OUTLIER = 0.25          # fuera de +-25 % del radio, la muestra tenia algo magnetico cerca
+POSE_BODY = np.array([[1, 0, 0], [-1, 0, 0], [0, 0, -1], [0, 0, 1], [0, 1, 0], [0, -1, 0]], float)   # lo que mide el acelerometro en cada posicion, en cuerpo
+POSE_MATCH_DEG = 45.0
+# Montaje del LSM en ambos cohetes, medido el 2 y 3 nov (X del cuerpo = +Y del chip). Solo sirve para nombrar las posiciones.
+LSM_NOMINAL = dict(R=[[0, 1, 0], [0, 0, -1], [-1, 0, 0]], sesgo_g=[0, 0, 0], escala=[1, 1, 1])
+POSE_FIELD_TOL = 0.05       # una posicion quieta con el campo mas de 5 % fuera del radio estaba sobre algo magnetico
 
 
 def load(path):
@@ -169,6 +176,31 @@ def direction_bins(u):
 
 
 def fit_mag(m):
+    """Ajuste con descarte de lo perturbado (el cohete apoyado sobre algo magnetico). Primero se apartan las muestras
+    muy lejos de la mediana, que arrastrarian el ajuste; despues, lo que quede lejos del elipsoide, y se repite."""
+    keep = np.ones(len(m), bool)
+    if len(m) >= 300:
+        d = np.linalg.norm(m - np.median(m, axis=0), axis=1)
+        keep = d < 2.5 * np.median(d)
+    cal, avis = fit_mag_once(m[keep])
+    for _ in range(4):
+        if cal is None:
+            break
+        r = np.linalg.norm((m - np.array(cal['centro'])) @ np.array(cal['A']).T, axis=1) / cal['radio_G']
+        ok = np.abs(r - 1) < MAG_OUTLIER
+        if (ok == keep).all() or ok.sum() < 300:
+            break
+        keep = ok
+        cal, avis = fit_mag_once(m[keep])
+    if cal is not None and not keep.all():
+        cal['descartadas'] = int((~keep).sum())
+        print(f'  descarte {cal["descartadas"]} de {len(m)} muestras con el campo fuera de lo normal: algo magnetico cerca en ese momento')
+        if cal['descartadas'] > 0.2 * len(m):
+            avis.append(f'{cal["descartadas"]} muestras con campo anomalo: algo magnetico cerca durante la captura')
+    return cal, avis, keep
+
+
+def fit_mag_once(m):
     if len(m) < 300:
         return None, ['pocas muestras']
     c0 = m.mean(0)
@@ -262,10 +294,73 @@ def qmi_gyro_vs_lsm(lsm, qmi):
 def mag_at_poses(m, cal, poses):
     """Campo corregido, sin alinear, en cada posicion quieta."""
     out = []
-    for p in poses:
+    for k, p in enumerate(poses):
         w = (m[:, 0] > p['t1'] + 5e5) & (m[:, 0] < p['t2'] - 5e5)
-        out.append(np.asarray(cal['A']) @ (m[w, 1:].mean(0) - np.asarray(cal['centro'])) if w.any() else None)
+        v = (m[w, 1:] - np.asarray(cal['centro'])) @ np.asarray(cal['A']).T if w.any() else None
+        if v is None:
+            print(f'  posicion {POSES[k]}: sin muestras limpias del magnetometro (campo anomalo en todo el tramo); no cuenta para la inclinacion')
+        if v is not None and abs(np.median(np.linalg.norm(v, axis=1)) / cal['radio_G'] - 1) >= POSE_FIELD_TOL:
+            print(f'  posicion {POSES[poses.index(p)]}: campo anomalo, algo magnetico debajo o cerca; no cuenta para la inclinacion')
+            v = None
+        out.append(None if v is None else v.mean(0))
     return out
+
+
+def match_orientation(poses, t, a, ref):
+    """Las posiciones como POSES segun lo que el montaje `ref` (R, sesgo_g, escala) dice que mide cada una; None si no cuadran."""
+    R = np.array(ref['R'])
+    got = [R @ ((window_mean(t, a, p) - np.array(ref['sesgo_g'])) / np.array(ref['escala'])) for p in poses]
+    out = []
+    for e in POSE_BODY:
+        ang = [np.degrees(np.arccos(np.clip(g @ e / np.linalg.norm(g), -1, 1))) for g in got]
+        i = int(np.argmin(ang))
+        if ang[i] > POSE_MATCH_DEG or poses[i] in out:
+            return None
+        out.append(poses[i])
+    return out
+
+
+def label_geometry(poses):
+    """Ultimo recurso, sin saber como esta montado el chip: nombra las posiciones solo por geometria.
+    Nariz arriba es la primera direccion quieta; nariz abajo, la mas opuesta a ella; marca arriba, la primera de las que
+    quedan en orden de aparicion; marca abajo, la mas opuesta a esa. Las dos que quedan se ordenan con la regla de la mano
+    derecha del cuerpo FRD: Y = Z x X, y 'derecha arriba' es la que apunta hacia +Y. Mide las direcciones sin calibrar:
+    basta para nombrar. No puede saber cual de dos direcciones opuestas es 'arriba': depende de que la primera sea nariz
+    arriba y de que marca arriba aparezca antes que marca abajo."""
+    u = [p['u'] for p in poses]
+    resto = list(range(len(poses)))
+
+    def opuesta(i):
+        j = min(resto, key=lambda k: u[i] @ u[k])
+        resto.remove(j)
+        return j
+
+    n0 = resto.pop(0)
+    n1 = opuesta(n0)
+    m0 = resto.pop(0)
+    m1 = opuesta(m0)
+    z = u[m1] - (u[m1] @ u[n0]) * u[n0]
+    y = np.cross(z, u[n0])
+    d, i = resto
+    if u[d] @ y < 0:
+        d, i = i, d
+    return [poses[k] for k in (n0, n1, m0, m1, d, i)]
+
+
+def label_poses(poses, t, a, prev):
+    """Ordena las posiciones halladas como POSES. Por orientacion, con la calibracion anterior y, si no cuadra, con el montaje
+    nominal; si tampoco cuadra (un cohete montado distinto), por geometria."""
+    if len(poses) != len(POSES):
+        return poses, 'por orden de aparicion'
+    refs = [(prev, 'calibracion anterior')] if prev is not None and prev is not LSM_NOMINAL else []
+    refs.append((LSM_NOMINAL, 'montaje nominal'))
+    for ref, nombre in refs:
+        out = match_orientation(poses, t, a, ref)
+        if out is not None:
+            return out, f'por orientacion ({nombre})'
+    out = label_geometry(poses)
+    note = '' if all(x is y for x, y in zip(out, poses)) else '; el orden fue distinto al de la guia'
+    return out, f'por geometria: no cuadran con ' + ' ni con '.join(n for _, n in refs) + note
 
 
 def dips(b_imu, ups):
@@ -282,7 +377,23 @@ def run(path):
     if not poses and len(d['qmi_t']):
         poses = find_poses(d['qmi_t'], d['qmi_a'])
         out['avisos'].append('sin LSM: posiciones halladas con el QMI')
-    print(f'posiciones quietas distintas: {len(poses)} de {len(POSES)}')
+    # Para nombrar las posiciones: la calibracion vigente si es buena; si no, el montaje nominal, igual en ambos cohetes
+    prev = LSM_NOMINAL
+    role = {'DEM': 'demeter', 'HER': 'hermes'}.get(out['archivo'][:3])
+    here = os.path.dirname(os.path.abspath(__file__))
+    for f in ([f'calib_{role}.json', f'calib_{role}_nuevo.json'] if role else []):
+        try:
+            c = json.load(open(os.path.join(here, f), encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if c.get('ok') and c.get('lsm'):
+            prev = c['lsm']
+            break
+    if len(d['lsm_t']):
+        poses, how = label_poses(poses, d['lsm_t'], d['lsm_a'], prev)
+    else:
+        how = 'por orden de aparicion'
+    print(f'posiciones quietas distintas: {len(poses)} de {len(POSES)}, nombradas {how}')
     for p, n in zip(poses, POSES):
         print(f'  {n:18s} {(p["t2"] - p["t1"]) / 1e6:5.1f} s')
     if len(poses) < len(POSES):
@@ -331,7 +442,8 @@ def run(path):
         if not len(m):
             out['avisos'].append(f'{name}: sin datos')
             continue
-        cal, avis = fit_mag(m[:, 1:])
+        cal, avis, keep = fit_mag(m[:, 1:])
+        m = m[keep]                                  # lo perturbado tampoco sirve para alinear con el giro
         out['avisos'] += [f'{name}: {a}' for a in avis]
         if cal is None:
             continue
@@ -346,15 +458,27 @@ def run(path):
                     out['avisos'].append(f'{name}: sin posiciones quietas no se puede comprobar el signo del campo')
                 else:
                     v = [None if x is None else Rm @ x for x in mag_at_poses(m, cal, poses)]
-                    dp = dips(v, ups)
-                    if dp.mean() < 0:
+                    dp = np.array([np.nan if x is None else dips([x], [u])[0] for x, u in zip(v, ups)])
+                    if np.nanmedian(dp) < 0:
                         Rm, dp, v = -Rm, -dp, [None if x is None else -x for x in v]
                         msg += '; salida invertida respecto a una rotacion pura: determinante -1'
+                    # Una posicion con la inclinacion muy distinta de las demas estaba perturbada: no cuenta
+                    off = np.abs(dp - np.nanmedian(dp)) > DIP_POSE_DEG
+                    for i in np.flatnonzero(off):
+                        print(f'  posicion {POSES[i]}: inclinacion {dp[i]:.1f} grados, lejos de las demas; no cuenta')
+                        v[i] = None
+                    dp = dp[~np.isnan(dp) & ~off]
                     body_mag[name] = v
-                    print(f'  inclinacion en las posiciones: media {dp.mean():.1f} grados, rango {np.ptp(dp):.1f}')
-                    if dp.mean() < DIP_MIN_DEG:
+                    if not len(dp):
+                        out['avisos'].append(f'{name}: ninguna posicion con campo limpio: repite las posiciones lejos de metal y aparatos')
+                        print('  inclinacion en las posiciones: ninguna posicion limpia')
+                    else:
+                        print(f'  inclinacion en las posiciones: media {dp.mean():.1f} grados, rango {np.ptp(dp):.1f}, con {len(dp)} posiciones')
+                    if 0 < len(dp) < 3:
+                        out['avisos'].append(f'{name}: solo {len(dp)} posiciones con campo limpio: repite las posiciones lejos de metal y aparatos')
+                    if len(dp) and dp.mean() < DIP_MIN_DEG:
                         out['avisos'].append(f'{name}: inclinacion de {dp.mean():.1f} grados: signo del campo dudoso')
-                    if np.ptp(dp) > DIP_RANGE_WARN_DEG:
+                    if len(dp) and np.ptp(dp) > DIP_RANGE_WARN_DEG:
                         out['avisos'].append(f'{name}: la inclinacion cambia {np.ptp(dp):.1f} grados entre posiciones: metal cerca o mala calibracion; repite')
                 print(f'  ejes respecto al LSM: {Rm.round(3).tolist()}  ({msg})')
                 cal['R_imu_desde_mag'] = Rm.tolist()
@@ -364,8 +488,11 @@ def run(path):
 
     if len(body_mag) == 2:
         par = [np.degrees(np.arccos(np.clip(a @ b / np.linalg.norm(a) / np.linalg.norm(b), -1, 1))) for a, b in zip(body_mag['mmc'], body_mag['qmc']) if a is not None and b is not None]
-        print(f'MMC contra QMC en las posiciones: {min(par):.1f} a {max(par):.1f} grados')
-        if max(par) > MAG_AGREE_WARN_DEG:
+        if par:
+            print(f'MMC contra QMC en las posiciones: {min(par):.1f} a {max(par):.1f} grados')
+        else:
+            out['avisos'].append('MMC y QMC: ninguna posicion limpia en los dos para compararlos')
+        if par and max(par) > MAG_AGREE_WARN_DEG:
             out['avisos'].append(f'MMC y QMC difieren hasta {max(par):.1f} grados: revisar ejes o signo')
 
     out['ok'] = not out['avisos'] and all(k in out for k in ('lsm', 'qmi', 'mmc', 'qmc'))
