@@ -184,3 +184,41 @@ Las marcas (P) las fijó el documentador; se pueden ajustar en la revisión del 
 - bit 0: el buzzer está activo (el patrón corre);
 - bit 1: el pulso de la Pi está en curso;
 - bit 2: se envió algún pulso a la Pi desde el arranque.
+
+## 8. Especificación de la persistencia en vuelo (T-411, D-015 y D-052)
+
+Las marcas (P) las fijó el documentador; se pueden ajustar en la revisión del PR.
+
+**Qué se guarda** (un registro con `magic`, versión y CRC):
+- el estado y el momento;
+- `s_boosted` y `flags` (`TF_BOOST_SIN_ARMAR`, `TF_FORZADO`);
+- los `p0` de cada barómetro y cuál era válido;
+- el UTC del BOOST (ms), si había hora;
+- el `boot_count`.
+
+**Dónde:**
+- en **memoria RTC sin inicializar** (`RTC_NOINIT_ATTR`): sobrevive a reinicios por software, por watchdog y por brownout;
+- **y** en NVS (`Preferences`, espacio `tbmis`, el mismo del contador): sobrevive a un corte de energía.
+- Al arrancar, primero se lee la RTC (si es válida) y si no, la NVS.
+
+**Cuándo se escribe:** solo en las transiciones:
+- al entrar a FLY;
+- en cada cambio de momento;
+- al entrar a RECOVERY;
+- al salir a TIERRA o ARMED, donde se **invalida**.
+- Nunca periódicamente: NVS se desgasta.
+
+**Al arrancar con un registro válido:**
+
+| Estado guardado | Qué hace |
+| --- | --- |
+| FLY | Vuelve a FLY con el mismo momento, `s_boosted` y `p0`; registra (archivo nuevo, sin reserva); 10 Hz; levanta **`TF_REANUDADO`** |
+| RECOVERY | Vuelve a RECOVERY: 2 Hz, buzzer (T-413); el registro de `t_post` no se repite; `TF_REANUDADO` |
+| Cualquier otro, o registro inválido | Arranque normal en TIERRA |
+
+**Además:**
+- Queda un `T_MISSION` automático: `op = 0`, `arg = 3` (reanudado), `from` y `to` = el estado guardado.
+- **Para salir de un estado reanudado en el banco:** `estado tierra`, que con BOOST pide confirmación (§2). Eso invalida el registro.
+- **D-051:** en esta misma tarea, un comando con `RZ_OP` responde `CR_ERROR` y no se puede confirmar.
+
+**TELEM:** `flags` bit 4 = `TF_REANUDADO` (16). Se mantiene hasta el siguiente reinicio o hasta pasar a TIERRA.
