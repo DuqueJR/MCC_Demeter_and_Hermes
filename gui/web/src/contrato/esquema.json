@@ -44,7 +44,7 @@
           ]
         },
         "proto_version": {
-          "enum": [2, 3]
+          "enum": [2, 3, 4]
         },
         "sitio": {
           "type": "object",
