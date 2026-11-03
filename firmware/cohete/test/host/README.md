@@ -1,6 +1,6 @@
-# test/host: pruebas en el PC de la detección de BOOST (T-410)
+# test/host: pruebas en el PC de la detección de BOOST (T-410) y de los actuadores (T-413)
 
-Corren con `g++` y Python. **No necesitan PlatformIO, ESP32 ni placa.** Compilan el código de vuelo tal cual (`boost_detect.cpp` y `mission.cpp`) y lo alimentan con las simulaciones de OpenRocket y con casos de manipulación.
+Corren con `g++` y Python. **No necesitan PlatformIO, ESP32 ni placa.** Compilan el código de vuelo tal cual (`boost_detect.cpp`, `mission.cpp`, `ext_act.cpp` y el `gnd_cmd.cpp` de tierra) y lo alimentan con las simulaciones de OpenRocket y con casos de manipulación.
 
 ## Cómo correrlas
 
@@ -17,8 +17,9 @@ Requisitos: `g++` (probado con 13.3), `python3` y `numpy`. Sale con código 0 si
 | --- | --- |
 | `correr_pruebas.py` | Genera las entradas, compila y corre todo, e imprime una tabla con OK/FALLA/INFO |
 | `prueba_boost.cpp` | Arnés del módulo puro `src/boost_detect.cpp`: lee un archivo binario y reporta las detecciones. Modos `inercial` (3 columnas, pasa por el gancho `boostLsmSample` con cuentas `int16` del LSM) y `baro` (1 columna, a 50 Hz) |
-| `prueba_mision.cpp` | Compila el `src/mission.cpp` **real** contra los stubs y corre su tarea con un reloj virtual de 20 ms por paso. Un escenario por proceso: `tierra`, `armado`, `launch_sin_boost`, `baro`, `qmi_con_lsm`, `qmi_sin_lsm` |
-| `stubs/` | Cabeceras mínimas de Arduino/FreeRTOS/ESP32, solo para compilar en el PC. También sirven para `g++ -fsyntax-only` de `ext_lsm.cpp` e `in_imu.cpp` |
+| `prueba_mision.cpp` | Compila el `src/mission.cpp` **real** contra los stubs y corre su tarea con un reloj virtual de 20 ms por paso. Un escenario por proceso: `tierra`, `armado`, `launch_sin_boost`, `baro`, `qmi_con_lsm`, `qmi_sin_lsm` (T-410) y, de T-413, `buzzer_patron`, `buzzer_aterrizaje`, `buzzer_recovery`, `pi_demeter`, `pi_vuelo`, `pi_hermes`, `sueno` y `protocolo`. Registra cada `digitalWrite` de IO45 e IO46 con la hora virtual y cuenta los `gpio_hold_*` |
+| `prueba_tierra.cpp` | Compila el `firmware/tierra/src/gnd_cmd.cpp` **real**, le escribe líneas por un `Serial` falso y mira el `Cmd` que sale: `<d\|h> buzzer on\|off`, `<d\|h> pi encender`, los errores de formato y el ciclo NO_APTO → `si` con el motivo 21 |
+| `stubs/` | Cabeceras mínimas de Arduino/FreeRTOS/ESP32 (también `driver/gpio.h`, `RadioLib.h`, `mbedtls/md.h`, `esp_sleep.h`, `secrets.h` de mentira), solo para compilar en el PC. También sirven para `g++ -fsyntax-only` de `ext_lsm.cpp`, `in_imu.cpp`, `ext_act.cpp`, `core_sleep.cpp`, `net_radio.cpp`, `core_selftest.cpp` y `gnd_cmd.cpp` |
 
 Formato del archivo de entrada: `double fs_hz`, `int32 ncol`, `int32 nfilas` y luego `nfilas × ncol` `float32`.
 
@@ -29,10 +30,12 @@ Formato del archivo de entrada: `double fs_hz`, `int32 ncol`, `int32 nfilas` y l
 - **Informativas (no son criterios):** barrido de la sacudida de ±3 g de 1 a 20 Hz, con el eje vertical y con uno horizontal. Muestra el límite del integrador (ver la bitácora de T-410, "Hallazgos").
 - **Barométricas:** el perfil de altura de las sims. a 100 Hz (y decimado a 50 Hz, la tasa de la tarea de misión) con ruido de 0,05 m; negativas: 30 min de reposo con deriva de clima, un dato malo de un solo cuadro (+15 m) y un portazo (+12 m, 60 ms).
 - **Misión:** el gancho por estado (TIERRA, ARMED, LAUNCH sin BOOST), el `T_MISSION` automático, `s_boosted` (las protecciones en vuelo dejan de ser nulas), el QMI como respaldo y el BOOST barométrico.
-- **Sintaxis:** `g++ -std=gnu++11 -fsyntax-only` de `boost_detect.cpp`, `mission.cpp`, `ext_lsm.cpp` e `in_imu.cpp` con los stubs.
+- **Actuadores (T-413):** con el patrón de buzzer de 500/1500 ms y el pulso de la Pi de 1500 ms medidos con el reloj virtual (valores escritos a mano en la prueba, no tomados de las constantes); el buzzer automático en RECOVERY y en ATERRIZAJE (sin reiniciar el patrón) y apagado en TIERRA; `pi encender` → NO_APTO con el motivo 21 y, confirmado, el pulso; en FLY con BOOST, además `RZ_EN_VUELO`; en Hermes, `RZ_OP` y IO45 nunca sube; los bits de `actuators`; `extActSleep()` (pines en bajo, `gpio_hold`, nada los reactiva) y las órdenes de texto de tierra.
+- **Sintaxis:** `g++ -std=gnu++11 -fsyntax-only` de `boost_detect.cpp`, `mission.cpp`, `ext_lsm.cpp`, `in_imu.cpp`, `ext_act.cpp`, `core_sleep.cpp`, `net_radio.cpp`, `core_selftest.cpp` y `tierra/gnd_cmd.cpp` con los stubs.
 
 ## Qué NO prueba
 
 - La sincronización entre núcleos en el chip, la tasa real del FIFO ni los tiempos de CPU. Eso va en el banco (P-04) y con el IMU en una mesa.
 - La respuesta real del LSM (su filtro pasa-bajas) ni la vibración del motor.
-- Los demás momentos (T-412), la persistencia (T-411) ni los actuadores (T-413).
+- Los demás momentos (T-412) ni la persistencia (T-411).
+- **Los pines reales (T-413):** que IO45 e IO46 salgan en bajo, que `gpio_hold_en` los retenga en el sueño profundo y que `gpio_hold_dis` los libere al despertar solo se ve en el chip, con un multímetro u osciloscopio. El PC solo comprueba que el código los pide en el orden correcto. Tampoco corre `net_radio.cpp` (solo se revisa que asigne `p.actuators`).

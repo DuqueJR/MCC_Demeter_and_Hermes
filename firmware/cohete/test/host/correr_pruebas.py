@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pruebas en el PC de la deteccion de BOOST (T-410): genera las entradas, compila prueba_boost.cpp con g++ y comprueba los criterios.
+"""Pruebas en el PC de la deteccion de BOOST (T-410) y de los actuadores (T-413): genera las entradas, compila prueba_boost.cpp con g++ y comprueba los criterios.
 
 Uso:  python3 firmware/cohete/test/host/correr_pruebas.py [--reposo-min 30] [--semilla 1]
 Necesita: g++ y numpy. No toca la placa ni PlatformIO. Escribe en test/host/entradas/ y test/host/build/ (ignorados por git).
@@ -122,16 +122,23 @@ def compilar_mision():
     src = AQUI.parent.parent / "src"
     inc = ["-I" + str(AQUI / "stubs"), "-I" + str(src.parent.parent / "common" / "net_proto"), "-I" + str(src.parent.parent / "common"), "-I" + str(src)]
     cmd = ["g++", "-std=gnu++11", "-O1", "-Wall", "-Wextra"] + inc + ["-o", str(BUILD / "prueba_mision"), str(AQUI / "prueba_mision.cpp"),
-           str(src / "mission.cpp"), str(src / "boost_detect.cpp")]
+           str(src / "mission.cpp"), str(src / "boost_detect.cpp"), str(src / "ext_act.cpp")]
+    print("$", " ".join(cmd))
+    subprocess.run(cmd, check=True)
+    # T-413: ordenes de texto de tierra (gnd_cmd.cpp real con stubs)
+    tierra = src.parent.parent / "tierra" / "src"
+    cmd = ["g++", "-std=gnu++11", "-O1", "-Wall", "-Wextra"] + inc + ["-I" + str(tierra), "-o", str(BUILD / "prueba_tierra"), str(AQUI / "prueba_tierra.cpp"), str(tierra / "gnd_cmd.cpp")]
     print("$", " ".join(cmd))
     subprocess.run(cmd, check=True)
     sintaxis = []
-    for f in ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp"):
+    for f in ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp"):
         sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + [str(src / f)], capture_output=True, text=True))
-    # in_imu.cpp incluye LoRaBoards.h (el de la placa, con Wire.h y XPowersLib): se revisa desde una copia para que gane el stub
-    copia = BUILD / "in_imu.cpp"
-    copia.write_text((src / "in_imu.cpp").read_text())
-    sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + [str(copia)], capture_output=True, text=True))
+    sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + ["-I" + str(tierra), str(tierra / "gnd_cmd.cpp")], capture_output=True, text=True))
+    # Estos incluyen LoRaBoards.h (el de la placa, con Wire.h y XPowersLib): se revisan desde una copia en build/ para que gane el stub
+    for f in ("in_imu.cpp", "core_sleep.cpp", "net_radio.cpp", "core_selftest.cpp"):
+        copia = BUILD / f
+        copia.write_text((src / f).read_text())
+        sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + [str(copia)], capture_output=True, text=True))
     return sintaxis
 
 
@@ -220,7 +227,28 @@ def main():
         anotar("mision: " + que, r.returncode == 0, "ver `build/prueba_mision %s`" % esc if r.returncode else "todas las comprobaciones pasan")
         if r.returncode:
             print(r.stdout)
-    for nombre, r in zip(("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "in_imu.cpp"), sintaxis):
+    # --- Actuadores (T-413): mission.cpp y ext_act.cpp reales, pines registrados con reloj virtual ---
+    for esc, que in (("buzzer_patron", "buzzer: patron 500/1500 ms, off al instante, RZ_OP con arg 2, apto en ARMED"),
+                     ("buzzer_aterrizaje", "buzzer: suena en ATERRIZAJE y RECOVERY (sin reiniciar el patron), calla en TIERRA"),
+                     ("buzzer_recovery", "buzzer: suena al forzar RECOVERY y sigue tras t_post"),
+                     ("pi_demeter", "Pi: NO_APTO con el motivo 21; con la confirmacion, pulso de 1500 ms; bits 1 y 2 de actuators"),
+                     ("pi_vuelo", "Pi: en FLY con BOOST tambien RZ_EN_VUELO"),
+                     ("pi_hermes", "Pi: en Hermes RZ_OP y nunca se pulsa IO45"),
+                     ("sueno", "sueno: pines en bajo y retenidos (gpio_hold), nada los reactiva, se liberan al despertar"),
+                     ("protocolo", "net_proto.h: ops 10 y 11, motivo 21, RZ_COUNT = 22, textos, constantes de ext_act.h")):
+        r = subprocess.run([str(BUILD / "prueba_mision"), esc], capture_output=True, text=True)
+        anotar("actuadores: " + que, r.returncode == 0, "ver `build/prueba_mision %s`" % esc if r.returncode else "%d comprobaciones, todas pasan" % r.stdout.count("[OK]"))
+        if r.returncode:
+            print(r.stdout)
+    r = subprocess.run([str(BUILD / "prueba_tierra")], capture_output=True, text=True)
+    anotar("tierra: gnd_cmd.cpp real: buzzer on|off, pi encender, confirmacion con el motivo 21", r.returncode == 0,
+           "ver `build/prueba_tierra`" if r.returncode else "%d comprobaciones, todas pasan" % r.stdout.count("[OK]"))
+    if r.returncode:
+        print(r.stdout)
+    nr = (AQUI.parent.parent / "src" / "net_radio.cpp").read_text()
+    anotar("net_radio.cpp: TELEM.actuators sale de extActBits() (revision de texto: la radio no corre en el PC)", "p.actuators = extActBits();" in nr and '#include "ext_act.h"' in nr, "buildTelem asigna p.actuators")
+    nombres = ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "tierra/gnd_cmd.cpp", "in_imu.cpp", "core_sleep.cpp", "net_radio.cpp", "core_selftest.cpp")
+    for nombre, r in zip(nombres, sintaxis):
         anotar("g++ -std=gnu++11 -fsyntax-only %s (con stubs)" % nombre, r.returncode == 0 and "warning" not in r.stderr, r.stderr.strip()[:200] or "sin errores ni avisos")
 
     ancho = max(len(f[0]) for f in filas)
