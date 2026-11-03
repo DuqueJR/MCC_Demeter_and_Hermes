@@ -25,8 +25,8 @@ Formato del archivo de entrada: `double fs_hz`, `int32 ncol`, `int32 nfilas` y l
 ## Qué prueba
 
 - **Positivas inerciales:** las dos simulaciones de `datos/simulaciones/openrocket/`, convertidas a fuerza específica (`|a|` = aceleración cinemática vertical + 1 g), remuestreadas a 1600 Hz y a 1666,67 Hz (la del LSM real), con ruido σ = 0,01 g por eje, 2 s de reposo antes del despegue y 5 semillas de ruido. Criterio: BOOST en < 0,2 s desde el despegue (se suma el peor caso de 20 ms de la tarea de misión, que lee la bandera a 50 Hz).
-- **Negativas inerciales (cero detecciones):** golpe de 10 g y 20 ms; impacto de 20 g y 10 ms; sacudida de ±3 g a 5 Hz durante 5 s (eje vertical); 30 min de reposo con ruido. Los golpes son rectangulares (el peor caso).
-- **Informativas (no son criterios):** barrido de la sacudida de ±3 g de 1 a 20 Hz, con el eje vertical y con uno horizontal. Muestra el límite del integrador (ver la bitácora de T-410, "Hallazgos").
+- **Negativas inerciales (cero detecciones):** golpe de 10 g y 20 ms; impacto de 20 g y 10 ms (los dos rectangulares, el peor caso); 30 min de reposo con ruido; y el barrido de la sacudida de ±3 g durante 5 s, de 3 a 20 Hz, en el eje vertical (|a| = |1 + 3·sen|) y en uno horizontal (|a| = √(1 + 9·sen²)). Criterio con el decaimiento de dv (D-048).
+- **Informativas:** la sacudida de ±3 g a 1 y 2 Hz solo reporta el dv máximo: mueve el cohete más de un metro, es movimiento real.
 - **Barométricas:** el perfil de altura de las sims. a 100 Hz (y decimado a 50 Hz, la tasa de la tarea de misión) con ruido de 0,05 m; negativas: 30 min de reposo con deriva de clima, un dato malo de un solo cuadro (+15 m) y un portazo (+12 m, 60 ms).
 - **Misión:** el gancho por estado (TIERRA, ARMED, LAUNCH sin BOOST), el `T_MISSION` automático, `s_boosted` (las protecciones en vuelo dejan de ser nulas), el QMI como respaldo y el BOOST barométrico.
 - **Sintaxis:** `g++ -std=gnu++11 -fsyntax-only` de `boost_detect.cpp`, `mission.cpp`, `ext_lsm.cpp` e `in_imu.cpp` con los stubs.
