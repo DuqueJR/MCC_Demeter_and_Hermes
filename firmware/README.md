@@ -1,17 +1,46 @@
 # firmware/
 
-Proyecto **PlatformIO** con Arduino-ESP32 (D-016). Lo crea la tarea **T-002**.
+**Copia del firmware de Pablo Tilano** (`ptilanom/DEMETER`, snapshot `17139b2`; D-037). **No se edita a mano:** los cambios se hacen en el repo de Pablo y se re-sincronizan aquí (T-007). El único cambio local es el parche P1: rutas relativas en los `platformio.ini` y sin `build_cache_dir`.
 
-| Environment | Placa | Configuración |
+| Carpeta | Contenido |
+| --- | --- |
+| `cohete/` | Firmware de vuelo (T-Beam S3 Supreme), un proyecto PlatformIO |
+| `tierra/` | Firmware de la estación de tierra (T-Beam V1.x) |
+| `common/` | Encabezados compartidos (`net_proto/`) y `lilygo_local.patch` |
+| `vendor/Lilygo-LoRa-Series` | Submódulo LilyGO, fijado en `1991b1e` |
+
+## Environments
+
+| Proyecto | Env | Qué es |
 | --- | --- | --- |
-| `supreme_hermes` | T-Beam Supreme (ESP32-S3) | `ROCKET_ID=2`, `MODULO_VISIONPACK=0` |
-| `supreme_demeter` | T-Beam Supreme (ESP32-S3) | `ROCKET_ID=1`, `MODULO_VISIONPACK=1` |
-| `modem_v12` | T-Beam V1.2 (ESP32, SX1262) | Módem TDMA de la estación |
+| `cohete` | `demeter` | Demeter, potencia de banco (10 dBm) |
+| `cohete` | `hermes` | Hermes, potencia de banco (10 dBm) |
+| `cohete` | `demeter_campo` | Demeter a 22 dBm, para alcance y vuelo |
+| `cohete` | `hermes_campo` | Hermes a 22 dBm, para alcance y vuelo |
+| `cohete` | `hermes_sinhora` | Prueba: Hermes sin anclar la hora al GNSS. No es para vuelo |
+| `tierra` | `tierra` | Estación de tierra, potencia de banco |
+| `tierra` | `tierra_campo` | Estación de tierra a 22 dBm |
 
-**Leer primero:**
-- [firmware_vuelo](../docs/04_diseno/firmware_vuelo.md)
-- [buses_y_pines](../docs/03_hardware/buses_y_pines.md)
-- [enlace_lora_tdma](../docs/04_diseno/enlace_lora_tdma.md)
-- [protocolo_paquetes](../docs/04_diseno/protocolo_paquetes.md)
-- [maquina_estados](../docs/04_diseno/maquina_estados.md)
-- [constantes](../docs/02_requisitos/constantes.md): se replican en `config.h` con los mismos nombres.
+**Nunca transmitas sin la antena conectada.** En el banco, usa los envs de banco.
+
+## Preparar
+
+```
+git submodule update --init firmware/vendor/Lilygo-LoRa-Series
+git -C firmware/vendor/Lilygo-LoRa-Series apply ../../common/lilygo_local.patch
+cp firmware/common/net_proto/secrets.h.ejemplo firmware/common/net_proto/secrets.h
+```
+
+Luego se pone la clave real en `secrets.h` (la misma en las tres placas; la custodia es de Pablo). `secrets.h` está ignorado por git: nunca se versiona. El parche del submódulo queda solo en tu copia de trabajo: no se commitea.
+
+## Compilar y cargar
+
+```
+pio run -d firmware/cohete -e demeter -e hermes
+pio run -d firmware/tierra -e tierra
+pio run -d firmware/cohete -e demeter_campo -t upload --upload-port <puerto>
+```
+
+Los `upload_port` y `monitor_port` de los `platformio.ini` son los COM de la máquina de Pablo: usa `--upload-port`.
+
+Herramientas de PC (dashboard, descarga y análisis de logs): `tools/tbeam/`.
