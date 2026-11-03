@@ -1,143 +1,132 @@
 ---
 id: constantes
-estado: vivo. Es la fuente única de los números del proyecto.
-actualizado: 2026-10-24
+estado: vivo. Es la fuente única de los números del proyecto. Desde el 2026-11-03 (D-037), los números del firmware se **describen** aquí y su fuente de verdad es el código de Pablo.
+actualizado: 2026-11-03
 ---
 # Constantes y límites
 
-**Regla para agentes y humanos:** todo número del sistema sale de aquí.
-- El firmware lo replica en `config.h` y el software de tierra en `constantes.py`, **con los mismos nombres**.
-- Si un valor cambia, se cambia primero aquí, y en la columna "Origen" se anota por qué.
-- `(P)` = provisional: se ajusta con la simulación o los perfiles sintéticos (prueba P-03). `(V)` = falta verificar contra el hardware.
+**Reglas para agentes y humanos:**
+- **Firmware (desde D-037):** el dueño es Pablo, y sus valores viven en su código (`net_proto.h`, `mission_config.h`, `platformio.ini`…).
+  - Aquí se **copian con su nombre en el código** y su archivo, para que el resto del sistema (estación, web, documentos) los use.
+  - Si una sincronización cambia un valor, se actualiza aquí en la misma tarea ([sincronizacion_firmware_pablo](../05_plan/sincronizacion_firmware_pablo.md) §4.8).
+- **Estación, web y herramientas propias:** este documento sigue siendo la fuente. `constantes.py` y `constantes.ts` lo replican con los mismos nombres.
+- `(P)` = provisional · `(V)` = falta verificar contra el hardware.
+- **Los valores de la v1** (radio SF6 a 919 MHz, ciclo de 100 ms, protocolo v2, umbrales de las 10 fases, pines B′) están en [99_archivo/diseno_v1](../99_archivo/diseno_v1/). Solo los usa todavía el generador sintético de la web (`tools/web_datos/`), que produce `web-1` y no depende del protocolo de radio.
 
 ## 1. Concurso y físicas (no las decidimos nosotros)
 
 | Nombre | Valor | Origen |
 | --- | --- | --- |
-| `FECHA_LANZAMIENTO_CAT3` | 2026-11-08 | Cronograma del CCCD |
-| `SITIO` | Santa Fe de Antioquia: 6,582° N, −75,823° E, **510 m s.n.m.** | Simulación de OpenRocket de Demeter ([perfiles_vuelo](perfiles_vuelo.md)) |
+| `FECHA_LANZAMIENTO_CAT3` | 2026-11-08 | Cronograma del CCCD (confirmado por el usuario el 2026-11-03) |
+| `SITIO` | Santa Fe de Antioquia: 6,582° N, −75,823° E, **510 m s.n.m.** | Simulación de OpenRocket |
 | `CANSAT_MASA_G` | 250–300 | Ficha de la Cat 3 |
 | `ATERRIZAJE_V_MAX_MS` | 11 | DCP |
 | `INTEGRACION_MAX_MIN` | 15 | DCP |
-| `MOTORES` | **Demeter: H135W-8. Hermes: G80-7T.** | Usuario, 2026-10-24 (confirmado), y la simulación de Demeter |
+| `MOTORES` | **Demeter: H135W-8, 1,469 kg. Hermes: G80-7T, 1,157 kg.** | Usuario (2026-10-24) y las masas de la simulación (Pablo, `mission_config.h`) |
 | Recuperación | Solo por la eyección del motor. **Prohibido el despliegue electrónico.** | DCP |
 
-## 2. Radio y TDMA ([enlace_lora_tdma.md](../04_diseno/enlace_lora_tdma.md))
+## 2. Radio y TDMA ([enlace_lora_tdma](../04_diseno/enlace_lora_tdma.md)), `net_proto.h`
 
-| Nombre | Valor | Origen |
+| Nombre en el código | Valor | Nota |
 | --- | --- | --- |
-| `LORA_FREQ_MHZ` | 919,0 (por defecto) | D-001 |
-| `LORA_CANALES` | 916,0 · 919,0 · 922,0 · 925,0 MHz (V: regulación) | D-001. Se evita 905–915 por la reserva para IMT (ANE, por confirmar) y 915,0 por ser el canal más usado. |
-| `LORA_SF` | 6 (plan B: 5) | D-001 |
-| `LORA_BW_KHZ` | 500 | D-001 |
-| `LORA_CR` | 5 (es decir, 4/5) | D-001 |
-| `LORA_PREAMBULO` | 8 | D-001 |
-| `LORA_SYNC_WORD` | 0xD3 (RadioLib lo escribe como 0xD434 en el SX126x) | Nota original + ficha sx1262 |
-| `LORA_TX_DBM` | 22 (banco de pruebas: 0–10) | D-001 |
-| `LORA_CRC` | Activado | |
-| `TDMA_CICLO_MS` | 100 | D-002 |
-| `TDMA_SLOT_MS` | 25 | D-002 |
-| `TDMA_GUARD_INICIO_MS` | 2 | D-002 |
-| `TDMA_TOA_MAX_MS` | 16 | D-002 |
-| `TDMA_HOLDOVER_MAX_S` | 120 | D-003 |
-| `ALOHA_TASA_HZ` | 2 | D-004 |
-| `ALOHA_JITTER_MAX_MS` | 100 | D-004 |
-| `NODO_TIERRA` / `NODO_DEMETER` / `NODO_HERMES` / `NODO_TODOS` | 0 / 1 / 2 / 0x0F | Nota original (Demeter 1, Hermes 2) |
+| `FREQ_MHZ` | 903,0 | (V) contra la ANE, PEN-13 |
+| `SF` / `BW_KHZ` / `CR` | 7 / 500 / 5 (4/5) | |
+| `SYNC` / `PREAMBLE` | 0xD3 / 8 | |
+| `NET_TX_DBM` / `GND_TX_DBM` | 10 (banco) · **22 (envs `_campo`: alcance y vuelo)** | `platformio.ini` |
+| `SLOT_US` / `SLOTS_PER_S` | 40 000 / 25 | Grupos T A B A B |
+| `TX_OFFSET_US` | 2000 | La TX empieza a +2 ms de la ranura |
+| `RX_OPEN_US` / `RX_CLOSE_US` | 6000 / 24 000 | La ventana del cohete en las ranuras de tierra |
+| `BEACON_AIR_US` | 12 864 | El Beacon de 18 B |
+| Ranuras base | Demeter 1 y 13 · Hermes 2 y 14 (2 Hz) | 10 Hz en vuelo, con las de extensión |
+| `MAX_ERR_US` | 2000 | Con más error de hora, baliza lenta (`net_radio.cpp`) |
+| `BEACON_MIN_MS` / `MAX_MS` | 1000 / 3000 | La baliza lenta sin hora |
+| `CONFIRM_WINDOW_MS` | 10 000 | Confirmación de los comandos no aptos |
+| `RESP_REPEATS` | 2 | Veces que sale una CmdResp |
+| `LOG_INFO_MS` | 5000 | LogInfo en lugar de un TELEM |
+| `RETRY_MS` / `MAX_TRIES` | 1500 / 4 | Reintentos de comandos en tierra (`gnd_cmd.cpp`) |
+| `NODO`: tierra / Demeter / Hermes | 0 / 1 / 2 (`RocketId`) | |
 
-## 3. Protocolo ([protocolo_paquetes.md](../04_diseno/protocolo_paquetes.md))
+## 3. Protocolo ([protocolo_paquetes](../04_diseno/protocolo_paquetes.md))
 
 | Nombre | Valor |
 | --- | --- |
-| `PROTO_VERSION` | 2 |
-| `LEN_NAV` / `LEN_STATUS` / `LEN_BEACON` / `LEN_ACK` / `LEN_BACKFILL` | 44 / 42 / 14 / 12 / 44 |
-| `LEN_CMD` | 17 + `arg_len` (0–8) |
-| `PAQUETE_SLOT_MAX` | 61 B (≤ 16 ms con SF6/BW500) |
-| `STATUS_CADA_CICLOS` | 10 |
-| `CMD_REINTENTOS_MAX` | 10 |
+| Largo de TELEM / BEACON / CMD / CMD_RESP / LOG_INFO | 64 / 18 / 20 / 28 / 54 B (`static_assert`) |
+| `TAG_LEN` (HMAC-SHA256 truncado) | 8 B |
 | `Q15_ESCALA` | 32767 |
-| Valores de "sin dato" | i8 −128 · i16 −32768 · i32 −2³¹ · u8 0xFF · u16 0xFFFF |
-| `ESTADO_SEC_NO_APLICA` / `ESTADO_SEC_SIN_RESPUESTA` | 0xFF / 0xFE |
+| `NET_KEY` | **No va en el repo:** `firmware/common/net_proto/secrets.h`, la misma en las tres placas |
+| `USB_TIERRA_BAUD` | 115200 (reemplaza a `MODEM_USB_BAUD` = 921600) |
 
-## 4. Máquina de estados ([maquina_estados.md](../04_diseno/maquina_estados.md))
+## 4. Misión ([maquina_estados](../04_diseno/maquina_estados.md)), `mission.cpp` y `mission_config.h`
+
+| Nombre en el código | Demeter | Hermes | Nota |
+| --- | --- | --- | --- |
+| `boost_dv_mps` | 5 | 5 | (P) |
+| `jump_m` / `jump_s` | 10 / 0,5 | 10 / 0,5 | (P) |
+| `t_burn_max` | 3,0 s | 2,7 s | (P) |
+| `t_apogeo_min` / `t_apogeo_max` | 7,0 / 16,0 s | 5,5 / 13,0 s | (P) |
+| `t_para_max` | 13,0 s | 12,0 s | (P) |
+| `t_vuelo_max` | 210 s | 140 s | (P) |
+| `t_abort` / `t_post` | 120 / 60 s | 120 / 60 s | |
+| `vbat_arm_mv` | 3700 | 3700 | (P) |
+| `ACC_REST_G` | 0,25 | | Tolerancia de quietud (acelerómetros sin calibrar) |
+| `VZ_MOVING_MPS` | 2,0 | | "Subiendo" o "bajando" |
+| `REF_TAU_S` / `ALT_TAU_S` | 60 / 0,2 s | | `p0` en TIERRA / el filtro de la altura |
+| `FRESH_US` | 500 000 | | Una fuente sin datos en este tiempo cuenta como caída |
+
+**Los que usa la estación y la web** (siguen siendo nuestros):
 
 | Nombre | Valor | Notas |
 | --- | --- | --- |
-| `LAUNCH_ACC_G` | 3,0 (P) | El T/W mínimo es 5, así que la aceleración específica en el despegue es ≥ 5 g |
-| `LAUNCH_VENTANA_MS` | 100 (P) | Filtra los golpes al manipular el cohete |
-| `BURNOUT_ACC_G` | 0,5 (P) | |
-| `BURNOUT_VENTANA_MS` | 100 (P) | |
-| `APOGEO_VENTANA_MS` | 100 (P) | |
-| `APOGEO_CAIDA_M` | 0,5 (P) | |
-| `APOGEO_VZ_SALIDA_MS` | 2,0 (P) | |
-| `DESCENSO_VENTANA_MS` | 1000 (P) | |
-| `EYECCION_ACC_G` | 4,0 (P) | |
-| `EYECCION_VENTANA_MS` | 20 (P) | |
-| `EYECCION_BLOQUEO_BARO_MS` | 300 (P) | |
-| `LANDED_VZ_MS` | 0,5 | |
-| `LANDED_ACC_TOL_G` | 0,05 | |
-| `LANDED_GIRO_MAX_DPS` | 5 | |
-| `LANDED_VENTANA_S` | 5 (P) | |
-| `ALARMA_DESCENSO_MS` | 10,0 | *Objetivos* 7.G. Se evalúa solo en DESCENT. ⚠️ El descenso nominal de Demeter es de 9,2 m/s, así que se propone subirla a 11 con una ventana de 2 s (PEN-20). |
-| `PRETRIGGER_S` | 2 | |
-| `ORIGEN_PROMEDIO_S` | 30 | Promedio GNSS y baro en PREFLIGHT |
-| `GO_HACC_MAX_M` | 5 (P) | |
-| `GO_SV_MIN` | 6 | |
-| `GO_QUIETUD` | `\|a\|` 1 ± 0,05 g y giro < 2 °/s durante 2 s | |
-| `BAT_MIN_ARM_PCT` | 60 (P) | |
-| `SD_MIN_LIBRE_MB` | 500 | |
+| `ALARMA_DESCENSO_MS` | 10,0 | Se evalúa en DESCENT (= momento PARACAIDAS). PEN-20 propone 11 m/s con una ventana de 2 s. El descenso de la sim. es de 9,3 m/s en Demeter y 8,9 m/s en Hermes |
+| `BAT_PCT_VMIN_MV` / `BAT_PCT_VMAX_MV` | 3300 / 4200 (P) | Para pasar `vbat_mv` a `bat_pct` en `web-1` |
 
-## 5. Adquisición y fusión ([firmware_vuelo.md](../04_diseno/firmware_vuelo.md))
+## 5. Adquisición ([firmware_vuelo](../04_diseno/firmware_vuelo.md))
 
-| Nombre | Valor |
-| --- | --- |
-| `ACC_RANGO_G` / `GYRO_RANGO_DPS` | 32 / 2000 |
-| `IMU_ODR_VUELO_HZ` / `IMU_ODR_TIERRA_HZ` | 3330 / 1660 (los valores nominales del LSM6DSO32 son 3,33 y 1,66 kHz) |
-| `BARO_ODR_VUELO_HZ` / `BARO_ODR_TIERRA_HZ` | 240 / 50 (OSR según la ficha bmp581) |
-| `MAG_ODR_VUELO_HZ` / `MAG_ODR_TIERRA_HZ` | 100 / 50 |
-| `GNSS_TASA_HZ` | 10 |
-| `GNSS_MODELO_DINAMICO` | AIR4, valor 8 (airborne <4 g). Es el modelo de más dinámica, pero el impulso llega a 5–20 g: se espera perder el seguimiento unos segundos, y eso lo cubren el holdover y el EKF (ficha max_m10s). **Nunca usar STAT ni PORT** en vuelo. |
-| `GNSS_CONSTELACIONES` | **GPS + Galileo** (permite 10 Hz con la configuración por defecto, según el datasheet). La configuración de fábrica, GPS+GAL+BDS B1I, solo llega a 3 Hz. |
-| `EST_VERTICAL_HZ` / `MADGWICK_HZ` / `EKF_PRED_HZ` / `FSM_HZ` | 500 / 500 / 100 / 100 (P) |
-| `LOG_BUFFER_KB` / `LOG_BLOQUE_KB` / `LOG_ROTAR_MB` | 512 / 16 / 64 |
+| Sensor | Tasa real [Pablo] | Rango / nota |
+| --- | --- | --- |
+| LSM6DSO32 (principal) | 1667 Hz nominal: **1610 (Demeter) / 1560 (Hermes)** | ±32 g, ±2000 °/s |
+| QMI8658 (respaldo) | 445 Hz | ±16 g, ±1024 °/s (`IMU_ACC_FS_G`, `IMU_GYR_FS_DPS`) |
+| BMP581 (por el hub) | ≈ 100 Hz | Mediana de 3 a bordo (10 ms de retraso) |
+| BME280 | ≈ 40 Hz (forzado) | P ×8, T ×1, H ×1, IIR off |
+| MMC5983MA | ≈ 107 Hz | SET cada 100 mediciones |
+| QMC6309 | 100 Hz | ±8 G |
+| GNSS M10S | 10 Hz | DYNMODEL 8 (airborne < 4 g); GPS+GAL+BDS+QZSS+SBAS (por ahora, sin tocar) |
+| SD | SPI a 10 MHz | Archivo de 32 MB; bloque de 4 KB; flush cada 16 bloques |
+| Tarea de misión | 50 Hz (`TASK_MS` = 20) | |
 
 ## 6. VisionPack y operación
 
 | Nombre | Valor |
 | --- | --- |
-| `PI_UART_BAUD` | 115200 |
-| `PI_PULSO_MS` | 1500 (el pulso es a masa por drenador abierto; ver visionpack_integracion) |
-| `PI_CMD_REINTENTOS` / `PI_CMD_ESPERA_MS` | 3 / 200 |
-| Watchdogs de la Pi (del lado de Demeter) | 15 s para el ascenso y 95 s para el descenso (en `demeter_missiond.py`) |
-| `WIFI_AP_SSID` | `EIA-<ROCKET_ID>` (la clave va en la configuración, no en el repo) |
-| `MODEM_USB_BAUD` | 921600 |
+| `PI_UART_BAUD` | 115200 (UART0, GPIO 43/44) |
+| `PI_PULSO_MS` | 1500 (P). Lo da el MOSFET de IO45, en paralelo a J2. **Sin firmware** |
+| Watchdogs de la Pi | 15 s para el ascenso y 95 s para el descenso (en `demeter_missiond.py`) |
+| Puertos del dashboard de Pablo | Tierra `COM5`, Demeter `COM4`, Hermes `COM3`; web en `127.0.0.1:8765` |
 
-## 7. Buses, pines y encendido ([buses_y_pines.md](../03_hardware/buses_y_pines.md))
-
-> ⚠️ **D-022 está reabierta.** Los pines de los sensores externos de abajo son los de la **opción B′, que es la recomendada y es provisional** hasta PEN-18. Ver [buses_y_pines](../03_hardware/buses_y_pines.md) §4.
+## 7. Buses y pines ([buses_y_pines](../03_hardware/buses_y_pines.md))
 
 | Nombre | Valor |
 | --- | --- |
-| `PIN_SD_CLK` / `PIN_SD_CMD` / `PIN_SD_D0` / `PIN_SD_D3` | 36 / 35 / 37 / 47 (la SD en SDMMC de 1 bit, B′) |
-| `PIN_CS_QMI8658` | 34 (se mantiene en alto: QMI8658 deshabilitado en B′) |
-| `PIN_SENS_SCK` / `PIN_SENS_MOSI` / `PIN_SENS_MISO` | 46 / 45 / 3 (host SPI3 por la GPIO matrix, B′) |
-| `PIN_CS_LSM6DSO32` / `PIN_INT_LSM6DSO32` | 38 / 39 |
-| `PIN_CS_BMP581` | 48 (el FIFO se lee por timer cada `BARO_FIFO_POLL_MS` = 50) |
-| `I2C0_SDA` / `I2C0_SCL` · `I2C_ADDR_MMC5983MA` | 17 / 18 · 0x30 |
-| Alimentación de los breakouts externos | **DC1 (3,3 V, PM1)**, con sus pull-ups de los CS en el mismo riel. El DRV5032 se alimenta de **VBAT**. |
-| `I2C1_SDA` / `I2C1_SCL` · `PIN_PMU_IRQ` | 42 / 41 · 40 |
-| `PIN_RADIO_SCK/MOSI/MISO/CS/RST/BUSY/DIO1` | 12 / 11 / 13 / 10 / 5 / 4 / 1 |
-| `PIN_GNSS_TX` / `PIN_GNSS_RX` / `PIN_GNSS_PPS` | 8 / 9 / 6 |
-| `PIN_BUZZER` | 21 (B′, provisional; ver buses_y_pines §6) |
-| `PIN_PI_PULSO` (Demeter) | **2** (IO2 del header, a masa por transistor, con pull-down de 10 kΩ; 🔎 verificar que `RADIO_RETAIN` no lo use) |
-| `PIN_PI_UART_TX` / `PIN_PI_UART_RX` (Demeter) | 43 / 44 |
-| `SPI3_SD_MAX_MS` | 8 (P). Solo aplica en la opción A′ (el bus compartido con la SD). |
-| `PMIC_PWRON_APAGADO_S` | 10. Pulsación larga para apagar, **desactivada desde ARMED hasta LANDED**. |
+| LSM6DSO32 (SPI por software) | SCK 48 · MOSI 3 · MISO 39 · CS 2 · INT1 38 |
+| BMP581 | Por el hub del LSM (0x47) |
+| SD + QMI8658 (SPI de la placa) | SCK 36 · MOSI 35 · MISO 37 · CS SD 47 · CS QMI 34 · INT QMI 33 |
+| I2C0 (BME280, QMC6309, MMC5983MA 0x30) | SDA 17 · SCL 18 |
+| I2C1 (PMU, RTC) · IRQ PMU · INT RTC | 42 / 41 · 40 · 14 |
+| Radio | SCK 12 · MOSI 11 · MISO 13 · CS 10 · RST 5 · BUSY 4 · DIO1 1 |
+| GNSS | TX 8 · RX 9 · PPS 6 |
+| `EXT_DRV_PIN` (DRV5032) | 21 (*wake* de sueño profundo, activo en bajo) |
+| Actuador (Pi PWR_ON / Hermes) | 45 |
+| Buzzer (activo, 5 V) | 46 |
+| UART de la Pi | TXD 43 · RXD 44 |
+| Alimentación de los externos | ALDO2 (3V3_SENS) |
 
-## 8. Montaje (pendiente)
+## 8. Montaje y calibración
 
 | Nombre | Valor |
 | --- | --- |
-| `R_MONTAJE_LSM6DSO32`, `R_MONTAJE_MMC5983MA`, `R_MONTAJE_QMI8658`, `R_MONTAJE_QMC6310` | Matrices de rotación del eje del sensor al cuerpo del cohete. **Se miden en el CanSat real.** |
+| Rotación chip → cuerpo, sesgos y escalas | Por cohete, en `tools/tbeam/calib_<cohete>.json` (`calib.py`). **Repetirlas a cielo abierto con el cohete cerrado.** Pueden tener det = −1 (el MMC sale +x −y +z) |
+| Retardo del QMI frente a su marca | 42 ms (los dos cohetes) [Pablo] |
+| Declinación magnética | −8° (aprox., sin confirmar) |
 
 ## 9. Web pública y dashboard de operación ([08_gui](../08_gui/00_README.md))
 

@@ -23,12 +23,17 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 
 - **Toda la documentación vigente está en `docs/`.** Empieza por **`docs/00_INDICE.md`**, que es el mapa y tiene las reglas.
 - Los números (umbrales, tasas, tamaños, IDs) salen **solo** de `docs/02_requisitos/constantes.md`.
-- **Contratos:**
-  - `04_diseno/protocolo_paquetes.md` (LoRa v2)
+- **Firmware de Pablo (D-037, desde el 2026-11-03):** el firmware de vuelo y el de la estación son los de Pablo Tilano ([ptilanom/DEMETER](https://github.com/ptilanom/DEMETER)).
+  - **Él es el dueño:** `firmware/` y `tools/tbeam/` son **copias** que solo cambian en las tareas de sincronización (`05_plan/sincronizacion_firmware_pablo.md`). **No se editan a mano.**
+  - Qué cambió frente a nuestro plan: `05_plan/cambios_por_firmware_pablo.md`. Revisión: `06_revisiones/revision_firmware_pablo.md`.
+- **Contratos** (desde D-037 describen el sistema de Pablo; la v1 está en `99_archivo/diseno_v1/`):
+  - `04_diseno/protocolo_paquetes.md` (`net_proto`, el USB de tierra y la correspondencia con `web-1`)
   - `04_diseno/enlace_lora_tdma.md`
   - `04_diseno/maquina_estados.md`
+  - `04_diseno/formato_log.md`
   - `04_diseno/visionpack_integracion.md` (UART con la Pi)
-  - No se cambian desde el código: primero el documento y una entrada en `04_diseno/decisiones.md`.
+  - `08_gui/05_contrato_datos_web.md` (`web-1`, sin cambios)
+  - No se cambian desde nuestro código: primero el documento y una entrada en `04_diseno/decisiones.md`. Lo del firmware cambia cuando cambia el código de Pablo.
 - **Hardware:** `03_hardware/componentes.md` (el directorio de fichas) y `03_hardware/buses_y_pines.md`.
   - No leas datasheets completos: usa la ficha y busca con grep en el `.md` del datasheet.
 - **Plan:** `05_plan/plan_maestro.md`, `backlog.md` (cada tarea dice qué leer), `plan_pruebas.md`, `riesgos.md` y `pendientes.md`.
@@ -38,12 +43,12 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 
 | Carpeta | Contenido |
 | --- | --- |
-| `firmware/` | Proyecto PlatformIO con 3 environments: `supreme_hermes`, `supreme_demeter` y `modem_v12` |
+| `firmware/` | **Copia del firmware de Pablo (D-043):** `cohete/` (envs `demeter`, `hermes` y `*_campo`), `tierra/` (envs `tierra` y `tierra_campo`), `common/` (`net_proto`) y `vendor/` (el submódulo de LilyGO) |
 | `estacion/` | Servicio de tierra en Python: serial, log crudo, decodificación, comandos y reenviador |
 | `gui/` | Dashboard local y frontend público (web) |
 | `visionpack/` | El código de la Pi de Demeter (`demeter_*.py`). **Tiene bugs bloqueantes:** ver `docs/06_revisiones/revision_codigo_pi_demeter.md` |
 | `datos/` | Datos de entrada que no se editan: las simulaciones de OpenRocket (`datos/simulaciones/openrocket/`), con su catálogo en `datos/README.md` y su análisis en `docs/02_requisitos/perfiles_vuelo.md` |
-| `tools/` | Herramientas de PC: generador de vuelos sintéticos, decodificador del log y análisis del motor |
+| `tools/` | Herramientas de PC. `tools/tbeam/` es la copia de las de Pablo (`dashboard.py`, `tbget.py`, `tblog.py`, `calib.py`, `ekf.py`); `tools/web_datos/` es el generador de datos de la web |
 | `docs/` | La bóveda de Obsidian con toda la documentación |
 | `docs/fuentes/` | Los documentos originales: `Objetivos_Sistemas.pdf`, `Tabla_componentes.xlsx` y los `.docx`, ya traducidos a `docs/` |
 
@@ -52,9 +57,10 @@ Programan Juan Pablo (Hermes) y Jerónimo (Demeter). Los requisitos son de Pablo
 ## Estado
 
 - Remoto: `git@github.com:DuqueJR/MCC_Demeter_and_Hermes.git`, con las ramas `main` y `develop`.
-- **Código propio integrado en `develop`** (al 2026-10-26): solo la web: `gui/web/` y `tools/web_datos/` (T-610 a T-614, T-620 a T-622, T-624, T-625, T-630 a T-632 y T-634). El firmware y la estación todavía no tienen código; `visionpack/` solo tiene el código heredado de la Pi.
-- **D-022 está reabierta:** el M.2 es interno. Se cierra con la sesión de verificación física (PEN-18, T-003). El cableado espera a esa sesión.
-- Siguiente paso: T-002 y T-003. Lo que no depende de la placa se puede hacer en paralelo: T-304, T-502 y T-701.
+- **2026-11-03:** se adopta el firmware de Pablo (D-037 a D-044). Se importa con T-007 (snapshot `17139b2`). D-022 quedó cerrada por su cableado (D-042).
+- **Código propio en `develop`:** la web (`gui/web/`, `tools/web_datos/`). La estación (T-602) todavía no.
+- **Crítico antes del vuelo:** la detección de BOOST (T-410, en el repo de Pablo), la prueba de alcance a 22 dBm (T-415), la Pi autónoma (T-701), la calibración final (T-416) y la sincronización final (T-008). Ver `05_plan/cambios_por_firmware_pablo.md` §4–§5.
+- **Abiertos con Pablo:** PEN-22 (cómo le llegan los PR) y PEN-23 (las peticiones de contrato).
 
 ## Imágenes generadas (D-W20)
 

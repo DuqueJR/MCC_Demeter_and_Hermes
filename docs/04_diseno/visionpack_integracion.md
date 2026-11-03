@@ -1,7 +1,7 @@
 ---
 id: visionpack_integracion
-estado: propuesta (validar con Jerónimo)
-actualizado: 2026-10-24
+estado: propuesta (validar con Jerónimo). Los pines siguen el cableado de Pablo (D-042). **El firmware de Pablo todavía no implementa nada de esto** (A2 de la revisión): para el 8 de noviembre, la Pi vuela autónoma.
+actualizado: 2026-11-03
 depende_de: [maquina_estados, raspberry_pi_5, ups_x1200, revision_codigo_pi_demeter]
 decisiones: [D-023]
 ---
@@ -10,11 +10,17 @@ decisiones: [D-023]
 Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `visionpack/` (`demeter_*.py`) y su revisión en [revision_codigo_pi_demeter.md](../06_revisiones/revision_codigo_pi_demeter.md).
 **Antes de integrar hay que corregir los bloqueantes 1–4 de esa revisión.**
 
+> **Actualización del 2026-11-03 (D-037, D-042):**
+> - El firmware es el de Pablo y **no tiene UART con la Pi, ni pulso de encendido**.
+> - **Para el 8 de noviembre, la Pi funciona sola** con sus watchdogs, y se enciende a mano antes de cerrar el cohete (T-701 y checklist).
+> - **Su propuesta para después:** la LilyGO le manda el estado (actitud, posición y momento) con marca UTC a 20–50 Hz, y la Pi interpola al instante de cada cuadro (hasta 10 fps). La integración por UART (T-702) se rediseña con él.
+> - Las tablas de abajo quedan como la propuesta original.
+
 ## 1. Enlace UART (ya definido por Demeter, no cambia)
 
 - 115200 baudios, 8N1, niveles de 3,3 V y **masa común**.
-- En la Pi va por `/dev/serial0` (GPIO 14/15). En la LilyGO va por **los GPIO 43 (TX) y 44 (RX)**, en el conector QWIIC o en el M.2 ([buses_y_pines.md](../03_hardware/buses_y_pines.md) §5).
-- **El pulso de encendido sale del IO2** del header (D-022, opción B′), a masa por un transistor.
+- En la Pi va por `/dev/serial0` (GPIO 14/15). En la LilyGO va por **UART0: TXD 43 → 1 kΩ → RX de la Pi y RXD 44 ← TX de la Pi**, con las masas unidas en el pad GND ([buses_y_pines.md](../03_hardware/buses_y_pines.md) §1.2).
+- **El pulso de encendido sale del MOSFET de IO45** (100 kΩ a GND), en paralelo al botón J2 (GND–PWR_ON) de la Pi, de lado bajo (D-042). **Ojo:** una pulsación con la Pi encendida podría apagarla, así que el firmware solo debe pulsar si sabe que la Pi está apagada (Pablo).
 - **No hay GPIO para `cam=1`:** el estado de la cámara se deriva del `PAYLOAD_STATUS` de la UART.
 - **Trama:** `AA 55 | tipo u8 | len u8 | payload | CRC16-CCITT-FALSE` (CRC en big-endian, payload en little-endian). Ver `demeter_protocol.py`.
 
