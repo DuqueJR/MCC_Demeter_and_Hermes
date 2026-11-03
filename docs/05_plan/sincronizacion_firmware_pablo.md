@@ -18,7 +18,7 @@ decisiones: [D-037, D-043]
 
 | Fecha | Commit de Pablo | Tarea | Notas |
 | --- | --- | --- | --- |
-| 2026-11-03 | `17139b2` | T-007 | Primera importación. Revisión: [revision_firmware_pablo](../06_revisiones/revision_firmware_pablo.md) |
+| 2026-11-03 | `17139b2` | T-007 ([PR #35](https://github.com/DuqueJR/MCC_Demeter_and_Hermes/pull/35)) | Primera importación. Revisión: [revision_firmware_pablo](../06_revisiones/revision_firmware_pablo.md). **Compilación sin verificar** (sin red hacia PlatformIO en la sesión en la nube). `lilygo_local.patch` aplica con avisos de espacios en blanco |
 
 Cada sincronización agrega una fila. El commit de importación lleva en el mensaje `Upstream: ptilanom/DEMETER@<hash>`.
 
