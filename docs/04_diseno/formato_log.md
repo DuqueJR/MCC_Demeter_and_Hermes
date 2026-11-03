@@ -38,7 +38,7 @@ reemplaza: 05_plan/dos_sesiones/06_contratos/04_formato_log_y_replay.md (C-04), 
 | 8 / 9 | `BAR` / `BARCAL` | BME280 crudo y compensado / su calibración |
 | 10 | `EXT_LSM` | `ExtLsmRec` + palabras del FIFO del LSM6DSO32 de 7 B (tag + 6): acel., giro, marca del chip y **BMP581 por el hub** (crudo, con las palabras malas) |
 | 11 | `EXT_MMC` | `ExtMmcRec`: MMC5983MA, 16384 cuentas/G, ejes del chip |
-| 12 | `MISSION` | `MissionRec`: comando atendido o cambio de estado (`op`, `arg`, `result`, `from`, `to`, `moment`, `flags`, `reasons`, `counter`) |
+| 12 | `MISSION` | `MissionRec`: comando atendido o cambio de estado (`op`, `arg`, `result`, `from`, `to`, `moment`, `flags`, `reasons`, `counter`). **Automáticos (`op = 0`):** el aviso de `t_abort` (`reasons` = `RZ_SIN_BOOST`); **BOOST detectado (T-410):** `arg` = 1 inercial o 2 barométrico, y `counter` = el `dv` en cm/s (inercial) o el salto en cm (barométrico) |
 | 250 | `EVENT` | `EventRec`: incidentes de la SD (fallo de escritura o reapertura, errno, duración) |
 
 **Fuentes (`src`):** 0 QMI · 1 QMC · 2 BME · 3 GNSS · 4 RTC · 5 PMU · 6 LSM · 7 BMP · 8 MMC · 15 sistema.
