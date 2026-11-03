@@ -87,8 +87,8 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | ID | Pendiente | Quién | Bloquea |
 | --- | --- | --- | --- |
 | PEN-W01 | Fotos del cohete y del equipo, en buena resolución, de cada equipo | Equipos de cohete | T-622 (en W1 se usan imágenes provisionales) |
-| PEN-W02 | Nombres completos y rol de cada integrante. Los parches solo traen apellidos. | Equipos | T-623 |
-| PEN-W03 | Textos de cada parte del cohete y de la misión (los escribimos nosotros y luego se ajustan) | Juan Pablo y Jerónimo | T-623 |
+| PEN-W02 | Nombres completos y rol de cada integrante. Los parches solo traen apellidos. | Equipos | `provisional: false` del contenido (T-623 se cerró con `nombre` y `rol` en `null`) |
+| PEN-W03 | Textos de cada parte del cohete y de la misión (los escribimos nosotros y luego se ajustan). **Propuesta aprobada por el usuario en T-623 (PR #34, 2026-11-03)**; falta que Jerónimo confirme el VisionPack | Juan Pablo y Jerónimo | Nada (ajustes menores) |
 | PEN-W04 | Simulación de Hermes (PEN-07): mientras no exista, los datos de Hermes son sintéticos | Equipo de Hermes | Datos reales de Hermes en T-612 |
 | PEN-W05 | Hosting y dominio. Se decide en W3; el diseño no depende del proveedor. | Juan Pablo y Jerónimo | T-640 |
 | ~~PEN-W06~~ | ~~Que se acepte D-W06~~ | Cerrado el 2026-10-25: aprobado por el usuario | — |
