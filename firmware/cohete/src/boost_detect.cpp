@@ -3,7 +3,6 @@
 #include <math.h>
 
 static const float    G0_MPS2      = 9.80665f;
-static const int64_t  DT_MAX_US    = 5000;                          // mas que esto entre dos muestras es un hueco: no se integra
 static const int64_t  RESET_US     = (int64_t)BOOST_RESET_MS * 1000;
 static const uint32_t VALUE_MASK   = 0x0FFFFFFFu;
 
@@ -13,12 +12,16 @@ bool BoostIntegrator::feed(int64_t t_us, float a) {
     if (dt > RESET_US) { dv_ = 0; below_ = false; }               // hueco largo: no se sabe si |a| se mantuvo
 
     if (a <= BOOST_ACC_MIN_G) {
+        if (dt > 0 && dt <= BOOST_DT_MAX_US) {                    // bajo 2 g dv decae: una sacudida no acumula entre sus semiciclos
+            dv_ -= BOOST_DV_DECAY_G * G0_MPS2 * (float)dt * 1e-6f;
+            if (dv_ < 0) dv_ = 0;
+        }
         if (!below_) { below_ = true; tBelow_ = t_us; }
         else if (t_us - tBelow_ > RESET_US) dv_ = 0;
         return false;
     }
     below_ = false;
-    if (dt <= 0 || dt > DT_MAX_US) return false;                  // primera muestra, reloj atrasado o hueco
+    if (dt <= 0 || dt > BOOST_DT_MAX_US) return false;                  // primera muestra, reloj atrasado o hueco
     dv_ += (a - 1.0f) * G0_MPS2 * (float)dt * 1e-6f;
     if (dv_ < target_) return false;
     hitDv_ = dv_;

@@ -19,6 +19,8 @@ struct MissionCfg {
 // Deteccion de BOOST (T-410, constantes.md seccion 4; los de (P) los revisa Pablo)
 static const float    BOOST_ACC_MIN_G = 2.0f;    // el integrador de velocidad solo suma con |a| por encima de esto
 static const uint32_t BOOST_RESET_MS  = 50;      // |a| <= BOOST_ACC_MIN_G este tiempo seguido: dv = 0
+static const float    BOOST_DV_DECAY_G = 3.0f;   // mientras |a| <= BOOST_ACC_MIN_G, dv baja a este ritmo (en g; piso 0). D-048
+static const int64_t  BOOST_DT_MAX_US = 5000;    // un hueco mayor entre muestras no se integra. D-048
 static const uint8_t  BOOST_BARO_EVAL = 5;       // evaluaciones seguidas (50 Hz) del salto barometrico
 
 inline const MissionCfg &missionCfg(uint8_t rocket) {
