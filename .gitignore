@@ -55,8 +55,8 @@ graphify-out/
 
 # Firmware de Pablo (T-007): la clave de red y las salidas locales de las herramientas
 firmware/common/net_proto/secrets.h
-tools/tbeam/sesiones/
-tools/tbeam/mision.json
+estacion/sesiones/
+estacion/mision.json
 *.BIN
 *.BIN.part
 *_csv/
