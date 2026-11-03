@@ -442,6 +442,30 @@ test.describe("Salud del cohete", () => {
     await expect(salud(page).locator('[data-completa="no"]').first()).toContainText("En proceso");
   });
 
+  test("calibración sin dato (D-050): 'Sin dato' en gris, sin aviso y sin 'En proceso'", async ({
+    page,
+  }) => {
+    const errores = vigilarErrores(page);
+    await abrir(page, "demeter");
+    const base = nominalEn("demeter", T_DESCENSO);
+    await alimentar(
+      page,
+      conSalud(base, {
+        boot_count: null,
+        calib: { giro: null, mag: null, baro: null, origen: null, actitud: null },
+      }),
+    );
+    await expect(resumen(page)).toContainText("Todo en orden");
+    await expect(salud(page).locator('[data-aviso="calibraciones"]')).toHaveCount(0);
+    await salud(page).locator("summary").click();
+    const sinDato = salud(page).locator('[data-completa="sin_dato"]');
+    await expect(sinDato).toHaveCount(5);
+    await expect(sinDato.first()).toContainText("Sin dato");
+    await expect(salud(page).locator('[data-completa="no"]')).toHaveCount(0);
+    await expect(salud(page).locator('[data-completa="si"]')).toHaveCount(0);
+    expect(errores).toEqual([]);
+  });
+
   test("Go/No-Go: en PREFLIGHT y ARMED con sus condiciones; no en descenso", async ({ page }) => {
     await abrir(page, "demeter");
     await alimentar(page, nominalEn("demeter", T_SIN_FIX));

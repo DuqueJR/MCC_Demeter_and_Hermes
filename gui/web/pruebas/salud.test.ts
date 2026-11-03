@@ -111,6 +111,29 @@ describe("avisos: calibraciones y EKF; la batería baja es solo el bit 13", () =
     expect(v.calibraciones.filter((c) => !c.completa).map((c) => c.id)).toEqual(["giro", "mag"]);
   });
 
+  it("calibración null (D-050, net_proto no la trae): 'sin dato', sin aviso y sin 'no calibrado'", () => {
+    const s = saludCon({
+      boot_count: null,
+      calib: { giro: null, mag: null, baro: null, origen: null, actitud: null },
+    });
+    const v = vistaSalud(s, estadoEjemplo, "demeter");
+    expect(v.nivel).toBe("ok");
+    expect(v.resumen).toBe("Todo en orden");
+    expect(v.avisos).toEqual([]);
+    expect(v.calibraciones.map((c) => c.completa)).toEqual([null, null, null, null, null]);
+  });
+
+  it("calibración mixta: solo `false` es aviso; `null` y `true` no", () => {
+    const s = saludCon({
+      calib: { giro: false, mag: null, baro: true, origen: null, actitud: true },
+    });
+    const v = vistaSalud(s, estadoEjemplo, "demeter");
+    expect(v.avisos).toHaveLength(1);
+    expect(v.avisos[0]?.texto).toContain("Giróscopo");
+    expect(v.avisos[0]?.texto).not.toContain("Magnetómetro");
+    expect(v.calibraciones.map((c) => c.completa)).toEqual([false, null, true, null, true]);
+  });
+
   it("EKF no listo: aviso; con EKF divergente es una falla y no se repite como aviso", () => {
     const sinEkf = estadoEn("PREFLIGHT", { flags: { ...estadoEjemplo.flags, ekf_ok: false } });
     expect(vistaSalud(saludEjemplo, sinEkf, "demeter").avisos.map((a) => a.id)).toEqual(["ekf"]);

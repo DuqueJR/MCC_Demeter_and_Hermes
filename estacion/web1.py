@@ -631,11 +631,13 @@ class Traductor:
         # t_ms y utc_ms del ultimo estado emitido
         est = c.estado
         return {
-            "t_ms": est['t_ms'], "utc_ms": est['utc_ms'], "mission_id": c.mission_id or None, "boot_count": 0,
+            "t_ms": est['t_ms'], "utc_ms": est['utc_ms'], "mission_id": c.mission_id or None,
+            "boot_count": None,      # net_proto no lo trae: null = sin dato (D-050), no 0
             "gnss": {"fix": 3 if t['fix'] in (3, 4) else (2 if t['fix'] == 2 else 0), "sv": t['nsv'], "hacc_m": None},
             "bat_mv": t['vbat'], "temp_esp_c": None, "temp_pi_c": None,
             "fallas": [], "fallas_bits": 0,
-            "calib": {"giro": False, "mag": False, "baro": False, "origen": False, "actitud": False},
+            # net_proto no trae la calibracion: null = sin dato (D-050). Con `false` la web diria "no calibrado".
+            "calib": {"giro": None, "mag": None, "baro": None, "origen": None, "actitud": None},
             "nav_innov_m": None,
             "apogeo_m": redondear(c.alt_max, 1) if (est['flags']['apogeo'] and c.alt_max is not None) else None,
             "alt_origen_msl_m": redondear(self.sitio[2], 1), "sd_libre_mb": None,

@@ -167,6 +167,9 @@ class VueloCompleto(Contrato):
         self.assertIsNone(s['temp_esp_c'])
         self.assertIsNone(s['temp_pi_c'])
         self.assertIsNone(s['fw_version'])
+        # D-050: net_proto no trae el contador de arranques ni la calibracion: sin dato, no 0 ni false
+        self.assertIsNone(s['boot_count'])
+        self.assertEqual(s['calib'], {'giro': None, 'mag': None, 'baro': None, 'origen': None, 'actitud': None})
         self.assertEqual(s['alt_origen_msl_m'], 510.0)
         self.assertFalse(s['go_nogo']['listo'])               # nadie ha mandado un ARM
 

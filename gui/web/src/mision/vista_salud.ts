@@ -4,7 +4,8 @@
 //
 // Qué es una falla y qué un aviso (propuesta de T-625; 03 §3.8 no lo define):
 //   - FALLA (⛔): algún bit en `fallas` (protocolo_paquetes §3). Se muestran sus nombres.
-//   - AVISO (⚠), una causa cuenta una vez: calibraciones sin terminar; EKF no listo (`flags.ekf_ok`
+//   - AVISO (⚠), una causa cuenta una vez: calibraciones sin terminar (`false`; un `null` es "sin
+//     dato" y NO es aviso, D-050: `net_proto` no trae la calibración); EKF no listo (`flags.ekf_ok`
 //     en falso). No hay umbral en constantes.md para la innovación del EKF, así que solo se muestra
 //     su valor: no genera aviso.
 //   - Batería (decisión del usuario): la web no recalcula. La batería baja sale solo como la falla
@@ -77,7 +78,8 @@ export interface VistaSalud {
   goNogo: { listo: boolean; faltan: number; condiciones: CondicionGoNogo[] } | null;
   sensores: FilaBit[];
   sistemas: FilaBit[];
-  calibraciones: { id: IdCalibracion; nombre: string; completa: boolean }[];
+  /** `completa: null` = sin dato (D-050): se muestra "sin dato", no "en proceso". */
+  calibraciones: { id: IdCalibracion; nombre: string; completa: boolean | null }[];
   navegacion: { ekfListo: boolean | null; innovacionM: number | null };
   enlace: {
     rssiDbm: number | null;
@@ -125,7 +127,8 @@ function resumenDe(fallas: string[], avisos: Aviso[]): { nivel: NivelSalud; resu
 
 function avisosDe(salud: Salud, estado: Estado | null, fallas: string[]): Aviso[] {
   const avisos: Aviso[] = [];
-  const pendientes = CALIBRACIONES.filter((c) => !salud.calib[c.id]).map((c) => c.nombre);
+  // Solo `false` es "sin terminar": `null` es "sin dato" (D-050) y no genera aviso.
+  const pendientes = CALIBRACIONES.filter((c) => salud.calib[c.id] === false).map((c) => c.nombre);
   if (pendientes.length > 0) {
     avisos.push({
       id: "calibraciones",

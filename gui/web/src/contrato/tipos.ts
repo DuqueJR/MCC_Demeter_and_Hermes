@@ -137,7 +137,8 @@ export interface Salud {
   t_ms: number;
   utc_ms: number | null;
   mission_id: number | null;
-  boot_count: number;
+  /** null = sin dato (D-050): `net_proto` no lo trae. */
+  boot_count: number | null;
   /** fix: 0 sin fix, 2 fix 2D, 3 fix 3D. */
   gnss: { fix: 0 | 2 | 3; sv: number; hacc_m: number | null };
   bat_mv: number | null;
@@ -147,7 +148,14 @@ export interface Salud {
   /** Nombres de los bits activos (protocolo §3). */
   fallas: string[];
   fallas_bits: number;
-  calib: { giro: boolean; mag: boolean; baro: boolean; origen: boolean; actitud: boolean };
+  /** Cada una es `null` = sin dato (D-050): `net_proto` no las trae y la web no debe decir "no calibrado". */
+  calib: {
+    giro: boolean | null;
+    mag: boolean | null;
+    baro: boolean | null;
+    origen: boolean | null;
+    actitud: boolean | null;
+  };
   nav_innov_m: number | null;
   apogeo_m: number | null;
   alt_origen_msl_m: number | null;

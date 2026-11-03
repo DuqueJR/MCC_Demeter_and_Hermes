@@ -143,6 +143,25 @@ describe("el esquema rechaza casos falsos", () => {
     expect(validarExtra("estado", e)).toEqual([]);
   });
 
+  it("salud.boot_count y cada salud.calib.* pueden ser null (D-050), pero no se omiten", () => {
+    const s = copia(saludEjemplo);
+    s.boot_count = null;
+    s.calib = { giro: null, mag: null, baro: null, origen: null, actitud: null };
+    expect(validar("salud", s)).toEqual([]);
+    const m = copia(saludEjemplo);
+    m.calib = { ...saludEjemplo.calib, mag: null };
+    expect(validar("salud", m)).toEqual([]);
+    // `calib` entero no es nulable: solo sus campos.
+    expect(validar("salud", { ...copia(saludEjemplo), calib: null })).not.toEqual([]);
+    // Un valor que no es booleano ni null sigue siendo error.
+    const x = copia(saludEjemplo) as unknown as { calib: Record<string, unknown> };
+    x.calib.giro = 0;
+    expect(validar("salud", x)).not.toEqual([]);
+    const y = copia(saludEjemplo) as unknown as Record<string, unknown>;
+    y.boot_count = "3";
+    expect(validar("salud", y)).not.toEqual([]);
+  });
+
   it("estado.vel como texto, número o incompleto se rechaza", () => {
     for (const v of ["0,4", 0.4, [], { n_ms: 1 }, { ...estadoEjemplo.vel, extra: 1 }]) {
       const e = { ...copia(estadoEjemplo), vel: v };

@@ -191,17 +191,24 @@ export function Salud({ mision }: { mision: Mision }) {
             <dl class="salud-lista">
               {v.calibraciones.map((c) => (
                 <Fila key={c.id} nombre={c.nombre} dato={`calib-${c.id}`}>
-                  <span
-                    class={`salud-estado ${c.completa ? "salud-ok" : "salud-aviso"}`}
-                    data-completa={c.completa ? "si" : "no"}
-                  >
-                    {c.completa ? (
-                      <CircleCheck aria-hidden="true" />
-                    ) : (
-                      <TriangleAlert aria-hidden="true" />
-                    )}
-                    <span>{c.completa ? "Completa" : "En proceso"}</span>
-                  </span>
+                  {c.completa === null ? (
+                    <span class="salud-estado salud-sin-dato" data-completa="sin_dato">
+                      <Info aria-hidden="true" />
+                      <span>Sin dato</span>
+                    </span>
+                  ) : (
+                    <span
+                      class={`salud-estado ${c.completa ? "salud-ok" : "salud-aviso"}`}
+                      data-completa={c.completa ? "si" : "no"}
+                    >
+                      {c.completa ? (
+                        <CircleCheck aria-hidden="true" />
+                      ) : (
+                        <TriangleAlert aria-hidden="true" />
+                      )}
+                      <span>{c.completa ? "Completa" : "En proceso"}</span>
+                    </span>
+                  )}
                 </Fila>
               ))}
             </dl>

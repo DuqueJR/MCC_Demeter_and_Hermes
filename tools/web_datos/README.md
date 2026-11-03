@@ -33,7 +33,7 @@ La salida es determinista (ruido con semilla): volver a generar produce los mism
 | `perfil.py` | Perfil continuo (Hermite), escala de Hermes y aceleración del descenso |
 | `actitud.py`, `geo.py` | Cuaternión de la nariz y geodesia WGS84 local |
 | `simulador.py` | Arma los mensajes del contrato para una misión y un escenario |
-| `validacion.py` | Valida campos, tipos, rangos y decimales de 05. **No es el esquema oficial** (`esquema.json` es de T-611) |
+| `validacion.py` | Valida campos, tipos, rangos y decimales de 05. **No es el esquema oficial** (`gui/web/src/contrato/esquema.json` manda): no es más estricto que él en la nulabilidad ni en `seq` (T-611d), y `pruebas/test_validacion.py` lo comprueba contra el esquema |
 | `generar.py`, `__main__.py` | Línea de comandos |
 
 ## Los 6 escenarios (cada uno para las dos misiones)
