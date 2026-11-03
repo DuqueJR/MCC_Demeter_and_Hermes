@@ -74,6 +74,8 @@ actualizado: 2026-11-03
 | `FRESH_US` | 500 000 | | Una fuente sin datos en este tiempo cuenta como caída |
 | `BOOST_ACC_MIN_G` | 2,0 | | Integrador de BOOST (T-410, maquina_estados §6) |
 | `BOOST_RESET_MS` | 50 (P) | | El integrador se reinicia tras este tiempo con `\|a\|` ≤ 2 g |
+| `BOOST_DV_DECAY_G` | 3,0 (P) | | Decaimiento de dv mientras `\|a\|` ≤ 2 g (D-048) |
+| `BOOST_DT_MAX_US` | 5000 | | Un hueco mayor entre muestras no se integra (D-048) |
 | `BOOST_BARO_EVAL` | 5 (P) | | Evaluaciones seguidas del salto barométrico |
 
 **Los que usa la estación y la web** (siguen siendo nuestros):
