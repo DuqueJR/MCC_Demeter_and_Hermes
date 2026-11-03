@@ -1,8 +1,8 @@
 """Los 12 archivos (2 misiones x 6 escenarios): contrato, criterio de aceptación de T-612
 y el comportamiento propio de cada escenario.
 
-La validación es contra lo que exige el documento 05 (campos, tipos, rangos, decimales),
-NO contra `esquema.json`: ese lo entrega T-611 y esta prueba debe ampliarse entonces.
+La validación es contra lo que exige el documento 05 (campos, tipos, rangos, decimales), con
+`validacion.py`, que no es más estricto que `esquema.json` (T-611d; ver `test_validacion.py`).
 """
 
 from __future__ import annotations

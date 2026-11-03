@@ -1,13 +1,16 @@
 """Validación de los mensajes contra lo que exige `05_contrato_datos_web.md` (§0 y §2).
 
-NO es el esquema oficial: ese es `src/contrato/esquema.json` de T-611, que todavía no
-existe. Esto comprueba lo que el documento 05 dice con todas sus letras:
+NO es el esquema oficial: ese es `gui/web/src/contrato/esquema.json` (T-611), que MANDA. Esto
+comprueba lo que el documento 05 dice con todas sus letras, y **no debe ser más estricto que el
+esquema en lo que el esquema admite** (T-611d: nulabilidad y `seq`; antes rechazaba mensajes
+válidos como los de `estacion/web1.py`):
 - cada mensaje tiene exactamente los campos del contrato: ninguno se omite ni sobra
-  (`null` = sin dato);
+  (`null` = sin dato; los campos que el esquema admite `null` aquí también);
 - los tipos (entero, número, texto, booleano) y los rangos físicos;
 - la precisión (decimales) de §0;
 - coherencias simples (fase y fase_cod, cuaternión unitario, eventos con sus campos).
-Cuando T-611 entregue el esquema, las pruebas deben validar además contra él.
+No lee `esquema.json`: las pruebas (`pruebas/test_validacion.py`) comprueban que la nulabilidad
+de cada campo coincide con la del esquema.
 """
 
 from __future__ import annotations
@@ -85,18 +88,18 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         "sitio": O({**_LATLON, "alt_msl_m": N(C.DECIMALES_M)}),
     },
     "estado": {
-        "seq": I(minimo=0, maximo=255),
+        "seq": I(minimo=0),  # con net_proto es el índice de ranura, utc_ms/40 (~4,4e10): sin tope
         "t_ms": I(minimo=0),
         "utc_ms": I(nulo=True, minimo=0),
         "rx_utc_ms": I(minimo=0),
-        "relay_utc_ms": I(minimo=0),
+        "relay_utc_ms": I(nulo=True, minimo=0),  # 05 §0: siempre null en el servicio local
         "fase": S(opciones=_FASES),
         "fase_cod": I(minimo=0, maximo=9),
         "pos": O(
             {
                 **_LATLON,
                 "alt_agl_m": N(C.DECIMALES_M, minimo=-3276.7, maximo=3276.7),
-                "alt_msl_m": N(C.DECIMALES_M),
+                "alt_msl_m": N(C.DECIMALES_M, nulo=True),
                 "fuente": S(opciones=("ekf", "gnss")),
             },
             nulo=True,
@@ -151,9 +154,9 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         ),
         "enlace": O(
             {
-                "rssi_dbm": I(minimo=-150, maximo=0),
-                "snr_db": N(1, minimo=-30, maximo=30),
-                "perdidos_pct_10s": N(1, minimo=0, maximo=100),
+                "rssi_dbm": I(nulo=True, minimo=-150, maximo=0),
+                "snr_db": N(1, nulo=True, minimo=-30, maximo=30),
+                "perdidos_pct_10s": N(1, nulo=True, minimo=0, maximo=100),
             }
         ),
         "alarmas": O({"descenso_rapido": B()}),
@@ -170,7 +173,7 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         "t_ms": I(minimo=0),
         "utc_ms": I(nulo=True, minimo=0),
         "mission_id": I(nulo=True, minimo=1),
-        "boot_count": I(minimo=0, maximo=255),
+        "boot_count": I(nulo=True, minimo=0, maximo=255),  # D-050
         "gnss": O(
             {
                 "fix": I(opciones=(0, 2, 3)),
@@ -178,18 +181,18 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
                 "hacc_m": N(C.DECIMALES_M, nulo=True, minimo=0),
             }
         ),
-        "bat_mv": I(minimo=0, maximo=65535),
-        "temp_esp_c": I(minimo=-127, maximo=127),
+        "bat_mv": I(nulo=True, minimo=0, maximo=65535),
+        "temp_esp_c": I(nulo=True, minimo=-127, maximo=127),
         "temp_pi_c": I(nulo=True, minimo=-127, maximo=127),
         "fallas": L(S()),
         "fallas_bits": I(minimo=0, maximo=0xFFFF),
-        "calib": O({c: B() for c in _BOOL5}),
+        "calib": O({c: B(nulo=True) for c in _BOOL5}),  # D-050: cada una puede ser null
         "nav_innov_m": N(2, nulo=True, minimo=0),
-        "apogeo_m": N(C.DECIMALES_M, minimo=0),
-        "alt_origen_msl_m": N(C.DECIMALES_M),
-        "sd_libre_mb": I(minimo=0, maximo=65535),
-        "rssi_tierra_dbm": I(minimo=-150, maximo=0),
-        "ultimo_cmd_seq": I(minimo=0, maximo=255),
+        "apogeo_m": N(C.DECIMALES_M, nulo=True, minimo=0),
+        "alt_origen_msl_m": N(C.DECIMALES_M, nulo=True),
+        "sd_libre_mb": I(nulo=True, minimo=0, maximo=65535),
+        "rssi_tierra_dbm": I(nulo=True, minimo=-150, maximo=0),
+        "ultimo_cmd_seq": I(nulo=True, minimo=0, maximo=255),
         "fw_version": S(nulo=True),
         "go_nogo": O(
             {
@@ -200,7 +203,7 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
     },
     "estacion": {
         "utc_ms": I(minimo=0),
-        "pos": O({**_LATLON, "alt_msl_m": N(C.DECIMALES_M)}),
+        "pos": O({**_LATLON, "alt_msl_m": N(C.DECIMALES_M, nulo=True)}, nulo=True),
         "gnss_ok": B(),
         "ultimo_paquete_hace_ms": I(nulo=True, minimo=0),
     },
@@ -306,15 +309,15 @@ def validar_mensaje(tipo: str, datos: Any) -> list[str]:
             errores.append(f"estado: el cuaternión no es unitario (norma {norma:.5f})")
         if q["w"] < 0:
             errores.append("estado: el cuaternión debe salir con w >= 0 (protocolo §2)")
-        if datos["pos"] is None and datos["lkp"] is not None:
-            errores.append("estado: lkp sin posición")
+        # `lkp` con `pos = null` es justo el caso para el que existe el LKP (PA-22): no es error.
         if datos["pos"] is not None and datos["flags"]["gnss_fix"] is False:
             errores.append("estado: hay pos pero gnss_fix es falso")
         if datos["pos"] is not None:
             esperado = "ekf" if datos["flags"]["ekf_ok"] else "gnss"
             if datos["pos"]["fuente"] != esperado:
                 errores.append("estado: pos.fuente no concuerda con flags.ekf_ok")
-        if datos["rx_utc_ms"] < (datos["utc_ms"] or 0) or datos["relay_utc_ms"] < datos["rx_utc_ms"]:
+        relay = datos["relay_utc_ms"]  # null en el servicio local (sin relay)
+        if datos["rx_utc_ms"] < (datos["utc_ms"] or 0) or (relay is not None and relay < datos["rx_utc_ms"]):
             errores.append("estado: utc_ms <= rx_utc_ms <= relay_utc_ms no se cumple")
     elif tipo == "evento":
         t = datos["tipo"]
