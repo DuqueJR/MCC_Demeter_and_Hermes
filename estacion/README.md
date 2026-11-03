@@ -23,12 +23,15 @@ python estacion/dashboard.py --no-abrir --puerto 8799
 | Herramienta | Uso |
 | --- | --- |
 | `dashboard.py` + `dashboard.html` | La estación y el dashboard de misión (arriba). |
+| `web1.py` | (T-661) Traduce las líneas de la estación (`@T`, `@L`, `@G`, `[cmd ]`, `[time]`) a mensajes `web-1`. Solo biblioteca estándar. Como librería: `Traductor.procesar(linea, t_local)`, `tick`, `comando` y `snapshot(mision)`. Por línea de comandos reprocesa una sesión: `python estacion/web1.py sesiones/AAAAMMDD_HHMMSS_tierra.txt --salida web1.jsonl [--snapshot snap.json]`. Todavía no está integrado con el servidor HTTP del dashboard (T-662). |
 | `tbget.py` | Descarga los logs de un cohete por USB: `python estacion/tbget.py COM3 list`, `get`, `get --ultimos 2`, `reset`. Opciones `--dir`, `--analizar`, `--csv`. Solo lee. |
 | `tblog.py` | Resume un log `.BIN`: `python estacion/tblog.py LOG.BIN` (`--csv` deja un CSV por fuente en `LOG_csv/`). |
 | `calib.py` | Calibración de un cohete desde un log hecho con la guía del dashboard: `python estacion/calib.py LOG.BIN --salida calib_x.json`. |
 | `ekf.py` | EKF de prueba en PC (INS + GNSS) sobre un log: `python estacion/ekf.py LOG.BIN` deja `NOMBRE_ekf.csv`. |
 
 Los `calib_*.json` y `dashboard.html` viven junto a los `.py` porque se buscan en la carpeta del propio script. Dependencias: `pyserial` para los puertos; `numpy` y `scipy` solo para `calib.py` y `ekf.py`.
+
+Pruebas de `web1.py` (unittest, sin dependencias nuevas): `python -m unittest discover -s estacion/pruebas`.
 
 Salidas locales que no se versionan: `sesiones/`, `mision.json`, `*.BIN`, `*_csv/`, `*_ekf.csv`. Los resúmenes de `tblog.py` de los logs reales de Pablo están en `datos/logs_referencia/pablo/`.
 
