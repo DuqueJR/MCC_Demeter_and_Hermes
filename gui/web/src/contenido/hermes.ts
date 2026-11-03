@@ -51,7 +51,7 @@ export const hermes: Contenido = {
       nombre: "Motor",
       icono: iconoMotor,
       texto:
-        "G80-7T: el motor que impulsa a Hermes hacia el cielo. Cuando se le acaba el empuje, su carga de eyección es la que se encarga de abrir el paracaídas.",
+        "G80-7T: el motor que impulsa a Hermes hacia el cielo. Cuando se le acaba el empuje, el cohete sigue subiendo por inercia hasta el punto más alto.",
     },
     {
       id: "paracaidas",

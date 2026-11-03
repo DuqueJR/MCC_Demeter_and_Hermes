@@ -41,7 +41,7 @@ Fuente de cada cifra: ver la tabla siguiente.
 | Hermes | foto 3, `pie` | El CanSat | El CanSat, la carga útil |
 | Hermes | parte Nariz | La punta del cohete. Corta el aire al subir. | La punta del cohete. Abre paso al aire para que la subida sea más fácil. |
 | Hermes | parte CanSat | La carga útil de la competencia, de 250 a 300 g. | (el mismo texto que el de Deméter) |
-| Hermes | parte Motor | G80-7T: empuja al cohete hacia el cielo. | G80-7T: el motor que impulsa a Hermes hacia el cielo. Cuando se le acaba el empuje, su carga de eyección es la que se encarga de abrir el paracaídas. |
+| Hermes | parte Motor | G80-7T: empuja al cohete hacia el cielo. | G80-7T: el motor que impulsa a Hermes hacia el cielo. Cuando se le acaba el empuje, el cohete sigue subiendo por inercia hasta el punto más alto. (Corregido tras la revisión del usuario: la primera versión decía que la eyección llegaba al acabarse el empuje, pero llega después del retardo del motor; el paracaídas ya lo explica su propia parte.) |
 | Hermes | parte Paracaídas | Se abre con la carga de eyección del motor. | Lo abre la carga de eyección del motor, sin electrónica de por medio. Así lo exige el reglamento, y es lo que baja a Hermes y a su CanSat juntos. |
 | Hermes | parte Aletas | Mantienen al cohete derecho mientras sube. | Mantienen al cohete derecho mientras sube, como las plumas de una flecha. |
 
@@ -89,8 +89,11 @@ Todas las cifras de la simulación llevan en el texto la palabra "simulación"; 
 6. **Posible cambio fuera de alcance:** el `alt` de las fotos hoy es un aria-label del placeholder (`Inicio.tsx`). Cuando lleguen las fotos reales (PEN-W01), cada `alt` debería describir lo que se ve. No requiere cambio de `tipos.ts`.
 7. Se mencionan "Raspberry Pi 5" y "GPS" por nombre: ¿es demasiada jerga para el público general? Se pueden bajar a "una computadora pequeña" y "la ubicación".
 
+## Revisión del usuario
+El usuario aprobó los textos con una sola corrección: el texto del motor de Hermes, que decía que la eyección llegaba al acabarse el empuje (llega después del retardo del motor). Quedó solo con el impulso, sin altura ni tiempos; el texto del paracaídas no cambió. Las preguntas 1, 4 y 7 se resuelven así: Hermes sigue sin altura hasta que haya simulación, Jerónimo confirma el texto del VisionPack después, y "Raspberry Pi 5" y "GPS" se quedan. `provisional: true` se mantiene porque PEN-W02 sigue abierto.
+
 ## Pendiente / siguiente paso
-- Que el usuario revise los textos en el PR (es condición para el merge, según el criterio de T-623).
+- ~~Que el usuario revise los textos en el PR~~ (hecho, ver arriba).
 - Cuando haya simulación de Hermes: cifra del motor y de la bajada en `hermes.ts`.
 - PEN-W01 y PEN-W02: fotos y nombres.
 
