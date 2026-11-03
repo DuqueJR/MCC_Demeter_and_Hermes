@@ -160,3 +160,27 @@ Los criterios son de Pablo (§1). Lo marcado con (P) lo fijó el documentador pa
   - impacto de una caída de 1 m (20 g, 10 ms);
   - sacudida de ±3 g a 5 Hz durante 5 s;
   - 30 min de reposo con ruido.
+
+## 7. Especificación de los actuadores: buzzer y encendido de la Pi (T-413)
+
+Las marcas (P) las fijó el documentador; se pueden ajustar en la revisión del PR.
+
+**Buzzer** (IO46, activo de 5 V por MOSFET: nivel alto = suena):
+- **Se enciende solo** al entrar a RECOVERY y al pasar al momento ATERRIZAJE.
+- Patrón `BUZZER_ON_MS` / `BUZZER_OFF_MS` = 500 / 1500 ms (P).
+- **Se apaga** al pasar a TIERRA (`desarmar`, `estado tierra`), al dormir y con el comando `buzzer off`.
+- El comando `buzzer on|off` (`OP_BUZZER`, `arg` 1 o 0) es apto en cualquier estado. Sirve para probar en el banco y para buscar el cohete.
+
+**Encendido de la Pi** (IO45, MOSFET en paralelo a J2 de la Pi; **solo Demeter**):
+- **Pulso:** `PI_PULSO_MS` (1500 ms) en alto.
+- **Comando `pi encender`** (`OP_PI_POWER`):
+  - Mientras no exista la UART con la Pi (T-702), **no se sabe si la Pi está encendida**, y una pulsación podría apagarla. Por eso la respuesta es siempre `NO_APTO` con el motivo nuevo `RZ_PI_DESCONOCIDA`, y solo se ejecuta con la confirmación.
+  - En FLY con BOOST, además, `RZ_EN_VUELO`.
+  - En Hermes, `RZ_OP` (no aplica).
+- **Automático por BOOST sin armar: no se hace** mientras no exista T-702. La Pi se enciende a mano antes de cerrar el cohete, y un pulso automático la apagaría.
+- **En Hermes, IO45 queda sin usar** hasta que se definan sus actuadores mecánicos.
+
+**`TELEM.actuators`:**
+- bit 0: el buzzer está activo (el patrón corre);
+- bit 1: el pulso de la Pi está en curso;
+- bit 2: se envió algún pulso a la Pi desde el arranque.
