@@ -103,6 +103,25 @@ No cambié nada: es una decisión de Pablo. El arnés ya tiene el barrido para v
 - Las sims. no incluyen el filtro pasa-bajas del LSM, la vibración del motor ni la inclinación del cohete; la norma no depende de la orientación.
 - La sync entre núcleos (la bandera atómica) y los tiempos de CPU del gancho en el FIFO (un `sqrtf` y un `llround` por muestra, ~1700 por segundo en el núcleo 1) no se midieron en el chip.
 
+## Actualización: decaimiento de dv (D-048)
+El usuario eligió la opción del decaimiento para el hallazgo de las sacudidas. Contrato en `maquina_estados.md` §6 y `constantes.md` §4 (PR #42). Lo anterior ("Hallazgo: falsos positivos...") queda como el motivo del cambio; sus cifras son las del integrador sin decaimiento.
+
+**Cambios en el código:**
+- `boost_detect.cpp`: mientras `|a| ≤ BOOST_ACC_MIN_G`, `dv -= BOOST_DV_DECAY_G · 9,80665 · dt`, con piso en 0 (solo con un `dt` válido, ≤ `BOOST_DT_MAX_US`). El reinicio por `BOOST_RESET_MS` se mantiene.
+- `mission_config.h`: `BOOST_DV_DECAY_G` = 3,0 y `BOOST_DT_MAX_US` = 5000 (antes `DT_MAX_US`, privado del `.cpp`).
+- Las propuestas 2 a 4 quedaron aceptadas sin cambios.
+
+**Resultados** (`correr_pruebas.py`, salió con 0). Positivas sin cambio: Demeter 0,070 s y Hermes 0,081 s desde el despegue (0,090 y 0,101 s con la lectura de 20 ms), dv = 5,0 m/s, a 1600 y 1667 Hz.
+
+Sacudida de ±3 g, 5 s, dv máximo en m/s (todas las de 3 a 20 Hz son criterio, con cero detecciones):
+
+| Frecuencia | 1 Hz | 2 Hz | 3 Hz | 5 Hz | 8 Hz | 10 Hz | 15 Hz | 20 Hz |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Vertical | 8,83 (5 det., no exigido) | 4,42 (0 det., no exigido) | 2,95 | 1,77 | 1,11 | 0,89 | 0,59 | 0,44 |
+| Horizontal | 5,24 (10 det., no exigido) | 2,63 (0 det., no exigido) | 1,75 | 1,05 | 0,66 | 0,53 | 0,35 | 0,27 |
+
+Siguen en cero detecciones: golpe de 10 g/20 ms (1,76 m/s), impacto de 20 g/10 ms (1,86 m/s) y 30 min de reposo (0,00 m/s). Los 6 escenarios de `mission.cpp` y los `-fsyntax-only` siguen en OK. PlatformIO sigue sin poder correrse (red).
+
 ## Problemas y cómo se resolvieron
 - **PlatformIO sin red:** se intentó una vez, falló, y se sustituyó por `g++` con stubs (ver arriba).
 - **Falso positivo inesperado con la sacudida horizontal:** apareció al generar el caso con un eje horizontal; se documentó y se dejó el barrido como informativo en lugar de cambiar el criterio sin acuerdo.
