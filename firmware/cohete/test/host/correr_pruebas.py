@@ -177,13 +177,17 @@ def main():
         res = correr("inercial", escribir("neg_inercial_%d" % i, FS, r))
         anotar("negativa: " + nombre, res["hits"] == 0, "detecciones = %d, dv maximo = %.2f m/s (objetivo 5)" % (res["hits"], res["dv_max_mps"]))
 
-    # --- Informativas: el limite fisico del integrador (no son criterios). Barrido de la sacudida de +-3 g, 5 s, con el eje vertical
-    #     (|a| = |1 + 3 sen|) y con un eje horizontal (|a| = raiz(1 + 9 sen^2)): ahi el tiempo bajo 2 g por semiciclo es corto y dv no se reinicia ---
+    # --- Barrido de la sacudida de +-3 g, 5 s, con el eje vertical (|a| = |1 + 3 sen|) y con uno horizontal (|a| = raiz(1 + 9 sen^2)).
+    #     De 3 a 20 Hz: cero detecciones (criterio, D-048). A 1 y 2 Hz es movimiento real del cohete (mas de 1 m): solo se informa el dv maximo ---
     for vertical in (True, False):
         for hz in (1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0):
-            res = correr("inercial", escribir("info_sacudida_%s_%g" % ("v" if vertical else "h", hz), FS, sacudida(rng, FS, 3.0, hz, 5.0, vertical)))
-            filas.append(("informativa: sacudida +-3 g, %g Hz, 5 s (%s)" % (hz, "vertical" if vertical else "horizontal"),
-                          "INFO", "detecciones = %d, dv maximo = %.2f m/s" % (res["hits"], res["dv_max_mps"])))
+            res = correr("inercial", escribir("sacudida_%s_%g" % ("v" if vertical else "h", hz), FS, sacudida(rng, FS, 3.0, hz, 5.0, vertical)))
+            nombre = "sacudida +-3 g, %g Hz, 5 s (%s)" % (hz, "vertical" if vertical else "horizontal")
+            det = "detecciones = %d, dv maximo = %.2f m/s" % (res["hits"], res["dv_max_mps"])
+            if hz >= 3.0:
+                anotar("negativa: " + nombre, res["hits"] == 0, det)
+            else:
+                filas.append(("informativa: " + nombre, "INFO", det))
 
     # --- Barometrico: perfil de altura de la sim. a 100 Hz; el firmware evalua a 50 Hz ---
     for cohete, ruta in (("Demeter", SIM_DEMETER), ("Hermes", SIM_HERMES)):
