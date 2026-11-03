@@ -5,6 +5,7 @@
 #include "in_imu.h"
 #include "in_bar.h"
 #include "mission.h"
+#include "ext_act.h"
 #include "logger.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
@@ -87,6 +88,7 @@ static void buildTelem(net::Telem &p, int64_t utc_us, uint8_t timeFlags) {
     p.flags = (uint8_t)((s_flying ? net::TF_FLYING : 0) | missionFlags());
     p.state = missionStateByte();
     p.cmd_ack = missionAck();
+    p.actuators = extActBits();
     p.quat[0] = 32767;                                  // identidad hasta que exista el EKF
     p.vbat_mv = g_vbat_mv;
 
