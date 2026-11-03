@@ -1,0 +1,5 @@
+#pragma once
+// Stub de <esp_attr.h> para el PC. RTC_NOINIT_ATTR pone la variable en una seccion propia: el arnes la vuelca a un archivo entre
+// "reinicios" y la recarga, como la memoria RTC que sobrevive a un reinicio por software, watchdog o brownout.
+// GNU ld define __start_rtc_noinit_host y __stop_rtc_noinit_host para una seccion cuyo nombre es un identificador de C.
+#define RTC_NOINIT_ATTR __attribute__((section("rtc_noinit_host"), used))

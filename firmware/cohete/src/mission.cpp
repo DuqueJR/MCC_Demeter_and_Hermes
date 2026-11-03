@@ -1,6 +1,8 @@
 // mission.cpp - Un comando apto se ejecuta; uno no apto responde sus motivos y solo se ejecuta si tierra confirma esos mismos motivos a tiempo.
 // BOOST se detecta solo (T-410, boost_detect.h): FLY ya no depende de LAUNCH. Los demas momentos todavia se fuerzan por comando.
 // Actuadores (T-413, maquina_estados.md seccion 7): el buzzer suena solo en RECOVERY y en ATERRIZAJE; el pulso de la Pi es solo de Demeter y siempre con confirmacion.
+// Persistencia en vuelo (T-411, maquina_estados.md seccion 8, D-052): el estado se guarda en RTC_NOINIT y en NVS solo en las transiciones, y missionBegin retoma FLY o RECOVERY tras un reinicio.
+// Un comando que no aplica (RZ_OP) responde CR_ERROR y no se puede confirmar (D-051).
 #include "mission.h"
 #include "mission_config.h"
 #include "boost_detect.h"
@@ -14,6 +16,7 @@
 #include "logger.h"
 #include "net_radio.h"
 #include <Preferences.h>
+#include <esp_attr.h>
 #include <math.h>
 
 using namespace net;
@@ -32,6 +35,27 @@ static const MissionCfg *s_cfg = nullptr;
 static uint8_t  s_rocket = 0;
 static QueueHandle_t s_q = nullptr, s_logQ = nullptr;
 static Preferences s_prefs;
+
+// ---------- Registro persistente (seccion 8): RTC sin inicializar (reinicio por software, watchdog o brownout) y NVS (corte de energia) ----------
+static const uint32_t PERSIST_MAGIC   = 0x4D495331;   // "MIS1"
+static const uint8_t  PERSIST_VERSION = 1;
+static const char    *const PERSIST_KEY = "vuelo";    // en el espacio "tbmis", el mismo del contador de comandos
+static const uint8_t  MIS_REANUDADO   = 3;            // arg del T_MISSION automatico de la reanudacion (formato_log.md)
+static const uint8_t  PERSIST_FLAGS   = TF_BOOST_SIN_ARMAR | TF_FORZADO;    // los TF_* que se guardan; TF_REANUDADO no: lo pone la reanudacion
+struct MisPersist {                 // 32 B, sin relleno: el CRC cubre todos los bytes menos el suyo
+    uint32_t magic;
+    uint32_t bootCount;             // arranque que lo escribio (el contador "boot" del logger)
+    int64_t  boostUtcMs;            // UTC del BOOST en ms; -1 si no hubo BOOST o no habia hora
+    float    ref[2];                // p0 de cada barometro
+    uint8_t  version, state, moment, flags;
+    uint8_t  boosted;
+    uint8_t  refOk;                 // bit 0: p0 del BMP581 valido; bit 1: el del BME280
+    uint16_t crc;
+};
+static_assert(sizeof(MisPersist) == 32, "MisPersist debe medir 32 B");
+static RTC_NOINIT_ATTR MisPersist s_rtc;
+static bool    s_persistLive = false;      // la RTC o la NVS guardan un registro reanudable: hay que invalidarlo al salir de FLY o RECOVERY
+static int64_t s_boostUtcMs = -1;
 
 static volatile uint8_t s_state = ST_TIERRA, s_moment = M_NONE, s_flags = 0, s_ack = 0;
 static bool     s_boosted = false;
@@ -55,6 +79,54 @@ static float    s_alt = 0, s_vz = 0, s_altHist[VZ_WINDOW];
 static uint8_t  s_histIdx = 0, s_histN = 0, s_src = 2;
 static BoostBaroJump s_jump;
 static bool     s_jumpHit = false;
+
+static uint16_t persistCrc(const MisPersist &r) { return crc16((const uint8_t *)&r, sizeof(r) - sizeof(r.crc)); }
+
+static bool persistValid(const MisPersist &r) {
+    if (r.magic != PERSIST_MAGIC || r.version != PERSIST_VERSION || r.crc != persistCrc(r)) return false;
+    if (r.state < ST_TIERRA || r.state > ST_RECOVERY || r.moment > M_ATERRIZAJE) return false;
+    return true;
+}
+
+// Solo FLY y RECOVERY se reanudan; cualquier otro estado guardado es un arranque normal
+static bool persistResumable(const MisPersist &r) {
+    return (r.state == ST_FLY && r.moment >= M_LAUNCH) || (r.state == ST_RECOVERY && r.moment == M_ATERRIZAJE);
+}
+
+// Contador de arranques del logger (espacio "tbfw", clave "boot"): solo se lee, y mucho despues de que el logger lo incremento
+static uint32_t bootCount() {
+    Preferences p;
+    if (!p.begin("tbfw", true)) return 0;
+    const uint32_t n = p.getUInt("boot", 0);
+    p.end();
+    return n;
+}
+
+static int64_t utcNowMs() {
+    const int64_t u = time_to_utc_us(esp_timer_get_time());
+    return u < 0 ? -1 : u / 1000;
+}
+
+// Guarda el estado actual (RTC primero: es instantanea; luego NVS). Se llama solo en las transiciones: la NVS se desgasta y su escritura frena el flash
+static void persistWrite(uint8_t state) {
+    MisPersist r; memset(&r, 0, sizeof(r));
+    r.magic = PERSIST_MAGIC; r.version = PERSIST_VERSION;
+    r.state = state; r.moment = s_moment; r.flags = (uint8_t)(s_flags & PERSIST_FLAGS); r.boosted = s_boosted ? 1 : 0;
+    r.ref[0] = s_ref[0]; r.ref[1] = s_ref[1]; r.refOk = (uint8_t)((s_refOk[0] ? 1 : 0) | (s_refOk[1] ? 2 : 0));
+    r.boostUtcMs = s_boostUtcMs; r.bootCount = bootCount();
+    r.crc = persistCrc(r);
+    s_rtc = r;
+    if (s_prefs.putBytes(PERSIST_KEY, &r, sizeof(r)) != sizeof(r)) s_prefs.remove(PERSIST_KEY);   // si no se pudo escribir, que no quede uno viejo que reanude de mas
+}
+
+static void persistSave() { persistWrite(s_state); s_persistLive = true; }
+
+// Al pasar a TIERRA o ARMED: un registro valido con un estado no reanudable (gana a uno viejo en la otra memoria). Solo si hay algo que invalidar
+static void persistClear() {
+    if (!s_persistLive) return;
+    s_persistLive = false;
+    persistWrite(s_state);
+}
 
 static bool readPress(uint8_t i, float &p) {
     const int64_t now = esp_timer_get_time();
@@ -201,7 +273,7 @@ static void logTransition(uint8_t op, uint8_t arg, uint8_t result, uint8_t from,
     xQueueSend(s_logQ, &l, 0);
 }
 
-static void setState(uint8_t to) {
+static void setState(uint8_t to, bool save = true) {
     const uint8_t from = s_state;
     s_state = to;
     s_recEndAt = 0;
@@ -209,15 +281,17 @@ static void setState(uint8_t to) {
     s_flags = (uint8_t)(s_flags & ~TF_LAUNCH_VENCIDO);
     switch (to) {
     case ST_TIERRA:
-        s_moment = M_NONE; s_boosted = false;
-        s_flags = (uint8_t)(s_flags & ~TF_FORZADO);
+        s_moment = M_NONE; s_boosted = false; s_boostUtcMs = -1;
+        s_flags = (uint8_t)(s_flags & ~(TF_FORZADO | TF_REANUDADO));     // salir de un estado reanudado en el banco: estado tierra (seccion 8)
+        persistClear();
         extActBuzzer(false, millis());                 // en TIERRA el buzzer calla (desarmar, estado tierra)
         loggerRecord(false);
         loggerAllowPrealloc(true);
         netSetFlying(false);
         break;
     case ST_ARMED:
-        s_moment = M_NONE; s_boosted = false;
+        s_moment = M_NONE; s_boosted = false; s_boostUtcMs = -1;
+        persistClear();
         loggerRecord(false);
         loggerAllowPrealloc(false);
         loggerPrepare();
@@ -230,12 +304,14 @@ static void setState(uint8_t to) {
         loggerAllowPrealloc(from != ST_ARMED);         // en banco y en carro el registro es largo: se sigue creando reserva; en vuelo, no
         loggerRecord(true);
         netSetFlying(true);
+        if (save) persistSave();
         break;
     case ST_RECOVERY:
         s_moment = M_ATERRIZAJE;
         s_recEndAt = esp_timer_get_time() + (int64_t)(s_cfg->t_post * 1e6f);
         extActBuzzer(true, millis());                  // aterrizado: suena para encontrarlo (si ya sonaba por ATERRIZAJE, sigue su fase)
         netSetFlying(false);
+        persistSave();
         break;
     }
 }
@@ -245,9 +321,11 @@ static void onBoost(uint8_t kind, uint32_t value) {
     const uint8_t from = s_state;
     if (from == ST_RECOVERY || (from == ST_FLY && s_moment >= M_BOOST)) return;      // ya en BOOST o despues: nada
     if (from == ST_TIERRA) s_flags = (uint8_t)(s_flags | TF_BOOST_SIN_ARMAR);        // se mantiene hasta un reinicio
-    if (from != ST_FLY) setState(ST_FLY);                                            // desde ARMED: el archivo ya esta preparado
+    if (from != ST_FLY) setState(ST_FLY, false);                                     // desde ARMED: el archivo ya esta preparado. Se guarda abajo, una sola vez, con el momento BOOST
     s_moment = M_BOOST; s_boosted = true; s_abortOn = false;
     s_flags = (uint8_t)(s_flags & ~TF_LAUNCH_VENCIDO);
+    s_boostUtcMs = utcNowMs();                                                       // -1 si no hay hora
+    persistSave();
     logTransition(0, kind, CR_OK, from, value, 0);                                   // op 0 = automatico; arg = criterio; counter = dv (cm/s) o salto (cm)
 }
 
@@ -274,8 +352,9 @@ static void execute(uint8_t op, uint8_t arg) {
     case OP_SET_STATE: setState(arg); break;
     case OP_SET_MOMENT:
         s_moment = arg;
-        if (arg >= M_BOOST) s_boosted = true;
+        if (arg >= M_BOOST) { if (!s_boosted) s_boostUtcMs = utcNowMs(); s_boosted = true; }     // la hora del BOOST es la de la primera vez
         if (arg == M_ATERRIZAJE) extActBuzzer(true, millis());
+        if (s_state == ST_FLY) persistSave();          // cada cambio de momento (seccion 8)
         break;
     case OP_BUZZER:    extActBuzzer(arg != 0, millis()); break;
     case OP_PI_POWER:  if (s_rocket == ROCKET_DEMETER) extActPiPulse(millis()); break;     // en Hermes no hay nada que pulsar
@@ -311,6 +390,13 @@ static void handleCmd(const Cmd &c) {
     const bool needsTwoSteps = op == OP_ARM || (op == OP_SET_STATE && c.arg == ST_ARMED && s_state == ST_TIERRA);
     const uint32_t mask = evaluate(op, c.arg);
     uint8_t result;
+
+    if (mask & rz(RZ_OP)) {                            // D-051: un comando que no aplica no se confirma ni se ejecuta (ni forzado)
+        s_pendOn = false;
+        reply(c, CR_ERROR, mask, true);
+        logTransition(c.op, c.arg, CR_ERROR, from, c.counter, mask);
+        return;
+    }
 
     if (confirming) {
         const bool valid = s_pendOn && s_pendOp == op && s_pendArg == c.arg && s_pendMask == c.reasons && millis() - s_pendMs <= CONFIRM_WINDOW_MS;
@@ -358,6 +444,37 @@ static void missionTask(void *) {
     }
 }
 
+// Reanuda FLY o RECOVERY tras un reinicio (seccion 8). Va dentro de missionBegin, antes de crear la tarea: el logger, extActBegin y las colas
+// de esta tarea ya existen, y loggerRecord, netSetFlying y extActBuzzer solo marcan banderas (la radio arranca despues, en netBegin, y lee las banderas).
+static void resume(const MisPersist &r) {
+    s_state = r.state; s_moment = r.moment; s_boosted = r.boosted != 0;
+    s_flags = (uint8_t)((r.flags & PERSIST_FLAGS) | TF_REANUDADO);
+    s_ref[0] = r.ref[0]; s_ref[1] = r.ref[1]; s_refOk[0] = (r.refOk & 1) != 0; s_refOk[1] = (r.refOk & 2) != 0;
+    s_boostUtcMs = r.boostUtcMs;
+    s_recEndAt = 0; s_abortOn = false;                 // el registro de t_post no se repite; el aviso de t_abort tampoco
+    if (r.state == ST_FLY) {
+        loggerAllowPrealloc(false);                    // archivo nuevo, sin reserva: en vuelo no se crean
+        loggerRecord(true);
+        netSetFlying(true);                            // 10 Hz
+    } else {
+        extActBuzzer(true, millis());                  // la LilyGO esta en el suelo: suena para encontrarla (T-413)
+        netSetFlying(false);                           // 2 Hz
+    }
+    s_rtc = r; s_persistLive = true;                   // la RTC vuelve a tener el registro aunque solo la NVS lo conservara
+    logTransition(0, MIS_REANUDADO, CR_OK, r.state, r.bootCount, 0);   // from y to = el estado guardado; counter = el arranque que lo guardo
+}
+
+// Primero la RTC (si es valida) y si no, la NVS. Un registro de otro estado (TIERRA, ARMED) o invalido es un arranque normal
+static void persistRestore() {
+    MisPersist nvs; memset(&nvs, 0, sizeof(nvs));
+    const bool nvsOk = s_prefs.getBytes(PERSIST_KEY, &nvs, sizeof(nvs)) == sizeof(nvs) && persistValid(nvs);
+    const bool rtcOk = persistValid(s_rtc);
+    s_persistLive = (rtcOk && persistResumable(s_rtc)) || (nvsOk && persistResumable(nvs));
+    const MisPersist &r = rtcOk ? s_rtc : nvs;
+    if ((rtcOk || nvsOk) && persistResumable(r)) { resume(r); return; }
+    if (s_persistLive) persistClear();                 // la otra memoria guardaba un vuelo que esta ya no: no se debe reanudar mas tarde
+}
+
 void missionBegin(uint8_t rocketId) {
     s_rocket = rocketId;
     s_cfg = &missionCfg(rocketId);
@@ -367,6 +484,7 @@ void missionBegin(uint8_t rocketId) {
     s_lastCounter = s_prefs.getULong("ctr", 0);
     s_q = xQueueCreate(4, sizeof(Cmd));
     s_logQ = xQueueCreate(8, sizeof(MissionLog));
+    persistRestore();
     xTaskCreatePinnedToCore(missionTask, "mission", 4096, nullptr, 2, nullptr, 0);
 }
 

@@ -4,6 +4,13 @@
 // Escenarios de BOOST (T-410): tierra | armado | launch_sin_boost | baro | qmi_con_lsm | qmi_sin_lsm
 // Escenarios de actuadores (T-413, con ext_act.cpp REAL y los pines registrados con su hora virtual):
 //   buzzer_patron | buzzer_aterrizaje | buzzer_recovery | pi_demeter | pi_vuelo | pi_hermes | sueno | protocolo
+// D-051 (T-411): d051
+// Escenarios de persistencia (T-411, maquina_estados.md seccion 8). Un "reinicio" = otro proceso: la RTC (la seccion rtc_noinit_host) y la NVS de mentira
+// se vuelcan a archivos al terminar y se recargan al empezar. Se corre una fase "a_*" (escribe) y luego una "b_*" (arranca con lo guardado):
+//   a_fly | a_fly_sin_armar | a_fly_forzado | a_recovery | a_armed | a_tierra | a_vuelo_y_tierra
+//   b_fly | b_fly_sin_armar | b_fly_forzado | b_recovery | b_normal | b_tierra_invalida | b_limpia
+// Opciones: --rtc <archivo> --nvs <archivo> (se cargan si existen y se guardan al final), --sin-rtc, --sin-nvs (no se cargan: corte de energia / NVS nueva),
+//           --corromper=rtc|nvs|ambas (cambia un byte del registro antes de arrancar)
 #include <Arduino.h>
 #include <esp_timer.h>
 #include <Preferences.h>
@@ -12,6 +19,7 @@
 #include <string>
 #include <algorithm>
 #include <deque>
+#include <map>
 #include <vector>
 #include "mission.h"
 #include "core_bus.h"
@@ -64,9 +72,32 @@ BaseType_t xQueueReceive(QueueHandle_t q, void *p, TickType_t) {
     return pdTRUE;
 }
 BaseType_t xTaskCreatePinnedToCore(void (*f)(void *), const char *, uint32_t, void *, int, TaskHandle_t *, int) { g_taskFn = f; return pdTRUE; }
-bool Preferences::begin(const char *, bool) { return true; }
-uint32_t Preferences::getULong(const char *, uint32_t d) { return d; }
-void Preferences::putULong(const char *, uint32_t) {}
+
+// ---------- NVS de mentira (T-411): espacio/clave -> bytes; se vuelca a un archivo entre "reinicios" ----------
+static std::map<std::string, std::vector<uint8_t> > g_nvs;
+static int g_nvsVuelo = 0;                                     // escrituras del registro de vuelo ("tbmis/vuelo")
+static std::string clave(const Preferences *p, const char *k) { return std::string(p->ns_) + "/" + k; }
+bool Preferences::begin(const char *ns, bool) { ns_ = ns; return true; }
+void Preferences::end() {}
+size_t Preferences::putBytes(const char *k, const void *v, size_t n) {
+    g_nvs[clave(this, k)] = std::vector<uint8_t>((const uint8_t *)v, (const uint8_t *)v + n);
+    if (clave(this, k) == "tbmis/vuelo") g_nvsVuelo++;
+    return n;
+}
+size_t Preferences::getBytes(const char *k, void *v, size_t max) {
+    std::map<std::string, std::vector<uint8_t> >::iterator it = g_nvs.find(clave(this, k));
+    if (it == g_nvs.end()) return 0;
+    const size_t n = std::min(max, it->second.size());
+    memcpy(v, it->second.data(), n);
+    return n;
+}
+bool Preferences::remove(const char *k) { return g_nvs.erase(clave(this, k)) > 0; }
+uint32_t Preferences::getUInt(const char *k, uint32_t d) { uint32_t v = d; getBytes(k, &v, sizeof(v)); return v; }
+uint32_t Preferences::getULong(const char *k, uint32_t d) { return getUInt(k, d); }
+void Preferences::putULong(const char *k, uint32_t v) { putBytes(k, &v, sizeof(v)); }
+static bool g_horaOk = true;                                   // hay hora UTC (el modelo de tiempo de core_bus): el UTC es el reloj local + 1,7e15 us
+static const int64_t UTC_OFFSET_US = 1700000000000000LL;
+int64_t time_to_utc_us(int64_t t) { return g_horaOk ? t + UTC_OFFSET_US : -1; }
 
 // ---------- Resto de dependencias de mission.cpp ----------
 Latest<ImuSample>    g_ext_imu, g_imu;
@@ -84,8 +115,9 @@ static bool g_haveResp = false;
 LoggerStats loggerStats() { LoggerStats l; memset(&l, 0, sizeof(l)); l.state = 2; l.spareState = 2; l.sparePct = 100; return l; }
 void loggerRecord(bool on) { g_rec.push_back(on ? 1 : 0); }
 void loggerPrepare() { g_prepare++; }
-void loggerAllowPrealloc(bool) {}
-void netSetFlying(bool) {}
+static int g_prealloc = -1, g_flying = -1;                     // ultimo valor de loggerAllowPrealloc y de netSetFlying (-1: nunca se llamo)
+void loggerAllowPrealloc(bool a) { g_prealloc = a ? 1 : 0; }
+void netSetFlying(bool f) { g_flying = f ? 1 : 0; }
 void netQueueResp(const CmdResp &r) { g_resp = r; g_haveResp = true; }
 DrvStats extDrvStats() { DrvStats d; d.magnet = false; d.detections = 0; return d; }
 
@@ -303,7 +335,7 @@ static void esc_buzzer_patron(int t) {                         // solo con coman
         CHECK(nivel(BUZ) == 0 && !(extActBits() & ACT_BUZZER_ACTIVO) && cambios(BUZ).size() == 6, "apaga al instante (sin esperar el fin de la fase) y el bit 0 baja");
     }
     if (t == 300) { resp_nueva(); cmd(OP_BUZZER, 2); }
-    if (t == 302) CHECK(resp(CR_NO_APTO, 1u << RZ_OP), "buzzer con argumento 2: NO_APTO con RZ_OP");
+    if (t == 302) CHECK(resp(CR_ERROR, 1u << RZ_OP), "buzzer con argumento 2: ERROR con RZ_OP (D-051: no es NO_APTO ni se confirma)");
     if (t == 400) CHECK(cambios(BUZ).size() == 6 && nivel(BUZ) == 0, "apagado no vuelve a sonar");
     if (t == 405) armar();
     if (t == 406) armarConfirma();
@@ -427,9 +459,13 @@ static void esc_pi_hermes(int t) {                             // en Hermes IO45
     if (t == 5) { resp_nueva(); cmd(OP_PI_POWER); }
     if (t == 7) {
         printf("PI: Hermes\n");
-        CHECK(resp(CR_NO_APTO, 1u << RZ_OP), "pi encender en Hermes: NO_APTO con RZ_OP (y no con RZ_PI_DESCONOCIDA)");
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "pi encender en Hermes: CR_ERROR con RZ_OP (D-051; y no NO_APTO ni RZ_PI_DESCONOCIDA)");
         const uint32_t m = g_resp.reasons;
         resp_nueva(); cmd((uint8_t)(OP_PI_POWER | OP_CONFIRM), 0, m);
+    }
+    if (t == 9) {
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "y confirmarlo con esos mismos motivos: otra vez CR_ERROR, no queda pendiente");
+        CHECK(!(st().flags & TF_FORZADO), "no levanta TF_FORZADO (antes, confirmado, devolvia CR_OK y lo levantaba)");
     }
     if (t == 100) CHECK(nivel(PI) == 0 && cambios(PI).empty() && !(extActBits() & (ACT_PI_EN_CURSO | ACT_PI_ENVIADO)), "ni siquiera confirmado se pulsa IO45 en Hermes");
     if (t == 110) { resp_nueva(); cmd(OP_BUZZER, 1); }
@@ -459,6 +495,319 @@ static void esc_sueno(int t) {                                 // extActSleep: p
     if (t == 103) CHECK(nivel(BUZ) == 1, "despues del despertar el buzzer vuelve a responder");
 }
 
+// ---------- D-051 (T-411): un comando que no aplica responde CR_ERROR y no se puede confirmar ----------
+static void esc_d051(int t) {                                  // Demeter: un op desconocido, un estado, un momento y un buzzer fuera de rango dan ERROR con RZ_OP
+    sano();
+    const uint8_t OP_MAL = 99;
+    if (t == 5) { resp_nueva(); cmd(OP_MAL); }
+    if (t == 7) {
+        printf("D-051: RZ_OP = CR_ERROR\n");
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "op desconocido: CR_ERROR con RZ_OP");
+        resp_nueva(); cmd((uint8_t)(OP_MAL | OP_CONFIRM), 0, 1u << RZ_OP);
+    }
+    if (t == 9) {
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "confirmarlo con los mismos motivos: CR_ERROR, no se ejecuta (antes devolvia CR_OK)");
+        CHECK(!(st().flags & TF_FORZADO), "y no levanta TF_FORZADO");
+        resp_nueva(); cmd(OP_SET_STATE, 9);
+    }
+    if (t == 11) { CHECK(resp(CR_ERROR, 1u << RZ_OP), "estado 9: CR_ERROR con RZ_OP"); resp_nueva(); cmd(OP_SET_MOMENT, 9); }
+    if (t == 13) { CHECK(resp(CR_ERROR, 1u << RZ_OP), "momento 9: CR_ERROR con RZ_OP"); resp_nueva(); cmd(OP_BUZZER, 2); }
+    if (t == 15) {
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "buzzer 2: CR_ERROR con RZ_OP");
+        resp_nueva(); cmd(OP_PI_POWER);                        // un comando valido que pide confirmacion
+    }
+    if (t == 17) {
+        CHECK(resp(CR_NO_APTO, 1u << RZ_PI_DESCONOCIDA), "pi encender en Demeter sigue siendo NO_APTO (no es RZ_OP)");
+        resp_nueva(); cmd(OP_BUZZER, 2);                       // un RZ_OP en medio: borra lo pendiente
+    }
+    if (t == 19) {
+        CHECK(resp(CR_ERROR, 1u << RZ_OP), "un RZ_OP en medio da CR_ERROR");
+        resp_nueva(); cmd((uint8_t)(OP_PI_POWER | OP_CONFIRM), 0, 1u << RZ_PI_DESCONOCIDA);
+    }
+    if (t == 21) {
+        CHECK(g_haveResp && g_resp.result == CR_ERROR && g_resp.reasons == (1u << RZ_CONFIRM), "y la confirmacion de lo anterior ya no vale (RZ_CONFIRM)");
+        CHECK(cambios(PI).empty(), "IO45 no se toco");
+    }
+}
+
+// ---------- Persistencia en vuelo (T-411) ----------
+// Espejo de MisPersist (mission.cpp) y valores esperados escritos a mano: si cambia el formato, la prueba lo avisa
+struct RegEspejo { uint32_t magic, bootCount; int64_t boostUtcMs; float ref[2]; uint8_t version, state, moment, flags, boosted, refOk; uint16_t crc; };
+static_assert(sizeof(RegEspejo) == 32, "el registro mide 32 B");
+static const uint32_t MAGIC_ESP = 0x4D495331;                  // "MIS1"
+static const uint32_t BOOT_ESP = 7;                            // el contador de arranques del logger ("tbfw/boot") que pone el arnes
+static const float    P0_BMP = 95000.0f, P0_BME = 95070.0f;    // sano(): el BMP581 lee P, el BME280 P + 70 Pa
+extern "C" { extern char __start_rtc_noinit_host[]; extern char __stop_rtc_noinit_host[]; }
+static size_t rtcTam() { return (size_t)(__stop_rtc_noinit_host - __start_rtc_noinit_host); }
+static RegEspejo rtcReg() { RegEspejo r; memset(&r, 0, sizeof(r)); memcpy(&r, __start_rtc_noinit_host, std::min(sizeof(r), rtcTam())); return r; }
+static bool nvsReg(RegEspejo &r) {
+    memset(&r, 0, sizeof(r));
+    std::map<std::string, std::vector<uint8_t> >::iterator it = g_nvs.find("tbmis/vuelo");
+    if (it == g_nvs.end() || it->second.size() != sizeof(r)) return false;
+    memcpy(&r, it->second.data(), sizeof(r));
+    return true;
+}
+static bool regValido(const RegEspejo &r) { return r.magic == MAGIC_ESP && r.version == 1 && r.crc == net::crc16((const uint8_t *)&r, sizeof(r) - 2); }
+static bool igualRegs(const RegEspejo &a, const RegEspejo &b) { return memcmp(&a, &b, sizeof(a)) == 0; }
+static RegEspejo g_regInicio;                                  // el registro guardado tal como lo deja el reinicio, antes de missionBegin
+static int64_t g_tBoost = 0;                                   // hora virtual (us) en que se vio el momento BOOST
+static void vigilarBoost() { if (!g_tBoost && st().moment == M_BOOST) g_tBoost = g_nowUs; }
+static const int64_t UTC_POSITIVO = -2;                        // en verRegistro: "cualquier UTC > 0"
+
+// Comprueba la RTC y la NVS: las dos validas, iguales, con lo esperado
+static void verRegistro(uint8_t estado, uint8_t momento, uint8_t flags, bool boosted, int64_t utcMs, const char *que) {
+    char m[200];
+    const RegEspejo r = rtcReg();
+    RegEspejo n;
+    const bool nvsOk = nvsReg(n);
+    snprintf(m, sizeof(m), "%s: RTC valida, estado %u, momento %u, flags 0x%02X, boosted %d", que, estado, momento, flags, boosted ? 1 : 0);
+    CHECK(regValido(r) && r.state == estado && r.moment == momento && r.flags == flags && (r.boosted != 0) == boosted, m);
+    snprintf(m, sizeof(m), "%s: NVS valida e igual a la RTC (bit a bit)", que);
+    CHECK(nvsOk && regValido(n) && igualRegs(r, n), m);
+    snprintf(m, sizeof(m), "%s: UTC del BOOST %s", que, utcMs == UTC_POSITIVO ? "> 0" : (utcMs == -1 ? "= -1 (no habia hora)" : "esperado"));
+    CHECK(utcMs == UTC_POSITIVO ? r.boostUtcMs > 0 : r.boostUtcMs == utcMs, m);
+}
+static void verP0(const RegEspejo &r, const char *que) {
+    char m[200];
+    snprintf(m, sizeof(m), "%s: p0 de los dos barometros validos (%.0f y %.0f Pa) y arranque %u", que, P0_BMP, P0_BME, (unsigned)BOOT_ESP);
+    CHECK(r.refOk == 3 && fabsf(r.ref[0] - P0_BMP) < 1.0f && fabsf(r.ref[1] - P0_BME) < 1.0f && r.bootCount == BOOT_ESP, m);
+}
+static bool sinRegistro() { RegEspejo n; return !regValido(rtcReg()) && !nvsReg(n); }
+
+// ---- Fase A: lo que se guarda ----
+static void esc_a_fly(int t) {                                 // ARMED -> BOOST -> momento COAST: dos escrituras y nada mas
+    sano(); vigilarBoost();
+    if (t == 10) armar();
+    if (t == 11) armarConfirma();
+    if (t == 14) { printf("A: ARMED, BOOST y COAST\n"); CHECK(st().state == ST_ARMED && g_nvsVuelo == 0 && sinRegistro(), "armado: todavia no se guarda nada"); }
+    if (t >= 60 && t < 70) rafaga(true, 7.0f);
+    if (t == 80) {
+        CHECK(st().state == ST_FLY && st().moment == M_BOOST, "BOOST desde ARMED");
+        CHECK(g_nvsVuelo == 1, "una sola escritura de la NVS para el paso a FLY y el momento BOOST juntos");
+        cmd(OP_SET_MOMENT, M_COAST);
+    }
+    if (t == 90) CHECK(st().moment == M_COAST && g_nvsVuelo == 2, "momento COAST: una escritura mas");
+    if (t == 690) {
+        const int64_t utcEsp = g_tBoost / 1000 + UTC_OFFSET_US / 1000;
+        CHECK(g_nvsVuelo == 2, "10 s mas tarde, ninguna escritura: solo se guarda en las transiciones, nunca periodicamente");
+        verRegistro(ST_FLY, M_COAST, 0, true, UTC_POSITIVO, "FLY/COAST");
+        verP0(rtcReg(), "FLY/COAST");
+        CHECK(llabs(rtcReg().boostUtcMs - utcEsp) <= 40, "el UTC del BOOST es el del momento en que se detecto (+-40 ms)");
+    }
+}
+static void esc_a_fly_sin_armar(int t) {                       // BOOST en TIERRA, sin hora UTC
+    if (t == 0) g_horaOk = false;
+    sano();
+    if (t >= 50 && t < 60) rafaga(true, 7.0f);
+    if (t == 80) {
+        printf("A: BOOST sin armar y sin hora\n");
+        CHECK(st().state == ST_FLY && st().moment == M_BOOST && (st().flags & TF_BOOST_SIN_ARMAR), "BOOST sin armar");
+        verRegistro(ST_FLY, M_BOOST, TF_BOOST_SIN_ARMAR, true, -1, "FLY/BOOST sin armar");
+        CHECK(g_nvsVuelo == 1, "una sola escritura");
+    }
+}
+static void esc_a_fly_forzado(int t) {                         // LAUNCH forzado desde TIERRA: TF_FORZADO, sin BOOST
+    sano();
+    if (t == 10) { resp_nueva(); cmd(OP_LAUNCH); }
+    if (t == 12) {
+        CHECK(resp(CR_NO_APTO, 1u << RZ_NO_ARMADO) && g_nvsVuelo == 0, "launch desde TIERRA: NO_APTO (no armado) y no guarda nada");
+        resp_nueva(); cmd((uint8_t)(OP_LAUNCH | OP_CONFIRM), 0, 1u << RZ_NO_ARMADO);
+    }
+    if (t == 16) {
+        printf("A: LAUNCH forzado\n");
+        CHECK(st().state == ST_FLY && st().moment == M_LAUNCH && (st().flags & TF_FORZADO), "FLY, LAUNCH, FORZADO");
+        verRegistro(ST_FLY, M_LAUNCH, TF_FORZADO, false, -1, "FLY/LAUNCH forzado");
+        CHECK(g_nvsVuelo == 1, "una sola escritura");
+    }
+}
+static void esc_a_recovery(int t) {                            // ARMED -> BOOST -> ATERRIZAJE -> RECOVERY
+    sano(); vigilarBoost();
+    if (t == 10) armar();
+    if (t == 11) armarConfirma();
+    if (t >= 60 && t < 70) rafaga(true, 7.0f);
+    if (t == 80) cmd(OP_SET_MOMENT, M_ATERRIZAJE);
+    if (t == 90) cmd(OP_SET_STATE, ST_RECOVERY);
+    if (t == 100) {
+        printf("A: RECOVERY\n");
+        CHECK(st().state == ST_RECOVERY && g_nvsVuelo == 3, "RECOVERY: BOOST, ATERRIZAJE y RECOVERY = tres escrituras");
+        verRegistro(ST_RECOVERY, M_ATERRIZAJE, 0, true, UTC_POSITIVO, "RECOVERY");
+    }
+}
+static void esc_a_armed(int t) {                               // solo armar: nada que guardar
+    sano();
+    if (t == 10) armar();
+    if (t == 11) armarConfirma();
+    if (t == 30) { printf("A: ARMED\n"); CHECK(st().state == ST_ARMED && g_nvsVuelo == 0 && sinRegistro(), "ARMED: ni la RTC ni la NVS guardan nada"); }
+}
+static void esc_a_tierra(int t) {                              // armar y desarmar: tampoco
+    sano();
+    if (t == 10) armar();
+    if (t == 11) armarConfirma();
+    if (t == 20) cmd(OP_DISARM);
+    if (t == 30) { printf("A: ARMED -> TIERRA\n"); CHECK(st().state == ST_TIERRA && g_nvsVuelo == 0 && sinRegistro(), "TIERRA tras armar y desarmar: no escribe (no hay nada que invalidar)"); }
+}
+static void esc_a_vuelo_y_tierra(int t) {                      // LAUNCH forzado y luego estado tierra (sin BOOST es apto): el registro queda invalidado
+    sano();
+    if (t == 10) cmd(OP_LAUNCH);
+    if (t == 12) cmd((uint8_t)(OP_LAUNCH | OP_CONFIRM), 0, 1u << RZ_NO_ARMADO);
+    if (t == 16) { CHECK(st().state == ST_FLY && g_nvsVuelo == 1, "FLY forzado: registro guardado"); cmd(OP_SET_STATE, ST_TIERRA); }
+    if (t == 20) {
+        printf("A: FLY -> estado tierra\n");
+        CHECK(st().state == ST_TIERRA && g_nvsVuelo == 2, "estado tierra: una escritura mas, la que invalida");
+        const RegEspejo r = rtcReg();
+        RegEspejo n;
+        CHECK(regValido(r) && r.state == ST_TIERRA && nvsReg(n) && igualRegs(r, n), "la RTC y la NVS quedan con un registro valido de estado TIERRA (no reanudable)");
+    }
+}
+
+// ---- Fase B: lo que se retoma ----
+// Comprobaciones comunes de una reanudacion en FLY, ya en el primer paso de la tarea
+static void verReanudaFly(uint8_t momento, uint8_t flagsGuardadas, const char *que) {
+    char m[200];
+    recogerLogs();
+    snprintf(m, sizeof(m), "%s: vuelve a FLY, momento %u, flags 0x%02X + TF_REANUDADO", que, momento, flagsGuardadas);
+    CHECK(st().state == ST_FLY && st().moment == momento && st().flags == (flagsGuardadas | TF_REANUDADO), m);
+    CHECK(g_nowUs < 3000000, "en el primer paso de la tarea (1,02 s de reloj virtual, < 3 s): P-10");
+    CHECK(!g_rec.empty() && g_rec.back() == 1 && cierres() == 0, "registra: loggerRecord(true) y nunca false");
+    CHECK(g_prealloc == 0 && g_flying == 1, "archivo sin reserva (loggerAllowPrealloc(false)) y a 10 Hz (netSetFlying(true))");
+    CHECK(cambios(BUZ).empty() && cambios(PI).empty(), "buzzer y Pi en silencio");
+    const MissionLog *l = primerAuto(3);
+    CHECK(autoLogs(3) == 1 && l && l->r.from == ST_FLY && l->r.to == ST_FLY && l->r.moment == momento && l->r.result == CR_OK && l->r.counter == BOOT_ESP && (l->r.flags & TF_REANUDADO),
+          "un T_MISSION automatico: op 0, arg 3, from = to = FLY, counter = el arranque que lo guardo");
+}
+
+static void esc_b_fly(int t) {                                 // viene de a_fly: FLY / COAST, boosted, p0 de 95000 Pa
+    sano();
+    if (t == 0) { printf("B: FLY/COAST tras el reinicio\n"); verReanudaFly(M_COAST, 0, "FLY/COAST"); }
+    if (t == 200) CHECK(fabsf(st().altM - 30.0f) < 1.0f, "p0 restaurado: a 30 m reales marca 30 m (con un p0 nuevo marcaria 0)");
+    if (t == 210) { resp_nueva(); cmd(OP_ABORT); }
+    if (t == 212) {
+        CHECK(resp(CR_NO_APTO, 1u << RZ_EN_VUELO) && st().state == ST_FLY, "s_boosted restaurado: abortar = NO_APTO (EN_VUELO)");
+        CHECK(g_resp.flags & TF_REANUDADO, "y la respuesta lleva TF_REANUDADO");
+        cmd(OP_SET_MOMENT, M_APOGEO);
+    }
+    if (t == 220) {
+        CHECK(st().moment == M_APOGEO, "momento APOGEO");
+        const RegEspejo r = rtcReg();
+        CHECK(regValido(r) && r.state == ST_FLY && r.moment == M_APOGEO && r.flags == 0 && r.boosted == 1, "el registro nuevo se guarda sin TF_REANUDADO (lo pone la reanudacion)");
+        CHECK(r.boostUtcMs == g_regInicio.boostUtcMs && r.boostUtcMs > 0, "el UTC del BOOST se conserva");
+        verP0(r, "tras reanudar");
+        RegEspejo n;
+        CHECK(nvsReg(n) && igualRegs(r, n), "RTC y NVS iguales (si faltaba una, se rehizo)");
+    }
+}
+static void esc_b_fly_sin_armar(int t) {                       // viene de a_fly_sin_armar
+    sano();
+    if (t == 0) { printf("B: FLY/BOOST sin armar\n"); verReanudaFly(M_BOOST, TF_BOOST_SIN_ARMAR, "FLY/BOOST sin armar"); }
+    if (t == 10) cmd(OP_SET_MOMENT, M_COAST);
+    if (t == 20) CHECK(rtcReg().boostUtcMs == -1 && g_regInicio.boostUtcMs == -1 && rtcReg().flags == TF_BOOST_SIN_ARMAR, "sin hora: el UTC sigue en -1 y TF_BOOST_SIN_ARMAR se conserva");
+}
+static void esc_b_fly_forzado(int t) {                         // viene de a_fly_forzado: FLY / LAUNCH, sin BOOST, FORZADO
+    sano();
+    if (t == 0) { printf("B: FLY/LAUNCH forzado\n"); verReanudaFly(M_LAUNCH, TF_FORZADO, "FLY/LAUNCH forzado"); }
+    if (t == 10) { resp_nueva(); cmd(OP_ABORT); }
+    if (t == 12) {
+        CHECK(resp(CR_OK, 0) && st().state == ST_ARMED, "s_boosted = false restaurado: abortar es apto y pasa a ARMED");
+        const RegEspejo r = rtcReg();
+        RegEspejo n;
+        CHECK(regValido(r) && r.state == ST_ARMED && nvsReg(n) && igualRegs(r, n), "ARMED invalida: la RTC y la NVS quedan con un registro de estado ARMED (no reanudable)");
+        CHECK(g_rec.back() == 0, "loggerRecord(false)");
+    }
+}
+static void esc_b_recovery(int t) {                            // viene de a_recovery
+    sano();
+    if (t == 2) {
+        printf("B: RECOVERY tras el reinicio\n");
+        recogerLogs();
+        CHECK(st().state == ST_RECOVERY && st().moment == M_ATERRIZAJE && st().flags == TF_REANUDADO, "vuelve a RECOVERY, momento ATERRIZAJE, TF_REANUDADO");
+        CHECK(g_rec.empty(), "no registra (el registro de t_post no se repite): loggerRecord no se llama");
+        CHECK(g_flying == 0, "2 Hz: netSetFlying(false)");
+        CHECK(nivel(BUZ) == 1 && (extActBits() & ACT_BUZZER_ACTIVO), "el buzzer suena (T-413)");
+        const MissionLog *l = primerAuto(3);
+        CHECK(autoLogs(3) == 1 && l && l->r.from == ST_RECOVERY && l->r.to == ST_RECOVERY && l->r.moment == M_ATERRIZAJE && l->r.counter == BOOT_ESP, "T_MISSION arg 3 con from = to = RECOVERY");
+    }
+    if (t == 3150) CHECK(g_rec.empty() && (extActBits() & ACT_BUZZER_ACTIVO), "62 s despues (mas que t_post): sigue sin tocar el registro y el buzzer sigue");
+    if (t == 3160) { resp_nueva(); cmd(OP_SET_STATE, ST_TIERRA); }
+    if (t == 3162) {
+        CHECK(resp(CR_OK, 0) && st().state == ST_TIERRA && st().flags == 0, "estado tierra desde RECOVERY: apto; TIERRA con las banderas en 0");
+        CHECK(nivel(BUZ) == 0, "el buzzer calla");
+        const RegEspejo r = rtcReg();
+        CHECK(regValido(r) && r.state == ST_TIERRA, "el registro queda invalidado");
+    }
+}
+static void esc_b_normal(int t) {                              // un registro de TIERRA, ARMED, invalido o ausente: arranque normal
+    sano();
+    if (t == 0) {
+        printf("B: arranque normal\n");
+        recogerLogs();
+        CHECK(st().state == ST_TIERRA && st().moment == M_NONE && st().flags == 0, "TIERRA, sin momento y sin banderas");
+        CHECK(g_rec.empty() && g_flying == -1 && g_prealloc == -1, "no registra ni toca la radio ni el logger");
+        CHECK(autoLogs(3) == 0 && g_logs.empty(), "ningun T_MISSION");
+        CHECK(cambios(BUZ).empty(), "el buzzer calla");
+        CHECK(g_nvsVuelo == 0, "y no escribe la NVS");
+    }
+    if (t == 200) CHECK(fabsf(st().altM) < 0.5f, "p0 nuevo (el de ahora): a 30 m reales marca 0");
+}
+static void esc_b_tierra_invalida(int t) {                     // viene de a_fly: reanuda y se sale con estado tierra
+    sano();
+    if (t == 0) { printf("B: reanudar y salir con estado tierra\n"); verReanudaFly(M_COAST, 0, "FLY/COAST"); }
+    if (t == 10) { resp_nueva(); cmd(OP_SET_STATE, ST_TIERRA); }
+    if (t == 12) {
+        CHECK(resp(CR_NO_APTO, 1u << RZ_EN_VUELO) && st().state == ST_FLY, "estado tierra con BOOST: NO_APTO (EN_VUELO), pide confirmacion");
+        const uint32_t m = g_resp.reasons;
+        resp_nueva(); cmd((uint8_t)(OP_SET_STATE | OP_CONFIRM), ST_TIERRA, m);
+    }
+    if (t == 14) {
+        CHECK(g_haveResp && g_resp.result == CR_OK && st().state == ST_TIERRA, "confirmado: pasa a TIERRA");
+        CHECK(st().flags == 0, "TF_REANUDADO y TF_FORZADO se apagan en TIERRA");
+        CHECK(g_rec.back() == 0, "loggerRecord(false)");
+        const RegEspejo r = rtcReg();
+        RegEspejo n;
+        CHECK(regValido(r) && r.state == ST_TIERRA && nvsReg(n) && igualRegs(r, n), "el registro queda invalidado en la RTC y en la NVS");
+    }
+}
+static void esc_b_limpia(int t) {                              // RTC = TIERRA valida y NVS = FLY vieja: arranque normal, y la NVS se limpia
+    sano();
+    if (t == 0) {
+        printf("B: RTC TIERRA, NVS FLY vieja\n");
+        recogerLogs();
+        CHECK(st().state == ST_TIERRA && st().flags == 0 && g_rec.empty() && g_logs.empty(), "arranque normal en TIERRA, sin T_MISSION");
+        const RegEspejo r = rtcReg();
+        RegEspejo n;
+        CHECK(nvsReg(n) && regValido(n) && n.state == ST_TIERRA && igualRegs(r, n), "la NVS vieja se invalida: no reanudaria tras un corte de energia");
+        CHECK(g_nvsVuelo == 1, "con una escritura");
+    }
+}
+
+// ---------- Archivos entre "reinicios" ----------
+static void guardarArchivos(const char *rtc, const char *nvs) {
+    if (rtc) { FILE *f = fopen(rtc, "wb"); if (f) { fwrite(__start_rtc_noinit_host, 1, rtcTam(), f); fclose(f); } }
+    if (!nvs) return;
+    FILE *f = fopen(nvs, "wb");
+    if (!f) return;
+    for (std::map<std::string, std::vector<uint8_t> >::iterator it = g_nvs.begin(); it != g_nvs.end(); ++it) {
+        const uint32_t kl = (uint32_t)it->first.size(), vl = (uint32_t)it->second.size();
+        fwrite(&kl, 4, 1, f); fwrite(it->first.data(), 1, kl, f);
+        fwrite(&vl, 4, 1, f); fwrite(it->second.data(), 1, vl, f);
+    }
+    fclose(f);
+}
+static void cargarArchivos(const char *rtc, const char *nvs) {
+    if (rtc) { FILE *f = fopen(rtc, "rb"); if (f) { if (fread(__start_rtc_noinit_host, 1, rtcTam(), f) == 0) {} fclose(f); } }
+    if (!nvs) return;
+    FILE *f = fopen(nvs, "rb");
+    if (!f) return;
+    uint32_t kl, vl;
+    while (fread(&kl, 4, 1, f) == 1) {
+        std::string k(kl, '\0');
+        if (fread(&k[0], 1, kl, f) != kl || fread(&vl, 4, 1, f) != 1) break;
+        std::vector<uint8_t> v(vl);
+        if (vl && fread(v.data(), 1, vl, f) != vl) break;
+        g_nvs[k] = v;
+    }
+    fclose(f);
+}
+
 static int prueba_protocolo() {                                // contrato de net_proto.h
     static_assert(OP_BUZZER == 10 && OP_PI_POWER == 11, "ops 10 y 11");
     static_assert(RZ_PI_DESCONOCIDA == 21 && RZ_COUNT == 22, "motivo 21 y RZ_COUNT = 22");
@@ -469,14 +818,27 @@ static int prueba_protocolo() {                                // contrato de ne
     CHECK(EXT_ACT_BUZZER_PIN == 46 && EXT_ACT_PI_PIN == 45, "IO46 buzzer, IO45 Pi");
     CHECK(strstr(reasonText(RZ_PI_DESCONOCIDA), "Pi") != nullptr, "el texto del motivo 21 habla de la Pi");
     CHECK((ACT_BUZZER_ACTIVO | ACT_PI_EN_CURSO | ACT_PI_ENVIADO) == 7 && sizeof(Telem) == 64, "bits de actuators 0, 1 y 2; Telem sigue en 64 B");
+    CHECK(TF_FLYING == 1 && TF_BOOST_SIN_ARMAR == 2 && TF_FORZADO == 4 && TF_LAUNCH_VENCIDO == 8 && TF_REANUDADO == 16, "TELEM.flags: bits 0 a 4 (TF_REANUDADO = 16, T-411)");
     return g_fallas;
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) { fprintf(stderr, "uso: prueba_mision escenario\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "uso: prueba_mision escenario [--rtc f] [--nvs f] [--sin-rtc] [--sin-nvs] [--corromper=rtc|nvs|ambas]\n"); return 2; }
     const std::string n = argv[1];
     int ticks = 130;
     uint8_t rocket = 1;                                        // 1 = Demeter, 2 = Hermes
+    const char *rtcArch = nullptr, *nvsArch = nullptr;
+    bool sinRtc = false, sinNvs = false;
+    std::string corromper;
+    for (int i = 2; i < argc; i++) {
+        const std::string a = argv[i];
+        if (a == "--rtc" && i + 1 < argc) rtcArch = argv[++i];
+        else if (a == "--nvs" && i + 1 < argc) nvsArch = argv[++i];
+        else if (a == "--sin-rtc") sinRtc = true;
+        else if (a == "--sin-nvs") sinNvs = true;
+        else if (a.compare(0, 11, "--corromper") == 0 && a.size() > 12) corromper = a.substr(12);
+        else { fprintf(stderr, "opcion desconocida: %s\n", a.c_str()); return 2; }
+    }
     if (n == "tierra") g_escenario = esc_tierra;
     else if (n == "armado") g_escenario = esc_armado;
     else if (n == "launch_sin_boost") { g_escenario = esc_launch_sin_boost; ticks = 20 + 6110; }
@@ -490,12 +852,39 @@ int main(int argc, char **argv) {
     else if (n == "pi_vuelo") { g_escenario = esc_pi_vuelo; ticks = 210; }
     else if (n == "pi_hermes") { g_escenario = esc_pi_hermes; rocket = 2; ticks = 120; }
     else if (n == "sueno") { g_escenario = esc_sueno; ticks = 110; }
+    else if (n == "d051") { g_escenario = esc_d051; ticks = 30; }
+    else if (n == "a_fly") { g_escenario = esc_a_fly; ticks = 700; }
+    else if (n == "a_fly_sin_armar") { g_escenario = esc_a_fly_sin_armar; ticks = 100; }
+    else if (n == "a_fly_forzado") { g_escenario = esc_a_fly_forzado; ticks = 30; }
+    else if (n == "a_recovery") { g_escenario = esc_a_recovery; ticks = 120; }
+    else if (n == "a_armed") { g_escenario = esc_a_armed; ticks = 40; }
+    else if (n == "a_tierra") { g_escenario = esc_a_tierra; ticks = 40; }
+    else if (n == "a_vuelo_y_tierra") { g_escenario = esc_a_vuelo_y_tierra; ticks = 30; }
+    else if (n == "b_fly") { g_escenario = esc_b_fly; ticks = 230; }
+    else if (n == "b_fly_sin_armar") { g_escenario = esc_b_fly_sin_armar; ticks = 40; }
+    else if (n == "b_fly_forzado") { g_escenario = esc_b_fly_forzado; ticks = 20; }
+    else if (n == "b_recovery") { g_escenario = esc_b_recovery; ticks = 3170; }
+    else if (n == "b_normal") { g_escenario = esc_b_normal; ticks = 210; }
+    else if (n == "b_tierra_invalida") { g_escenario = esc_b_tierra_invalida; ticks = 20; }
+    else if (n == "b_limpia") { g_escenario = esc_b_limpia; ticks = 10; }
     else if (n == "protocolo") { prueba_protocolo(); printf("protocolo: %s\n", g_fallas ? "FALLA" : "OK"); return g_fallas ? 1 : 0; }
     else { fprintf(stderr, "escenario desconocido: %s\n", argv[1]); return 2; }
     g_maxTicks = ticks;
+
+    // El "reinicio": lo que sobrevive es la RTC (si hay archivo y no se pide --sin-rtc) y la NVS (idem). Sin archivo, la RTC trae ceros y la NVS esta vacia
+    cargarArchivos(sinRtc ? nullptr : rtcArch, sinNvs ? nullptr : nvsArch);
+    if (!g_nvs.count("tbfw/boot")) { uint32_t b = BOOT_ESP; g_nvs["tbfw/boot"] = std::vector<uint8_t>((uint8_t *)&b, (uint8_t *)&b + 4); }
+    if (corromper == "rtc" || corromper == "ambas") __start_rtc_noinit_host[25] ^= (char)0xFF;                      // el byte del estado: el CRC ya no cuadra
+    if ((corromper == "nvs" || corromper == "ambas") && g_nvs.count("tbmis/vuelo")) g_nvs["tbmis/vuelo"][25] ^= 0xFF;
+    if (n.compare(0, 2, "b_") == 0) g_altM = 30.0;                            // tras el reinicio el cohete esta 30 m sobre el p0 de antes: solo se ve si p0 se restauro
+    g_regInicio = rtcReg();                                    // el registro que se espera restaurar: el de la RTC si es valido y si no el de la NVS
+    if (!regValido(g_regInicio)) nvsReg(g_regInicio);
+    if (g_nvs.count("tbmis/ctr")) memcpy(&g_cmdCounter, g_nvs["tbmis/ctr"].data(), 4);   // tierra sigue desde el ultimo contador aceptado (si no, RZ_CONTADOR)
+
     extActBegin();                                             // como el arranque: los pines salen en bajo antes de missionBegin
     missionBegin(rocket);
     try { g_taskFn(nullptr); } catch (const Parar &) {}
+    guardarArchivos(rtcArch, nvsArch);
     printf("%s: %s\n", n.c_str(), g_fallas ? "FALLA" : "OK");
     return g_fallas ? 1 : 0;
 }

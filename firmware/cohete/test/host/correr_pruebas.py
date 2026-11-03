@@ -6,6 +6,7 @@ Necesita: g++ y numpy. No toca la placa ni PlatformIO. Escribe en test/host/entr
 Sale con codigo 0 si todos los criterios se cumplen.
 """
 import argparse
+import shutil
 import struct
 import subprocess
 import sys
@@ -142,6 +143,61 @@ def compilar_mision():
     return sintaxis
 
 
+# (nombre, [(escenario, opciones), ...]): cada paso es un proceso; los pasos de un caso comparten los archivos de la RTC y de la NVS
+CASOS_PERSISTENCIA = [
+    ("FLY (BOOST desde ARMED, momento COAST) -> reinicio -> FLY, mismo momento, p0 y s_boosted, registra, TF_REANUDADO, T_MISSION arg 3", [("a_fly", []), ("b_fly", [])]),
+    ("FLY con BOOST sin armar y sin hora UTC -> reinicio -> FLY", [("a_fly_sin_armar", []), ("b_fly_sin_armar", [])]),
+    ("FLY forzado (LAUNCH desde TIERRA) -> reinicio -> FLY/LAUNCH forzado; abortar invalida", [("a_fly_forzado", []), ("b_fly_forzado", [])]),
+    ("RECOVERY -> reinicio -> RECOVERY con buzzer, sin registrar, t_post no se repite", [("a_recovery", []), ("b_recovery", [])]),
+    ("ARMED -> reinicio -> TIERRA normal", [("a_armed", []), ("b_normal", [])]),
+    ("TIERRA (armar y desarmar) -> reinicio -> TIERRA normal", [("a_tierra", []), ("b_normal", [])]),
+    ("FLY -> estado tierra (invalida) -> reinicio -> TIERRA normal", [("a_vuelo_y_tierra", []), ("b_normal", [])]),
+    ("RTC invalida (corte de energia) y NVS valida -> FLY desde la NVS", [("a_fly", []), ("b_fly", ["--sin-rtc"])]),
+    ("RTC invalida y NVS valida -> RECOVERY desde la NVS", [("a_recovery", []), ("b_recovery", ["--sin-rtc"])]),
+    ("RTC valida y NVS vacia -> FLY desde la RTC", [("a_fly", []), ("b_fly", ["--sin-nvs"])]),
+    ("CRC corrupto en la RTC y en la NVS -> arranque normal", [("a_fly", []), ("b_normal", ["--corromper=ambas"])]),
+    ("CRC corrupto solo en la RTC -> FLY desde la NVS", [("a_fly", []), ("b_fly", ["--corromper=rtc"])]),
+    ("CRC corrupto solo en la NVS -> FLY desde la RTC", [("a_fly", []), ("b_fly", ["--corromper=nvs"])]),
+    ("reanudar FLY y salir con `estado tierra` (confirmado) invalida el registro -> reinicio -> TIERRA normal", [("a_fly", []), ("b_tierra_invalida", []), ("b_normal", [])]),
+]
+
+
+def persistencia(anotar):
+    base = BUILD / "persistencia"
+    shutil.rmtree(base, ignore_errors=True)
+    base.mkdir(parents=True)
+    for i, (nombre, pasos) in enumerate(CASOS_PERSISTENCIA):
+        d = base / ("caso%02d" % i)
+        d.mkdir()
+        ok, salida = True, ""
+        for esc, opc in pasos:
+            r = subprocess.run([str(BUILD / "prueba_mision"), esc, "--rtc", str(d / "rtc.bin"), "--nvs", str(d / "nvs.bin")] + opc, capture_output=True, text=True)
+            salida += r.stdout
+            if r.returncode:
+                ok = False
+                print(salida)
+                break
+        anotar("persistencia: " + nombre, ok, "%d comprobaciones, todas pasan" % salida.count("[OK]") if ok else "ver `build/prueba_mision` con %s" % " -> ".join(e for e, _ in pasos))
+    # RTC con un TIERRA valido (mas nuevo) y NVS con un FLY viejo: arranque normal y la NVS se limpia
+    x, y, z = base / "x", base / "y", base / "z"
+    for d in (x, y, z):
+        d.mkdir()
+    pasos = [("a_fly", x), ("a_vuelo_y_tierra", y)]
+    ok, salida = True, ""
+    for esc, d in pasos:
+        r = subprocess.run([str(BUILD / "prueba_mision"), esc, "--rtc", str(d / "rtc.bin"), "--nvs", str(d / "nvs.bin")], capture_output=True, text=True)
+        salida += r.stdout
+        ok = ok and r.returncode == 0
+    shutil.copy(y / "rtc.bin", z / "rtc.bin")
+    shutil.copy(x / "nvs.bin", z / "nvs.bin")
+    r = subprocess.run([str(BUILD / "prueba_mision"), "b_limpia", "--rtc", str(z / "rtc.bin"), "--nvs", str(z / "nvs.bin")], capture_output=True, text=True)
+    salida += r.stdout
+    ok = ok and r.returncode == 0
+    if not ok:
+        print(salida)
+    anotar("persistencia: RTC con TIERRA valido y NVS con un FLY viejo -> arranque normal y se limpia la NVS", ok, "%d comprobaciones, todas pasan" % salida.count("[OK]") if ok else "ver `build/prueba_mision b_limpia`")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reposo-min", type=float, default=30.0)
@@ -244,6 +300,14 @@ def main():
         anotar("actuadores: " + que, r.returncode == 0, "ver `build/prueba_mision %s`" % esc if r.returncode else "%d comprobaciones, todas pasan" % r.stdout.count("[OK]"))
         if r.returncode:
             print(r.stdout)
+    # --- D-051 (T-411): RZ_OP = CR_ERROR, sin confirmacion posible ---
+    r = subprocess.run([str(BUILD / "prueba_mision"), "d051"], capture_output=True, text=True)
+    anotar("D-051: RZ_OP responde CR_ERROR (op desconocido, estado/momento/buzzer fuera de rango) y la confirmacion no ejecuta", r.returncode == 0,
+           "ver `build/prueba_mision d051`" if r.returncode else "%d comprobaciones, todas pasan" % r.stdout.count("[OK]"))
+    if r.returncode:
+        print(r.stdout)
+    # --- Persistencia en vuelo (T-411): cada "reinicio" es otro proceso; la RTC y la NVS de mentira pasan por archivos ---
+    persistencia(anotar)
     r = subprocess.run([str(BUILD / "prueba_tierra")], capture_output=True, text=True)
     anotar("tierra: gnd_cmd.cpp real: buzzer on|off, pi encender, confirmacion con el motivo 21", r.returncode == 0,
            "ver `build/prueba_tierra`" if r.returncode else "%d comprobaciones, todas pasan" % r.stdout.count("[OK]"))
