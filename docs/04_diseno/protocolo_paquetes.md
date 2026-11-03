@@ -43,7 +43,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 54 | `temp_c[2]` | i8 ×2 | [0] = BME280; [1] reservado |
 | 56 | `state` | u8 | **Estado en los bits 0–3, momento en los bits 4–7** ([maquina_estados](maquina_estados.md)) |
 | 57 | `flags` | u8 | Bit 0 `TF_FLYING` (10 Hz) · 1 `TF_BOOST_SIN_ARMAR` · 2 `TF_FORZADO` · 3 `TF_LAUNCH_VENCIDO` |
-| 58 | `actuators` | u16 | 0 hasta que existan los actuadores |
+| 58 | `actuators` | u16 | Bit 0: buzzer activo · bit 1: pulso de la Pi en curso · bit 2: se envió algún pulso a la Pi desde el arranque (T-413) |
 | 60 | `time_flags` | u8 | Bits 0–1: **calidad** (0 = PPS reciente, 1 = error < 1 ms, 2 = error ≥ 1 ms, 3 = sin hora). Bits 2–3: **fuente** (0 = ninguna, 1 = GNSS, 2 = baliza) |
 | 61 | `cmd_ack` | u8 | Bits 0–5: el contador del último comando (mod 64). Bits 6–7: su `CmdResult` |
 | 62 | `crc` | u16 | |
@@ -84,6 +84,8 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 7 | `SET_STATE` | `estado <tierra\|armed\|fly\|recovery>` | `State` |
 | 8 | `SET_MOMENT` | `momento <launch\|boost\|coast\|apogeo\|caida\|paracaidas\|aterrizaje>` | `Moment` |
 | 9 | `RESET` | `reiniciar` | — |
+| 10 | `BUZZER` | `buzzer <on\|off>` | 1 o 0 (T-413, D-049) |
+| 11 | `PI_POWER` | `pi encender` | — (solo Demeter; T-413, D-049) |
 
 ## 4. Respuestas
 
@@ -118,7 +120,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 7 | Altura aumentando | 18 | Confirmación inválida o vencida |
 | 8 | Altura disminuyendo | 19 | Contador antiguo |
 | 9 | Aceleración ≠ 1 g (se mueve) | 20 | Comando desconocido |
-| 10 | En vuelo: ya hubo BOOST | | |
+| 10 | En vuelo: ya hubo BOOST | 21 | **No se sabe si la Pi está encendida: una pulsación podría apagarla** (T-413, D-049) |
 
 Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal cual** para `salud.go_nogo` (§6).
 

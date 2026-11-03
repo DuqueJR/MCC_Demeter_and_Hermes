@@ -112,7 +112,8 @@ actualizado: 2026-11-03
 | Nombre | Valor |
 | --- | --- |
 | `PI_UART_BAUD` | 115200 (UART0, GPIO 43/44) |
-| `PI_PULSO_MS` | 1500 (P). Lo da el MOSFET de IO45, en paralelo a J2. **Sin firmware** |
+| `PI_PULSO_MS` | 1500 (P). Lo da el MOSFET de IO45, en paralelo a J2 (T-413) |
+| `BUZZER_ON_MS` / `BUZZER_OFF_MS` | 500 / 1500 (P). El patrón del buzzer en RECOVERY o ATERRIZAJE (T-413) |
 | Watchdogs de la Pi | 15 s para el ascenso y 95 s para el descenso (en `demeter_missiond.py`) |
 | Puertos del dashboard de Pablo | Tierra `COM5`, Demeter `COM4`, Hermes `COM3`; web en `127.0.0.1:8765` |
 
