@@ -97,7 +97,8 @@ git checkout develop
 **2. La librería de LilyGO, una vez por copia** (igual que antes):
 
 ```
-git -C firmware/vendor/Lilygo-LoRa-Series apply ../../common/lilygo_local.patch
+git config --global core.longpaths true    # Windows: rutas largas de la librería
+git -C firmware/vendor/Lilygo-LoRa-Series apply --ignore-whitespace ../../common/lilygo_local.patch
 ```
 
 **3. La clave:**
