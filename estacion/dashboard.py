@@ -15,7 +15,7 @@ TELEM = struct.Struct('<BBHQiiihhh4h3h3hBBH2bBBHBBH')       # net::Telem, 64 B
 LOGINFO = struct.Struct('<BBBBBB34sIIIH')                   # net::LogInfo, 54 B
 STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
-TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO = 2, 4, 8
+TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO = 2, 4, 8, 16   # TF_REANUDADO: T-411, D-052
 ACT_BUZZER, ACT_PI_EN_CURSO, ACT_PI_ENVIADO = 1, 2, 4       # bits de TELEM.actuators (protocolo_paquetes.md seccion 2, T-413)
 STALE_S = 3.0
 ROLES = {'tierra': 'COM5', 'demeter': 'COM4', 'hermes': 'COM3'}
@@ -97,6 +97,8 @@ def note_telem(rid, old, new):
         event(f'{name}: BOOST SIN ARMAR')
     if up & TF_FORZADO:
         event(f'{name}: modo FORZADO')
+    if up & TF_REANUDADO:
+        event(f'{name}: REANUDADO tras un reinicio (retomo {STATES[new["state"]] if new["state"] <= 4 else "?"})')
     act_up, act_down = new['actuators'] & ~old['actuators'], old['actuators'] & ~new['actuators']
     if act_up & ACT_BUZZER:
         event(f'{name}: buzzer sonando')
@@ -340,6 +342,8 @@ def rocket_view(rid):
             modo.append('BOOST SIN ARMAR')
         if t['flags'] & TF_FORZADO:
             modo.append('FORZADO')
+        if t['flags'] & TF_REANUDADO:
+            modo.append('REANUDADO')
         if t['utc_ms'] == 0:
             modo.append('SIN HORA')
         view.update(modo=' + '.join(modo) or 'NORMAL', stale=False)
