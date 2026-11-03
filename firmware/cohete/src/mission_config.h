@@ -16,6 +16,11 @@ struct MissionCfg {
     uint16_t vbat_arm_mv;      // por debajo, ARM no es apto. Provisional: falta medir el consumo
 };
 
+// Deteccion de BOOST (T-410, constantes.md seccion 4; los de (P) los revisa Pablo)
+static const float    BOOST_ACC_MIN_G = 2.0f;    // el integrador de velocidad solo suma con |a| por encima de esto
+static const uint32_t BOOST_RESET_MS  = 50;      // |a| <= BOOST_ACC_MIN_G este tiempo seguido: dv = 0
+static const uint8_t  BOOST_BARO_EVAL = 5;       // evaluaciones seguidas (50 Hz) del salto barometrico
+
 inline const MissionCfg &missionCfg(uint8_t rocket) {
     static const MissionCfg DEMETER_CFG = {5.0f, 10.0f, 0.5f, 3.0f, 7.0f, 16.0f, 13.0f, 210.0f, 120.0f, 60.0f, 3700};
     static const MissionCfg HERMES_CFG  = {5.0f, 10.0f, 0.5f, 2.7f, 5.5f, 13.0f, 12.0f, 140.0f, 120.0f, 60.0f, 3700};
