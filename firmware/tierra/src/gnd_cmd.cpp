@@ -40,7 +40,7 @@ static uint8_t  s_lineLen = 0;
 void gndCmdBegin() {
     s_prefs.begin("tbcmd", false);
     s_counter = s_prefs.getULong("ctr", 0);
-    Serial.println("[cmd ] reset (esta placa) | <d|h> ping | armar | desarmar | launch | abortar | dormir | reiniciar | estado <tierra|armed|fly|recovery> | momento <launch|boost|coast|apogeo|caida|paracaidas|aterrizaje>");
+    Serial.println("[cmd ] reset (esta placa) | <d|h> ping | armar | desarmar | launch | abortar | dormir | reiniciar | buzzer <on|off> | pi encender (solo Demeter) | estado <tierra|armed|fly|recovery> | momento <launch|boost|coast|apogeo|caida|paracaidas|aterrizaje>");
 }
 
 static void send(uint8_t target, uint8_t op, uint8_t arg, uint32_t reasons) {
@@ -83,7 +83,14 @@ static void parseLine(char *s) {
     else if (strcmp(order, "abortar") == 0) op = OP_ABORT;
     else if (strcmp(order, "dormir") == 0) op = OP_SLEEP;
     else if (strcmp(order, "reiniciar") == 0) op = OP_RESET;
-    else if (strcmp(order, "estado") == 0 || strcmp(order, "momento") == 0) {
+    else if (strcmp(order, "buzzer") == 0) {
+        if (!arg || (strcmp(arg, "on") != 0 && strcmp(arg, "off") != 0)) { Serial.println("[cmd ] buzzer necesita on u off"); return; }
+        op = OP_BUZZER;
+        val = strcmp(arg, "on") == 0 ? 1 : 0;
+    } else if (strcmp(order, "pi") == 0) {
+        if (!arg || strcmp(arg, "encender") != 0) { Serial.println("[cmd ] pi solo admite: pi encender"); return; }
+        op = OP_PI_POWER;
+    } else if (strcmp(order, "estado") == 0 || strcmp(order, "momento") == 0) {
         const bool st = order[0] == 'e';
         const int v = arg ? (st ? findArg(arg, STATE_ARG, 5) : findArg(arg, MOMENT_ARG, 8)) : -1;
         if (v < 0) { Serial.println("[cmd ] falta o no existe ese valor"); return; }

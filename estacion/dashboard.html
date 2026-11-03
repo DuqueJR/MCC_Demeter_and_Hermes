@@ -45,6 +45,7 @@ $('nav').innerHTML=TABS.map(t=>`<button data-t="${t}">${t}</button>`).join('');
 $('nav').onclick=e=>{if(e.target.dataset.t){tab=e.target.dataset.t;build()}};
 
 function cmd(line){post('/api/cmd',{line})}
+const actText=a=>(a&1?'BUZZER SONANDO':'buzzer apagado')+' | '+(a&2?'PULSO A LA PI EN CURSO':'sin pulso')+(a&4?' | ya se envio un pulso a la Pi':'');
 const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 function spareText(l){if(l.spare===null||l.spare===undefined)return '-';if(l.spare==2)return 'lista';if(l.spare==1)return 'creando '+l.spare_pct+' %';return l.rec||l.prep?'ya en uso: es este archivo':'no hay'}
 function logText(l){if(!l)return '-';if(l.rec)return 'REGISTRANDO '+l.name+' | '+mmss(l.elapsed)+' | '+l.pct+' % | quedan '+mmss(l.remain);if(l.prep)return 'PREPARADO '+l.name;return 'sin registrar | reserva '+spareText(l)}
@@ -65,7 +66,8 @@ function build(){
  if(tab=='Mando') m.innerHTML='<div class="two">'+ROCKETS.map(([r,k,n])=>`<div class="box"><h3>${n}</h3>
   <table class="t" id="tm_${r}"></table><p>
   <button onclick="cmd('${k} ping')">Ping</button><button onclick="cmd('${k} armar')">Armar</button><button onclick="cmd('${k} launch')">Launch</button>
-  <button onclick="cmd('${k} abortar')">Abortar</button><button onclick="cmd('${k} desarmar')">Desarmar</button><button onclick="cmd('${k} dormir')">Dormir</button><button onclick="if(confirm('Reiniciar ${n}?'))cmd('${k} reiniciar')">Reiniciar</button></p>
+  <button onclick="cmd('${k} abortar')">Abortar</button><button onclick="cmd('${k} desarmar')">Desarmar</button><button onclick="cmd('${k} dormir')">Dormir</button><button onclick="if(confirm('Reiniciar ${n}?'))cmd('${k} reiniciar')">Reiniciar</button>
+  <button onclick="cmd('${k} buzzer on')">Buzzer on</button><button onclick="cmd('${k} buzzer off')">Buzzer off</button>${k=='d'?`<button onclick="cmd('d pi encender')">Pi encender</button>`:''}</p>
   <p>Forzar estado <select id="fs_${r}">${STATES.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} estado '+$('fs_${r}').value)">Enviar</button>
   &nbsp; momento <select id="fm_${r}">${MOMENTS.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} momento '+$('fm_${r}').value)">Enviar</button></p></div>`).join('')+'</div>';
  if(tab=='Monitores') m.innerHTML='<div class="three">'+[['tierra','Tierra'],...ROCKETS.map(([r,,n])=>[r,n])].map(([r,n])=>`<div class="box fill"><div><b>${n}</b> <button onclick="copyRaw('${r}',event)">Copiar</button></div><pre id="raw_${r}"></pre></div>`).join('')+'</div><p class="note" style="margin:6px 0 0">'+pauseBtn()+' Pausa para seleccionar texto. Solo se ven las placas conectadas arriba.</p>';
@@ -152,7 +154,7 @@ function render(){
  $('bt').innerHTML='<tr><th></th><th>Estado</th><th>Momento</th><th>Modo</th><th>Registro</th></tr>'+[...S.rockets,S.ground].map(b=>`<tr class="${b.stale?'stale':''}"><td class="name">${b.name}</td><td>${esc(b.estado)}</td><td>${esc(b.momento)}</td><td class="${b.modo&&b.modo!='NORMAL'&&b.modo!='CON HORA'?'warn':''}">${esc(b.modo)}</td><td class="${b.log&&b.log.rec?'warn':''}">${b.name=='Tierra'?'':esc(logText(b.log))}</td></tr>`).join('');
  ROCKETS.forEach(([r],i)=>{const el=$('tm_'+r);if(!el)return;const t=S.rockets[i].telem,l=S.rockets[i].log;
   const reg=l?[['Registro',l.rec?'REGISTRANDO':(l.prep?'PREPARADO':'sin registrar')],['Archivo',l.name||'-'],...(l.rec?[['Tiempo / lleno',mmss(l.elapsed)+' / '+l.pct+' %'],['Cabe aun en este archivo',mmss(l.remain)+' min:s']]:[]),['Reserva',spareText(l)]]:[];
-  el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
+  el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Actuadores',actText(t.actuators)],['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
  if(!paused){ROCKETS.forEach(([r])=>renderDiag('dg_'+r,S.diag[r]));renderDiag('dg_tierra',S.diag.tierra)}
  const dl=$('dl');if(dl){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(txt!=lastDl){lastDl=txt;const near=dl.scrollTop+dl.clientHeight>=dl.scrollHeight-20;dl.textContent=txt;if(near)dl.scrollTop=dl.scrollHeight}}
  const ev=$('events'),evt=S.events.join('\n');if(evt!=lastEv){lastEv=evt;const near=ev.scrollTop+ev.clientHeight>=ev.scrollHeight-20;ev.textContent=evt;if(near)ev.scrollTop=ev.scrollHeight}  // solo si cambio: reescribirlo borraria la seleccion

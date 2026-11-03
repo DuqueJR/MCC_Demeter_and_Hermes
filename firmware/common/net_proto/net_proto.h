@@ -34,7 +34,7 @@ enum State  : uint8_t { ST_NONE = 0, ST_TIERRA = 1, ST_ARMED = 2, ST_FLY = 3, ST
 enum Moment : uint8_t { M_NONE = 0, M_LAUNCH = 1, M_BOOST = 2, M_COAST = 3, M_APOGEO = 4, M_CAIDA = 5, M_PARACAIDAS = 6, M_ATERRIZAJE = 7 };
 
 // Comandos. Con OP_CONFIRM en op, es la confirmacion de un comando que el cohete declaro no apto (o de ARM).
-enum Op : uint8_t { OP_PING = 1, OP_ARM = 2, OP_DISARM = 3, OP_LAUNCH = 4, OP_ABORT = 5, OP_SLEEP = 6, OP_SET_STATE = 7, OP_SET_MOMENT = 8, OP_RESET = 9, OP_CONFIRM = 0x80 };
+enum Op : uint8_t { OP_PING = 1, OP_ARM = 2, OP_DISARM = 3, OP_LAUNCH = 4, OP_ABORT = 5, OP_SLEEP = 6, OP_SET_STATE = 7, OP_SET_MOMENT = 8, OP_RESET = 9, OP_BUZZER = 10, OP_PI_POWER = 11, OP_CONFIRM = 0x80 };
 // CR_OK: ejecutado. CR_NO_APTO: no ejecutado, con motivos; espera confirmacion. CR_CONFIRMA: apto, pero pide segundo paso (ARM). CR_ERROR: no ejecutado, sin confirmacion posible.
 enum CmdResult : uint8_t { CR_OK = 0, CR_NO_APTO = 1, CR_CONFIRMA = 2, CR_ERROR = 3 };
 static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto, y solo si el comando y los motivos no cambiaron
@@ -42,14 +42,15 @@ static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto,
 // Motivos de una respuesta: mascara de bits; tierra los traduce con reasonText.
 enum Reason : uint8_t {
     RZ_TRANSICION = 0, RZ_RESERVA, RZ_SD, RZ_LSM, RZ_BMP, RZ_GNSS, RZ_VBAT, RZ_SUBIENDO, RZ_BAJANDO, RZ_MOVIMIENTO, RZ_EN_VUELO,
-    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_COUNT
+    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_COUNT
 };
 inline const char *reasonText(uint8_t r) {
     static const char *const T[RZ_COUNT] = {
         "esa transicion no existe desde el estado actual", "reserva incompleta", "la SD no esta registrando", "LSM6DSO32 sin datos", "BMP581 sin datos",
         "sin fix 3D del GNSS", "bateria baja", "altura aumentando", "altura disminuyendo", "aceleracion distinta de 1 g: el cohete se mueve", "en vuelo: ya hubo BOOST",
         "sin aterrizaje detectado", "sin BOOST detectado", "el cohete no esta armado", "no ha habido vuelo", "ya esta en ese estado", "hay un iman presente: despertaria al instante",
-        "RECOVERY: aun sin bateria baja, el cohete debe seguir transmitiendo", "confirmacion invalida o vencida", "contador antiguo", "comando desconocido"
+        "RECOVERY: aun sin bateria baja, el cohete debe seguir transmitiendo", "confirmacion invalida o vencida", "contador antiguo", "comando desconocido",
+        "no se sabe si la Pi esta encendida: una pulsacion podria apagarla"
     };
     return r < RZ_COUNT ? T[r] : "?";
 }
@@ -62,7 +63,7 @@ inline bool slotIsBase(uint8_t s) { return s == 1 || s == 13 || s == 2 || s == 1
 inline bool slotIsTx(uint8_t rocket, uint8_t s, bool flying) { return slotOwner(s) == rocket && (flying || slotIsBase(s)); }
 
 #pragma pack(push, 1)
-// Telemetria, 64 B. El cuaternion va en identidad hasta que exista el EKF; actuators, en cero hasta que existan.
+// Telemetria, 64 B. El cuaternion va en identidad hasta que exista el EKF; actuators: bit 0 buzzer activo, bit 1 pulso de la Pi en curso, bit 2 se envio algun pulso a la Pi (T-413).
 // utc_ms = inicio de la ranura; 0 si es la baliza lenta sin hora.
 struct Telem {
     uint8_t  type;             // P_TELEM

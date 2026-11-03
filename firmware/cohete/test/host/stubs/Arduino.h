@@ -33,3 +33,13 @@ void vTaskNotifyGiveFromISR(TaskHandle_t,BaseType_t*);
 #define portYIELD_FROM_ISR(x) ((void)0)
 void vTaskDelay(TickType_t); void vTaskDelete(TaskHandle_t);
 BaseType_t xSemaphoreTake(SemaphoreHandle_t,TickType_t); BaseType_t xSemaphoreGive(SemaphoreHandle_t);
+// T-413: lo minimo para -fsyntax-only de core_sleep.cpp, net_radio.cpp y core_selftest.cpp (solo declaraciones)
+struct HardwareSerial { int printf(const char*, ...) __attribute__((format(printf, 2, 3))); void println(const char*); int available(); int read(); void flush(); };
+extern HardwareSerial Serial;
+struct EspClass { void restart(); };
+extern EspClass ESP;
+typedef struct { int dummy; } portMUX_TYPE;
+#define portMUX_INITIALIZER_UNLOCKED {0}
+void taskYIELD(void);
+#define portENTER_CRITICAL(m) ((void)(m))
+#define portEXIT_CRITICAL(m) ((void)(m))

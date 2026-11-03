@@ -1,5 +1,6 @@
 // mission.cpp - Un comando apto se ejecuta; uno no apto responde sus motivos y solo se ejecuta si tierra confirma esos mismos motivos a tiempo.
 // BOOST se detecta solo (T-410, boost_detect.h): FLY ya no depende de LAUNCH. Los demas momentos todavia se fuerzan por comando.
+// Actuadores (T-413, maquina_estados.md seccion 7): el buzzer suena solo en RECOVERY y en ATERRIZAJE; el pulso de la Pi es solo de Demeter y siempre con confirmacion.
 #include "mission.h"
 #include "mission_config.h"
 #include "boost_detect.h"
@@ -9,6 +10,7 @@
 #include "ext_lsm.h"
 #include "ext_bmp.h"
 #include "ext_drv.h"
+#include "ext_act.h"
 #include "logger.h"
 #include "net_radio.h"
 #include <Preferences.h>
@@ -24,6 +26,7 @@ static const uint8_t  VZ_WINDOW     = 50;         // muestras de TASK_MS: veloci
 static const float    VZ_MOVING_MPS = 2.0f;
 static const float    ACC_REST_G    = 0.25f;      // tolerancia sobre 1 g: acelerometros aun sin calibrar
 static const uint32_t SLEEP_DELAY_MS = 1500;      // deja salir la respuesta antes de dormir
+static const uint8_t  ROCKET_DEMETER = net::DEMETER;   // IO45 (encendido de la Pi) solo se usa en Demeter
 
 static const MissionCfg *s_cfg = nullptr;
 static uint8_t  s_rocket = 0;
@@ -173,6 +176,11 @@ static uint32_t evaluate(uint8_t op, uint8_t arg) {
     }
     case OP_RESET:     return s_state == ST_TIERRA ? 0 : ((s_state == ST_FLY && s_boosted) ? rz(RZ_EN_VUELO) | motionReasons() : rz(RZ_TRANSICION));
     case OP_SET_STATE: return arg >= ST_TIERRA && arg <= ST_RECOVERY ? evalTo(arg) : rz(RZ_OP);
+    case OP_BUZZER:    return arg <= 1 ? 0 : rz(RZ_OP);                  // apto en cualquier estado: sirve para el banco y para buscar el cohete
+    case OP_PI_POWER:
+        if (s_rocket != ROCKET_DEMETER) return rz(RZ_OP);                // Hermes no tiene Pi: IO45 queda sin usar
+        // Sin la UART con la Pi (T-702) no se sabe si esta encendida, y una pulsacion podria apagarla: siempre pide confirmacion
+        return rz(RZ_PI_DESCONOCIDA) | (s_state == ST_FLY && s_boosted ? rz(RZ_EN_VUELO) : 0);
     case OP_SET_MOMENT: {
         if (arg < M_LAUNCH || arg > M_ATERRIZAJE) return rz(RZ_OP);
         uint32_t m = s_state == ST_FLY ? 0 : rz(RZ_TRANSICION);
@@ -203,6 +211,7 @@ static void setState(uint8_t to) {
     case ST_TIERRA:
         s_moment = M_NONE; s_boosted = false;
         s_flags = (uint8_t)(s_flags & ~TF_FORZADO);
+        extActBuzzer(false, millis());                 // en TIERRA el buzzer calla (desarmar, estado tierra)
         loggerRecord(false);
         loggerAllowPrealloc(true);
         netSetFlying(false);
@@ -225,6 +234,7 @@ static void setState(uint8_t to) {
     case ST_RECOVERY:
         s_moment = M_ATERRIZAJE;
         s_recEndAt = esp_timer_get_time() + (int64_t)(s_cfg->t_post * 1e6f);
+        extActBuzzer(true, millis());                  // aterrizado: suena para encontrarlo (si ya sonaba por ATERRIZAJE, sigue su fase)
         netSetFlying(false);
         break;
     }
@@ -265,7 +275,10 @@ static void execute(uint8_t op, uint8_t arg) {
     case OP_SET_MOMENT:
         s_moment = arg;
         if (arg >= M_BOOST) s_boosted = true;
+        if (arg == M_ATERRIZAJE) extActBuzzer(true, millis());
         break;
+    case OP_BUZZER:    extActBuzzer(arg != 0, millis()); break;
+    case OP_PI_POWER:  if (s_rocket == ROCKET_DEMETER) extActPiPulse(millis()); break;     // en Hermes no hay nada que pulsar
     default: break;
     }
 }
@@ -333,6 +346,7 @@ static void missionTask(void *) {
         if (millis() - last > 10 * TASK_MS) last = millis();
         baroStep();
         boostStep();
+        extActStep(millis());
 
         // LAUNCH sin BOOST en el tiempo limite: se avisa y se sigue esperando; un fallback nunca anula el registro
         if (s_state == ST_RECOVERY && s_recEndAt && esp_timer_get_time() > s_recEndAt) { s_recEndAt = 0; loggerRecord(false); }
