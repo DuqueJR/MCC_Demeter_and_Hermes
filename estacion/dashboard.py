@@ -16,6 +16,7 @@ LOGINFO = struct.Struct('<BBBBBB34sIIIH')                   # net::LogInfo, 54 B
 STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
 TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO = 2, 4, 8
+ACT_BUZZER, ACT_PI_EN_CURSO, ACT_PI_ENVIADO = 1, 2, 4       # bits de TELEM.actuators (protocolo_paquetes.md seccion 2, T-413)
 STALE_S = 3.0
 ROLES = {'tierra': 'COM5', 'demeter': 'COM4', 'hermes': 'COM3'}
 ROCKET_ROLE = {1: 'demeter', 2: 'hermes'}
@@ -96,6 +97,13 @@ def note_telem(rid, old, new):
         event(f'{name}: BOOST SIN ARMAR')
     if up & TF_FORZADO:
         event(f'{name}: modo FORZADO')
+    act_up, act_down = new['actuators'] & ~old['actuators'], old['actuators'] & ~new['actuators']
+    if act_up & ACT_BUZZER:
+        event(f'{name}: buzzer sonando')
+    if act_down & ACT_BUZZER:
+        event(f'{name}: buzzer apagado')
+    if act_up & ACT_PI_EN_CURSO:
+        event(f'{name}: pulso de encendido a la Pi')
 
 
 def note_log(rid, old, new):
@@ -217,6 +225,7 @@ class DemoLink:
     def __init__(self, role, port):
         self.role, self.port, self.alive = role, port, True
         self.st = {1: [1, 0, 0], 2: [1, 0, 0]}       # estado, momento, flags
+        self.act = {1: 0, 2: 0}                      # TELEM.actuators
         self.rec_t = {1: None, 2: None}
         threading.Thread(target=self.loop, daemon=True).start()
 
@@ -227,7 +236,7 @@ class DemoLink:
             if self.role == 'tierra':
                 ground_line('@G 1')
                 for rid, (st, mo, fl) in self.st.items():
-                    b = TELEM.pack(1, rid, 0, int(time.time() * 1000), 65820000, -758230000, int((510 + 3 * math.sin(t)) * 100), 0, 0, 0, 32767, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 3, 15 + rid, 4100, 25, 0, st | (mo << 4), fl, 0, 4, 0, 0)
+                    b = TELEM.pack(1, rid, 0, int(time.time() * 1000), 65820000, -758230000, int((510 + 3 * math.sin(t)) * 100), 0, 0, 0, 32767, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 3, 15 + rid, 4100, 25, 0, st | (mo << 4), fl, self.act[rid], 4, 0, 0)
                     ground_line(f'@T {-70.0 - rid:.1f} 9.5 {b.hex()}')
                     run = time.time() - self.rec_t[rid] if st == 3 and self.rec_t[rid] else 0
                     ground_line('@L ' + LOGINFO.pack(5, rid, 1 if st == 3 else (2 if st == 2 else 0), int(run * 45000 * 100 / 33554432), 0 if st in (2, 3) else 2, 0 if st in (2, 3) else 100, b'DEM_M00_20261102_101500_0072.BIN' if st in (2, 3) else b'', int(run), int(run * 45000), int(745 - run), 0).hex())
@@ -244,7 +253,12 @@ class DemoLink:
     def write(self, text):
         p = text.split(' ')
         name = {'d': 'Demeter', 'h': 'Hermes'}.get(p[0])
-        if text == 'si':
+        if text == 'si' and self.pending[1] == 'pi':
+            rid = self.pending[0]
+            self.act[rid] |= ACT_PI_EN_CURSO | ACT_PI_ENVIADO
+            threading.Timer(1.5, lambda: self.act.__setitem__(rid, self.act[rid] & ~ACT_PI_EN_CURSO)).start()
+            ground_line(f'[cmd ] {ROCKET_ROLE[rid]}: EJECUTADO | pi encender')
+        elif text == 'si':
             rid, to = self.pending
             self.st[rid][0] = to
             self.rec_t[rid] = time.time() if to == 3 else self.rec_t[rid]
@@ -258,6 +272,13 @@ class DemoLink:
                 self.pending = (rid, 4 if p[2] == 'recovery' else 3)
                 for x in (f'[cmd ] {name}: NO APTO | estado={STATES[self.st[rid][0]]}', '[cmd ]   - sin aterrizaje detectado', '[cmd ]   - altura aumentando', '[cmd ] Seguro que quieres forzar? (10 s): escribe si o no'):
                     ground_line(x)
+            elif p[1] == 'pi':
+                self.pending = (rid, 'pi')
+                for x in (f'[cmd ] {name}: NO APTO | estado={STATES[self.st[rid][0]]}', '[cmd ]   - no se sabe si la Pi esta encendida: una pulsacion podria apagarla', '[cmd ] Seguro que quieres forzar? (10 s): escribe si o no'):
+                    ground_line(x)
+            elif p[1] == 'buzzer':
+                self.act[rid] = self.act[rid] | ACT_BUZZER if p[2] == 'on' else self.act[rid] & ~ACT_BUZZER
+                ground_line(f'[cmd ] {name}: EJECUTADO | buzzer {p[2]}')
             elif p[1] == 'armar':
                 self.pending = (rid, 2)
                 ground_line(f'[cmd ] {name}: APTO | estado=TIERRA')
