@@ -24,12 +24,12 @@ from demeter_missiond import (
 from demeter_protocol import (
     CMD_PREFLIGHT,
     Frame,
-    TELEMETRY_STRUCT,
-    TELEMETRY_UPDATE,
+    POSE_UPDATE,
     StreamDecoder,
     crc16_ccitt_false,
     encode_frame,
 )
+import demeter_pose as dp
 from demeter_telemetryd import COMMANDS, handle_frame, target_fps_for_altitude, write_target_fps
 
 
@@ -42,17 +42,17 @@ class ProtocolTests(unittest.TestCase):
 
     def test_crc_and_fragmented_stream(self):
         self.assertEqual(crc16_ccitt_false(b"123456789"), 0x29B1)
-        packet = encode_frame(TELEMETRY_UPDATE, b"abc")
+        packet = encode_frame(POSE_UPDATE, b"abc")
         decoder = StreamDecoder()
         self.assertEqual(decoder.feed(packet[:3]), [])
-        self.assertEqual(decoder.feed(packet[3:]), [Frame(TELEMETRY_UPDATE, b"abc")])
+        self.assertEqual(decoder.feed(packet[3:]), [Frame(POSE_UPDATE, b"abc")])
 
     def test_crc_error_resynchronizes(self):
-        packet = encode_frame(TELEMETRY_UPDATE, b"valid")
+        packet = encode_frame(POSE_UPDATE, b"valid")
         corrupt = bytearray(packet)
         corrupt[-1] ^= 0x01
         decoder = StreamDecoder()
-        self.assertEqual(decoder.feed(bytes(corrupt) + packet), [Frame(TELEMETRY_UPDATE, b"valid")])
+        self.assertEqual(decoder.feed(bytes(corrupt) + packet), [Frame(POSE_UPDATE, b"valid")])
         self.assertEqual(decoder.crc_errors, 1)
 
 
@@ -60,9 +60,10 @@ class TelemetryTests(unittest.TestCase):
     def test_jsonl_and_snapshot(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            payload = TELEMETRY_STRUCT.pack(1_700_000_000_123, 100.0, 1.0, -2.0, 359.0)
+            payload = dp.encode_pose(1_700_000_000_123_000, 7, dp.F_EKF | dp.F_ATT | dp.F_ALT | dp.F_TIME, 6.5, -75.8,
+                                     100.0, 510.0, (0, 0, -9), (0.0, 0.0, 1.0, 0.0), (0, 0, 360), 1.5, 2.0, 0.4)
             handle_frame(
-                TELEMETRY_UPDATE,
+                POSE_UPDATE,
                 payload,
                 log_path=root / "telemetry.jsonl",
                 snapshot_path=root / "current.json",
@@ -73,7 +74,11 @@ class TelemetryTests(unittest.TestCase):
                 synced=False,
             )
             row = json.loads((root / "telemetry.jsonl").read_text())
-            self.assertEqual(row["alt"], 100.0)
+            self.assertEqual(row["alt_agl"], 100.0)
+            self.assertEqual(row["alt_msl"], 610.0)
+            self.assertEqual(row["seq"], 7)
+            self.assertEqual(row["giro_dps"], [0.0, 0.0, 360.0])
+            self.assertIn("ofs_reloj_ms", row)
             self.assertEqual(json.loads((root / "current.json").read_text()), row)
             self.assertEqual((root / "target_fps.txt").read_text(), "6\n")
 

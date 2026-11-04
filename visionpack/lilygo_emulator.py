@@ -30,15 +30,19 @@ from demeter_protocol import (
     CMD_START_REC,
     CMD_TOUCHDOWN,
     PAYLOAD_STATUS,
+    POSE_UPDATE,
     STATUS_STRUCT,
-    TELEMETRY_STRUCT,
-    TELEMETRY_UPDATE,
     StatusCode,
     StreamDecoder,
     encode_frame,
 )
 
+import demeter_pose as dp
+
 ROOT = Path(__file__).resolve().parent
+SITE_LAT, SITE_LON, SITE_MSL_M = 6.5560, -75.8270, 510.0     # sitio de la simulacion (Santa Fe de Antioquia, aprox.)
+EMU_FLAGS = (dp.F_EKF | dp.F_ATT | dp.F_POS | dp.F_ALT | dp.F_TIME | (1 << dp.F_TIME_SRC_SHIFT) | dp.F_GNSS3D | dp.F_FLY)
+_seq = [0]
 LOG = logging.getLogger("lilygo_emulator")
 STATUS_NAMES = {int(status): status.name for status in StatusCode}
 STOP = threading.Event()
@@ -120,12 +124,15 @@ def load_flight_csv(path: Path) -> list[FlightSample]:
 
 
 def telemetry_payload(sample: FlightSample, timestamp_ms: int | None = None) -> bytes:
-    if timestamp_ms is None:
-        timestamp_ms = time.time_ns() // 1_000_000
+    """Trama POSE (0x21) con la altitud del CSV y el cohete inclinado solo en pitch (roll y yaw 0)."""
+    utc_us = time.time_ns() // 1000 if timestamp_ms is None else timestamp_ms * 1000
     values = (sample.altitude_m, sample.roll_deg, sample.pitch_deg, sample.yaw_deg)
     if not all(math.isfinite(value) for value in values):
         raise ValueError("muestra CSV contiene NaN/Inf")
-    return TELEMETRY_STRUCT.pack(timestamp_ms, *values)
+    half = math.radians(sample.pitch_deg) / 2
+    _seq[0] = (_seq[0] + 1) & 0xFFFF
+    return dp.encode_pose(utc_us, _seq[0], EMU_FLAGS, SITE_LAT, SITE_LON, sample.altitude_m, SITE_MSL_M,
+                          (0.0, 0.0, 0.0), (math.cos(half), 0.0, math.sin(half), 0.0), (0.0, 0.0, 0.0), 1.0, 2.0, 0.5)
 
 
 def send_packet(port: serial.Serial, write_lock: threading.Lock, packet: bytes) -> None:
@@ -262,7 +269,7 @@ class FlightRun:
                             send_packet(
                                 self.port,
                                 self.write_lock,
-                                encode_frame(TELEMETRY_UPDATE, telemetry_payload(sample_to_send)),
+                                encode_frame(POSE_UPDATE, telemetry_payload(sample_to_send)),
                             )
                             self.transmission_errors = 0
                         except (serial.SerialException, OSError) as exc:

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "descripcion": "Extrinsecos e intrinsecos de las camaras de Demeter. Cuerpo FRD: X hacia la nariz, Y a la derecha (mirando de la cola a la nariz con la marca arriba), Z opuesto a la marca. Camara estilo OpenCV: x derecha de la imagen, y abajo, z eje optico. R_camara_a_cuerpo: filas = componentes en cuerpo, columnas = ejes x, y, z de la camara. Nominal: falta confirmar el lado de cada indice y el sentido de la imagen con una foto, y calibrar intrinsecos con tablero.",
+  "camaras": [
+    {
+      "indice": 0,
+      "nombre": "derecha",
+      "confirmado": false,
+      "montaje": "costado derecho (+Y), eje optico 60 grados sobre la seccion hacia la nariz (30 del eje del cohete); horizontal de la imagen paralelo a la seccion",
+      "R_camara_a_cuerpo": [[0.0, -0.5, 0.8660254],
+                            [0.0,  0.8660254, 0.5],
+                            [-1.0, 0.0, 0.0]],
+      "intrinsecos_nominales": {"modelo": "Camera Module 3 estandar (IMX708)", "ancho_px": 4608, "alto_px": 2592,
+                                "fx_px": 3385.7, "fy_px": 3385.7, "distorsion": null, "calibrado": false}
+    },
+    {
+      "indice": 1,
+      "nombre": "izquierda",
+      "confirmado": false,
+      "montaje": "costado izquierdo (-Y), eje optico 60 grados sobre la seccion hacia la nariz (30 del eje del cohete); horizontal de la imagen paralelo a la seccion",
+      "R_camara_a_cuerpo": [[0.0, -0.5, 0.8660254],
+                            [0.0, -0.8660254, -0.5],
+                            [1.0, 0.0, 0.0]],
+      "intrinsecos_nominales": {"modelo": "Camera Module 3 estandar (IMX708)", "ancho_px": 4608, "alto_px": 2592,
+                                "fx_px": 3385.7, "fy_px": 3385.7, "distorsion": null, "calibrado": false}
+    }
+  ]
+}
