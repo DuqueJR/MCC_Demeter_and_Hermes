@@ -9,7 +9,7 @@ reemplaza: 99_archivo/diseno_v1/maquina_estados.md (D-010 a D-014)
 # Estados y momentos de la misión (v2, la de Pablo)
 
 **Marcas:** ✅ implementado · 🟡 escrito sin validar [Pablo] · ❌ no existe (con su tarea).
-**Igual para los dos cohetes;** cambian la configuración (`mission_config.h`) y los actuadores (IO45: la Pi en Demeter, actuadores mecánicos en Hermes).
+**Igual para los dos cohetes;** cambian la configuración (`mission_config.h`) y el uso de IO45: el encendido de la Pi en Demeter; en Hermes queda sin uso (D-053). El buzzer (IO46) va en los dos.
 
 ## 1. Estados de la LilyGO (`State`, bits 0–3 de `TELEM.state`)
 
@@ -178,7 +178,7 @@ Las marcas (P) las fijó el documentador; se pueden ajustar en la revisión del 
   - En FLY con BOOST, además, `RZ_EN_VUELO`.
   - En Hermes, `RZ_OP` (no aplica).
 - **Automático por BOOST sin armar: no se hace** mientras no exista T-702. La Pi se enciende a mano antes de cerrar el cohete, y un pulso automático la apagaría.
-- **En Hermes, IO45 queda sin usar** hasta que se definan sus actuadores mecánicos.
+- **En Hermes, IO45 queda sin usar:** no hay actuadores mecánicos (D-053).
 
 **`TELEM.actuators`:**
 - bit 0: el buzzer está activo (el patrón corre);

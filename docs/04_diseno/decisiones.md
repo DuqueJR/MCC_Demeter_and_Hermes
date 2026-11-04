@@ -1,7 +1,7 @@
 ---
 id: decisiones
 estado: vivo. Registro de decisiones (ADR compacto).
-actualizado: 2026-11-03
+actualizado: 2026-11-04
 ---
 # Registro de decisiones
 
@@ -64,3 +64,4 @@ actualizado: 2026-11-03
 | D-050 | **`web-1`: `salud.boot_count` y `salud.calib.*` aceptan `null`.** `net_proto` no los trae, y mandar 0 o `false` le mostraba al público "sin calibrar" aunque el cohete sí estuviera calibrado. La vista de Salud muestra "sin dato". Solo el productor es nuevo (el traductor de T-661), así que no hace falta `web-2`. Se aplica en el documento, el esquema, los tipos, la vista y el validador en el mismo PR (T-611d) | Aprobada (2026-11-03) | U | [08_gui/05](../08_gui/05_contrato_datos_web.md) §2.3, T-611d |
 | D-051 | **`RZ_OP` no se puede confirmar:** un comando desconocido o que no aplica (por ejemplo `pi encender` en Hermes) responde `CR_ERROR`, no `NO_APTO`. Hoy, confirmado, devolvía `CR_OK` sin hacer nada y levantaba `TF_FORZADO` (hallazgo de T-413). Se implementa con T-411 | Aprobada (2026-11-03) | C (delegada por U) | [maquina_estados](maquina_estados.md) §2 |
 | D-052 | **Persistencia en vuelo (cierra D-015):**<br>- RTC_NOINIT + NVS;<br>- se escribe solo en las transiciones;<br>- se reanuda en FLY o RECOVERY;<br>- `TF_REANUDADO` en TELEM (bit 4);<br>- el `T_MISSION` con `arg = 3`;<br>- se invalida al pasar a TIERRA o ARMED. | Aprobada (2026-11-03), por revisar en el PR | C (delegada por U) | [maquina_estados](maquina_estados.md) §8 |
+| D-053 | **Sin actuadores mecánicos en Hermes:**<br>- IO45 queda sin uso en Hermes; en Demeter sigue siendo el encendido de la Pi;<br>- el buzzer (IO46) se mantiene activo en los dos cohetes;<br>- el código ya era así (D-049); cambia la documentación. | Aprobada (2026-11-04) | PT | [buses_y_pines](../03_hardware/buses_y_pines.md), [maquina_estados](maquina_estados.md) §7 |
