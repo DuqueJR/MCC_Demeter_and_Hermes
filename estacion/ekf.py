@@ -32,6 +32,9 @@ Q_BARO = 0.001               # la altura la definen los barometros con su p0: su
 R_BARO_M = {'bmp': 0.5, 'bme': 1.0}
 R_MAG_DEG = {'mmc': 4.0, 'qmc': 6.0}
 MAG_RATE_HZ = 10.0
+MAG_NORM_TOL = 0.05          # el modulo calibrado debe quedar a +-5 % del radio de la calibracion
+MAG_DIP_DEG = 32.0           # inclinacion esperada: las calibraciones dieron 29 (Demeter) y 35 (Hermes)
+MAG_DIP_TOL_DEG = 8.0
 BARO_RATE_HZ = 20.0
 GATE = 5.0                   # sigmas para aceptar una medida
 GATE_RUN = {'gnss': 20, 'baro': 40, 'mag': 40}    # tras tantos rechazos seguidos se abre la covarianza: mejor recuperar que quedar ciego
@@ -248,10 +251,17 @@ class Ekf:
         H[idx] = 1.0
         self.update(which, H, alt - (-self.p[2] + self.b[which]), R_BARO_M[which], 'baro')
 
-    def heading(self, which, m):
-        """Solo el rumbo: un error magnetico no debe inclinar el cohete."""
+    def heading(self, which, m, radius):
+        """Solo el rumbo: un error magnetico no debe inclinar el cohete. Antes, el campo tiene que parecer el de la Tierra:
+        cerca de acero (techo del carro, rampa) cambian el modulo y la inclinacion, y el rumbo sale con decenas de grados de error."""
         C = q_to_C(self.q)
         mn = C @ m
+        nm = np.linalg.norm(m)
+        dip = np.degrees(np.arcsin(np.clip(mn[2] / nm, -1, 1)))
+        if abs(nm / radius - 1) > MAG_NORM_TOL or abs(dip - MAG_DIP_DEG) > MAG_DIP_TOL_DEG:
+            self.stats.setdefault(which, dict(ok=0, rej=0, run=0, reabre=0, e2=[]))
+            self.stats[which]['no_terrestre'] = self.stats[which].get('no_terrestre', 0) + 1
+            return
         if np.hypot(mn[0], mn[1]) < 0.3 * np.linalg.norm(m):  # campo casi vertical: el rumbo no se puede medir
             return
         y = np.radians(DECL_DEG) - np.arctan2(mn[1], mn[0])
@@ -414,7 +424,7 @@ def run(path, a):
             elif kind in ('bmp', 'bme'):
                 e.baro(kind, v)
             else:
-                e.heading(kind, v)
+                e.heading(kind, v, c[kind]['radio_G'])
         # IMU virtual: los dos cuando se puede; solo el LSM si el QMI satura o si no coinciden
         use_l, use_q = lc[k] > 0 and not a.solo_qmi, qc[k] > 0 and not a.solo_lsm
         if use_l and use_q:
@@ -458,7 +468,8 @@ def run(path, a):
     for name, s in sorted(e.stats.items()):
         rms = float(np.sqrt(np.mean(np.square(s['e2'])))) if s['e2'] else 0.0
         unit = 'grados' if name in ('mmc', 'qmc', 'gravedad') else ('m/s' if name.startswith('gnss_v') else 'm')
-        print(f'  {name:9s} {s["ok"]:6d} {s["rej"]:6d} {s["reabre"]:5d}   {np.degrees(rms) if unit == "grados" else rms:.3f} {unit}')
+        extra = f'   campo no terrestre: {s["no_terrestre"]}' if s.get('no_terrestre') else ''
+        print(f'  {name:9s} {s["ok"]:6d} {s["rej"]:6d} {s["reabre"]:5d}   {np.degrees(rms) if unit == "grados" else rms:.3f} {unit}{extra}')
     if pose_checks:
         print('inclinacion del EKF contra la gravedad medida, al llegar a cada posicion quieta:')
         for name, tilt, yaw, pitch, roll in pose_checks:
