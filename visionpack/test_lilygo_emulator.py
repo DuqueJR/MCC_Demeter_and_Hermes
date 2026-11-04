@@ -283,7 +283,7 @@ class SocatSITLTests(unittest.TestCase):
 
                 rows = [json.loads(line) for line in telemetry_log.read_text().splitlines()]
                 self.assertGreaterEqual(len(rows), 2)
-                self.assertTrue(any(row["alt"] > 400 for row in rows))
+                self.assertTrue(any(row["alt_agl"] > 400 for row in rows))
                 self.assertEqual(target_fps.read_text().strip(), "2")
                 self.assertIn("missiond", mission_diagnostic_log.read_text())
                 self.assertIn("UART abierto", telemetry_diagnostic_log.read_text())
