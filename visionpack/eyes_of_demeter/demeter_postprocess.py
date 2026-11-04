@@ -226,13 +226,12 @@ def develop_frame(
         frame_wallclock_ns = row.get("frame_wallclock_ns")
         if isinstance(frame_wallclock_ns, bool) or not isinstance(frame_wallclock_ns, int) or frame_wallclock_ns <= 0:
             frame_wallclock_ns = None
-        frame_ts = frame_wallclock_ns / 1_000_000_000 if frame_wallclock_ns is not None else None
+        # La unica hora UTC del sidecar es tiempo.utc (centro de la exposicion, ya corregida a hora de mision)
         frame_sidecar = {
             "camera_index": camera,
             "frame_id": frame_id,
-            "frame_wallclock_ns": frame_wallclock_ns,
-            "frame_timestamp_utc": datetime.fromtimestamp(frame_ts, timezone.utc).isoformat() if frame_ts else None,
-            **dp.frame_record(row, camera, CAMARAS, telemetry, UART_BAUD, max_telemetry_gap_s),
+            **dp.frame_record(dict(row, frame_wallclock_ns=frame_wallclock_ns), camera, CAMARAS, telemetry,
+                              UART_BAUD, max_telemetry_gap_s),
         }
         return rgb_bytes, frame_sidecar
 
