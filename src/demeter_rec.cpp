@@ -21,6 +21,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -60,6 +61,7 @@ static_assert(std::atomic<bool>::is_always_lock_free,
 constexpr unsigned int kCameraCount = 2;
 constexpr unsigned int kSensorFps = 10;
 constexpr int64_t kFrameDurationUs = 1000000 / kSensorFps;
+constexpr float kFlightLensPosition = 0.0f;
 constexpr unsigned int kLossOfSignalFps = 4;
 constexpr unsigned int kMaxTargetFps = kSensorFps;
 /* Medio periodo de frame: más skew que esto implica frames distintos (pérdida), no desfase de sensor. */
@@ -78,9 +80,70 @@ struct Options
 	std::filesystem::path output_directory = "/mnt/ramcam";
 	std::filesystem::path target_fps_file = "/mnt/ramcam/target_fps.txt";
 	std::filesystem::path flight_telemetry_file = "/mnt/ramcam/current_telemetry.json";
+	std::filesystem::path config_file;
 	double chunk_seconds = 8.0;
+	unsigned int max_target_fps = 2;
+	struct CaptureSettings
+	{
+		int32_t exposure_mode = controls::ExposureNormal;
+		int32_t metering_mode = controls::MeteringCentreWeighted;
+		int32_t constraint_mode = controls::ConstraintNormal;
+		std::string exposure_mode_name = "normal";
+		std::string metering_mode_name = "centre-weighted";
+		std::string constraint_mode_name = "normal";
+		float ev = 0.0f;
+		unsigned int settle_frames = 0;
+	} capture;
+	bool check_config = false;
 	bool sync = true;
 };
+
+using CaptureSettings = Options::CaptureSettings;
+
+CaptureSettings loadCaptureSettings(const std::filesystem::path &path)
+{
+	std::ifstream input(path);
+	if (!input)
+		throw std::runtime_error("Cannot open profile " + path.string());
+	const Json profile = Json::parse(input);
+	const Json exposure = profile.value("exposure", Json::object());
+	if (exposure.value("mode", "auto") != "auto")
+		throw std::runtime_error("demeter_rec requires automatic exposure; fixed exposure is unsupported");
+
+	static const std::map<std::string, int32_t> exposure_modes = {
+		{ "normal", controls::ExposureNormal }, { "short", controls::ExposureShort },
+		{ "long", controls::ExposureLong }
+	};
+	static const std::map<std::string, int32_t> metering_modes = {
+		{ "centre-weighted", controls::MeteringCentreWeighted }, { "spot", controls::MeteringSpot },
+		{ "matrix", controls::MeteringMatrix }
+	};
+	static const std::map<std::string, int32_t> constraint_modes = {
+		{ "normal", controls::ConstraintNormal }, { "highlight", controls::ConstraintHighlight },
+		{ "shadows", controls::ConstraintShadows }
+	};
+	const auto lookup = [](const auto &modes, const std::string &name, const char *field) {
+		const auto it = modes.find(name);
+		if (it == modes.end())
+			throw std::runtime_error(std::string("Unknown ") + field + ": " + name);
+		return it->second;
+	};
+
+	CaptureSettings settings;
+	settings.exposure_mode_name = exposure.value("exposure_mode", "normal");
+	settings.metering_mode_name = exposure.value("metering", "centre-weighted");
+	settings.constraint_mode_name = exposure.value("constraint", "normal");
+	settings.exposure_mode = lookup(exposure_modes, settings.exposure_mode_name, "exposure_mode");
+	settings.metering_mode = lookup(metering_modes, settings.metering_mode_name, "metering");
+	settings.constraint_mode = lookup(constraint_modes, settings.constraint_mode_name, "constraint");
+	settings.ev = exposure.value("ev", 0.0f);
+	if (!std::isfinite(settings.ev) || settings.ev < -8.0f || settings.ev > 8.0f)
+		throw std::runtime_error("exposure.ev must be finite and between -8 and 8");
+	settings.settle_frames = profile.value("capture", Json::object()).value("settle_frames", 0u);
+	if (settings.settle_frames > 300)
+		throw std::runtime_error("capture.settle_frames must be between 0 and 300 sensor frames");
+	return settings;
+}
 
 Options parseOptions(int argc, char **argv)
 {
@@ -100,13 +163,20 @@ Options parseOptions(int argc, char **argv)
 			options.target_fps_file = value();
 		else if (argument == "--telemetry-file")
 			options.flight_telemetry_file = value();
+		else if (argument == "--config")
+			options.config_file = value();
+		else if (argument == "--check-config")
+			options.check_config = true;
 		else if (argument == "--chunk-time")
 			options.chunk_seconds = std::stod(value());
+		else if (argument == "--max-target-fps")
+			options.max_target_fps = static_cast<unsigned int>(std::stoul(value()));
 		else if (argument == "--no-sync")
 			options.sync = false;
 		else if (argument == "--help" || argument == "-h")
 		{
-			std::cout << "Usage: demeter_rec [--out DIR] [--chunk-time SECONDS] [--no-sync] "
+						std::cout << "Usage: demeter_rec [--config PROFILE.json] [--check-config] [--out DIR] "
+									 "[--chunk-time SECONDS] [--max-target-fps 1-10] [--no-sync] "
 				     "[--target-fps-file PATH] [--telemetry-file PATH]\n";
 			std::exit(0);
 		}
@@ -116,8 +186,27 @@ Options parseOptions(int argc, char **argv)
 
 	if (!(options.chunk_seconds > 0.0) || !std::isfinite(options.chunk_seconds))
 		throw std::runtime_error("--chunk-time must be a finite positive number");
+	if (options.max_target_fps == 0 || options.max_target_fps > kMaxTargetFps)
+		throw std::runtime_error("--max-target-fps must be between 1 and 10");
+	if (!options.config_file.empty())
+		options.capture = loadCaptureSettings(options.config_file);
+	if (options.check_config && options.config_file.empty())
+		throw std::runtime_error("--check-config requires --config");
 
 	return options;
+}
+
+void applyCaptureControls(ControlList &control_list, const CaptureSettings &settings)
+{
+	control_list.set(controls::ExposureTimeMode, controls::ExposureTimeModeAuto);
+	control_list.set(controls::AnalogueGainMode, controls::AnalogueGainModeAuto);
+	control_list.set(controls::AeExposureMode, settings.exposure_mode);
+	control_list.set(controls::AeMeteringMode, settings.metering_mode);
+	control_list.set(controls::AeConstraintMode, settings.constraint_mode);
+	control_list.set(controls::ExposureValue, settings.ev);
+	control_list.set(controls::AfMode, controls::AfModeManual);
+	control_list.set(controls::AfRange, controls::AfRangeFull);
+	control_list.set(controls::LensPosition, kFlightLensPosition);
 }
 
 void syncDmaBuffer(int fd, uint64_t flags)
@@ -274,11 +363,12 @@ struct CameraState
 	}
 };
 
-ControlList makeControls(unsigned int camera_index, bool sync)
+ControlList makeControls(unsigned int camera_index, bool sync, const CaptureSettings &settings)
 {
 	ControlList controls(controls::controls);
 	controls.set(controls::rpi::StatsOutputEnable, true);
 	controls.set(controls::FrameDurationLimits, { kFrameDurationUs, kFrameDurationUs });
+	applyCaptureControls(controls, settings);
 	if (sync)
 	{
 		controls.set(controls::rpi::SyncMode, camera_index == 0 ? controls::rpi::SyncModeServer
@@ -303,7 +393,7 @@ void validateFrameDuration(const CameraState &state)
 					 " cannot be configured for 10 FPS");
 }
 
-void configureCamera(CameraState &state, std::shared_ptr<Camera> camera)
+void configureCamera(CameraState &state, std::shared_ptr<Camera> camera, const CaptureSettings &settings)
 {
 	state.camera = std::move(camera);
 	if (state.camera->acquire())
@@ -348,6 +438,7 @@ void configureCamera(CameraState &state, std::shared_ptr<Camera> camera)
 			throw std::runtime_error("Failed to attach RAW buffer for camera " + std::to_string(state.index));
 		request->controls().set(controls::rpi::StatsOutputEnable, true);
 		request->controls().set(controls::FrameDurationLimits, { kFrameDurationUs, kFrameDurationUs });
+				applyCaptureControls(request->controls(), settings);
 		state.requests.push_back(std::move(request));
 	}
 
@@ -363,8 +454,11 @@ void configureCamera(CameraState &state, std::shared_ptr<Camera> camera)
 class TargetFpsPoller
 {
 public:
-	explicit TargetFpsPoller(std::filesystem::path path)
-		: path_(std::move(path)), next_poll_(SteadyClock::time_point::min())
+	TargetFpsPoller(std::filesystem::path path, std::filesystem::path output_directory,
+			unsigned int max_target_fps)
+		: path_(std::move(path)), output_directory_(std::move(output_directory)),
+		  max_target_fps_(max_target_fps), next_poll_(SteadyClock::time_point::min()),
+		  target_fps_(std::min(kLossOfSignalFps, max_target_fps))
 	{
 	}
 
@@ -374,14 +468,27 @@ public:
 			return target_fps_;
 		next_poll_ = now + 500ms;
 		const std::optional<unsigned int> valid = readValidTarget();
+		unsigned int requested_fps = 0;
 		if (valid)
 		{
 			last_valid_fps_ = *valid;
-			target_fps_ = *valid;
+			requested_fps = *valid;
 		}
 		else
 		{
-			target_fps_ = std::max(last_valid_fps_, kLossOfSignalFps);
+			requested_fps = std::max(last_valid_fps_, kLossOfSignalFps);
+		}
+		target_fps_ = std::min(requested_fps, max_target_fps_);
+
+		std::error_code space_error;
+		const auto space = std::filesystem::space(output_directory_, space_error);
+		if (!space_error && space.capacity > 0)
+		{
+			const uint64_t used = space.capacity - space.available;
+			if (used * 10 >= space.capacity * 9)
+				target_fps_ = 1;
+			else if (used * 10 >= space.capacity * 8)
+				target_fps_ = std::min(target_fps_, 2u);
 		}
 		return target_fps_;
 	}
@@ -410,6 +517,8 @@ private:
 	}
 
 	std::filesystem::path path_;
+	std::filesystem::path output_directory_;
+	unsigned int max_target_fps_;
 	SteadyClock::time_point next_poll_;
 	unsigned int last_valid_fps_ = 0;
 	unsigned int target_fps_ = kLossOfSignalFps;
@@ -723,11 +832,12 @@ uint64_t sensorTimestamp(const Request &request)
 	return request.metadata().get(controls::SensorTimestamp).value_or(0);
 }
 
-void requeueRequest(CameraState &camera, Request *request)
+void requeueRequest(CameraState &camera, Request *request, const CaptureSettings &settings)
 {
 	request->reuse(Request::ReuseBuffers);
 	request->controls().set(controls::rpi::StatsOutputEnable, true);
 	request->controls().set(controls::FrameDurationLimits, { kFrameDurationUs, kFrameDurationUs });
+	applyCaptureControls(request->controls(), settings);
 	const int result = camera.camera->queueRequest(request);
 	if (result < 0)
 		throw std::runtime_error("Failed to requeue camera " + std::to_string(camera.index) +
@@ -739,10 +849,12 @@ class PairProcessor
 public:
 	PairProcessor(std::array<CameraState *, kCameraCount> cameras, CompletionQueue &completion_queue,
 		      ChunkWriter &writer, TargetFpsPoller &fps_poller,
+											CaptureSettings capture_settings,
 		      std::chrono::duration<double> chunk_duration,
 		      std::filesystem::path telemetry_path)
 		: cameras_(cameras), completion_queue_(completion_queue), writer_(writer), fps_poller_(fps_poller),
-		  chunk_duration_(chunk_duration), telemetry_path_(std::move(telemetry_path))
+									capture_settings_(capture_settings), chunk_duration_(chunk_duration),
+									telemetry_path_(std::move(telemetry_path))
 	{
 	}
 
@@ -754,7 +866,8 @@ public:
 			if (completion.status != Request::RequestComplete)
 			{
 				if (allow_requeue)
-					requeueRequest(*cameras_[completion.camera_index], completion.request);
+					requeueRequest(*cameras_[completion.camera_index], completion.request,
+						       capture_settings_);
 				continue;
 			}
 			pending_[completion.camera_index].push_back(completion.request);
@@ -774,7 +887,7 @@ public:
 				pending_[older_camera].pop_front();
 				writer_.recordUnpaired(older_camera);
 				if (allow_requeue)
-					requeueRequest(*cameras_[older_camera], orphan);
+					requeueRequest(*cameras_[older_camera], orphan, capture_settings_);
 				continue;
 			}
 
@@ -789,13 +902,13 @@ public:
 			const unsigned int target_fps = fps_poller_.value();
 			phase_ += target_fps;
 			const bool save_pair = phase_ >= kSensorFps;
-			if (save_pair)
+						if (save_pair)
 				phase_ -= kSensorFps;
 
 			std::exception_ptr write_error;
 			try
 			{
-				if (save_pair)
+								if (save_pair && pair_index_ >= capture_settings_.settle_frames)
 				{
 					const bool first_saved = writer_.appendFrame(
 						*cameras_[0], *request0, pair_index_, target_fps, skew);
@@ -815,7 +928,7 @@ public:
 				std::exception_ptr requeue_error;
 				try
 				{
-					requeueRequest(*cameras_[0], request0);
+										requeueRequest(*cameras_[0], request0, capture_settings_);
 				}
 				catch (...)
 				{
@@ -823,7 +936,7 @@ public:
 				}
 				try
 				{
-					requeueRequest(*cameras_[1], request1);
+										requeueRequest(*cameras_[1], request1, capture_settings_);
 				}
 				catch (...)
 				{
@@ -868,6 +981,7 @@ private:
 	CompletionQueue &completion_queue_;
 	ChunkWriter &writer_;
 	TargetFpsPoller &fps_poller_;
+	CaptureSettings capture_settings_;
 	std::chrono::duration<double> chunk_duration_;
 	std::filesystem::path telemetry_path_;
 	std::array<std::deque<Request *>, kCameraCount> pending_;
@@ -885,6 +999,15 @@ int main(int argc, char **argv)
 	try
 	{
 		const Options options = parseOptions(argc, argv);
+		if (options.check_config)
+		{
+			std::cout << "Capture profile valid: exposure=auto/" << options.capture.exposure_mode_name
+				  << " metering=" << options.capture.metering_mode_name
+				  << " constraint=" << options.capture.constraint_mode_name
+				  << " ev=" << options.capture.ev
+				  << " settle_frames=" << options.capture.settle_frames << '\n';
+			return 0;
+		}
 		CameraManager manager;
 		if (manager.start())
 			throw std::runtime_error("Failed to start CameraManager");
@@ -899,16 +1022,17 @@ int main(int argc, char **argv)
 		{
 			camera_storage[index] = std::make_unique<CameraState>();
 			camera_storage[index]->index = index;
-			configureCamera(*camera_storage[index], available_cameras[index]);
+						configureCamera(*camera_storage[index], available_cameras[index], options.capture);
 		}
 
 		ChunkWriter writer(options.output_directory, options.chunk_seconds);
-		TargetFpsPoller fps_poller(options.target_fps_file);
+		TargetFpsPoller fps_poller(options.target_fps_file, options.output_directory,
+					   options.max_target_fps);
 		std::array<CameraState *, kCameraCount> cameras = {
 			camera_storage[0].get(), camera_storage[1].get()
 		};
 		PairProcessor processor(cameras, completion_queue, writer, fps_poller,
-				       std::chrono::duration<double>(options.chunk_seconds),
+									   options.capture, std::chrono::duration<double>(options.chunk_seconds),
 				       options.flight_telemetry_file);
 
 		for (CameraState *camera : cameras)
@@ -922,7 +1046,7 @@ int main(int argc, char **argv)
 		/* El cliente arranca antes que el servidor para no perder el primer paquete de sync. */
 		for (CameraState *camera : { cameras[1], cameras[0] })
 		{
-			ControlList start_controls = makeControls(camera->index, options.sync);
+						ControlList start_controls = makeControls(camera->index, options.sync, options.capture);
 			if (camera->camera->start(&start_controls))
 				throw std::runtime_error("Failed to start camera " + std::to_string(camera->index));
 			camera->started = true;

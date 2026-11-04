@@ -219,6 +219,12 @@ void validateStatuses(RPiController::Metadata &metadata, const libcamera::Size &
 				 { "entries", alsc.r.size() } };
 	output["alsc"]["green_gain"] = alsc.g;
 	output["cac_entries"] = cac.lutRx.size();
+	const auto range = [](const std::vector<double> &values) {
+		const auto [minimum, maximum] = std::minmax_element(values.begin(), values.end());
+		return Json{ *minimum, *maximum };
+	};
+	output["cac_lut_range"] = { { "rx", range(cac.lutRx) }, { "ry", range(cac.lutRy) },
+				    { "bx", range(cac.lutBx) }, { "by", range(cac.lutBy) } };
 	output["gamma_curve_points"] = contrast.gammaCurve.size();
 	output["sharpen"] = { { "threshold", sharpen.threshold }, { "strength", sharpen.strength },
 			       { "limit", sharpen.limit } };
@@ -265,6 +271,12 @@ struct DevelopOptions
 	std::optional<uint32_t> white_level;
 	std::optional<std::pair<double, double>> fixed_awb_gains;
 	int bayer16_offset = 0;
+	bool enable_alsc = true;
+	bool enable_cac = true;
+	bool enable_sharpen = true;
+	double sharpen_scale = 1.0;
+	bool enable_demosaic_fc = true;
+	bool enable_rgb_false_colour = false;
 };
 
 void applyControllerStates(libpisp::BackEnd &backend, const Json &frame_metadata,
@@ -279,6 +291,8 @@ void applyControllerStates(libpisp::BackEnd &backend, const Json &frame_metadata
 				PISP_BE_BAYER_ENABLE_WBG;
 	global.rgb_enables |= PISP_BE_RGB_ENABLE_OUTPUT0 | PISP_BE_RGB_ENABLE_CCM |
 			      PISP_BE_RGB_ENABLE_GAMMA;
+	if (options.enable_rgb_false_colour)
+		global.rgb_enables |= PISP_BE_RGB_ENABLE_FALSE_COLOUR;
 
 	const auto black_status = requireStatus<BlackLevelStatus>(metadata, "black_level.status");
 	const uint16_t tune_black_r = options.black_level.value_or(black_status.blackLevelR);
@@ -356,12 +370,18 @@ void applyControllerStates(libpisp::BackEnd &backend, const Json &frame_metadata
 	global.bayer_enables |= PISP_BE_BAYER_ENABLE_GEQ;
 
 	const auto alsc_status = requireStatus<AlscStatus>(metadata, "alsc.status");
-	applyLensShading(backend, alsc_status, width, height);
-	global.bayer_enables |= PISP_BE_BAYER_ENABLE_LSC;
+	if (options.enable_alsc)
+	{
+		applyLensShading(backend, alsc_status, width, height);
+		global.bayer_enables |= PISP_BE_BAYER_ENABLE_LSC;
+	}
 
 	const auto cac_status = requireStatus<CacStatus>(metadata, "cac.status");
-	applyChromaticAberration(backend, cac_status);
-	global.bayer_enables |= PISP_BE_BAYER_ENABLE_CAC;
+	if (options.enable_cac)
+	{
+		applyChromaticAberration(backend, cac_status);
+		global.bayer_enables |= PISP_BE_BAYER_ENABLE_CAC;
+	}
 
 	const auto noise_status = requireStatus<NoiseStatus>(metadata, "noise.status");
 	const auto sdn_status = requireStatus<SdnStatus>(metadata, "sdn.status");
@@ -384,34 +404,45 @@ void applyControllerStates(libpisp::BackEnd &backend, const Json &frame_metadata
 	global.bayer_enables |= PISP_BE_BAYER_ENABLE_CDN;
 
 	const auto sharpen_status = requireStatus<SharpenStatus>(metadata, "sharpen.status");
-	pisp_be_sh_fc_combine_config sharpen_combine = {};
-	pisp_be_sharpen_config sharpen = {};
-	backend.InitialiseSharpen(sharpen, sharpen_combine);
-	const double threshold_scale = sharpen_status.threshold * 0.25;
-	sharpen.threshold_offset0 = fixedField(sharpen.threshold_offset0 * threshold_scale, 16, 0);
-	sharpen.threshold_offset1 = fixedField(sharpen.threshold_offset1 * threshold_scale, 16, 0);
-	sharpen.threshold_offset2 = fixedField(sharpen.threshold_offset2 * threshold_scale, 16, 0);
-	sharpen.threshold_offset3 = fixedField(sharpen.threshold_offset3 * threshold_scale, 16, 0);
-	sharpen.threshold_offset4 = fixedField(sharpen.threshold_offset4 * threshold_scale, 16, 0);
-	sharpen.threshold_slope0 = fixedField(sharpen.threshold_slope0 * threshold_scale, 12, 0);
-	sharpen.threshold_slope1 = fixedField(sharpen.threshold_slope1 * threshold_scale, 12, 0);
-	sharpen.threshold_slope2 = fixedField(sharpen.threshold_slope2 * threshold_scale, 12, 0);
-	sharpen.threshold_slope3 = fixedField(sharpen.threshold_slope3 * threshold_scale, 12, 0);
-	sharpen.threshold_slope4 = fixedField(sharpen.threshold_slope4 * threshold_scale, 12, 0);
-	sharpen.positive_strength = fixedField(sharpen.positive_strength * sharpen_status.strength, 12, 0);
-	sharpen.negative_strength = fixedField(sharpen.negative_strength * sharpen_status.strength, 12, 0);
-	sharpen.positive_pre_limit = fixedField(sharpen.positive_pre_limit * sharpen_status.limit, 16, 0);
-	sharpen.positive_limit = fixedField(sharpen.positive_limit * sharpen_status.limit, 16, 0);
-	sharpen.negative_pre_limit = fixedField(sharpen.negative_pre_limit * sharpen_status.limit, 16, 0);
-	sharpen.negative_limit = fixedField(sharpen.negative_limit * sharpen_status.limit, 16, 0);
-	backend.SetSharpen(sharpen);
-	global.rgb_enables |= PISP_BE_RGB_ENABLE_SHARPEN;
+	if (options.enable_sharpen)
+	{
+		pisp_be_sh_fc_combine_config sharpen_combine = {};
+		pisp_be_sharpen_config sharpen = {};
+		backend.InitialiseSharpen(sharpen, sharpen_combine);
+		const double threshold_scale = sharpen_status.threshold * 0.25;
+		sharpen.threshold_offset0 = fixedField(sharpen.threshold_offset0 * threshold_scale, 16, 0);
+		sharpen.threshold_offset1 = fixedField(sharpen.threshold_offset1 * threshold_scale, 16, 0);
+		sharpen.threshold_offset2 = fixedField(sharpen.threshold_offset2 * threshold_scale, 16, 0);
+		sharpen.threshold_offset3 = fixedField(sharpen.threshold_offset3 * threshold_scale, 16, 0);
+		sharpen.threshold_offset4 = fixedField(sharpen.threshold_offset4 * threshold_scale, 16, 0);
+		sharpen.threshold_slope0 = fixedField(sharpen.threshold_slope0 * threshold_scale, 12, 0);
+		sharpen.threshold_slope1 = fixedField(sharpen.threshold_slope1 * threshold_scale, 12, 0);
+		sharpen.threshold_slope2 = fixedField(sharpen.threshold_slope2 * threshold_scale, 12, 0);
+		sharpen.threshold_slope3 = fixedField(sharpen.threshold_slope3 * threshold_scale, 12, 0);
+		sharpen.threshold_slope4 = fixedField(sharpen.threshold_slope4 * threshold_scale, 12, 0);
+				sharpen.positive_strength = fixedField(sharpen.positive_strength * sharpen_status.strength * options.sharpen_scale, 12, 0);
+				sharpen.negative_strength = fixedField(sharpen.negative_strength * sharpen_status.strength * options.sharpen_scale, 12, 0);
+		sharpen.positive_pre_limit = fixedField(sharpen.positive_pre_limit * sharpen_status.limit, 16, 0);
+		sharpen.positive_limit = fixedField(sharpen.positive_limit * sharpen_status.limit, 16, 0);
+		sharpen.negative_pre_limit = fixedField(sharpen.negative_pre_limit * sharpen_status.limit, 16, 0);
+		sharpen.negative_limit = fixedField(sharpen.negative_limit * sharpen_status.limit, 16, 0);
+		backend.SetSharpen(sharpen);
+		global.rgb_enables |= PISP_BE_RGB_ENABLE_SHARPEN;
+	}
 
 	const auto contrast = requireStatus<ContrastStatus>(metadata, "contrast.status");
 	pisp_be_gamma_config gamma = {};
 	for (size_t i = 0; i < PISP_BE_GAMMA_LUT_SIZE; ++i)
 		gamma.lut[i] = gammaEntry(contrast.gammaCurve, i);
 	backend.SetGamma(gamma);
+
+	if (!options.enable_demosaic_fc)
+	{
+		pisp_be_demosaic_config demosaic = {};
+		backend.GetDemosaic(demosaic);
+		demosaic.fc_mode = 0;
+		backend.SetDemosaic(demosaic);
+	}
 
 	pisp_image_format_config input = {};
 	input.width = width;
@@ -515,6 +546,18 @@ int main(int argc, char **argv)
 			};
 			if (arg == "--config")
 				config_path = value();
+			else if (arg == "--disable-alsc")
+				options.enable_alsc = false;
+			else if (arg == "--disable-cac")
+				options.enable_cac = false;
+			else if (arg == "--disable-sharpen")
+				options.enable_sharpen = false;
+			else if (arg == "--disable-demosaic-fc")
+				options.enable_demosaic_fc = false;
+			else if (arg == "--enable-false-colour")
+				options.enable_rgb_false_colour = true;
+			else if (arg == "--sharpen-scale")
+				options.sharpen_scale = std::stod(value());
 			else if (arg == "--bayer16-offset")
 				options.bayer16_offset = std::stoi(value());
 			else if (arg == "--black-level")
@@ -528,12 +571,17 @@ int main(int argc, char **argv)
 		}
 		if (positional.size() != 5)
 			throw std::runtime_error("expected 5 positional arguments");
+				if (!std::isfinite(options.sharpen_scale) || options.sharpen_scale < 0.0 ||
+					options.sharpen_scale > 2.0)
+						throw std::runtime_error("--sharpen-scale must be between 0 and 2");
 	}
 	catch (const std::exception &error)
 	{
 		std::cerr << "controller_replay: " << error.what() << "\n"
 			  << "Usage: controller_replay <pisp_stats.bin> <capture.json> <imx708.json> <bayer16.raw> <output-prefix>\n"
-			  << "       [--config resolved.json] [--bayer16-offset N] [--black-level N] [--white-level N]\n";
+								  << "       [--config resolved.json] [--disable-alsc] [--disable-cac] [--disable-sharpen] "
+									  "[--disable-demosaic-fc] [--enable-false-colour] [--sharpen-scale 0..2] "
+									  "[--bayer16-offset N] [--black-level N] [--white-level N]\n";
 		return 2;
 	}
 

@@ -261,6 +261,7 @@ def develop_frame(
                 str(TUNING),
                 str(bayer16_path),
                 str(output_prefix),
+                "--disable-sharpen",
             ],
             "controller_replay",
         )

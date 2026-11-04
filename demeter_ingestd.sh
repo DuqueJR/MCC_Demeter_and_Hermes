@@ -7,8 +7,10 @@ umask 027
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD="${DEMETER_BUILD_DIR:-$ROOT/.build}"
+CAPTURE_PROFILE="${DEMETER_CAPTURE_PROFILE:-$ROOT/profiles/vuelo_infinito.json}"
 SD_ROOT="${DEMETER_RECORDINGS_DIR:-/home/admin/demeter_recording/scientific_rec/raw}"
-SD_DIR="$SD_ROOT/$(date +%Y%m%d_%H%M%S)"
+MISSION_ID="${DEMETER_MISSION_ID:-$(date +%Y%m%d_%H%M%S)}"
+SD_DIR="$SD_ROOT/$MISSION_ID"
 RAM_DIR="/mnt/ramcam"
 RECORDER_BIN="$BUILD/bin/demeter_rec"
 POSTPROCESS="$ROOT/demeter_postprocess.py"
@@ -19,13 +21,19 @@ TOUCHDOWN_FLAG="/tmp/touchdown_event.flag"
 MISSION_EVENT_SOCKET="${DEMETER_EVENT_SOCKET:-/tmp/demeter/mission.sock}"
 MAX_TIME="${DEMETER_MAX_TIME:-95}"
 CHUNK_TIME="${DEMETER_CHUNK_TIME:-8}"
+MAX_TARGET_FPS="${DEMETER_MAX_TARGET_FPS:-2}"
 
 REC_PID=""
 POSTPROCESS_PID=""
 RECORDER_STATUS=0
+POSTPROCESS_STATUS=0
 STOP_REQUESTED=0
 FLIGHT_ACTIVE=0
 POSTPROCESS_STARTED=0
+INGEST_PID=""
+INGEST_STOP_FILE=""
+REC_START_SECONDS=0
+RECORDER_FAILURE_REASON=""
 
 log() {
 	printf '[%s] demeter_ingestd pid=%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$*"
@@ -38,6 +46,7 @@ die() {
 
 awk -v value="$MAX_TIME" 'BEGIN { exit !(value > 0 && value == value) }' || die "DEMETER_MAX_TIME debe ser positivo"
 awk -v value="$CHUNK_TIME" 'BEGIN { exit !(value > 0 && value == value) }' || die "DEMETER_CHUNK_TIME debe ser positivo"
+[[ "$MAX_TARGET_FPS" =~ ^([1-9]|10)$ ]] || die "DEMETER_MAX_TARGET_FPS debe estar entre 1 y 10"
 
 emit_mission_event() {
 	local payload="$1"
@@ -150,6 +159,28 @@ emit_mission_event() {
 	return "$had_errors"
 }
 
+ingest_worker() {
+	trap - EXIT INT TERM
+	while [[ ! -e "$INGEST_STOP_FILE" ]]; do
+		ingest_chunks || log "AVISO: ingesta con errores; se reintentará tras terminar la copia actual"
+		sleep 0.25
+	done
+}
+
+stop_ingest_worker() {
+	[[ -n "$INGEST_PID" ]] || return 0
+	: >"$INGEST_STOP_FILE"
+	local status=0
+	if wait "$INGEST_PID"; then
+		status=0
+	else
+		status=$?
+	fi
+	INGEST_PID=""
+	rm -f -- "$INGEST_STOP_FILE"
+	return "$status"
+}
+
 stop_recorder() {
 	local event command_status
 	[[ -n "$REC_PID" ]] || return 0
@@ -166,11 +197,18 @@ stop_recorder() {
 	else
 		RECORDER_STATUS=$?
 	fi
+	local duration_s=$((SECONDS - REC_START_SECONDS))
 	if (( RECORDER_STATUS != 0 )); then
-		log "ERROR: demeter_rec PID $REC_PID terminó con exit=$RECORDER_STATUS; log=$SD_DIR/demeter_rec.log"
+		if grep -Fq "No space left on device" "$SD_DIR/demeter_rec.log"; then
+			RECORDER_FAILURE_REASON="tmpfs_enospc"
+			log "AVISO: demeter_rec agotó el tmpfs (exit=$RECORDER_STATUS); se procesarán los chunks íntegros"
+		else
+			RECORDER_FAILURE_REASON="recorder_exit_${RECORDER_STATUS}"
+			log "ERROR: demeter_rec PID $REC_PID terminó con exit=$RECORDER_STATUS; log=$SD_DIR/demeter_rec.log"
+		fi
 	fi
-	printf -v event '{"kind":"process_complete","source":"demeter_ingestd","process":"demeter_rec","exit_code":%s}' \
-		"$RECORDER_STATUS"
+	printf -v event '{"kind":"process_complete","source":"demeter_ingestd","process":"demeter_rec","exit_code":%s,"elapsed_s":%s,"failure_reason":"%s"}' \
+		"$RECORDER_STATUS" "$duration_s" "$RECORDER_FAILURE_REASON"
 	emit_mission_event "$event"
 	REC_PID=""
 }
@@ -182,6 +220,8 @@ launch_postprocess() {
 	local pid=$!
 	POSTPROCESS_PID="$pid"
 	POSTPROCESS_STARTED=1
+	printf -v event '{"kind":"process_started","source":"demeter_ingestd","process":"demeter_postprocess","pid":%s}' "$pid"
+	emit_mission_event "$event"
 	if ! printf '%s\n' "$pid" >"$SD_DIR/postprocess.pid"; then
 		log "AVISO: no se pudo guardar postprocess.pid"
 	fi
@@ -196,6 +236,7 @@ wait_postprocess() {
 	else
 		status=$?
 	fi
+	POSTPROCESS_STATUS="$status"
 	if (( status != 0 )); then
 		log "ERROR: postproceso PID $POSTPROCESS_PID terminó con exit=$status; log=$SD_DIR/postprocess.log"
 	fi
@@ -236,6 +277,7 @@ on_exit() {
 		stop_recorder || true
 	fi
 	if (( FLIGHT_ACTIVE )); then
+		stop_ingest_worker || true
 		if ! ingest_chunks; then
 			log "ERROR: una o más chunks no se pudieron ingerir durante limpieza"
 			(( status != 0 )) || status=1
@@ -271,6 +313,8 @@ python3 -c 'import cv2, numpy' || die "python3 no pudo cargar numpy y opencv"
 [[ -x "$RAW2RGB" ]] || die "no se puede ejecutar $RAW2RGB"
 [[ -x "$CONTROLLER_REPLAY" ]] || die "no se puede ejecutar $CONTROLLER_REPLAY"
 [[ -r "$TUNING" ]] || die "no se puede leer $TUNING"
+[[ -r "$CAPTURE_PROFILE" ]] || die "no se puede leer el perfil de captura $CAPTURE_PROFILE"
+"$RECORDER_BIN" --config "$CAPTURE_PROFILE" --check-config >/dev/null || die "perfil de captura inválido: $CAPTURE_PROFILE"
 MIN_MEM_AVAILABLE_KB=1572864
 if ! mem_available_kb=$(awk '$1 == "MemAvailable:" { print $2; exit }' /proc/meminfo); then
 	die "no se pudo leer MemAvailable en /proc/meminfo"
@@ -295,6 +339,12 @@ mkdir -p "$SD_ROOT"
 [[ ! -e "$SD_DIR" ]] || die "ya existe el directorio de misión $SD_DIR"
 mkdir -- "$SD_DIR" || die "no se pudo crear $SD_DIR"
 [[ -w "$SD_DIR" ]] || die "$SD_DIR no es escribible por $(id -un)"
+printf -v event '{"kind":"mission_started","source":"demeter_ingestd","mission_id":"%s","mission_dir":"%s"}' \
+	"$MISSION_ID" "$SD_DIR"
+emit_mission_event "$event"
+
+INGEST_STOP_FILE="$RAM_DIR/.ingest_stop.$$"
+rm -f -- "$INGEST_STOP_FILE"
 
 rm -rf "$RAM_DIR"/* 2>/dev/null || true
 target_fps=4
@@ -309,14 +359,23 @@ printf '%s\n' "$target_fps" >"$target_tmp"
 mv -f -- "$target_tmp" "$RAM_DIR/target_fps.txt"
 
 "$RECORDER_BIN" \
+	--config "$CAPTURE_PROFILE" \
 	--out "$RAM_DIR" \
 	--chunk-time "$CHUNK_TIME" \
+	--max-target-fps "$MAX_TARGET_FPS" \
 	--target-fps-file "$RAM_DIR/target_fps.txt" \
 	9>&- >>"$SD_DIR/demeter_rec.log" 2>&1 &
 REC_PID=$!
+REC_START_SECONDS=$SECONDS
+printf -v event '{"kind":"process_started","source":"demeter_ingestd","process":"demeter_rec","pid":%s,"max_target_fps":%s}' \
+	"$REC_PID" "$MAX_TARGET_FPS"
+emit_mission_event "$event"
 FLIGHT_ACTIVE=1
 start_seconds=$SECONDS
 log "Misión iniciada en $SD_DIR (recorder PID $REC_PID; máximo ${MAX_TIME}s)"
+
+(ingest_worker) &
+INGEST_PID=$!
 
 while (( !STOP_REQUESTED )); do
 	if [[ -e "$TOUCHDOWN_FLAG" ]]; then
@@ -331,11 +390,11 @@ while (( !STOP_REQUESTED )); do
 		log "demeter_rec terminó antes de la condición de corte"
 		break
 	fi
-	ingest_chunks || log "ERROR: una o más chunks no se pudieron ingerir; se reintentarán en el próximo ciclo"
-	sleep 1
+	sleep 0.25
 done
 
 stop_recorder
+stop_ingest_worker || log "AVISO: el worker de ingesta terminó con error; se hará drenaje final"
 ingest_chunks || log "ERROR: quedaron chunks pendientes de ingestión"
 persist_telemetry
 launch_postprocess
@@ -345,7 +404,11 @@ if [[ "${DEMETER_WAIT_POSTPROCESS:-0}" == "1" ]]; then
 fi
 
 if (( RECORDER_STATUS != 0 )); then
-	log "ERROR: demeter_rec terminó con estado $RECORDER_STATUS"
-	exit "$RECORDER_STATUS"
+	if [[ "$RECORDER_FAILURE_REASON" == "tmpfs_enospc" && "${DEMETER_WAIT_POSTPROCESS:-0}" == "1" && "$POSTPROCESS_STATUS" == "0" ]]; then
+		log "AVISO: misión degradada por tmpfs lleno; postprocesamiento completado correctamente"
+	else
+		log "ERROR: demeter_rec terminó con estado $RECORDER_STATUS"
+		exit "$RECORDER_STATUS"
+	fi
 fi
 log "Captura cerrada; el revelado continúa en segundo plano"
