@@ -1,0 +1,11 @@
+{
+  "mission_start": "2026-10-08T00:07:35Z",
+  "mission_end": "2026-10-08T00:09:36Z",
+  "total_chunks": 15,
+  "chunk_time_s": 8,
+  "failed_chunks": 0,
+  "touchdown_detected": false,
+  "camera_model": "IMX708",
+  "resolution": "4608x2592",
+  "fps": 10
+}
