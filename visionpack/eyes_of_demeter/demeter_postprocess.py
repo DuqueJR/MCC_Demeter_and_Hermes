@@ -4,7 +4,7 @@
 Implementa un pipeline productor-consumidor: convierte COMP1 a Bayer16 con
 praw2rgb y ejecuta controller_replay secuencialmente por frame; envía el
 guardado/codificación JPEG/PNG a un pool acotado de hasta cuatro procesos y
-añade sidecars JSON con telemetría interpolada.
+añade sidecars JSON con la pose de la LilyGo en hora de mision (demeter_pose.frame_record).
 El código no garantiza uso de cuatro núcleos ni invoca explícitamente el ISP
 físico de la Pi.
 """
@@ -12,7 +12,6 @@ físico de la Pi.
 from __future__ import annotations
 
 import argparse
-from bisect import bisect_left
 from concurrent.futures import FIRST_COMPLETED, BrokenExecutor, Future, ProcessPoolExecutor, wait
 from datetime import datetime, timezone
 import json
@@ -49,6 +48,11 @@ TEMP_ROOT = Path("/mnt/ramcam")
 MISSION_EVENT_SOCKET = Path(os.environ.get("DEMETER_EVENT_SOCKET", "/tmp/demeter/mission.sock"))
 MAX_WORKERS = 4
 MAX_PENDING_FRAMES = MAX_WORKERS * 2
+# demeter_pose.py vive en visionpack/, encima de eyes_of_demeter/ (mismo repo, MCC)
+sys.path.insert(0, str(Path(os.environ.get("DEMETER_VISIONPACK", str(ROOT.parent)))))
+import demeter_pose as dp  # noqa: E402
+CAMARAS = dp.load_cameras(Path(os.environ.get("DEMETER_CAMARAS", str(ROOT / "calibration" / "camaras.json"))))
+UART_BAUD = int(os.environ.get("DEMETER_UART_BAUD", "115200"))
 
 
 def init_worker() -> None:
@@ -139,63 +143,12 @@ def save_images(
     return jpg_path.stat().st_size + png_path.stat().st_size + sidecar_path.stat().st_size
 
 
-def load_telemetry(path: Path) -> list[dict[str, float]]:
-    samples: list[dict[str, float]] = []
-    if not path.is_file():
-        return samples
-    with path.open(encoding="utf-8") as source:
-        for line_number, line in enumerate(source, start=1):
-            if not line.strip():
-                continue
-            try:
-                row = json.loads(line)
-                sample = {name: float(row[name]) for name in ("pi_ts", "lilygo_ts", "alt", "roll", "pitch", "yaw")}
-                if not all(math.isfinite(value) for value in sample.values()):
-                    raise ValueError("valores NaN/Inf")
-                samples.append(sample)
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-                LOG.warning(
-                    "telemetry.jsonl línea=%d inválida (%s): %s",
-                    line_number, type(exc).__name__, exc,
-                )
-    samples.sort(key=lambda sample: sample["pi_ts"])
+def load_telemetry(path: Path) -> list[dict[str, Any]]:
+    """Poses de la LilyGo (0x21) de telemetry.jsonl, ordenadas por hora de mision."""
+    samples = dp.load_pose_log(path)
+    if path.is_file() and not samples:
+        LOG.warning("telemetry.jsonl sin poses validas (formato 0x21): %s", path)
     return samples
-
-
-def interpolate_telemetry(
-    samples: list[dict[str, float]], frame_ts: float | None, max_gap_s: float
-) -> dict[str, Any]:
-    if frame_ts is None or not math.isfinite(frame_ts):
-        return {"valid": False, "reason": "frame_clock_unavailable"}
-    if not samples:
-        return {"valid": False, "reason": "telemetry_unavailable"}
-    times = [sample["pi_ts"] for sample in samples]
-    index = bisect_left(times, frame_ts)
-    if index < len(samples) and abs(times[index] - frame_ts) <= 1e-6:
-        sample = samples[index]
-        return {"valid": True, "method": "exact", **{key: sample[key] for key in ("alt", "roll", "pitch", "yaw")}}
-    if index == 0 or index == len(samples):
-        return {"valid": False, "reason": "no_temporal_bracket"}
-    before = samples[index - 1]
-    after = samples[index]
-    gap = after["pi_ts"] - before["pi_ts"]
-    if gap <= 0 or gap > max_gap_s:
-        return {"valid": False, "reason": "telemetry_gap_exceeded", "bracket_gap_s": gap}
-    fraction = (frame_ts - before["pi_ts"]) / gap
-    values = {
-        key: before[key] + fraction * (after[key] - before[key])
-        for key in ("alt", "roll", "pitch")
-    }
-    yaw_delta = (after["yaw"] - before["yaw"] + 180.0) % 360.0 - 180.0
-    values["yaw"] = (before["yaw"] + fraction * yaw_delta) % 360.0
-    return {
-        "valid": True,
-        "method": "linear",
-        "pi_ts_before": before["pi_ts"],
-        "pi_ts_after": after["pi_ts"],
-        "bracket_gap_s": gap,
-        **values,
-    }
 
 
 def develop_frame(
@@ -205,7 +158,7 @@ def develop_frame(
     raw_size: int,
     stats_size: int,
     camera: int,
-    telemetry: list[dict[str, float]],
+    telemetry: list[dict[str, Any]],
     max_telemetry_gap_s: float,
 ) -> tuple[bytes, dict[str, Any]]:
     width = integer_field(row, "width", positive=True)
@@ -273,13 +226,12 @@ def develop_frame(
         frame_wallclock_ns = row.get("frame_wallclock_ns")
         if isinstance(frame_wallclock_ns, bool) or not isinstance(frame_wallclock_ns, int) or frame_wallclock_ns <= 0:
             frame_wallclock_ns = None
-        frame_ts = frame_wallclock_ns / 1_000_000_000 if frame_wallclock_ns is not None else None
+        # La unica hora UTC del sidecar es tiempo.utc (centro de la exposicion, ya corregida a hora de mision)
         frame_sidecar = {
             "camera_index": camera,
             "frame_id": frame_id,
-            "frame_wallclock_ns": frame_wallclock_ns,
-            "frame_timestamp_utc": datetime.fromtimestamp(frame_ts, timezone.utc).isoformat() if frame_ts else None,
-            "flight_telemetry": interpolate_telemetry(telemetry, frame_ts, max_telemetry_gap_s),
+            **dp.frame_record(dict(row, frame_wallclock_ns=frame_wallclock_ns), camera, CAMARAS, telemetry,
+                              UART_BAUD, max_telemetry_gap_s),
         }
         return rgb_bytes, frame_sidecar
 
@@ -289,7 +241,7 @@ def process_camera(
     jpeg_dir: Path,
     png_dir: Path,
     camera: int,
-    telemetry: list[dict[str, float]],
+    telemetry: list[dict[str, Any]],
     max_telemetry_gap_s: float,
     executor: ProcessPoolExecutor,
 ) -> tuple[int, int, dict[str, int | float]]:

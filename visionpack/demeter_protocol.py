@@ -11,7 +11,7 @@ from typing import Iterable
 SYNC = b"\xaa\x55"
 MAX_PAYLOAD = 0xFF
 PREFLIGHT_SYNC = 0x10
-TELEMETRY_UPDATE = 0x20
+POSE_UPDATE = 0x21          # pose de la LilyGo: demeter_pose.POSE_STRUCT (reemplaza a 0x20, Euler)
 PAYLOAD_STATUS = 0x30
 CMD_PREFLIGHT = 0xA0
 CMD_ARM = 0xA1
@@ -21,7 +21,6 @@ CMD_TOUCHDOWN = 0xC1
 CMD_ABORT = 0xF1
 
 PREFLIGHT_SYNC_STRUCT = struct.Struct("<Q")
-TELEMETRY_STRUCT = struct.Struct("<Qffff")
 STATUS_STRUCT = struct.Struct("<B")
 
 
