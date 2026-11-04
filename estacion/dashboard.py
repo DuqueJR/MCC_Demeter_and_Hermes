@@ -63,7 +63,7 @@ ask_head = []
 ground_time = None
 ground_seen = 0.0
 sleeping = {}                 # rocket_id -> instante del "dormir" aceptado
-job = {'running': False, 'lines': [], 'role': '', 'port': '', 'proc': None, 'rc': None}
+job = {'running': False, 'lines': [], 'role': '', 'port': '', 'proc': None, 'rc': None, 'port_free': False, 'reconnect': None}
 demo = False
 replay = None                 # archivo de sesion de tierra que se repite en vez de leer el puerto (--reproducir)
 replay_vel = 1.0
@@ -405,7 +405,7 @@ class ReplayLink:
 
 
 def connect(role, port):
-    if job['running'] and job['role'] == role:
+    if job['running'] and job['role'] == role and not job['port_free']:
         raise RuntimeError(f'{role} esta ocupado descargando')
     disconnect(role)
     links[role] = (ReplayLink if replay and role == 'tierra' else DemoLink if demo else Link)(role, port)
@@ -474,7 +474,7 @@ def snapshot():
             ask = None
         conn = {r: (links[r].port if r in links and links[r].alive else '') for r in ROLES}
         gnd_ok = bool(conn['tierra']) and now - ground_seen < STALE_S
-        out = dict(demo=demo, web=os.path.isfile(os.path.join(WEB_DIST, 'index.html')), conn=conn, defaults=ROLES, events=events[-300:], job=dict(running=job['running'], role=job['role'], port=job['port'], rc=job['rc'], lines=job['lines'][-300:]),
+        out = dict(demo=demo, web=os.path.isfile(os.path.join(WEB_DIST, 'index.html')), conn=conn, defaults=ROLES, events=events[-300:], job=dict(running=job['running'], role=job['role'], port=job['port'], rc=job['rc'], port_free=job['port_free'], lines=job['lines'][-300:]),
                    calib={r: dict(nuevo=os.path.exists(calib_path(r, True)), vigente=os.path.exists(calib_path(r, False))) for r in ('demeter', 'hermes')},
                    ask=ask and dict(question=ask['question'], reasons=ask['reasons'], left=max(0, int(ask['until'] - now))),
                    ground=dict(name='Tierra', estado='CONECTADA' if gnd_ok else 'SIN USB', momento='', modo='' if not gnd_ok else ('CON HORA' if ground_time else 'SIN HORA'), stale=not gnd_ok),
@@ -501,6 +501,9 @@ def stream(p):
                 c, pending = pending, b''
         if cur:
             text = cur.decode(errors='replace')
+            if text.startswith('PUERTO LIBRE') and job['reconnect'] and not job['port_free']:
+                job['port_free'] = True                      # lo que queda es local: el cohete vuelve al monitor ya
+                threading.Thread(target=job['reconnect'], daemon=True).start()
             with lock:
                 progress = job['lines'] and job['lines'][-1].startswith('~')
                 if c == b'\r':
@@ -520,8 +523,20 @@ def run_tbget(role, args, then=None):
     """Corre tbget.py con el puerto libre, luego el comando then si todo fue bien, y vuelve a conectar."""
     port = job['port']
     was = role in links
+
+    def reconnect():                      # al reiniciarse la placa el puerto desaparece unos segundos
+        for intento in range(25):
+            try:
+                connect(role, port)
+                return
+            except Exception as e:
+                if intento == 24:
+                    event(f'{role}: no pude reconectar ({e})')
+                time.sleep(0.4)
+
     with lock:
         job['lines'].append('soltando el puerto del monitor...')
+        job.update(port_free=False, reconnect=reconnect if was else None)
     disconnect(role)
     popen = lambda cmd: subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     rc = -1
@@ -534,18 +549,11 @@ def run_tbget(role, args, then=None):
         event(f'{role}: no arranco ({e})')
     with lock:
         job['proc'] = None
-    if was:                                # al reiniciarse la placa el puerto desaparece unos segundos
-        job['role'] = ''
-        for intento in range(25):
-            try:
-                connect(role, port)
-                break
-            except Exception as e:
-                if intento == 24:
-                    event(f'{role}: no pude reconectar ({e})')
-                time.sleep(0.4)
+    if was and not job['port_free']:
+        job['port_free'] = True
+        reconnect()
     with lock:
-        job.update(running=False, role=role, rc=rc)
+        job.update(running=False, role=role, rc=rc, reconnect=None)
 
 
 def list_ports():

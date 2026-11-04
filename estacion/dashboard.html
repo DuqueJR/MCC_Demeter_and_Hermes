@@ -78,7 +78,7 @@ function build(){
   &nbsp; <label><input id="da" type="checkbox" style="width:auto" ${dlArgs.an?'checked':''}> analizar</label>
   &nbsp; <label><input id="dc" type="checkbox" style="width:auto" ${dlArgs.csv?'checked':''}> CSV</label></p>
   <div><button onclick="tb(['list'])">Listar</button><button onclick="tbGet()">Bajar</button><button onclick="post('/api/tbget/abort',{})">Abortar</button><button onclick="tb(['reset'])">Reset de la placa</button></div>
-  <pre id="dl"></pre></div>`;
+  <p id="dlst" class="note"></p><pre id="dl"></pre></div>`;
  if(tab.startsWith('Vuelo ')){const r=tab.slice(6).toLowerCase();
   m.innerHTML=S&&!S.web?'<div class="box"><b>La web no esta compilada.</b> Compila la web: <code>npm run web:build</code> (desde la raiz del repo) y vuelve a abrir esta pestana.</div>'
    :`<div class="fill"><p class="note" style="margin:0 0 4px">Pagina de mision (la misma de la web publica), con los datos de este dashboard. <a href="/web/${r}/" target="_blank">Abrir en una pestana nueva</a></p><iframe class="web" src="/web/${r}/" title="Vuelo ${r}"></iframe></div>`}
@@ -141,7 +141,7 @@ function calRender(){
  else if(cal.step==7)h=cal.spinT?`<h3>Gira el cohete despacio, en todas las direcciones</h3><p style="font-size:20px">${Math.max(0,Math.ceil(SPIN_S-(now-cal.spinT)))} s</p><p>Que la nariz apunte a todos lados, y gira tambien sobre su eje. Sin movimientos bruscos.</p><button onclick="calSet({step:8,spinT:0})">Ya cubri todo</button>`:`<h3>Magnetometros</h3><p>Durante ${SPIN_S} s, gira el cohete despacio en todas las direcciones.</p><button onclick="calSet({spinT:Date.now()/1000})">Empezar</button>`;
  else if(cal.step==8)h=`<p>Listo. Termina el registro.</p><button onclick="calEndRec()">Terminar registro</button> ${cal.sent?'esperando que cierre el archivo...':''}`;
  else if(cal.step==9)h=`<p>Conecta el <b>USB</b> de ${n} y espera a que Windows lo reconozca. El archivo es ${esc(cal.name)}.</p><button onclick="calRun()">Bajar y analizar</button>`;
- else if(cal.step==10)h=S.job.running?'<p>Bajando y analizando...</p>':S.job.rc?`<p class="alert">No se pudo bajar o analizar ${esc(cal.name)}. La captura sigue en la SD del cohete.</p><button onclick="calRun()">Reintentar</button> <button onclick="if(confirm('Descartar esta captura y empezar otra?'))calSet({step:0,name:''})">Hacer otra captura</button>`:`<p>Revisa el resultado abajo.</p><button ${c.nuevo?'':'disabled'} onclick="calAccept()">Aceptar</button> <button onclick="calSet({step:0,name:''})">Repetir</button>`;
+ else if(cal.step==10)h=S.job.running?`<p>${jobPhase()}</p>`:S.job.rc?`<p class="alert">No se pudo bajar o analizar ${esc(cal.name)}. La captura sigue en la SD del cohete.</p><button onclick="calRun()">Reintentar</button> <button onclick="if(confirm('Descartar esta captura y empezar otra?'))calSet({step:0,name:''})">Hacer otra captura</button>`:`<p>Revisa el resultado abajo.</p><button ${c.nuevo?'':'disabled'} onclick="calAccept()">Aceptar</button> <button onclick="calSet({step:0,name:''})">Repetir</button>`;
  else h=`<p>Calibracion guardada en calib_${r}.json. Aun no viaja al cohete: la usara el EKF.</p><button onclick="calSet({step:0,name:''})">Otra calibracion</button>`;
  h=sel+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
  if(h!=lastCal){lastCal=h;el.innerHTML=h}
@@ -160,6 +160,7 @@ function render(){
   const reg=l?[['Registro',l.rec?'REGISTRANDO':(l.prep?'PREPARADO':'sin registrar')],['Archivo',l.name||'-'],...(l.rec?[['Tiempo / lleno',mmss(l.elapsed)+' / '+l.pct+' %'],['Cabe aun en este archivo',mmss(l.remain)+' min:s']]:[]),['Reserva',spareText(l)]]:[];
   el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Actuadores',actText(t.actuators)],['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
  if(!paused){ROCKETS.forEach(([r])=>renderDiag('dg_'+r,S.diag[r]));renderDiag('dg_tierra',S.diag.tierra)}
+ const st=$('dlst');if(st)st.textContent=S.job.running?jobPhase():'';
  const dl=$('dl');if(dl){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(txt!=lastDl){lastDl=txt;const near=dl.scrollTop+dl.clientHeight>=dl.scrollHeight-20;dl.textContent=txt;if(near)dl.scrollTop=dl.scrollHeight}}
  const ev=$('events'),evt=S.events.join('\n');if(evt!=lastEv){lastEv=evt;const near=ev.scrollTop+ev.clientHeight>=ev.scrollHeight-20;ev.textContent=evt;if(near)ev.scrollTop=ev.scrollHeight}  // solo si cambio: reescribirlo borraria la seleccion
  calRender();
@@ -168,12 +169,16 @@ function render(){
 $('myes').onclick=()=>cmd('si');$('mno').onclick=()=>cmd('no');
 
 async function conn(){
- const ports=await (await fetch('/api/ports')).json();const key=JSON.stringify([ports,S&&S.conn,S&&S.job.running,S&&S.job.role]);if(key==portsSeen)return;portsSeen=key;
+ const ports=await (await fetch('/api/ports')).json();const key=JSON.stringify([ports,S&&S.conn,S&&S.job.running,S&&S.job.role,S&&S.job.port_free]);if(key==portsSeen)return;portsSeen=key;
  $('conn').innerHTML=(S&&S.demo?'<b>DEMO</b> &nbsp;':'')+['tierra','demeter','hermes'].map(r=>{const c=S?S.conn[r]:'';const d=S?S.defaults[r]:'';
-  if(S&&S.job.running&&S.job.role==r)return `<span>${r}: <b class="warn">OCUPADO DESCARGANDO (${S.job.port})</b></span>`;
+  if(S&&S.job.running&&S.job.role==r&&!S.job.port_free)return `<span>${r}: <b class="warn">OCUPADO DESCARGANDO (${S.job.port})</b></span>`;
   return `<span>${r}: ${c?`<b>${c}</b> <button onclick="post('/api/disconnect',{role:'${r}'}).then(tick)">Soltar</button>${r=='tierra'?`<button onclick="if(confirm('Reiniciar tierra?'))cmd('reset')">Reiniciar</button>`:''}`:`<select id="cp_${r}">${ports.map(p=>`<option ${p==d?'selected':''}>${p}</option>`).join('')}</select> <button onclick="post('/api/connect',{role:'${r}',port:$('cp_${r}').value}).then(tick)">Conectar</button>`}</span>`}).join('');
 }
 window.post=post;
+// Fase del trabajo en curso, dicha en una linea: el cohete esta ocupado solo mientras se baja
+function jobPhase(){const L=S.job.lines,last=(L[L.length-1]||'').replace(/^~/,'');
+ if(!S.job.port_free)return 'Ocupando el cohete: '+(last||'empezando...');
+ return 'El cohete ya quedo libre. Analizando en el computador: '+(L.slice().reverse().find(l=>/^(analizando|=== |archivo )/.test(l))||last)}
 async function pollRaw(){if(tab!='Monitores'||paused)return;const d=await (await fetch('/api/raw')).json();if(paused)return;rawData=d;for(const r in rawData){const el=$('raw_'+r);if(!el)continue;const near=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.textContent=rawData[r].join('\n');if(near)el.scrollTop=el.scrollHeight}}
 async function tick(){try{S=await (await fetch('/api/state')).json();render();conn();pollRaw()}catch(e){}}
 window.tick=tick;build();tick();setInterval(tick,500);

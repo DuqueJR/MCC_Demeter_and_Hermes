@@ -10,6 +10,7 @@
 #include <RadioLib.h>
 #include <net_proto.h>
 #include <net_auth.h>
+#include <fw_build.h>
 
 #ifndef GND_TX_DBM
 #define GND_TX_DBM 10          // para prueba de banco; 22 para alcance y vuelo
@@ -103,7 +104,7 @@ static void report() {
     int64_t utcNow;
     Serial.printf("@G %d\n", gndTimeUtc(esp_timer_get_time(), utcNow) ? 1 : 0);
     gndTimeReport();
-    Serial.printf("[bcn ] tx=%lu err=%lu tarde_max=%lu us aire=%lu us adelanto=%ld us\n", (unsigned long)s_bcnTx, (unsigned long)s_bcnErr,
+    Serial.printf("[bcn ] fw=%s %s %d dBm | tx=%lu err=%lu tarde_max=%lu us aire=%lu us adelanto=%ld us\n", FW_ENV, FW_GIT, GND_TX_DBM, (unsigned long)s_bcnTx, (unsigned long)s_bcnErr,
                   (unsigned long)s_bcnLateMax, (unsigned long)s_bcnAir, (long)s_bcnLead);
     for (int i = 1; i <= 2; i++) {
         RocketRx &r = s_r[i];

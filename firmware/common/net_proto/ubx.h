@@ -41,6 +41,10 @@ static const uint32_t K_RATE_MEAS_MS    = 0x30210001;
 static const uint32_t K_RATE_NAV        = 0x30210002;
 static const uint32_t K_DYNMODEL        = 0x20110021;
 static const uint32_t K_MSGOUT_PVT_U1   = 0x20910007;
+// CFG-SIGNAL: constelaciones. Cambiarlas reinicia el subsistema GNSS del receptor.
+static const uint32_t K_SIG_SBAS_ENA    = 0x10310020;
+static const uint32_t K_SIG_BDS_ENA     = 0x10310022;
+static const uint32_t K_SIG_QZSS_ENA    = 0x10310024;
 
 // ---- parser ----
 class Parser {

@@ -1,4 +1,5 @@
 #include "LoRaBoards.h"
+#include <fw_build.h>
 #ifdef TEST_CORE
 #include "core_selftest.h"
 #include "core_bus.h"
@@ -17,7 +18,8 @@ static int lastChg = -1;
 
 void setup() {
     setupBoards();            // PMU, rails, buses I2C/SPI, UART del GNSS
-    Serial.println("[boot] tbeam_fw fase0");
+    Serial.printf("[boot] tbeam_fw %s %s compilado %s
+", FW_ENV, FW_GIT, __DATE__);
 #ifdef TEST_CORE
     coreSelftestBegin();
 #endif
