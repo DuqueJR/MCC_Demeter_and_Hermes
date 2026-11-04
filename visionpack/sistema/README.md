@@ -11,3 +11,15 @@
 Puertos serie de la Pi 5: `ttyAMA0` = GPIO14/15 (LilyGo, con `dtparam=uart0=on`); `ttyAMA10` = conector de depuracion de 3 pines junto al USB-C (consola de respaldo). `/dev/serial0` apunta a `ttyAMA10`: no usarlo para la LilyGo.
 
 Los datos no van al repo: grabaciones en `/home/admin/demeter_recording`, RAM en `/mnt/ramcam` (tmpfs de 3 GB en `/etc/fstab`).
+
+## La Pi corre desde un clon de MCC
+
+El codigo vive en `~/MCC/visionpack` (clon de este repo); los datos siguen en `~/demeter_recording` y `/mnt/ramcam`.
+
+```bash
+cd ~/MCC && git pull                     # trae lo nuevo
+sudo visionpack/sistema/instalar.sh      # solo si cambiaron las unidades; si no: sudo systemctl restart demeter-telemetry demeter-mission
+```
+
+Si cambian las fuentes de `eyes_of_demeter/src`, recompilar con `eyes_of_demeter/build.sh` (deja los binarios en `eyes_of_demeter/.build`, fuera de git).
+Volver al codigo anterior de la carpeta de inicio: `sudo VP=/home/admin ~/MCC/visionpack/sistema/instalar.sh`.
