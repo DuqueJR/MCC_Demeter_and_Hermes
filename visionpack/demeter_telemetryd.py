@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Demonio de telemetría UART para la integración con LilyGO.
 
-Decodifica tramas binarias protegidas con CRC-16, registra telemetría y reenvía
+Decodifica tramas binarias protegidas con CRC-16, registra la pose de la LilyGo (0x21), la pasa en hora de mision a chronyd (refclock SOCK) y reenvía
 comandos por IPC. Calcula el objetivo de pares RAW que se guardan según altitud;
 el sensor sigue solicitado a 10 FPS y el recorder diezma los pares para reducir
 el caudal hacia tmpfs/SD. No garantiza evitar saturación del bus ni ENOSPC.
@@ -34,15 +34,18 @@ from demeter_protocol import (
     CMD_TOUCHDOWN,
     PAYLOAD_STATUS,
     PREFLIGHT_SYNC,
+    POSE_UPDATE,
     STATUS_STRUCT,
-    TELEMETRY_STRUCT,
-    TELEMETRY_UPDATE,
     StatusCode,
     StreamDecoder,
     encode_frame,
 )
 
+from demeter_pose import F_ALT, F_TIME, ChronyFeeder, clock_offset_s, decode_pose
+
 LOG = logging.getLogger("demeter_telemetryd")
+EVENT_EVERY_S = 1.0          # la pose completa queda en telemetry.jsonl (RAM); a missiond va una por segundo
+_last_event = [0.0]
 STOP = False
 UNAVAILABLE_EVENT_SOCKETS: set[str] = set()
 COMMANDS = {
@@ -152,6 +155,8 @@ def handle_frame(
     synced: bool,
     sync_deadline: float | None = None,
     target_fps_path: Path = Path("/mnt/ramcam/target_fps.txt"),
+    baud: int = 115200,
+    chrony: ChronyFeeder | None = None,
 ) -> bool:
     received = time.time()
     if message_type == PREFLIGHT_SYNC:
@@ -175,30 +180,24 @@ def handle_frame(
         LOG.info("reloj sincronizado desde LilyGO: %s", utc_iso(lilygo_ms / 1000.0))
         return True
 
-    if message_type == TELEMETRY_UPDATE:
-        if len(payload) != TELEMETRY_STRUCT.size:
-            raise ValueError(f"payload 0x20 debe tener {TELEMETRY_STRUCT.size} bytes")
-        lilygo_ms, altitude, roll, pitch, yaw = TELEMETRY_STRUCT.unpack(payload)
-        values = (altitude, roll, pitch, yaw)
-        if not all(math.isfinite(value) for value in values):
-            raise ValueError("telemetría contiene NaN/Inf")
-        row = {
-            "pi_ts": received,
-            "lilygo_ts": lilygo_ms / 1000.0,
-            "alt": altitude,
-            "roll": roll,
-            "pitch": pitch,
-            "yaw": yaw,
-        }
-        target_fps = target_fps_for_altitude(altitude)
-        if write_target_fps(target_fps_path, target_fps):
-            LOG.info("FPS objetivo adaptativo: %d (altitud %.1f m)", target_fps, altitude)
+    if message_type == POSE_UPDATE:
+        pose = decode_pose(payload)
+        offset = clock_offset_s(pose["utc_us"], received, baud)
+        row = {"pi_ts": received, "ofs_reloj_ms": round(offset * 1e3, 3), **pose}
+        if chrony is not None and pose["flags"] & F_TIME:
+            chrony.add(offset, received)
+        if pose["flags"] & F_ALT:
+            target_fps = target_fps_for_altitude(pose["alt_agl"])
+            if write_target_fps(target_fps_path, target_fps):
+                LOG.info("FPS objetivo adaptativo: %d (altitud %.1f m)", target_fps, pose["alt_agl"])
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as output:
             output.write(json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n")
             output.flush()
         write_snapshot(snapshot_path, row)
-        emit_event(event_socket, {"kind": "telemetry", **row})
+        if received - _last_event[0] >= EVENT_EVERY_S:      # missiond guarda cada evento en la SD
+            _last_event[0] = received
+            emit_event(event_socket, {"kind": "telemetry", **row})
         return synced
 
     if message_type == PAYLOAD_STATUS:
@@ -235,6 +234,7 @@ def run(args: argparse.Namespace) -> int:
     command_socket.bind(str(args.command_socket))
     command_socket.setblocking(False)
     decoder = StreamDecoder()
+    chrony = ChronyFeeder(args.chrony_socket)    # hora de mision para chronyd (refclock SOCK)
     synced = False
     sync_deadline = time.monotonic() + args.sync_window_s if args.preflight else None
     preflight_open = args.preflight
@@ -301,6 +301,7 @@ def run(args: argparse.Namespace) -> int:
                                         allow_clock_set=args.allow_clock_set, preflight=preflight_open,
                                         synced=synced, sync_deadline=sync_deadline,
                                         target_fps_path=args.target_fps,
+                                        baud=args.baud, chrony=chrony,
                                     )
                                 except (ValueError, OSError, OverflowError) as exc:
                                     LOG.warning(
@@ -317,6 +318,8 @@ def run(args: argparse.Namespace) -> int:
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
     finally:
+        LOG.info("chrony: %d muestras enviadas, %d fallidas", chrony.sent, chrony.errors)
+        chrony.close()
         command_socket.close()
         args.command_socket.unlink(missing_ok=True)
     return 0
@@ -338,6 +341,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preflight", action="store_true", help="permite sincronización solo con --allow-clock-set")
     parser.add_argument("--allow-clock-set", action="store_true", help="requiere CAP_SYS_TIME y solo sincroniza una vez")
     parser.add_argument("--sync-window-s", type=float, default=120.0)
+    parser.add_argument("--chrony-socket", type=Path, default=Path("/run/chrony.demeter.sock"),
+                        help="refclock SOCK de chronyd")
     return parser.parse_args()
 
 

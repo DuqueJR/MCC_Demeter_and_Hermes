@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 
-from demeter_protocol import CMD_START_REC, CMD_TOUCHDOWN, TELEMETRY_UPDATE, StreamDecoder
+from demeter_protocol import CMD_START_REC, CMD_TOUCHDOWN, POSE_UPDATE, StreamDecoder
 from lilygo_emulator import FlightRun, FlightSample
 
 ROOT = Path(__file__).resolve().parent
@@ -67,7 +67,7 @@ class CsvFlightTests(unittest.TestCase):
         flight.thread.join(timeout=2)
         self.assertFalse(flight.thread.is_alive())
         frames = [StreamDecoder().feed(packet)[0] for packet in port.writes]
-        self.assertEqual(sum(frame.message_type == TELEMETRY_UPDATE for frame in frames), len(samples))
+        self.assertEqual(sum(frame.message_type == POSE_UPDATE for frame in frames), len(samples))
 
     def test_los_does_not_pause_clock_or_autopilot(self):
         port = MemorySerial()
@@ -99,9 +99,9 @@ class CsvFlightTests(unittest.TestCase):
             flight.thread.join(timeout=1)
             self.assertFalse(flight.thread.is_alive())
             frames = [StreamDecoder().feed(packet)[0] for packet in port.writes]
-            commands = [frame.message_type for frame in frames if frame.message_type != TELEMETRY_UPDATE]
+            commands = [frame.message_type for frame in frames if frame.message_type != POSE_UPDATE]
             self.assertEqual(commands, [CMD_START_REC, CMD_TOUCHDOWN])
-            self.assertTrue(any(frame.message_type == TELEMETRY_UPDATE for frame in frames))
+            self.assertTrue(any(frame.message_type == POSE_UPDATE for frame in frames))
         finally:
             flight.close()
 
@@ -283,8 +283,10 @@ class SocatSITLTests(unittest.TestCase):
 
                 rows = [json.loads(line) for line in telemetry_log.read_text().splitlines()]
                 self.assertGreaterEqual(len(rows), 2)
-                self.assertTrue(any(row["alt"] > 400 for row in rows))
-                self.assertEqual(target_fps.read_text().strip(), "2")
+                self.assertTrue(any(row["alt_agl"] > 400 for row in rows))
+                # el FPS sigue a la ultima pose registrada (si ya llego la fila de 0 m depende del tiempo)
+                from demeter_telemetryd import target_fps_for_altitude
+                self.assertEqual(target_fps.read_text().strip(), str(target_fps_for_altitude(rows[-1]["alt_agl"])))
                 self.assertIn("missiond", mission_diagnostic_log.read_text())
                 self.assertIn("UART abierto", telemetry_diagnostic_log.read_text())
                 mission_events = [json.loads(line) for line in (root / "mission.jsonl").read_text().splitlines()]

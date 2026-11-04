@@ -1,26 +1,31 @@
+import sys
+from pathlib import Path
 import unittest
 
-from demeter_postprocess import interpolate_telemetry
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))     # visionpack/, donde vive demeter_pose
+import demeter_pose as dp
 
 
-class TelemetryInterpolationTests(unittest.TestCase):
-    def test_linear_values_and_circular_yaw(self):
-        samples = [
-            {"pi_ts": 1.0, "lilygo_ts": 1.0, "alt": 10.0, "roll": 0.0, "pitch": 0.0, "yaw": 359.0},
-            {"pi_ts": 3.0, "lilygo_ts": 3.0, "alt": 30.0, "roll": 2.0, "pitch": 4.0, "yaw": 1.0},
-        ]
-        result = interpolate_telemetry(samples, 2.0, 2.0)
-        self.assertTrue(result["valid"])
-        self.assertEqual(result["alt"], 20.0)
-        self.assertAlmostEqual(result["yaw"], 0.0)
+def sample(t_s, q, alt):
+    return {"utc_us": int(t_s * 1e6), "pi_ts": t_s, "seq": int(t_s), "flags": dp.F_EKF | dp.F_ATT | dp.F_TIME,
+            "lat": 6.5, "lon": -75.8, "alt_agl": alt, "alt_msl": alt + 510, "v_ned": [0, 0, 9], "q": q,
+            "giro_dps": [0, 0, 0], "sd_actitud_deg": 1, "sd_pos_m": 2, "sd_alt_m": 0.5}
+
+
+class PoseInterpolationTests(unittest.TestCase):
+    def test_slerp_and_linear_position(self):
+        a = sample(1.0, [1.0, 0.0, 0.0, 0.0], 10.0)
+        b = sample(3.0, [0.0, 0.0, 0.0, 1.0], 30.0)          # 180 grados de guinada
+        p = dp.interpolate_pose([a, b], 2_000_000, 2.5)
+        self.assertTrue(p["valida"])
+        self.assertAlmostEqual(p["alt_agl_m"], 20.0)
+        self.assertAlmostEqual(abs(p["q_cuerpo_a_ned"][0]), 0.7071, places=3)   # a mitad de camino: 90 grados
 
     def test_no_extrapolation_or_wide_gap(self):
-        samples = [
-            {"pi_ts": 1.0, "lilygo_ts": 1.0, "alt": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            {"pi_ts": 4.0, "lilygo_ts": 4.0, "alt": 3.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-        ]
-        self.assertFalse(interpolate_telemetry(samples, 0.5, 4.0)["valid"])
-        self.assertFalse(interpolate_telemetry(samples, 2.0, 2.0)["valid"])
+        a = sample(1.0, [1.0, 0, 0, 0], 0.0)
+        b = sample(4.0, [1.0, 0, 0, 0], 3.0)
+        self.assertFalse(dp.interpolate_pose([a, b], 500_000, 4.0)["valida"])
+        self.assertFalse(dp.interpolate_pose([a, b], 2_000_000, 2.0)["valida"])
 
 
 if __name__ == "__main__":
