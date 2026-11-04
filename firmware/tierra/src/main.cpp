@@ -1,10 +1,12 @@
 #include "LoRaBoards.h"
 #include "gnd_rx.h"
 #include "gnd_time.h"
+#include <fw_build.h>
 
 void setup() {
     setupBoards();
-    Serial.println("[boot] tbeam_tierra receptor con hora propia");
+    Serial.printf("[boot] tbeam_tierra %s %s compilado %s
+", FW_ENV, FW_GIT, __DATE__);
     gndTimeBegin();
     gndRxBegin();
 }

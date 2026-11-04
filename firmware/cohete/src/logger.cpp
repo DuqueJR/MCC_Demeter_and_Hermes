@@ -10,6 +10,8 @@
 #include "core_bus.h"
 #include "LoRaBoards.h"
 #include <net_proto.h>
+#include "net_radio.h"
+#include <fw_build.h>
 #include <SD.h>
 #include <Preferences.h>
 #include <esp_timer.h>
@@ -228,10 +230,13 @@ static void appendRecord(uint8_t type, uint8_t src, const void *payload, uint16_
 
 static void writeFileHeader() {
     rec::FileHdrRec h; memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "TBLG", 4); h.version = 1; h.rocket_id = s_rocket; h.mission_id = s_mission;
+    memcpy(h.magic, "TBLG", 4); h.version = 2; h.rocket_id = s_rocket; h.mission_id = s_mission;
     h.boot_count = s_boot; h.file_idx = s_s.fileIdx;
     h.utc_us = time_to_utc_us(esp_timer_get_time());
     strncpy(h.fw, __DATE__, sizeof(h.fw) - 1);
+    strncpy(h.env, FW_ENV, sizeof(h.env) - 1);
+    strncpy(h.git, FW_GIT, sizeof(h.git) - 1);
+    h.tx_dbm = NET_TX_DBM;
     appendRecord(rec::T_FILEHDR, rec::S_SYS, &h, sizeof(h));
 }
 

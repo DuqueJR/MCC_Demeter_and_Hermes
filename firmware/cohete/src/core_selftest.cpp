@@ -16,6 +16,7 @@
 #include "ext_mmc.h"
 #include "core_sleep.h"
 #include "mission.h"
+#include <fw_build.h>
 
 #ifndef ROCKET_ID
 #define ROCKET_ID 1
@@ -126,8 +127,8 @@ void coreSelftestReport() {
     Serial.printf("[rx  ] balizas=%lu malas=%lu otros=%lu ventanas_saltadas=%lu residuo=%ld us anclar_gnss=%d\n",
                   (unsigned long)nt.rx, (unsigned long)nt.rxBad, (unsigned long)nt.rxOther, (unsigned long)nt.rxSkipped,
                   (long)nt.lastResUs, gnssAnchors() ? 1 : 0);
-    Serial.printf("[net ] id=%u %s %s | tx=%lu %.1f Hz balizas=%lu err=%lu saltadas=%lu tarde_max=%lu us fin_max=%lu us aire=%lu us\n",
-                  (unsigned)ROCKET_ID, !nt.radioOk ? "SIN RADIO" : (nt.slotted ? "ranuras" : "baliza"), netFlying() ? "vuelo" : "tierra",
+    Serial.printf("[net ] id=%u fw=%s %s %d dBm %s %s | tx=%lu %.1f Hz balizas=%lu err=%lu saltadas=%lu tarde_max=%lu us fin_max=%lu us aire=%lu us\n",
+                  (unsigned)ROCKET_ID, FW_ENV, FW_GIT, NET_TX_DBM, !nt.radioOk ? "SIN RADIO" : (nt.slotted ? "ranuras" : "baliza"), netFlying() ? "vuelo" : "tierra",
                   (unsigned long)nt.tx, txHz, (unsigned long)nt.beacons, (unsigned long)nt.txErr, (unsigned long)nt.skipped,
                   (unsigned long)nt.lateMaxUs, (unsigned long)nt.endMaxUs, (unsigned long)nt.airUs);
     static const char *const STATE_NAME[5] = {"-", "TIERRA", "ARMED", "FLY", "RECOVERY"};

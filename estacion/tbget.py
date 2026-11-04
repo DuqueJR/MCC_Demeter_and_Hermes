@@ -8,7 +8,8 @@ Uso:  python tbget.py COM3 list                 lista archivos
 Opciones: --dir CARPETA  --completo (incluye los ceros finales)
           --reset (al terminar reinicia la placa)  --analizar (corre tblog y guarda NOMBRE.BIN.txt)
           --csv (ademas deja cada fuente en un CSV, en la carpeta NOMBRE_csv)
-Cierra antes el monitor serie de ese puerto. Desde el primer comando la placa queda en modo descarga, sin logger;
+Si los archivos pedidos por nombre ya estan en la carpeta, no se toca la placa. Al terminar de bajar se suelta el puerto
+(linea "PUERTO LIBRE") y el analisis sigue en el computador. Cierra antes el monitor serie de ese puerto. Desde el primer comando la placa queda en modo descarga, sin logger;
 sale con reset, o sola tras 2 minutos sin comandos.
 Requiere pyserial:  python -m pip install pyserial
 """
@@ -27,6 +28,11 @@ class Device:
     def __init__(self, port):
         self.s = port
         self.buf = bytearray()
+
+    def release(self):
+        """Suelta el puerto: lo que sigue es local. El dashboard reconecta el monitor al ver la linea."""
+        self.s.close()
+        print(f'{FREE}: el cohete queda libre; lo que sigue es en el computador', flush=True)
 
     def _fill(self, deadline):
         n = self.s.in_waiting
@@ -154,7 +160,10 @@ def fmt(n):
     return f'{n / 1048576:.1f} MB'
 
 
-def download(dev, name, total, outdir):
+FREE = 'PUERTO LIBRE'
+
+
+def download(dev, name, total, outdir, tag=''):
     final = os.path.join(outdir, name)
     part = final + '.part'
     off = 0
@@ -173,14 +182,14 @@ def download(dev, name, total, outdir):
             now = time.time()
             if now - done[1] >= 0.25:                  # imprimir en cada trama frena: la consola de Windows es lenta
                 done[1] = now
-                print(f'\r{name}: {fmt(done[0])} de {fmt(total)}  {(done[0] - start) / 1024 / max(now - t0, 0.001):.0f} kB/s ', end='', flush=True)
+                print(f'\r{tag}{name}: {fmt(done[0])} de {fmt(total)} ({100 * done[0] / max(total, 1):.0f} %)  {(done[0] - start) / 1024 / max(now - t0, 0.001):.0f} kB/s ', end='', flush=True)
 
         off = dev.fetch(name, off, total, sink)
     if off != total:
         raise SystemExit(f'\n{name}: termino en {off} de {total} bytes')
     os.replace(part, final)
     dt = max(time.time() - t0, 0.001)
-    print(f'\r{name}: {fmt(off)} en {dt:.1f} s  ({(off - start) / 1024 / dt:.0f} kB/s)      ')
+    print(f'\r{tag}{name}: {fmt(off)} en {dt:.1f} s  ({(off - start) / 1024 / dt:.0f} kB/s)      ')
 
 
 def index_of(name):
@@ -207,6 +216,7 @@ def select(files, a):
 
 
 def analyze(path, csv=False):
+    print(f'analizando {os.path.basename(path)} en el computador' + (' y escribiendo CSV' if csv else '') + '...', flush=True)
     tblog = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tblog.py')
     r = subprocess.run([sys.executable, tblog, path] + (['--csv'] if csv else []), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     print(r.stdout)
@@ -219,8 +229,10 @@ def get(dev, files, a):
     t0 = time.time()
     bajados = 0
     elegidos = []
-    for n, s in select(files, a):
+    pedidos = select(files, a)
+    for i, (n, s) in enumerate(pedidos):
         final = os.path.join(a.dir, n)
+        tag = f'[{i + 1}/{len(pedidos)}] ' if len(pedidos) > 1 else ''
         # Un archivo terminado no cambia: .part solo se renombra al completarse, y cada arranque registra en otro archivo
         if os.path.exists(final) and (not a.completo or os.path.getsize(final) == s):
             print(f'{n}: ya esta')
@@ -234,7 +246,7 @@ def get(dev, files, a):
             raise SystemExit(str(e))
         if total == 0:
             continue
-        download(dev, n, total, a.dir)
+        download(dev, n, total, a.dir, tag)
         bajados += total
         elegidos.append(final)
     dt = max(time.time() - t0, 0.001)
@@ -242,9 +254,14 @@ def get(dev, files, a):
     if a.reset:
         reset(dev)
     if a.analizar or a.csv:
-        for p in elegidos:
-            print(f'=== {os.path.basename(p)}')
-            analyze(p, a.csv)
+        dev.release()
+        analyze_all(elegidos, a)
+
+
+def analyze_all(paths, a):
+    for p in paths:
+        print(f'=== {os.path.basename(p)}')
+        analyze(p, a.csv)
 
 
 def reset(dev):
@@ -289,6 +306,14 @@ def main():
     ap.add_argument('--analizar', action='store_true')
     ap.add_argument('--csv', action='store_true')
     a = ap.parse_args()
+    # Pedidos por nombre y ya bajados: no hace falta la placa
+    if a.accion == 'get' and a.nombres and not a.completo and all(n.upper().endswith('.BIN') and os.path.exists(os.path.join(a.dir, n)) for n in a.nombres):
+        for n in a.nombres:
+            print(f'{n}: ya esta en el computador; no hace falta la placa')
+        print(f'{FREE}: no se uso la placa', flush=True)
+        if a.analizar or a.csv:
+            analyze_all([os.path.join(a.dir, n) for n in a.nombres], a)
+        return
     import serial
     s = serial.Serial()
     s.port = a.puerto

@@ -147,6 +147,18 @@ static bool gnssInit() {
     sendFrame(f, v.frame(f));
     pump(500);
     s_stat = (s_acks != a0 && s_naks == n0) ? "OK" : "CONFIG sin ACK o con NAK";
+#ifndef GNSS_TODAS
+    // Solo GPS+Galileo: con ~30 satelites a cielo abierto el M10S perdia 12-23 % de las epocas a 10 Hz (3 nov).
+    // Mensaje aparte: si el receptor lo rechaza, lo anterior sigue valiendo. -DGNSS_TODAS vuelve a la configuracion de fabrica.
+    ubx::ValSet c; c.init();
+    c.add(ubx::K_SIG_BDS_ENA, 0);
+    c.add(ubx::K_SIG_QZSS_ENA, 0);
+    c.add(ubx::K_SIG_SBAS_ENA, 0);
+    const uint32_t a1 = s_acks, n1 = s_naks;
+    sendFrame(f, c.frame(f));
+    pump(1500);                            // el receptor reinicia su parte GNSS
+    if (s_stat[0] == 'O' && !(s_acks != a1 && s_naks == n1)) s_stat = "OK, pero constelaciones sin ACK o con NAK";
+#endif
     s_lastFrameMs = millis();
     s_prevItow = 0;
     return true;

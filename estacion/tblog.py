@@ -118,6 +118,10 @@ def main():
         if r[1] == T_FILEHDR:
             magic, ver, rid, mid, boot, idx, utc = struct.unpack_from('<4sHHIIIq', r[4])
             fw = r[4][28:44].split(b'\0')[0].decode(errors='replace')
+            if ver >= 2 and len(r[4]) >= 73:
+                fw += f" entorno={r[4][44:60].split(bytes(1))[0].decode(errors='replace')} commit={r[4][60:72].split(bytes(1))[0].decode(errors='replace')} LoRa={struct.unpack_from('<b', r[4], 72)[0]} dBm"
+            else:
+                fw += " (firmware anterior: sin entorno ni potencia)"
             print(f"cabecera: {magic.decode()} v{ver} rocket_id={rid} mission_id={mid} arranque={boot} archivo={idx} fw={fw}")
             break
 
