@@ -324,7 +324,7 @@ def run(args: argparse.Namespace) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", "--port", dest="device", default="/dev/serial0")
+    parser.add_argument("--device", "--port", dest="device", default="/dev/ttyAMA0")   # GPIO14/15; en la Pi 5 serial0 es el conector de depuracion
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--log", type=Path, default=Path("/mnt/ramcam/telemetry.jsonl"))
     parser.add_argument("--snapshot", type=Path, default=Path("/mnt/ramcam/current_telemetry.json"))

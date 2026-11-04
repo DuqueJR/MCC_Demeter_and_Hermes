@@ -1,0 +1,14 @@
+[Unit]
+Description=Demeter Multicast Loopback Routing for Camera Sync
+After=network.target
+
+[Service]
+Type=oneshot
+# Habilita multicast en la interfaz loopback local
+ExecStart=/sbin/ip link set lo multicast on
+# Secuestra la IP de sincronizacion de libcamera para que no busque salir a internet
+ExecStart=/sbin/ip route replace 239.255.255.250/32 dev lo
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
