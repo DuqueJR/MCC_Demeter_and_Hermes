@@ -1,5 +1,4 @@
-# The product has its own Git repository and remote.
-/eyes_of_demeter/
+# eyes_of_demeter/ es parte de este mismo repo (antes tenia el suyo).
 
 # Linux, VS Code, and user-specific state; never include credentials/config.
 /.bash_history
