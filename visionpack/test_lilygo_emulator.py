@@ -284,7 +284,9 @@ class SocatSITLTests(unittest.TestCase):
                 rows = [json.loads(line) for line in telemetry_log.read_text().splitlines()]
                 self.assertGreaterEqual(len(rows), 2)
                 self.assertTrue(any(row["alt_agl"] > 400 for row in rows))
-                self.assertEqual(target_fps.read_text().strip(), "2")
+                # el FPS sigue a la ultima pose registrada (si ya llego la fila de 0 m depende del tiempo)
+                from demeter_telemetryd import target_fps_for_altitude
+                self.assertEqual(target_fps.read_text().strip(), str(target_fps_for_altitude(rows[-1]["alt_agl"])))
                 self.assertIn("missiond", mission_diagnostic_log.read_text())
                 self.assertIn("UART abierto", telemetry_diagnostic_log.read_text())
                 mission_events = [json.loads(line) for line in (root / "mission.jsonl").read_text().splitlines()]
