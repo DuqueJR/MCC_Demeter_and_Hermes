@@ -68,6 +68,68 @@ demo = False
 replay = None                 # archivo de sesion de tierra que se repite en vez de leer el puerto (--reproducir)
 replay_vel = 1.0
 
+# Ventana EKF: historial de TELEM por cohete para la linea de tiempo en vivo (1 h a 10 Hz)
+EKF_HIST = 36000
+EKF_COLS = ['n', 't', 'utc_ms', 'qw', 'qx', 'qy', 'qz', 'lat', 'lon', 'alt', 'vn', 've', 'vd', 'ax', 'ay', 'az', 'gx', 'gy', 'gz',
+            'fix', 'nsv', 'state', 'moment', 'flags', 'rssi', 'snr', 'vbat']
+ekf_hist = {1: collections.deque(maxlen=EKF_HIST), 2: collections.deque(maxlen=EKF_HIST)}
+ekf_n = {1: 0, 2: 0}
+EKF_CSV = re.compile(r'[\w.-]+_ekf\.csv')
+EKF_BIN = re.compile(r'[\w.-]+\.BIN')
+EKF_OPTS = ('--sin-gnss', '--sin-mag', '--sin-baro', '--sin-gravedad', '--solo-lsm', '--solo-qmi')
+
+
+def ekf_note(rid, t):
+    """Guarda un TELEM en el historial de la ventana EKF. Va con lock."""
+    if rid not in ekf_hist:
+        return
+    ekf_n[rid] += 1
+    ekf_hist[rid].append([ekf_n[rid], round(t['t'], 3), t['utc_ms'], *[x / 32767.0 for x in t['quat']], t['lat'], t['lon'], t['alt'], t['vn'], t['ve'], t['vd'],
+                          *[x / 1000.0 for x in t['acc']], *[x / 10.0 for x in t['gyro']], t['fix'], t['nsv'], t['state'], t['moment'], t['flags'], t['rssi'], t['snr'], t['vbat']])
+
+
+def ekf_files():
+    """Los _ekf.csv que dejo ekf.py y los .BIN sobre los que se puede correr, de lo mas nuevo a lo mas viejo."""
+    names = os.listdir(HERE)
+    by_time = lambda n: -os.path.getmtime(os.path.join(HERE, n))
+    csv = sorted((n for n in names if EKF_CSV.fullmatch(n)), key=by_time)
+    bins = sorted((n for n in names if EKF_BIN.fullmatch(n) and not n.startswith(('RES_', 'LOG'))), key=by_time)
+    return dict(csv=[dict(name=n, mb=round(os.path.getsize(os.path.join(HERE, n)) / 1e6, 1)) for n in csv],
+                bin=[dict(name=n, csv=os.path.exists(os.path.join(HERE, n[:-4] + '_ekf.csv'))) for n in bins],
+                calib=ekf_calibs())
+
+
+def ekf_calibs():
+    """Calibraciones que ekf.py acepta (con retraso y ganancia del giro del QMI), aqui y en subcarpetas; rutas relativas a esta carpeta."""
+    out = []
+    for root, dirs, files in os.walk(HERE):
+        dirs[:] = [x for x in dirs if x not in ('sesiones', 'pruebas', '__pycache__') and not x.endswith('_csv')]
+        for f in files:
+            if f.startswith('calib') and f.endswith('.json'):
+                full = os.path.join(root, f)
+                try:
+                    with open(full, encoding='utf-8') as fh:
+                        c = json.load(fh)
+                except (OSError, ValueError):
+                    continue
+                if 'ganancia_giro' in c.get('qmi', {}):
+                    out.append(dict(path=os.path.relpath(full, HERE).replace('\\', '/'), archivo=c.get('archivo', '')))
+    return sorted(out, key=lambda x: x['path'])
+
+
+def run_ekf(name, opts):
+    """Corre ekf.py sobre un .BIN de esta carpeta; la salida va al mismo panel de trabajos que tbget."""
+    rc = -1
+    try:
+        p = subprocess.Popen([sys.executable, '-u', os.path.join(HERE, 'ekf.py'), name] + opts, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        rc = stream(p)
+    except OSError as e:
+        with lock:
+            job['lines'].append(f'no arranco ekf.py ({e})')
+    with lock:
+        job.update(running=False, rc=rc, proc=None)
+    event(f'ekf.py {name} termino con codigo {rc}')
+
 # web-1 (T-661/T-662): un Traductor por proceso. No es seguro entre hilos: TODA llamada va con tr_lock,
 # y lo que sale se publica dentro del mismo candado para que el orden de los ids sea el de los mensajes.
 tr = web1.Traductor()
@@ -217,6 +279,7 @@ def ground_line(line):
             telem[f[1]] = dict(t=time.time(), rssi=float(p[1]), snr=float(p[2]), mission=f[2], utc_ms=f[3], lat=f[4] / 1e7, lon=f[5] / 1e7,
                                alt=f[6] / 100.0, vn=f[7] / 100.0, ve=f[8] / 100.0, vd=f[9] / 100.0, quat=f[10:14], acc=f[14:17], gyro=f[17:20],
                                fix=f[20], nsv=f[21], vbat=f[22], state=f[25] & 15, moment=f[25] >> 4, flags=f[26], actuators=f[27], time_flags=f[28], ack=f[29])
+            ekf_note(f[1], telem[f[1]])
             if prev:
                 note_telem(f[1], prev, telem[f[1]])
         return
@@ -663,6 +726,26 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/':
             with open(os.path.join(HERE, 'dashboard.html'), 'rb') as f:
                 return self.reply(200, f.read(), 'text/html; charset=utf-8')
+        if self.path == '/dashboard_ekf.js':
+            with open(os.path.join(HERE, 'dashboard_ekf.js'), 'rb') as f:
+                return self.reply(200, f.read(), 'text/javascript; charset=utf-8')
+        if path.startswith('/api/ekf/'):
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            arg = lambda k, d='': q.get(k, [d])[0]
+            if path == '/api/ekf/lista':
+                return self.reply(200, ekf_files())
+            if path == '/api/ekf/vivo':
+                rid, desde = int(arg('r', '1')), int(arg('desde', '0'))
+                with lock:
+                    rows = [r for r in ekf_hist.get(rid, ()) if r[0] > desde]
+                return self.reply(200, dict(cols=EKF_COLS, rows=rows))
+            if path == '/api/ekf/archivo':
+                name = arg('f')
+                full = os.path.join(HERE, name)
+                if not EKF_CSV.fullmatch(name) or not os.path.isfile(full):
+                    return self.reply(404, {'error': 'no existe ese _ekf.csv'})
+                with open(full, 'rb') as f:
+                    return self.reply(200, f.read(), 'text/csv; charset=utf-8')
         if self.path == '/api/state':
             return self.reply(200, snapshot())
         if self.path == '/api/ports':
@@ -715,6 +798,19 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/mission':
                 with open(MISSION_FILE, 'w', encoding='utf-8') as f:
                     json.dump(a, f, indent=1, ensure_ascii=False)
+            elif self.path == '/api/ekf/run':
+                name, opts = a.get('name', ''), [o for o in a.get('opts', []) if o in EKF_OPTS]
+                if not EKF_BIN.fullmatch(name) or not os.path.isfile(os.path.join(HERE, name)):
+                    return self.reply(400, {'error': 'ese .BIN no esta en la carpeta estacion'})
+                if a.get('calib'):
+                    if a['calib'] not in [c['path'] for c in ekf_calibs()]:
+                        return self.reply(400, {'error': 'esa calibracion no sirve para ekf.py'})
+                    opts += ['--calib', a['calib']]
+                with lock:
+                    if job['running']:
+                        return self.reply(409, {'error': 'ya hay un trabajo en curso (descarga o EKF)'})
+                    job.update(running=True, role='ekf', port='', rc=None, port_free=True, reconnect=None, lines=[f'> ekf.py {name} ' + ' '.join(opts)])
+                threading.Thread(target=run_ekf, args=(name, opts), daemon=True).start()
             elif self.path == '/api/calib/accept':
                 os.replace(calib_path(a['role'], True), calib_path(a['role'], False))
                 event(f"{a['role']}: calibracion aceptada: {os.path.basename(calib_path(a['role'], False))}")

@@ -32,7 +32,7 @@ input{width:75px}input.wide{width:110px}.note{color:#555;margin:4px 0}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const post=(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(async r=>{if(!r.ok){const e=await r.json();alert(e.error)}return r});
-const TABS=['Mando','Vuelo Demeter','Vuelo Hermes','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
+const TABS=['Mando','EKF','Vuelo Demeter','Vuelo Hermes','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
 const ROCKETS=[['demeter','d','Demeter'],['hermes','h','Hermes']];
 const STATES=['tierra','armed','fly','recovery'];
 const MOMENTS=['launch','boost','coast','apogeo','caida','paracaidas','aterrizaje'];
@@ -82,6 +82,7 @@ function build(){
  if(tab.startsWith('Vuelo ')){const r=tab.slice(6).toLowerCase();
   m.innerHTML=S&&!S.web?'<div class="box"><b>La web no esta compilada.</b> Compila la web: <code>npm run web:build</code> (desde la raiz del repo) y vuelve a abrir esta pestana.</div>'
    :`<div class="fill"><p class="note" style="margin:0 0 4px">Pagina de mision (la misma de la web publica), con los datos de este dashboard. <a href="/web/${r}/" target="_blank">Abrir en una pestana nueva</a></p><iframe class="web" src="/web/${r}/" title="Vuelo ${r}"></iframe></div>`}
+ if(tab=='EKF') window.ekfBuild(m);
  if(tab=='Mision') buildMission();
  if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calm"></div><pre id="calo"></pre></div>';lastCal='';calRender()}
  $('dr')&&($('dr').value=dlArgs.role);
@@ -164,6 +165,7 @@ function render(){
  const dl=$('dl');if(dl){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(txt!=lastDl){lastDl=txt;const near=dl.scrollTop+dl.clientHeight>=dl.scrollHeight-20;dl.textContent=txt;if(near)dl.scrollTop=dl.scrollHeight}}
  const ev=$('events'),evt=S.events.join('\n');if(evt!=lastEv){lastEv=evt;const near=ev.scrollTop+ev.clientHeight>=ev.scrollHeight-20;ev.textContent=evt;if(near)ev.scrollTop=ev.scrollHeight}  // solo si cambio: reescribirlo borraria la seleccion
  calRender();
+ window.ekfJob&&window.ekfJob();
  const md=$('modal');if(S.ask){md.style.display='flex';$('mq').textContent=S.ask.question;$('mr').innerHTML=S.ask.reasons.map(x=>`<li>${esc(x)}</li>`).join('');$('ml').textContent='Vence en '+S.ask.left+' s';$('myes').textContent=S.ask.reasons.length?'Forzar':'Confirmar'}else md.style.display='none';
 }
 $('myes').onclick=()=>cmd('si');$('mno').onclick=()=>cmd('no');
@@ -182,4 +184,5 @@ function jobPhase(){const L=S.job.lines,last=(L[L.length-1]||'').replace(/^~/,''
 async function pollRaw(){if(tab!='Monitores'||paused)return;const d=await (await fetch('/api/raw')).json();if(paused)return;rawData=d;for(const r in rawData){const el=$('raw_'+r);if(!el)continue;const near=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.textContent=rawData[r].join('\n');if(near)el.scrollTop=el.scrollHeight}}
 async function tick(){try{S=await (await fetch('/api/state')).json();render();conn();pollRaw()}catch(e){}}
 window.tick=tick;build();tick();setInterval(tick,500);
-</script></body></html>
+</script>
+<script src="/dashboard_ekf.js"></script></body></html>
