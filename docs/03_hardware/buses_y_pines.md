@@ -35,7 +35,7 @@ reemplaza: 99_archivo/diseno_v1/buses_y_pines.md (D-022 opciones A′/B′, D-03
 | **MMC5983MA** (XJX-127, 0x30) | **I2C0** (17/18) | 100 Hz continuo, SET/RESET, pull-ups propias de 2,2 kΩ |
 | Alimentación de los externos | **ALDO2 de la PMU (3V3_SENS)** | |
 | **DRV5032** (Scout Makes) | **IO21**, alimentado de DC1 | 0 V con el imán. **Despierta del sueño profundo** (`ext0`). No va a `PWR_KEY` (D-031 queda reemplazada) |
-| **MOSFET de actuador** | **IO45**, con 100 kΩ a GND | **Demeter:** puente de lado bajo en paralelo al botón de encendido de la Pi (J2, GND–PWR_ON). **Hermes:** actuadores mecánicos. **Sin firmware todavía** |
+| **MOSFET de actuador** | **IO45**, con 100 kΩ a GND | **Demeter:** puente de lado bajo en paralelo al botón de encendido de la Pi (J2, GND–PWR_ON). **Hermes:** sin uso: no hay actuadores mecánicos (D-053). Firmware en `ext_act` (T-413) |
 | **MOSFET del buzzer** | **IO46** | Buzzer **activo** de 5 V en VSYS (PEN-19 resuelto: activo, por nivel). **Sin firmware todavía** |
 | **UART con la Pi (Demeter)** | **RXD 44 ← TX de la Pi; TXD 43 → 1 kΩ → RX de la Pi** (UART0) | Las masas van unidas en el pad GND; el mismo conector sirve de depuración. **Siempre activa:** tierra le manda comandos a la Pi a través de la LilyGO. **Sin firmware todavía** |
 
