@@ -1235,7 +1235,8 @@ class MissionDaemon:
                     except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                         LOG.warning("mensaje IPC inválido en %s (%s): %s", channel.getsockname(), type(exc).__name__, exc)
                 self.poll_process()
-            if STOP and self.state not in (State.COMPLETE, State.ABORTED, State.ERROR):
+            # En BOOT no hay mision ni procesos: parar es solo salir (BOOT -> ABORTED no es transicion valida)
+            if STOP and self.state not in (State.BOOT, State.COMPLETE, State.ABORTED, State.ERROR):
                 self.abort()
         finally:
             if self.video_process:
