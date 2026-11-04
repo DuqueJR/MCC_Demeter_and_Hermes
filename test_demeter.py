@@ -13,6 +13,9 @@ from demeter_missiond import (
     MissionDaemon,
     State,
     arm_system_checks,
+    atomic_json,
+    calculate_mission_resource_budget,
+    classify_mission_result,
     evaluate_performance_alerts,
     parse_args,
     preflight,
@@ -88,6 +91,82 @@ class TelemetryTests(unittest.TestCase):
 
 
 class MissionTests(unittest.TestCase):
+    def test_ingest_script_has_no_duplicated_line_continuations(self):
+        script = Path(__file__).parent / "eyes_of_demeter" / "demeter_ingestd.sh"
+        duplicated = []
+        for line_number, line in enumerate(script.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = line.rstrip()
+            trailing_backslashes = len(stripped) - len(stripped.rstrip("\\"))
+            if trailing_backslashes > 1:
+                duplicated.append(line_number)
+        self.assertEqual(duplicated, [])
+
+    def test_mission_result_classifies_recovered_tmpfs_full_as_degraded(self):
+        processes = {
+            "demeter_rec": {"exit_code": 1, "failure_reason": "tmpfs_enospc"},
+            "demeter_postprocess": {"exit_code": 0, "frames_ok": 444, "frame_errors": 0},
+        }
+        self.assertEqual(classify_mission_result(0, processes)[0], "DEGRADED")
+        self.assertEqual(
+            classify_mission_result(0, {
+                "demeter_rec": {"exit_code": 0},
+                "demeter_postprocess": {"exit_code": 0, "frames_ok": 444, "frame_errors": 0},
+            })[0],
+            "COMPLETE",
+        )
+        self.assertEqual(
+            classify_mission_result(1, {
+                "demeter_postprocess": {"exit_code": 1, "frames_ok": 0, "frame_errors": 0},
+            })[0],
+            "ERROR",
+        )
+
+    def test_mission_report_persists_duration_processes_and_resources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            mission_dir = root / "raw" / "mission-1"
+            mission_dir.mkdir(parents=True)
+            args = Namespace(event_log=root / "events.jsonl", state_file=root / "state.json")
+            mission = MissionDaemon(args)
+            try:
+                mission.mission_id = "mission-1"
+                mission.mission_start_epoch = 1000.0
+                mission.mission_start_monotonic = 10.0
+                mission.mission_recording_dir = mission_dir
+                mission.mission_events = [
+                    {"kind": "state", "from": "READY", "to": "ARMED", "pi_ts": 1001.0, "monotonic_ts": 11.0},
+                    {"kind": "process_started", "process": "demeter_rec", "pid": 42, "pi_ts": 1002.0, "monotonic_ts": 12.0},
+                    {"kind": "process_complete", "process": "demeter_rec", "exit_code": 1,
+                     "failure_reason": "tmpfs_enospc", "elapsed_s": 95.0, "pi_ts": 1097.0, "monotonic_ts": 107.0},
+                    {"kind": "performance_sample", "state": "RECORDING",
+                     "metrics": {"ramcam_used_percent": 100.0, "mem_available_kb": 588304}},
+                    {"kind": "chunk_ingested", "chunk": "chunk_0001", "source_removed": True,
+                     "metrics": {"sd_ingest_write_mib_s": 43.2}},
+                    {"kind": "watchdog", "watchdog": "descent", "action": "touchdown", "pi_ts": 1090.0},
+                ]
+                mission.finalize_mission("DEGRADED", "tmpfs agotado; imágenes recuperadas")
+                report = json.loads((mission_dir / "mission_report.json").read_text())
+                self.assertEqual(report["outcome"], "DEGRADED")
+                self.assertEqual(report["processes"]["demeter_rec"]["elapsed_s"], 95.0)
+                self.assertEqual(report["resources"]["overall"]["ramcam_used_percent"], 100.0)
+                self.assertEqual(report["resources"]["overall"]["mem_available_kb"], 588304)
+                self.assertTrue(report["stages"])
+                self.assertEqual(report["chunks"][0]["chunk"], "chunk_0001")
+                self.assertEqual(report["watchdogs"][0]["watchdog"], "descent")
+                mission.mission_report_written = False
+                def write_report_with_full_sd(path, value):
+                    if path == mission_dir / "mission_report.json":
+                        raise OSError("SD llena")
+                    atomic_json(path, value)
+
+                with patch("demeter_missiond.atomic_json", side_effect=write_report_with_full_sd):
+                    mission.finalize_mission("DEGRADED", "fallback")
+                self.assertTrue((root / "mission_mission-1_report.json").exists())
+            finally:
+                mission.event_file.close()
+                mission.command_socket.close()
+                mission.event_socket.close()
+
     def test_default_stop_timeout_is_ten_minutes(self):
         with patch("sys.argv", ["demeter_missiond.py"]):
             args = parse_args()
@@ -318,8 +397,18 @@ class MissionTests(unittest.TestCase):
             ), patch("demeter_missiond.shutil.disk_usage", return_value=Namespace(free=10**10)):
                 self.assertEqual(arm_system_checks(args), [])
 
-    def test_preflight_purges_tmpfs_and_requires_more_than_3_gib_memavailable(self):
-        self.assertEqual(MIN_MEM_AVAILABLE_KB, 3_145_728)
+    def test_mission_resource_budget_caps_fps_to_fit_tmpfs_and_watchdog(self):
+        budget = calculate_mission_resource_budget(43.228, 3 * 1024**3, 95.0)
+        self.assertEqual(budget["max_target_fps"], 2)
+        self.assertLessEqual(
+            budget["projected_tmpfs_backlog_bytes"], budget["tmpfs_buffer_budget_bytes"]
+        )
+        three_fps_backlog = max(0, 3 * 24 - 43.228 * 0.9) * 95 * 1024**2
+        self.assertGreater(three_fps_backlog, budget["tmpfs_buffer_budget_bytes"])
+        self.assertGreater(budget["required_free_bytes"], 12 * 1024**3)
+
+    def test_preflight_purges_tmpfs_and_requires_projected_memavailable(self):
+        self.assertEqual(MIN_MEM_AVAILABLE_KB, 1024 * 1024)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             script = root / "flight.sh"
@@ -327,7 +416,7 @@ class MissionTests(unittest.TestCase):
             script.chmod(0o755)
             meminfo = root / "meminfo"
             recordings = root / "recordings"
-            meminfo.write_text(f"MemAvailable: {MIN_MEM_AVAILABLE_KB} kB\n")
+            meminfo.write_text(f"MemAvailable: {MIN_MEM_AVAILABLE_KB - 1} kB\n")
             with patch("demeter_missiond.is_tmpfs_mount", return_value=True), patch(
                 "demeter_missiond.TOUCHDOWN_FLAG", root / "touchdown.flag"
             ), patch("demeter_missiond.os.system", return_value=0) as purge:
@@ -335,7 +424,7 @@ class MissionTests(unittest.TestCase):
                 self.assertTrue(any("RAM física insuficiente" in failure for failure in failures))
                 purge.assert_called_once()
                 self.assertIn("rm -rf", purge.call_args.args[0])
-                meminfo.write_text(f"MemAvailable: {MIN_MEM_AVAILABLE_KB + 1} kB\n")
+                meminfo.write_text(f"MemAvailable: {MIN_MEM_AVAILABLE_KB} kB\n")
                 failures = preflight(script, root, recordings, 0, meminfo)
                 self.assertFalse(any("RAM física insuficiente" in failure for failure in failures))
                 self.assertEqual(purge.call_count, 2)

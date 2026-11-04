@@ -9,7 +9,7 @@ echo "=================================================="
 # CONFIGURACIÓN Y RUTAS
 # ==========================================
 SESSION_ID=$(date +%Y%m%d_%H%M%S)
-BASE_SD_DIR="/home/admin/grabaciones_raw"
+BASE_SD_DIR="/home/admin/demeter_recording/normal_rec"
 SD_DIR="$BASE_SD_DIR/$SESSION_ID"
 RAM_DIR="/mnt/ramcam"
 

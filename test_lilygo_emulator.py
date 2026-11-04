@@ -15,14 +15,19 @@ from lilygo_emulator import FlightRun, FlightSample
 ROOT = Path(__file__).resolve().parent
 MISSIOND_TEST_BOOTSTRAP = "\n".join((
     "import os, pathlib, sys",
+    "from types import SimpleNamespace",
     "from unittest.mock import patch",
+    "import demeter_missiond",
     "from demeter_missiond import main",
     "read_text = pathlib.Path.read_text",
     "def simulated_meminfo(path, *args, **kwargs):",
     "    if path == pathlib.Path('/proc/meminfo'):",
     "        return 'MemAvailable: 3500000 kB\\n'",
     "    return read_text(path, *args, **kwargs)",
-    "with patch.object(pathlib.Path, 'read_text', simulated_meminfo), patch('os.system', return_value=0):",
+    "with (patch.object(pathlib.Path, 'read_text', simulated_meminfo),",
+    "      patch('os.system', return_value=0),",
+    "      patch.object(demeter_missiond, 'probe_sd_write_mib_s', return_value=43.228),",
+    "      patch.object(demeter_missiond.shutil, 'disk_usage', return_value=SimpleNamespace(total=3 * 1024**3, used=0, free=128 * 1024**3))):",
     "    sys.argv = ['demeter_missiond.py', *sys.argv[1:]]",
     "    raise SystemExit(main())",
 ))
@@ -131,7 +136,11 @@ class SocatSITLTests(unittest.TestCase):
             ingest_script = root / "ingest.sh"
             ingest_script.write_text(
                 f"#!/bin/sh\ntouch '{flight_started}'\n"
-                f"while [ ! -e '{finish_raw}' ]; do sleep 0.02; done\nexit 0\n",
+                f"while [ ! -e '{finish_raw}' ]; do sleep 0.02; done\n"
+                "python3 -c 'import json,os,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM); "
+                "s.sendto(json.dumps({\"kind\":\"process_complete\",\"process\":\"demeter_postprocess\","
+                "\"exit_code\":0,\"frames_ok\":1,\"frame_errors\":0}).encode(),os.environ[\"DEMETER_EVENT_SOCKET\"]); s.close()'\n"
+                "exit 0\n",
                 encoding="utf-8",
             )
             ingest_script.chmod(0o755)
