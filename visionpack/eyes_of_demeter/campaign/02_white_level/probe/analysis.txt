@@ -1,0 +1,35 @@
+== Nivel, color y uniformidad (señal = valor - 2048) ==
+auto_cam0        exp=  8360 R= 10731 G= 17257 B= 11933 R/G=0.62 B/G=0.69 max= 31168 esq/centro=0.29
+auto_cam1        exp=  7413 R= 10297 G= 16753 B= 11550 R/G=0.61 B/G=0.69 max= 31168 esq/centro=0.28
+cam0_e10000      exp=  9990 R= 12850 G= 20635 B= 14259 R/G=0.62 B/G=0.69 max= 37120 esq/centro=0.29
+cam0_e20000      exp= 19980 R= 25761 G= 40855 B= 28570 R/G=0.63 B/G=0.70 max= 61440 esq/centro=0.31
+cam0_e2000       exp=  1998 R=  2566 G=  4116 B=  2850 R/G=0.62 B/G=0.69 max=  8000 esq/centro=0.29
+cam0_e40000      exp= 39987 R= 45300 G= 58332 B= 51075 R/G=0.78 B/G=0.88 max= 61440 esq/centro=0.56
+cam0_e5000       exp=  4995 R=  6411 G= 10298 B=  7118 R/G=0.62 B/G=0.69 max= 18816 esq/centro=0.29
+cam1_e10000      exp=  9990 R= 13915 G= 22600 B= 15567 R/G=0.62 B/G=0.69 max= 41856 esq/centro=0.28
+cam1_e20000      exp= 19980 R= 27889 G= 43605 B= 31191 R/G=0.64 B/G=0.72 max= 61440 esq/centro=0.31
+cam1_e2000       exp=  1998 R=  2779 G=  4513 B=  3113 R/G=0.62 B/G=0.69 max=  8896 esq/centro=0.28
+cam1_e40000      exp= 39987 R= 46875 G= 59263 B= 52780 R/G=0.79 B/G=0.89 max= 61440 esq/centro=0.59
+cam1_e5000       exp=  4995 R=  6942 G= 11282 B=  7776 R/G=0.62 B/G=0.69 max= 21312 esq/centro=0.28
+
+== AWB automático ==
+cam0: ganancias R/B=[1.953, 1.752] CT=4927 K exp=8360 us lux=2617
+cam1: ganancias R/B=[1.941, 1.755] CT=4895 K exp=7413 us lux=2855
+
+== Linealidad en el punto más brillante (razón respecto a lineal desde 2 ms) ==
+cam0 e= 2000 B=  4707(1.000) Gb=  6956(1.000) Gr=  6957(1.000) R=  5341(1.000) max=8000
+cam0 e= 5000 B= 11787(1.002) Gb= 17441(1.003) Gr= 17445(1.003) R= 13384(1.002) max=18816
+cam0 e=10000 B= 23619(1.004) Gb= 34937(1.005) Gr= 34947(1.005) R= 26840(1.005) max=37120
+cam0 e=20000 B= 47338(1.006) Gb= 61440(0.883) Gr= 61440(0.883) R= 53808(1.007) max=61440
+cam0 e=40000 B= 61440(0.653) Gb= 61440(0.442) Gr= 61440(0.442) R= 61440(0.575) max=61440
+cam1 e= 2000 B=  5179(1.000) Gb=  7639(1.000) Gr=  7657(1.000) R=  5747(1.000) max=8896
+cam1 e= 5000 B= 12980(1.002) Gb= 19125(1.001) Gr= 19156(1.001) R= 14372(1.000) max=21312
+cam1 e=10000 B= 26001(1.004) Gb= 38328(1.004) Gr= 38394(1.003) R= 28820(1.003) max=41856
+cam1 e=20000 B= 52144(1.007) Gb= 61440(0.804) Gr= 61440(0.802) R= 57762(1.005) max=61440
+cam1 e=40000 B= 61440(0.593) Gb= 61440(0.402) Gr= 61440(0.401) R= 61440(0.535) max=61440
+
+== Bandas por filas (parpadeo) ==
+cam0 e=2000: std=1.44% pico espectral=162 ciclos/1296 filas (6.8x)
+cam0 e=5000: std=1.45% pico espectral=162 ciclos/1296 filas (10.1x)
+cam1 e=2000: std=1.55% pico espectral=3 ciclos/1296 filas (8.9x)
+cam1 e=5000: std=1.56% pico espectral=3 ciclos/1296 filas (11.4x)

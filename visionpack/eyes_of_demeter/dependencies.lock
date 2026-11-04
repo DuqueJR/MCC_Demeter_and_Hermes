@@ -1,0 +1,14 @@
+# Versiones base verificadas en Raspberry Pi 5 / Debian 13 arm64.
+# Shell assignments: build.sh consumes this file directly.
+LIBCAMERA_REPOSITORY='https://github.com/raspberrypi/libcamera.git'
+LIBCAMERA_COMMIT='6c1dd9d55573010f710c9e190a73e7e76f0d9432'
+LIBCAMERA_RELEASE='v0.7.2+rpt20260817'
+LIBCAMERA_DEV_PACKAGE_VERSION='0.7.2+rpt20260817-1'
+
+LIBPISP_REPOSITORY='https://github.com/raspberrypi/libpisp.git'
+LIBPISP_COMMIT='f8a5eb2af4c5dea76442785ef42b2fb1aa9e62f9'
+LIBPISP_VERSION='1.7.0'
+
+CXXOPTS_VERSION='3.2.0'
+NLOHMANN_JSON_VERSION='3.12.0'
+PYTHON_PLY_VERSION='3.11'

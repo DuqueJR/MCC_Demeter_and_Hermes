@@ -1,0 +1,1724 @@
+{
+    "version": 1.0,
+    "be_revision": 35989249,
+    "config": [
+        {
+            "global": {
+                "bayer_enables": 5703181,
+                "rgb_enables": 262434,
+                "bayer_order": 2
+            }
+        },
+        {
+            "input_format": {
+                "width": 4608,
+                "height": 2592,
+                "format": 3,
+                "stride": 9216,
+                "stride2": 0
+            }
+        },
+        {
+            "decompress": {
+                "offset": 0,
+                "mode": 0
+            }
+        },
+        {
+            "dpc": {
+                "coeff_level": 1,
+                "coeff_range": 8,
+                "flags": 0
+            }
+        },
+        {
+            "geq": {
+                "offset": 305,
+                "slope_sharper": 3,
+                "min": 0,
+                "max": 65535
+            }
+        },
+        {
+            "tdn_input_format": {
+                "width": 0,
+                "height": 0,
+                "format": 0,
+                "stride": 0,
+                "stride2": 0
+            }
+        },
+        {
+            "tdn_decompress": {
+                "offset": 0,
+                "mode": 0
+            }
+        },
+        {
+            "tdn": {
+                "black_level": 0,
+                "ratio": 0,
+                "noise_constant": 0,
+                "noise_slope": 0,
+                "threshold": 0,
+                "reset": 0
+            }
+        },
+        {
+            "tdn_compress": {
+                "offset": 0,
+                "mode": 0
+            }
+        },
+        {
+            "tdn_output_format": {
+                "width": 0,
+                "height": 0,
+                "format": 0,
+                "stride": 0,
+                "stride2": 0
+            }
+        },
+        {
+            "sdn": {
+                "black_level": 0,
+                "leakage": 13,
+                "noise_constant": 0,
+                "noise_slope": 516,
+                "noise_constant2": 0,
+                "noise_slope2": 2750
+            }
+        },
+        {
+            "blc": {
+                "black_level_r": 2048,
+                "black_level_gr": 2048,
+                "black_level_gb": 2048,
+                "black_level_b": 2048,
+                "output_black_level": 0
+            }
+        },
+        {
+            "stitch_compress": {
+                "offset": 0,
+                "mode": 0
+            }
+        },
+        {
+            "stitch_output_format": {
+                "width": 0,
+                "height": 0,
+                "format": 0,
+                "stride": 0,
+                "stride2": 0
+            }
+        },
+        {
+            "stitch_input_format": {
+                "width": 0,
+                "height": 0,
+                "format": 0,
+                "stride": 0,
+                "stride2": 0
+            }
+        },
+        {
+            "stitch_decompress": {
+                "offset": 0,
+                "mode": 0
+            }
+        },
+        {
+            "stitch": {
+                "threshold_lo": 0,
+                "threshold_diff_power": 0,
+                "exposure_ratio": 0,
+                "motion_threshold_256": 0,
+                "motion_threshold_recip": 0
+            }
+        },
+        {
+            "lsc": {
+                "grid_step_x": 1820,
+                "grid_step_y": 3236,
+                "lut_packed": [
+                    2842318584,
+                    2822377187,
+                    2779342517,
+                    2735258245,
+                    2698521179,
+                    2669132346,
+                    2644991519,
+                    2623999493,
+                    1987937242,
+                    1951201195,
+                    1916563325,
+                    1882975058,
+                    1854635822,
+                    1837842199,
+                    1830494987,
+                    1828395781,
+                    1829444355,
+                    1829444356,
+                    1831542535,
+                    1837840147,
+                    1854634795,
+                    1881925455,
+                    1915512697,
+                    1952248744,
+                    1988985815,
+                    2625047044,
+                    2644990492,
+                    2668081719,
+                    2697470551,
+                    2735256191,
+                    2779340463,
+                    2824472285,
+                    2844414705
+                ]
+            }
+        },
+        {
+            "wbg": {
+                "gain_r": 2207,
+                "gain_g": 1026,
+                "gain_b": 1643
+            }
+        },
+        {
+            "cdn": {
+                "thresh": 112,
+                "iir_strength": 77,
+                "g_adjust": 0
+            }
+        },
+        {
+            "cac": {
+                "grid_step_x": 1820,
+                "grid_step_y": 164,
+                "lut": [
+                    249,
+                    252,
+                    9,
+                    5,
+                    252,
+                    253,
+                    4,
+                    4,
+                    254
+                ]
+            }
+        },
+        {
+            "debin": {
+                "coeffs": [
+                    249,
+                    105,
+                    35,
+                    251
+                ],
+                "h_enable": 1,
+                "v_enable": 1
+            }
+        },
+        {
+            "tonemap": {
+                "detail_constant": 0,
+                "detail_slope": 0,
+                "iir_strength": 0,
+                "strength": 0,
+                "lut": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "demosaic": {
+                "sharper": 8,
+                "fc_mode": 1
+            }
+        },
+        {
+            "ccm": {
+                "coeffs": [
+                    1602,
+                    65112,
+                    65382,
+                    65256,
+                    1642,
+                    65199,
+                    65511,
+                    65102,
+                    1483
+                ],
+                "offsets": [
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "sat_control": {
+                "shift_r": 0,
+                "shift_g": 0,
+                "shift_b": 0
+            }
+        },
+        {
+            "ycbcr": {
+                "coeffs": [
+                    1024,
+                    0,
+                    1436,
+                    1024,
+                    65184,
+                    64805,
+                    1024,
+                    1815,
+                    0
+                ],
+                "offsets": [
+                    4247924037,
+                    35509710,
+                    4235508827
+                ]
+            }
+        },
+        {
+            "sharpen": {
+                "kernel0": [
+                    254,
+                    254,
+                    254,
+                    254,
+                    254,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    6,
+                    6,
+                    6,
+                    6,
+                    6,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    254,
+                    254,
+                    254,
+                    254,
+                    254
+                ],
+                "kernel1": [
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254
+                ],
+                "kernel2": [
+                    2,
+                    255,
+                    254,
+                    0,
+                    0,
+                    255,
+                    5,
+                    255,
+                    254,
+                    0,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    0,
+                    254,
+                    255,
+                    5,
+                    255,
+                    0,
+                    0,
+                    254,
+                    255,
+                    2
+                ],
+                "kernel3": [
+                    0,
+                    0,
+                    254,
+                    255,
+                    2,
+                    0,
+                    254,
+                    255,
+                    5,
+                    255,
+                    254,
+                    255,
+                    6,
+                    255,
+                    254,
+                    255,
+                    5,
+                    255,
+                    254,
+                    0,
+                    2,
+                    255,
+                    254,
+                    0,
+                    0
+                ],
+                "kernel4": [
+                    255,
+                    254,
+                    254,
+                    254,
+                    255,
+                    254,
+                    2,
+                    2,
+                    2,
+                    254,
+                    254,
+                    2,
+                    12,
+                    2,
+                    254,
+                    254,
+                    2,
+                    2,
+                    2,
+                    254,
+                    255,
+                    254,
+                    254,
+                    254,
+                    255
+                ],
+                "threshold_offset0": 19,
+                "threshold_slope0": 115,
+                "threshold_offset1": 19,
+                "threshold_slope1": 115,
+                "threshold_offset2": 19,
+                "threshold_slope2": 115,
+                "threshold_offset3": 19,
+                "threshold_slope3": 115,
+                "threshold_offset4": 38,
+                "threshold_slope4": 104,
+                "positive_strength": 76,
+                "positive_pre_limit": 1000,
+                "positive_func": [
+                    512,
+                    1024,
+                    1536,
+                    2048,
+                    3072,
+                    4096,
+                    5120,
+                    6656,
+                    8192
+                ],
+                "positive_limit": 2000,
+                "negative_strength": 102,
+                "negative_pre_limit": 1000,
+                "negative_func": [
+                    512,
+                    716,
+                    1536,
+                    2048,
+                    3072,
+                    4096,
+                    5120,
+                    6656,
+                    8192
+                ],
+                "negative_limit": 2000,
+                "enables": 31,
+                "white": 0,
+                "black": 0,
+                "grey": 50
+            }
+        },
+        {
+            "false_colour": {
+                "distance": 2
+            }
+        },
+        {
+            "sh_fc_combine": {
+                "y_factor": 192,
+                "c1_factor": 0,
+                "c2_factor": 0
+            }
+        },
+        {
+            "ycbcr_inverse": {
+                "coeffs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "offsets": [
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "gamma": {
+                "lut": [
+                    165019648,
+                    165153238,
+                    145101742,
+                    141696084,
+                    101917894,
+                    101198553,
+                    98840801,
+                    96941765,
+                    90717324,
+                    90128884,
+                    89409363,
+                    85347495,
+                    77681085,
+                    78927454,
+                    80894738,
+                    75259876,
+                    69100640,
+                    66873470,
+                    64973946,
+                    62156889,
+                    60322829,
+                    59668389,
+                    59276083,
+                    55934651,
+                    54690320,
+                    52725074,
+                    52201590,
+                    46566290,
+                    45583960,
+                    42701071,
+                    42439578,
+                    39163425,
+                    77437046,
+                    71277843,
+                    66167122,
+                    59745603,
+                    56142034,
+                    53193770,
+                    51818325,
+                    47297131,
+                    45790524,
+                    42121206,
+                    41400952,
+                    35306735,
+                    34586377,
+                    34259224,
+                    34259746,
+                    34129196,
+                    68142900,
+                    64146243,
+                    61525781,
+                    59691711,
+                    59233869,
+                    59890132,
+                    60939621,
+                    61792518,
+                    62776500,
+                    63498353,
+                    64547897,
+                    65728529,
+                    66843643,
+                    52361206,
+                    41220884,
+                    41418120
+                ]
+            }
+        },
+        {
+            "csc0": {
+                "coeffs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "offsets": [
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "csc1": {
+                "coeffs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "offsets": [
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "downscale0": {
+                "scale_factor_h": 0,
+                "scale_factor_v": 0,
+                "scale_recip_h": 0,
+                "scale_recip_v": 0
+            }
+        },
+        {
+            "downscale1": {
+                "scale_factor_h": 0,
+                "scale_factor_v": 0,
+                "scale_recip_h": 0,
+                "scale_recip_v": 0
+            }
+        },
+        {
+            "resample0": {
+                "scale_factor_h": 0,
+                "scale_factor_v": 0,
+                "coef": [
+                    65521,
+                    16,
+                    979,
+                    71,
+                    65505,
+                    4,
+                    65534,
+                    65506,
+                    965,
+                    132,
+                    65488,
+                    7,
+                    9,
+                    65467,
+                    939,
+                    200,
+                    65471,
+                    10,
+                    18,
+                    65437,
+                    901,
+                    273,
+                    65453,
+                    14,
+                    24,
+                    65415,
+                    854,
+                    350,
+                    65435,
+                    18,
+                    28,
+                    65401,
+                    796,
+                    429,
+                    65420,
+                    22,
+                    30,
+                    65393,
+                    731,
+                    509,
+                    65407,
+                    26,
+                    30,
+                    65393,
+                    660,
+                    587,
+                    65397,
+                    29,
+                    29,
+                    65397,
+                    587,
+                    660,
+                    65393,
+                    30,
+                    26,
+                    65407,
+                    509,
+                    731,
+                    65393,
+                    30,
+                    22,
+                    65420,
+                    429,
+                    796,
+                    65401,
+                    28,
+                    18,
+                    65435,
+                    350,
+                    854,
+                    65415,
+                    24,
+                    14,
+                    65453,
+                    273,
+                    901,
+                    65437,
+                    18,
+                    10,
+                    65471,
+                    200,
+                    939,
+                    65467,
+                    9,
+                    7,
+                    65488,
+                    132,
+                    965,
+                    65506,
+                    65534,
+                    4,
+                    65505,
+                    71,
+                    979,
+                    16,
+                    65521
+                ]
+            }
+        },
+        {
+            "resample1": {
+                "scale_factor_h": 0,
+                "scale_factor_v": 0,
+                "coef": [
+                    65521,
+                    16,
+                    979,
+                    71,
+                    65505,
+                    4,
+                    65534,
+                    65506,
+                    965,
+                    132,
+                    65488,
+                    7,
+                    9,
+                    65467,
+                    939,
+                    200,
+                    65471,
+                    10,
+                    18,
+                    65437,
+                    901,
+                    273,
+                    65453,
+                    14,
+                    24,
+                    65415,
+                    854,
+                    350,
+                    65435,
+                    18,
+                    28,
+                    65401,
+                    796,
+                    429,
+                    65420,
+                    22,
+                    30,
+                    65393,
+                    731,
+                    509,
+                    65407,
+                    26,
+                    30,
+                    65393,
+                    660,
+                    587,
+                    65397,
+                    29,
+                    29,
+                    65397,
+                    587,
+                    660,
+                    65393,
+                    30,
+                    26,
+                    65407,
+                    509,
+                    731,
+                    65393,
+                    30,
+                    22,
+                    65420,
+                    429,
+                    796,
+                    65401,
+                    28,
+                    18,
+                    65435,
+                    350,
+                    854,
+                    65415,
+                    24,
+                    14,
+                    65453,
+                    273,
+                    901,
+                    65437,
+                    18,
+                    10,
+                    65471,
+                    200,
+                    939,
+                    65467,
+                    9,
+                    7,
+                    65488,
+                    132,
+                    965,
+                    65506,
+                    65534,
+                    4,
+                    65505,
+                    71,
+                    979,
+                    16,
+                    65521
+                ]
+            }
+        },
+        {
+            "output_format0": {
+                "width": 4608,
+                "height": 2592,
+                "format": 1073741824,
+                "stride": 13824,
+                "stride2": 0,
+                "transform": 0,
+                "lo": 0,
+                "hi": 255,
+                "lo2": 0,
+                "hi2": 255
+            }
+        },
+        {
+            "output_format1": {
+                "width": 0,
+                "height": 0,
+                "format": 0,
+                "stride": 0,
+                "stride2": 0,
+                "transform": 0,
+                "lo": 0,
+                "hi": 0,
+                "lo2": 0,
+                "hi2": 0
+            }
+        },
+        {
+            "hog": {
+                "compute_signed": 0,
+                "channel_mix": [
+                    0,
+                    0,
+                    0
+                ],
+                "stride": 0
+            }
+        }
+    ],
+    "tiles": [
+        {
+            "edge": 13,
+            "input_addr_offset": 0,
+            "input_addr_offset2": 0,
+            "input_offset_x": 0,
+            "input_offset_y": 0,
+            "input_width": 592,
+            "input_height": 592,
+            "tdn_input_addr_offset": 0,
+            "tdn_output_addr_offset": 0,
+            "stitch_input_addr_offset": 0,
+            "stitch_output_addr_offset": 0,
+            "lsc_grid_offset_x": 0,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 0,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                0,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                0,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                0,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 1120,
+            "input_addr_offset2": 0,
+            "input_offset_x": 560,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 560,
+            "tdn_output_addr_offset": 560,
+            "stitch_input_addr_offset": 560,
+            "stitch_output_addr_offset": 560,
+            "lsc_grid_offset_x": 1019200,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 1019200,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                576,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                1728,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 2272,
+            "input_addr_offset2": 0,
+            "input_offset_x": 1136,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 1136,
+            "tdn_output_addr_offset": 1136,
+            "stitch_input_addr_offset": 1136,
+            "stitch_output_addr_offset": 1136,
+            "lsc_grid_offset_x": 2067520,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 2067520,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                1152,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                3456,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 3424,
+            "input_addr_offset2": 0,
+            "input_offset_x": 1712,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 1712,
+            "tdn_output_addr_offset": 1712,
+            "stitch_input_addr_offset": 1712,
+            "stitch_output_addr_offset": 1712,
+            "lsc_grid_offset_x": 3115840,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 3115840,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                1728,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                5184,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 4576,
+            "input_addr_offset2": 0,
+            "input_offset_x": 2288,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 2288,
+            "tdn_output_addr_offset": 2288,
+            "stitch_input_addr_offset": 2288,
+            "stitch_output_addr_offset": 2288,
+            "lsc_grid_offset_x": 4164160,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 4164160,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                2304,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                6912,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 5728,
+            "input_addr_offset2": 0,
+            "input_offset_x": 2864,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 2864,
+            "tdn_output_addr_offset": 2864,
+            "stitch_input_addr_offset": 2864,
+            "stitch_output_addr_offset": 2864,
+            "lsc_grid_offset_x": 5212480,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 5212480,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                2880,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                8640,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 12,
+            "input_addr_offset": 6880,
+            "input_addr_offset2": 0,
+            "input_offset_x": 3440,
+            "input_offset_y": 0,
+            "input_width": 608,
+            "input_height": 608,
+            "tdn_input_addr_offset": 3440,
+            "tdn_output_addr_offset": 3440,
+            "stitch_input_addr_offset": 3440,
+            "stitch_output_addr_offset": 3440,
+            "lsc_grid_offset_x": 6260800,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 6260800,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                16,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                3456,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                10368,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        },
+        {
+            "edge": 14,
+            "input_addr_offset": 8032,
+            "input_addr_offset2": 0,
+            "input_offset_x": 4016,
+            "input_offset_y": 0,
+            "input_width": 592,
+            "input_height": 592,
+            "tdn_input_addr_offset": 4016,
+            "tdn_output_addr_offset": 4016,
+            "stitch_input_addr_offset": 4016,
+            "stitch_output_addr_offset": 4016,
+            "lsc_grid_offset_x": 7309120,
+            "lsc_grid_offset_y": 0,
+            "cac_grid_offset_x": 7309120,
+            "cac_grid_offset_y": 0,
+            "crop_x_start": [
+                16,
+                0
+            ],
+            "crop_x_end": [
+                0,
+                0
+            ],
+            "crop_y_start": [
+                0,
+                0
+            ],
+            "crop_y_end": [
+                0,
+                0
+            ],
+            "downscale_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "downscale_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_in_width": [
+                576,
+                0
+            ],
+            "resample_in_height": [
+                2592,
+                0
+            ],
+            "resample_phase_x": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "resample_phase_y": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "output_offset_x": [
+                4032,
+                0
+            ],
+            "output_offset_y": [
+                0,
+                0
+            ],
+            "output_width": [
+                576,
+                0
+            ],
+            "output_height": [
+                2592,
+                0
+            ],
+            "output_addr_offset": [
+                12096,
+                0
+            ],
+            "output_addr_offset2": [
+                0,
+                0
+            ],
+            "output_hog_addr_offset": 0
+        }
+    ]
+}

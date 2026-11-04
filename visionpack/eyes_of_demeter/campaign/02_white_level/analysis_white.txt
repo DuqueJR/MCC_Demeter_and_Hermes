@@ -1,0 +1,50 @@
+== Nivel de recorte observado (máximo del frame sobre el negro) y píxeles planos en el máximo ==
+ cam0 g=1.1228 max=61440  gain_real=1.1228  dig_gain=1.0041717290878296
+ cam0 g=2.0    max=61440  gain_real=2.0000  dig_gain=1.0066169500350952
+ cam0 g=4.0    max=61440  gain_real=4.0000  dig_gain=1.0066169500350952
+ cam0 g=8.0    max=61440  gain_real=8.0000  dig_gain=1.0066169500350952
+ cam1 g=1.1228 max=61440  gain_real=1.1228  dig_gain=1.0041717290878296
+ cam1 g=2.0    max=61440  gain_real=2.0000  dig_gain=1.0066169500350952
+ cam1 g=4.0    max=61440  gain_real=4.0000  dig_gain=1.0066169500350952
+ cam1 g=8.0    max=61440  gain_real=8.0000  dig_gain=1.0066169500350952
+
+== Rodilla de linealidad (ROI brillante): señal vs exposición ajustada con los puntos <=50 % del recorte ==
+   rodilla = señal en la que la desviación respecto a la recta supera 1 % / 2 %; margen = recorte - rodilla
+ cam0 g=1.1228 B: pendiente= 2.592 lineal<=  57137 rod1%=    - | Gb: pendiente= 3.843 lineal<=  60793 rod1%=    - | Gr: pendiente= 3.844 lineal<=  60801 rod1%=    - | R: pendiente= 2.953 lineal<=  54947 rod1%=57701
+ cam0 g=2.0    B: pendiente= 4.635 lineal<=  57463 rod1%=    - | Gb: pendiente= 6.868 lineal<=  61021 rod1%=    - | Gr: pendiente= 6.869 lineal<=  61031 rod1%=    - | R: pendiente= 5.329 lineal<=  58299 rod1%=    -
+ cam0 g=4.0    B: pendiente= 9.265 lineal<=  57169 rod1%=    - | Gb: pendiente=13.797 lineal<=  60806 rod1%=61433 | Gr: pendiente=13.793 lineal<=  60803 rod1%=61434 | R: pendiente=10.701 lineal<=  58208 rod1%=    -
+ cam0 g=8.0    B: pendiente=18.564 lineal<=  57515 rod1%=    - | Gb: pendiente=27.660 lineal<=  59821 rod1%=61391 | Gr: pendiente=27.667 lineal<=  59828 rod1%=61389 | R: pendiente=21.497 lineal<=  58694 rod1%=    -
+ cam1 g=1.1228 B: pendiente= 2.713 lineal<=  59770 rod1%=    - | Gb: pendiente= 4.044 lineal<=  57026 rod1%=    - | Gr: pendiente= 4.047 lineal<=  57053 rod1%=    - | R: pendiente= 3.122 lineal<=  60792 rod1%=    -
+ cam1 g=2.0    B: pendiente= 4.821 lineal<=  59660 rod1%=    - | Gb: pendiente= 7.203 lineal<=  56993 rod1%=61437 | Gr: pendiente= 7.209 lineal<=  57017 rod1%=61437 | R: pendiente= 5.588 lineal<=  60817 rod1%=    -
+ cam1 g=4.0    B: pendiente= 9.623 lineal<=  59318 rod1%=    - | Gb: pendiente=14.391 lineal<=  56871 rod1%=61424 | Gr: pendiente=14.405 lineal<=  56900 rod1%=61425 | R: pendiente=11.196 lineal<=  60598 rod1%=    -
+ cam1 g=8.0    B: pendiente=19.277 lineal<=  59086 rod1%=    - | Gb: pendiente=28.907 lineal<=  56815 rod1%=61186 | Gr: pendiente=28.938 lineal<=  56854 rod1%=61194 | R: pendiente=22.491 lineal<=  60401 rod1%=    -
+
+== Perfil de recorte del verde en el ROI al acercarse al techo (media / p99.9 / % píxeles recortados) ==
+ cam0 g=1.1228 f=0.8  media= 54163 p99.9= 56320 std= 669.7 recortado=  0.0%
+ cam0 g=1.1228 f=0.9  media= 60793 p99.9= 61440 std= 537.3 recortado= 18.2%
+ cam0 g=1.1228 f=0.95 media= 61440 p99.9= 61440 std=   5.3 recortado=100.0%
+ cam0 g=1.1228 f=1.0  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam0 g=1.1228 f=1.05 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam0 g=1.1228 f=1.1  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam0 g=4.0    f=0.8  media= 54527 p99.9= 58522 std=1076.5 recortado=  0.0%
+ cam0 g=4.0    f=0.9  media= 60806 p99.9= 61440 std= 687.0 recortado= 28.6%
+ cam0 g=4.0    f=0.95 media= 61434 p99.9= 61440 std=  59.9 recortado= 98.1%
+ cam0 g=4.0    f=1.0  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam0 g=4.0    f=1.05 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam0 g=4.0    f=1.1  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=1.1228 f=0.8  media= 57026 p99.9= 59136 std= 686.6 recortado=  0.0%
+ cam1 g=1.1228 f=0.9  media= 61440 p99.9= 61440 std=  12.1 recortado= 99.9%
+ cam1 g=1.1228 f=0.95 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=1.1228 f=1.0  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=1.1228 f=1.05 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=1.1228 f=1.1  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=4.0    f=0.8  media= 56871 p99.9= 60416 std=1107.0 recortado=  0.0%
+ cam1 g=4.0    f=0.9  media= 61425 p99.9= 61440 std=  91.2 recortado= 95.2%
+ cam1 g=4.0    f=0.95 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=4.0    f=1.0  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=4.0    f=1.05 media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+ cam1 g=4.0    f=1.1  media= 61440 p99.9= 61440 std=   0.0 recortado=100.0%
+
+== Cociente entre canales en el techo (señal de cada canal cuando G llega al recorte), interpolado ==
+ cam0: exposición teórica de recorte del G = 15986 us ; B=41431 R=47198 DN en ese instante
+ cam1: exposición teórica de recorte del G = 15188 us ; B=41210 R=47423 DN en ese instante

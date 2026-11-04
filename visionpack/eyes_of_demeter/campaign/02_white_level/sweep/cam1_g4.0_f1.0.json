@@ -1,0 +1,31 @@
+{
+  "ae_state": 0,
+  "af_state": 0,
+  "analogue_gain": 4.0,
+  "camera_index": 1,
+  "cfe_compression_offset": 2048,
+  "colour_gains": [
+    1.9154099225997925,
+    1.7787699699401855
+  ],
+  "colour_temperature": 4773,
+  "digital_gain": 1.0048227310180664,
+  "exposure_time_us": 4916,
+  "focus_fom": 894,
+  "frame_sequence": 5,
+  "height": 2592,
+  "lens_position": 0.0,
+  "lux": 2891.57568359375,
+  "pisp_statistics_bytes": 23200,
+  "pixel_format": "BGGR_PISP_COMP1",
+  "profile_applied": {
+    "exposure": {
+      "gain": 4.0,
+      "mode": "manual",
+      "shutter_us": 4940
+    }
+  },
+  "settle_frames": 5,
+  "stride": 4608,
+  "width": 4608
+}

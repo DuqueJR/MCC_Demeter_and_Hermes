@@ -1,0 +1,66 @@
+{
+  "campaign": "DEMETER_CAMERA_CHARACTERIZATION_V3",
+  "procedure": "R5",
+  "captured_utc": "2026-10-09",
+  "images": {
+    "cam0": "cam0_preview_v2.jpg",
+    "cam1": "cam1_preview_v2.jpg"
+  },
+  "eizo_pattern_reaches_all_image_borders": {
+    "cam0": true,
+    "cam1": true
+  },
+  "test_chart_coverage_pct": {
+    "cam0": 100.0,
+    "cam1": 100.0,
+    "method": "All four EIZO corner fiducials and the outer checkerboard are visible in the latest previews."
+  },
+  "active_panel_roi_from_uniformity_25": {
+    "coordinate_space": "2304x1296 preview pixels",
+    "cam0_xywh": [730, 339, 1072, 723],
+    "cam1_xywh": [624, 320, 1073, 728],
+    "frame_area_pct": { "cam0": 25.2, "cam1": 25.1 },
+    "margins_pct_of_frame": {
+      "cam0": { "left": 31.7, "right": 21.8, "top": 26.2, "bottom": 18.1 },
+      "cam1": { "left": 27.1, "right": 26.3, "top": 24.7, "bottom": 19.1 }
+    },
+    "method": "Largest connected component above 5% of central green-plane level in the Uniformity 25 capture."
+  },
+  "no_scene_beyond_active_screen": {
+    "cam0": false,
+    "cam1": false,
+    "evidence": "The full panel is contained in both fields, with dark-room background around it; subsequent uniformity analysis crops to active_panel_roi_from_uniformity_25."
+  },
+  "cam0_to_cam1_relative_alignment": {
+    "method": "SIFT feature matching + RANSAC affine partial transform",
+    "translation_x_px": -434.95,
+    "translation_y_px": -48.47,
+    "rotation_deg": -3.56,
+    "scale": 0.9903,
+    "matches": 179,
+    "inliers": 68
+  },
+  "capture_metadata": {
+    "cam0": {
+      "width": 2304,
+      "height": 1296,
+      "exposure_us": 8176,
+      "analogue_gain": 1.122807,
+      "lens_position_dpt": 7.888175
+    },
+    "cam1": {
+      "width": 2304,
+      "height": 1296,
+      "exposure_us": 8630,
+      "analogue_gain": 1.122807,
+      "lens_position_dpt": 8.222365
+    }
+  },
+  "limitations": [
+    "The physical bezel is outside the field, so percentage of physical panel area cannot be measured.",
+    "The physical active-panel boundary cannot be measured from the EIZO chart because its surrounding field is black.",
+    "The affine displacement is expected from the side-by-side baseline and near monitor distance; it is not an image-quality failure.",
+    "The measured rotation includes relative camera orientation and panel perspective."
+  ],
+  "r5_status": "PASS: the full active panel and all four EIZO fiducials are contained in both camera views; dark background is present and excluded using the measured panel ROI."
+}
