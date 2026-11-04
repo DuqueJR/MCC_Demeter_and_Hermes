@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Mission FSM and lifecycle supervisor for the Demeter Raspberry Pi payload."""
+"""Demonio principal y FSM del payload Demeter.
+
+Orquesta el ciclo de vuelo, ejecuta la auditoría muscular de preflight, aplica
+watchdogs autónomos ante pérdida de señal y supervisa procesos hijos. Permite reintentar
+PREFLIGHT desde ERROR o ABORTED; la recuperación de procesos y señales es de
+mejor esfuerzo, no un mecanismo de reinicio del sistema operativo.
+"""
 
 from __future__ import annotations
 
@@ -27,9 +33,19 @@ from demeter_protocol import StatusCode
 LOG = logging.getLogger("demeter_missiond")
 STOP = False
 TOUCHDOWN_FLAG = Path("/tmp/touchdown_event.flag")
-MIN_MEM_AVAILABLE_KB = 3 * 1024 * 1024
+MIN_MEM_AVAILABLE_KB = 1024 * 1024
 ASCENT_WATCHDOG_S = 15.0
 RECORDING_WATCHDOG_S = 95.0
+RAW_PAIR_BUDGET_MIB = 24.0
+PROCESSED_PAIR_BUDGET_MIB = 30.0
+SD_WRITE_SAFETY_FACTOR = 0.9
+# TEMPORAL: ignora el cap de fps del presupuesto para probar 8 fps con el tmpfs como buffer.
+TEMP_DISABLE_FPS_CAP = True
+TMPFS_BUFFER_FRACTION = 0.75
+MISSION_STORAGE_SAFETY_FACTOR = 1.25
+MISSION_STORAGE_RESERVE_BYTES = 1024**3
+MISSION_MEMORY_RESERVE_KB = 1024 * 1024
+SD_WRITE_PROBE_BYTES = 256 * 1024**2
 RAMCAM_WARNING_PERCENT = 80.0
 RAMCAM_CRITICAL_PERCENT = 90.0
 SD_TARGET_MIB_S = 80.0
@@ -114,12 +130,74 @@ def is_tmpfs_mount(path: Path) -> bool:
     return False
 
 
+def calculate_mission_resource_budget(
+    sd_write_mib_s: float,
+    tmpfs_bytes: int,
+    descent_watchdog_s: float,
+    raw_pair_mib: float = RAW_PAIR_BUDGET_MIB,
+    processed_pair_mib: float = PROCESSED_PAIR_BUDGET_MIB,
+) -> dict[str, int | float]:
+    values = (sd_write_mib_s, descent_watchdog_s, raw_pair_mib, processed_pair_mib)
+    if not all(math.isfinite(value) and value > 0 for value in values) or tmpfs_bytes <= 0:
+        raise ValueError("presupuesto de misión requiere tasas, duración y tmpfs positivos")
+
+    safe_sd_write_mib_s = sd_write_mib_s * SD_WRITE_SAFETY_FACTOR
+    buffer_budget_mib = tmpfs_bytes * TMPFS_BUFFER_FRACTION / 1024**2
+    max_fps = min(
+        10,
+        math.floor((safe_sd_write_mib_s + buffer_budget_mib / descent_watchdog_s) / raw_pair_mib),
+    )
+    projected_backlog_mib = max(0.0, max_fps * raw_pair_mib - safe_sd_write_mib_s) * descent_watchdog_s
+    pair_count = max_fps * descent_watchdog_s
+    required_free_bytes = math.ceil(
+        pair_count * (raw_pair_mib + processed_pair_mib) * 1024**2
+        * MISSION_STORAGE_SAFETY_FACTOR
+        + MISSION_STORAGE_RESERVE_BYTES
+    )
+    required_mem_available_kb = math.ceil(
+        projected_backlog_mib * 1024 + MISSION_MEMORY_RESERVE_KB
+    )
+    return {
+        "max_target_fps": max_fps,
+        "sd_probe_mib_s": round(sd_write_mib_s, 3),
+        "safe_sd_write_mib_s": round(safe_sd_write_mib_s, 3),
+        "tmpfs_buffer_budget_bytes": int(buffer_budget_mib * 1024**2),
+        "projected_tmpfs_backlog_bytes": int(projected_backlog_mib * 1024**2),
+        "required_mem_available_kb": required_mem_available_kb,
+        "projected_pairs": int(pair_count),
+        "required_free_bytes": required_free_bytes,
+        "budget_duration_s": descent_watchdog_s,
+    }
+
+
+def probe_sd_write_mib_s(directory: Path, bytes_to_write: int = SD_WRITE_PROBE_BYTES) -> float:
+    if bytes_to_write <= 0:
+        raise ValueError("bytes_to_write debe ser positivo")
+    fd, temporary_name = tempfile.mkstemp(prefix=".demeter_sd_probe_", dir=directory)
+    block = b"\0" * min(4 * 1024**2, bytes_to_write)
+    remaining = bytes_to_write
+    started = time.monotonic()
+    try:
+        while remaining:
+            written = os.write(fd, block[:min(len(block), remaining)])
+            if written <= 0:
+                raise OSError("escritura de sonda SD sin progreso")
+            remaining -= written
+        os.fsync(fd)
+        elapsed = max(time.monotonic() - started, 1e-6)
+        return bytes_to_write / elapsed / 1024**2
+    finally:
+        os.close(fd)
+        Path(temporary_name).unlink(missing_ok=True)
+
+
 def preflight(
     script: Path,
     ram_dir: Path,
     recordings_dir: Path,
     min_free_bytes: int,
     meminfo_path: Path = Path("/proc/meminfo"),
+    min_mem_available_kb: int = MIN_MEM_AVAILABLE_KB,
 ) -> list[str]:
     failures: list[str] = []
     if is_tmpfs_mount(ram_dir):
@@ -139,10 +217,10 @@ def preflight(
                 break
         if mem_available_kb is None:
             failures.append("RAM insuficiente: MemAvailable no aparece en /proc/meminfo")
-        elif mem_available_kb <= MIN_MEM_AVAILABLE_KB:
+        elif mem_available_kb < min_mem_available_kb:
             failures.append(
                 f"RAM física insuficiente: MemAvailable={mem_available_kb} kB; "
-                f"se requieren > {MIN_MEM_AVAILABLE_KB} kB (3.0 GiB)"
+                f"se requieren al menos {min_mem_available_kb} kB"
             )
     except (OSError, ValueError, IndexError):
         failures.append("RAM física insuficiente: no se pudo leer MemAvailable")
@@ -295,14 +373,31 @@ def evaluate_performance_alerts(metrics: dict[str, Any], args: argparse.Namespac
     return alerts
 
 
+def classify_mission_result(wrapper_exit_code: int, processes: dict[str, dict[str, Any]]) -> tuple[str, str]:
+    recorder = processes.get("demeter_rec", {})
+    postprocess = processes.get("demeter_postprocess", {})
+    frames_ok = int(postprocess.get("frames_ok") or 0)
+    frame_errors = int(postprocess.get("frame_errors") or 0)
+    postprocess_ok = postprocess.get("exit_code") == 0 and frames_ok > 0
+    if postprocess_ok and recorder.get("failure_reason") == "tmpfs_enospc":
+        return "DEGRADED", f"tmpfs agotado; se revelaron {frames_ok} imágenes de chunks íntegros"
+    if postprocess_ok and (frame_errors > 0 or recorder.get("exit_code", 0) != 0):
+        return "DEGRADED", f"pipeline parcial: {frames_ok} imágenes correctas, {frame_errors} con error"
+    if wrapper_exit_code == 0 and postprocess_ok and frame_errors == 0:
+        return "COMPLETE", f"captura y revelado correctos: {frames_ok} imágenes"
+    if not postprocess_ok:
+        return "ERROR", "el postprocesamiento no produjo una salida utilizable"
+    return "ERROR", f"demeter_ingestd terminó con estado {wrapper_exit_code}"
+
+
 def arm_system_checks(args: argparse.Namespace) -> list[str]:
-    failures = preflight(args.flight_script, args.ram_dir, args.recordings_dir, args.min_free_bytes)
+    failures = preflight(args.ingest_script, args.ram_dir, args.recordings_dir, args.min_free_bytes)
     rpicam = shutil.which(str(args.rpicam_vid))
     if not rpicam or not os.access(rpicam, os.X_OK):
         failures.append(f"rpicam-vid no disponible o no ejecutable: {args.rpicam_vid}")
     if not args.recorder_bin.is_file() or not os.access(args.recorder_bin, os.X_OK):
         failures.append(f"demeter_rec no disponible o no ejecutable: {args.recorder_bin}")
-    postprocess_script = args.flight_script.parent / "demeter_postprocess.py"
+    postprocess_script = args.ingest_script.parent / "demeter_postprocess.py"
     if not postprocess_script.is_file() or not os.access(postprocess_script, os.X_OK):
         failures.append(f"demeter_postprocess.py no disponible o no ejecutable: {postprocess_script}")
     try:
@@ -313,6 +408,48 @@ def arm_system_checks(args: argparse.Namespace) -> list[str]:
             failures.append(f"espacio libre insuficiente para video en {args.ascent_video.parent}")
     except OSError as exc:
         failures.append(f"destino del video de ascenso no disponible: {exc}")
+    if is_tmpfs_mount(args.ram_dir):
+        try:
+            sd_write_mib_s = probe_sd_write_mib_s(args.recordings_dir)
+            ramcam_total_bytes = shutil.disk_usage(args.ram_dir).total
+            budget = calculate_mission_resource_budget(
+                sd_write_mib_s,
+                ramcam_total_bytes,
+                args.descent_watchdog,
+            )
+            args.resource_budget = budget
+            args.max_target_fps = int(budget["max_target_fps"])
+            mem_available_kb = read_performance_metrics(ramcam_path=args.ram_dir).get("mem_available_kb")
+            if args.max_target_fps < 1:
+                failures.append(
+                    f"SD/tmpfs no sostiene ni 1 FPS durante {args.descent_watchdog:g}s"
+                )
+            if not isinstance(mem_available_kb, int) or mem_available_kb < budget["required_mem_available_kb"]:
+                failures.append(
+                    "RAM disponible insuficiente para el backlog proyectado: "
+                    f"MemAvailable={mem_available_kb} kB; se requieren "
+                    f">= {budget['required_mem_available_kb']} kB"
+                )
+            free_bytes = shutil.disk_usage(args.recordings_dir).free
+            if free_bytes < budget["required_free_bytes"]:
+                failures.append(
+                    "espacio SD insuficiente para captura+revelado al límite de "
+                    f"{args.descent_watchdog:g}s: libres={free_bytes} bytes; "
+                    f"requeridos>={budget['required_free_bytes']} bytes "
+                    f"(cap={args.max_target_fps} FPS, sonda={sd_write_mib_s:.1f} MiB/s)"
+                )
+            if TEMP_DISABLE_FPS_CAP:
+                LOG.warning("cap de fps del presupuesto (%d) ignorado temporalmente", args.max_target_fps)
+                args.max_target_fps = 10
+            LOG.info(
+                "presupuesto ARM watchdog=%.1fs SD_probe=%.2fMiB/s tmpfs=%.2fGiB "
+                "cap=%dFPS backlog=%.0fMiB free_required=%.2fGiB",
+                args.descent_watchdog, sd_write_mib_s, ramcam_total_bytes / 1024**3,
+                args.max_target_fps, budget["projected_tmpfs_backlog_bytes"] / 1024**2,
+                budget["required_free_bytes"] / 1024**3,
+            )
+        except (OSError, ValueError) as exc:
+            failures.append(f"no se pudo calcular presupuesto SD/tmpfs: {type(exc).__name__}: {exc}")
     return failures
 
 
@@ -331,6 +468,15 @@ class MissionDaemon:
         self.last_performance_sample = 0.0
         self.active_performance_alerts: dict[str, str] = {}
         self.previous_sd_counters: tuple[str, int, int, float] | None = None
+        self.last_preflight_duration_s: float | None = None
+        self.last_preflight_metrics: dict[str, Any] | None = None
+        self.mission_id: str | None = None
+        self.mission_start_epoch: float | None = None
+        self.mission_start_monotonic: float | None = None
+        self.mission_events: list[dict[str, Any]] = []
+        self.mission_recording_dir: Path | None = None
+        self.mission_report_written = False
+        self.process_started_monotonic: dict[str, float] = {}
         self.event_log = args.event_log
         self.event_log.parent.mkdir(parents=True, exist_ok=True)
         self.flight_log = args.event_log.with_name("flight.log")
@@ -341,9 +487,28 @@ class MissionDaemon:
         self.event_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 
     def record_event(self, event: dict[str, Any]) -> None:
-        row = {"pi_ts": time.time(), "state": self.state.value, **event}
+        monotonic_ts = event.get("monotonic_ts")
+        if not isinstance(monotonic_ts, (int, float)):
+            monotonic_ts = time.monotonic()
+        row = {
+            "pi_ts": time.time(), "monotonic_ts": monotonic_ts, "state": self.state.value,
+            **({"mission_id": self.mission_id} if self.mission_id else {}), **event,
+        }
         self.event_file.write(json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n")
         self.event_file.flush()
+        if self.mission_id:
+            self.mission_events.append(row)
+
+    def begin_mission(self) -> None:
+        now = datetime.now(timezone.utc)
+        self.mission_id = now.strftime("%Y%m%d_%H%M%S_%f")
+        self.mission_start_epoch = now.timestamp()
+        self.mission_start_monotonic = time.monotonic()
+        self.mission_events = []
+        self.mission_recording_dir = None
+        self.mission_report_written = False
+        self.process_started_monotonic = {}
+        self.record_event({"kind": "mission_started", "mission_id": self.mission_id})
 
     def record_performance_event(self, kind: str, details: dict[str, Any] | None = None) -> None:
         details = dict(details or {})
@@ -383,6 +548,8 @@ class MissionDaemon:
         if isinstance(external_metrics, dict):
             metrics.update(external_metrics)
         alerts = evaluate_performance_alerts(metrics, self.args)
+        if kind == "performance_sample" and details.get("phase") == "preflight":
+            self.last_preflight_metrics = metrics
         if self.state not in (State.RECORDING, State.INGESTING, State.PROCESSING):
             sd_io_alert_codes = {
                 "sd_read_throughput_low",
@@ -402,13 +569,20 @@ class MissionDaemon:
                 "severity": "error", "value": details["frame_errors"],
             })
         if kind == "process_complete" and isinstance(details.get("exit_code"), int) and details["exit_code"] != 0:
+            recorder_enospc = (
+                details.get("process") == "demeter_rec"
+                and details.get("failure_reason") == "tmpfs_enospc"
+            )
             alerts.append({
-                "metric": "process_exit", "code": "process_failed",
-                "severity": "error", "process": details.get("process"),
+                "metric": "process_exit",
+                "code": "capture_truncated_tmpfs_full" if recorder_enospc else "process_failed",
+                "severity": "warning" if recorder_enospc else "error",
+                "process": details.get("process"),
                 "exit_code": details["exit_code"],
             })
         self.record_event({
             "kind": kind,
+            "monotonic_ts": sampled_at,
             "local_only": True,
             **details,
             "metrics": metrics,
@@ -417,6 +591,8 @@ class MissionDaemon:
         for alert in alerts:
             if alert["severity"] == "error":
                 LOG.error("alerta de misión kind=%s details=%s", kind, alert)
+            elif alert["severity"] == "warning":
+                LOG.warning("alerta de misión kind=%s details=%s", kind, alert)
 
         alert_by_metric = {alert["metric"]: alert for alert in alerts}
         evaluated_metrics = {"temperature_c", "ramcam_used_percent"}
@@ -504,14 +680,17 @@ class MissionDaemon:
         self.last_error = reason
         if self.state not in (State.ERROR, State.COMPLETE, State.ABORTED):
             self.set_state(State.ERROR, reason)
+        self.finalize_mission("ERROR", reason)
 
     def preflight(self) -> None:
         if self.state not in (State.BOOT, State.ERROR, State.ABORTED):
             raise ValueError(f"PREFLIGHT no permitido en estado {self.state.value}")
+        preflight_started = time.monotonic()
         self.last_error = None
         self.set_state(State.PREFLIGHT, "CMD_PREFLIGHT")
         self.record_performance_event("performance_sample", {"phase": "preflight"})
         failures = arm_system_checks(self.args)
+        self.last_preflight_duration_s = time.monotonic() - preflight_started
         if failures:
             reason = "; ".join(failures)
             self.fail(reason)
@@ -525,6 +704,7 @@ class MissionDaemon:
             raise RuntimeError("telemetryd no confirmó que el puerto serial está abierto")
         if not self.send_telemetry_control({"preflight_complete": True}, "preflight_closed"):
             raise RuntimeError("telemetryd no confirmó el cierre de preflight; se evita armar")
+        self.begin_mission()
         self.set_state(State.ARMED, "comando ARM")
 
     def start_ascent(self) -> None:
@@ -563,6 +743,10 @@ class MissionDaemon:
         finally:
             output.close()
         self.video_pid = self.video_process.pid
+        self.process_started_monotonic["rpicam-vid"] = time.monotonic()
+        self.record_event({
+            "kind": "process_started", "process": "rpicam-vid", "pid": self.video_pid,
+        })
         self.ascent_pid_file.parent.mkdir(parents=True, exist_ok=True)
         self.ascent_pid_file.write_text(f"{self.video_pid}\n", encoding="ascii")
         self.set_state(State.ASCENT, f"rpicam-vid PID {self.video_pid}")
@@ -594,6 +778,7 @@ class MissionDaemon:
         self.ascent_pid_file.unlink(missing_ok=True)
         self.record_performance_event("process_complete", {
             "process": "rpicam-vid", "exit_code": process.returncode,
+            "elapsed_s": round(time.monotonic() - self.process_started_monotonic.pop("rpicam-vid", time.monotonic()), 3),
             "completion_reason": "missiond_stop",
         })
 
@@ -613,15 +798,22 @@ class MissionDaemon:
         env["DEMETER_WAIT_POSTPROCESS"] = "1"
         env["DEMETER_MAX_TIME"] = str(self.args.descent_watchdog)
         env["DEMETER_CHUNK_TIME"] = str(self.args.chunk_time)
+        env["DEMETER_MAX_TARGET_FPS"] = str(getattr(self.args, "max_target_fps", 2))
+        if self.mission_id:
+            env["DEMETER_MISSION_ID"] = self.mission_id
         if not self.send_telemetry_control({"reset_telemetry": True}, "telemetry_reset"):
             raise RuntimeError("telemetryd no está disponible; se evita capturar con un snapshot obsoleto")
         self.flight_log_offset = self.flight_log.stat().st_size if self.flight_log.exists() else 0
         with self.flight_log.open("ab") as flight_output:
             self.process = subprocess.Popen(
-                [str(self.args.flight_script)], cwd=str(self.args.flight_script.parent), env=env,
+                [str(self.args.ingest_script)], cwd=str(self.args.ingest_script.parent), env=env,
                 stdin=subprocess.DEVNULL, stdout=flight_output, stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
+        self.process_started_monotonic["demeter_ingestd.sh"] = time.monotonic()
+        self.record_event({
+            "kind": "process_started", "process": "demeter_ingestd.sh", "pid": self.process.pid,
+        })
         self.set_state(State.RECORDING, f"flight PID {self.process.pid}")
         self.recording_deadline = time.monotonic() + self.args.descent_watchdog
 
@@ -666,6 +858,7 @@ class MissionDaemon:
         if force_killed:
             reason += "; SIGKILL de recuperación tras timeout"
         self.set_state(State.ABORTED, reason)
+        self.finalize_mission("ABORTED", reason)
 
     def handle_command(self, command: str, source: str) -> None:
         self.record_event({"kind": "command", "command": command, "source": source})
@@ -713,6 +906,16 @@ class MissionDaemon:
             command = event.get("command")
             if isinstance(command, str):
                 self.handle_command(command, str(event.get("source", "lilygo")))
+        elif kind == "mission_started":
+            mission_dir = event.get("mission_dir")
+            if isinstance(mission_dir, str):
+                self.mission_recording_dir = Path(mission_dir)
+            self.record_event(event)
+        elif kind == "process_started":
+            process = event.get("process")
+            if isinstance(process, str):
+                self.process_started_monotonic.setdefault(process, time.monotonic())
+            self.record_event(event)
         elif kind in (
             "telemetry", "lilygo_status", "clock_sync", "clock_sync_rejected",
             "telemetry_reset", "telemetry_health", "preflight_closed",
@@ -727,6 +930,180 @@ class MissionDaemon:
             self.record_performance_event(kind, details)
         else:
             self.record_event({"kind": "unknown_event", "event": event})
+
+    def mission_processes(self) -> dict[str, dict[str, Any]]:
+        processes: dict[str, dict[str, Any]] = {}
+        for event in self.mission_events:
+            process = event.get("process")
+            if not isinstance(process, str):
+                continue
+            if event.get("kind") == "process_started":
+                processes.setdefault(process, {}).update({
+                    "pid": event.get("pid"),
+                    "started_at": event.get("pi_ts"),
+                    "started_monotonic": event.get("monotonic_ts"),
+                    "max_target_fps": event.get("max_target_fps"),
+                })
+            elif event.get("kind") == "process_complete":
+                entry = processes.setdefault(process, {})
+                entry.update({
+                    "exit_code": event.get("exit_code"),
+                    "ended_at": event.get("pi_ts"),
+                    "elapsed_s": event.get("elapsed_s"),
+                })
+                for key in ("failure_reason", "frames_ok", "frame_errors", "completion_reason"):
+                    if key in event:
+                        entry[key] = event[key]
+                if entry.get("elapsed_s") is None and isinstance(entry.get("started_monotonic"), (int, float)):
+                    ended = event.get("monotonic_ts")
+                    if isinstance(ended, (int, float)):
+                        entry["elapsed_s"] = round(max(0.0, ended - entry["started_monotonic"]), 3)
+                entry.pop("started_monotonic", None)
+        return processes
+
+    def mission_resource_summary(self) -> dict[str, Any]:
+        fields = {
+            "ramcam_used_percent": max,
+            "ramcam_used_bytes": max,
+            "mem_available_kb": min,
+            "temperature_c": max,
+            "sd_read_mib_s": min,
+            "sd_write_mib_s": min,
+            "sd_ingest_write_mib_s": min,
+        }
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for event in self.mission_events:
+            if event.get("kind") not in ("performance_sample", "chunk_ingested", "chunk_postprocess_complete"):
+                continue
+            metrics = event.get("metrics")
+            if isinstance(metrics, dict):
+                grouped.setdefault(str(event.get("state", "UNKNOWN")), []).append(metrics)
+
+        def summarize(samples: list[dict[str, Any]]) -> dict[str, Any]:
+            summary: dict[str, Any] = {"samples": len(samples)}
+            for field, reducer in fields.items():
+                values = [sample[field] for sample in samples if isinstance(sample.get(field), (int, float))]
+                if values:
+                    summary[field] = reducer(values)
+            return summary
+
+        result: dict[str, Any] = {"overall": summarize([m for group in grouped.values() for m in group])}
+        result["by_state"] = {state: summarize(samples) for state, samples in grouped.items()}
+        if self.last_preflight_metrics:
+            result["preflight"] = {
+                key: self.last_preflight_metrics.get(key)
+                for key in ("mem_available_kb", "ramcam_total_bytes", "temperature_c")
+            }
+        if getattr(self.args, "resource_budget", None):
+            result["arm_budget"] = self.args.resource_budget
+        return result
+
+    def mission_chunks(self) -> list[dict[str, Any]]:
+        chunks: dict[str, dict[str, Any]] = {}
+        for event in self.mission_events:
+            chunk = event.get("chunk")
+            if not isinstance(chunk, str):
+                continue
+            entry = chunks.setdefault(chunk, {"chunk": chunk})
+            kind = event.get("kind")
+            if kind == "chunk_ingested":
+                entry["ingested"] = event.get("source_removed") is True
+                metrics = event.get("metrics")
+                if isinstance(metrics, dict):
+                    entry["ingest_metrics"] = metrics
+            elif kind == "chunk_postprocess_complete":
+                entry["postprocess_elapsed_s"] = event.get("elapsed_s")
+                entry["postprocess_metrics"] = event.get("metrics", {})
+            elif kind == "chunk_transfer_failed":
+                entry.setdefault("transfer_failures", []).append({
+                    "phase": event.get("phase"), "exit_code": event.get("exit_code"),
+                })
+        return [chunks[name] for name in sorted(chunks)]
+
+    def finalize_mission(self, outcome: str, reason: str) -> None:
+        if not self.mission_id or self.mission_report_written:
+            return
+        now_epoch = time.time()
+        now_monotonic = time.monotonic()
+        previous_state = "READY"
+        previous_monotonic = self.mission_start_monotonic or now_monotonic
+        stages: list[dict[str, Any]] = []
+        for event in self.mission_events:
+            if event.get("kind") != "state" or not isinstance(event.get("to"), str):
+                continue
+            event_monotonic = event.get("monotonic_ts", previous_monotonic)
+            stages.append({
+                "state": previous_state,
+                "duration_s": round(max(0.0, event_monotonic - previous_monotonic), 3),
+                "ended_at": event.get("pi_ts"),
+                "reason": event.get("reason"),
+            })
+            previous_state = event["to"]
+            previous_monotonic = event_monotonic
+        stages.append({
+            "state": previous_state,
+            "duration_s": round(max(0.0, now_monotonic - previous_monotonic), 3),
+            "ended_at": now_epoch,
+        })
+        processes = self.mission_processes()
+        report = {
+            "schema_version": 1,
+            "mission_id": self.mission_id,
+            "outcome": outcome,
+            "reason": reason,
+            "started_at": self.mission_start_epoch,
+            "ended_at": now_epoch,
+            "duration_s": round(max(0.0, now_monotonic - (self.mission_start_monotonic or now_monotonic)), 3),
+            "preflight_duration_s": self.last_preflight_duration_s,
+            "recording_dir": str(self.mission_recording_dir) if self.mission_recording_dir else None,
+            "stages": stages,
+            "processes": processes,
+            "chunks": self.mission_chunks(),
+            "resources": self.mission_resource_summary(),
+            "watchdogs": [
+                {"watchdog": event.get("watchdog"), "action": event.get("action"), "at": event.get("pi_ts")}
+                for event in self.mission_events if event.get("kind") == "watchdog"
+            ],
+            "performance_alerts": [
+                {"kind": event.get("kind"), "alerts": event.get("alerts", [])}
+                for event in self.mission_events if event.get("alerts")
+            ],
+            "warnings": [
+                {"kind": event.get("kind"), "process": event.get("process"),
+                 "failure_reason": event.get("failure_reason"), "exit_code": event.get("exit_code"),
+                 "chunk": event.get("chunk"), "phase": event.get("phase")}
+                for event in self.mission_events
+                if (event.get("kind") == "process_complete" and event.get("exit_code") not in (None, 0))
+                or event.get("kind") == "chunk_transfer_failed"
+            ],
+        }
+        report_dir = self.mission_recording_dir if self.mission_recording_dir and self.mission_recording_dir.is_dir() else self.event_log.parent
+        report_paths = [report_dir / ("mission_report.json" if report_dir == self.mission_recording_dir else f"mission_{self.mission_id}_report.json")]
+        fallback_path = self.event_log.parent / f"mission_{self.mission_id}_report.json"
+        if fallback_path != report_paths[0]:
+            report_paths.append(fallback_path)
+        report_path: Path | None = None
+        for candidate in report_paths:
+            try:
+                atomic_json(candidate, report)
+                report_path = candidate
+                break
+            except OSError as exc:
+                LOG.error("no se pudo escribir informe de misión en %s (%s): %s", candidate, type(exc).__name__, exc)
+        if report_path is None:
+            return
+        self.mission_report_written = True
+        LOG.info(
+            "informe de misión id=%s outcome=%s duración=%.1fs procesos=%d informe=%s motivo=%s",
+            self.mission_id, outcome, report["duration_s"], len(processes), report_path, reason,
+        )
+        for process, details in processes.items():
+            LOG.info(
+                "informe proceso misión=%s proceso=%s exit=%s duración=%ss",
+                self.mission_id, process, details.get("exit_code"), details.get("elapsed_s"),
+            )
+        for stage in stages:
+            LOG.info("informe etapa misión=%s estado=%s duración=%.1fs", self.mission_id, stage["state"], stage["duration_s"])
 
     def poll_process(self) -> None:
         now = time.monotonic()
@@ -795,16 +1172,18 @@ class MissionDaemon:
             LOG.error("no se pudo leer el log del vuelo %s (%s): %s", self.flight_log, type(exc).__name__, exc)
             detail = ""
         self.record_performance_event("process_complete", {
-            "process": "demeter_flight.sh", "exit_code": status, "log_tail": detail,
+            "process": "demeter_ingestd.sh", "exit_code": status, "log_tail": detail,
         })
         self.record_event({"kind": "flight_exit", "returncode": status, "log_tail": detail})
-        if status:
-            self.fail(f"demeter_flight.sh terminó con estado {status}: {detail.strip()}")
-        elif self.state in (State.INGESTING, State.RECORDING):
-            self.set_state(State.PROCESSING, "captura cerrada; postproceso a la espera")
-            self.set_state(State.COMPLETE, "captura e hijo de postproceso finalizados")
-        elif self.state == State.PROCESSING:
-            self.set_state(State.COMPLETE, "ciclo de vuelo finalizado")
+        processes = self.mission_processes()
+        outcome, reason = classify_mission_result(status, processes)
+        if outcome == "ERROR":
+            self.fail(f"{reason}; demeter_ingestd exit={status}: {detail.strip()}")
+        else:
+            if self.state in (State.INGESTING, State.RECORDING):
+                self.set_state(State.PROCESSING, "captura cerrada; postproceso finalizado")
+            self.set_state(State.COMPLETE, f"misión {outcome}: {reason}")
+            self.finalize_mission(outcome, reason)
         self.process = None
 
     def run(self) -> int:
@@ -856,7 +1235,8 @@ class MissionDaemon:
                     except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                         LOG.warning("mensaje IPC inválido en %s (%s): %s", channel.getsockname(), type(exc).__name__, exc)
                 self.poll_process()
-            if STOP and self.state not in (State.COMPLETE, State.ABORTED, State.ERROR):
+            # En BOOT no hay mision ni procesos: parar es solo salir (BOOT -> ABORTED no es transicion valida)
+            if STOP and self.state not in (State.BOOT, State.COMPLETE, State.ABORTED, State.ERROR):
                 self.abort()
         finally:
             if self.video_process:
@@ -893,7 +1273,10 @@ def select_select(readers: list[socket.socket], timeout: float) -> tuple[list[so
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--flight-script", type=Path, default=Path(__file__).resolve().parent / "eyes_of_demeter" / "demeter_flight.sh")
+    parser.add_argument(
+        "--ingest-script", "--flight-script", dest="ingest_script", type=Path,
+        default=Path(__file__).resolve().parent / "eyes_of_demeter" / "demeter_ingestd.sh",
+    )
     parser.add_argument("--rpicam-vid", default="rpicam-vid")
     parser.add_argument("--recorder-bin", type=Path, default=Path(__file__).resolve().parent / "eyes_of_demeter" / ".build" / "bin" / "demeter_rec")
     parser.add_argument(

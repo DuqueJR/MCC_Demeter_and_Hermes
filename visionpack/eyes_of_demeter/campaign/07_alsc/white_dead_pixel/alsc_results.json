@@ -1,0 +1,198 @@
+{
+  "0": {
+    "panel_roi_green_plane_xywh": [
+      730,
+      335,
+      1071,
+      723
+    ],
+    "exposure_us": 9990,
+    "analogue_gain": 1.3819162845611572,
+    "lsc_gain_range": [
+      1.0008000135421753,
+      2.6328001022338867
+    ],
+    "lsc_gain_center": 1.030400037765503,
+    "zones": {
+      "center": {
+        "raw_green_dn": 33256.4921875,
+        "lsc_green_gain": 1.0266635417938232,
+        "predicted_green_after_lsc": 34130.5234375,
+        "rgb_replay_luma": 201.06956481933594,
+        "raw_green_dn_relative_to_center_pct": 100.0,
+        "predicted_green_after_lsc_relative_to_center_pct": 100.0,
+        "rgb_replay_luma_relative_to_center_pct": 100.0
+      },
+      "top": {
+        "raw_green_dn": 25668.439453125,
+        "lsc_green_gain": 1.0640764236450195,
+        "predicted_green_after_lsc": 27309.5,
+        "rgb_replay_luma": 186.82469177246094,
+        "raw_green_dn_relative_to_center_pct": 77.18324382621721,
+        "predicted_green_after_lsc_relative_to_center_pct": 80.01488770018223,
+        "rgb_replay_luma_relative_to_center_pct": 92.91545040161884
+      },
+      "bottom": {
+        "raw_green_dn": 25991.60546875,
+        "lsc_green_gain": 1.1351368427276611,
+        "predicted_green_after_lsc": 29476.345703125,
+        "rgb_replay_luma": 192.61952209472656,
+        "raw_green_dn_relative_to_center_pct": 78.15498195723532,
+        "predicted_green_after_lsc_relative_to_center_pct": 86.36359110372932,
+        "rgb_replay_luma_relative_to_center_pct": 95.79745311917203
+      },
+      "left": {
+        "raw_green_dn": 25055.283203125,
+        "lsc_green_gain": 1.110866665840149,
+        "predicted_green_after_lsc": 27795.67578125,
+        "rgb_replay_luma": 188.56753540039062,
+        "raw_green_dn_relative_to_center_pct": 75.33952487190588,
+        "predicted_green_after_lsc_relative_to_center_pct": 81.43934807255327,
+        "rgb_replay_luma_relative_to_center_pct": 93.78223679442556
+      },
+      "right": {
+        "raw_green_dn": 17347.533203125,
+        "lsc_green_gain": 1.3014805316925049,
+        "predicted_green_after_lsc": 22508.5546875,
+        "rgb_replay_luma": 174.6382293701172,
+        "raw_green_dn_relative_to_center_pct": 52.162847197833315,
+        "predicted_green_after_lsc_relative_to_center_pct": 65.94846026524553,
+        "rgb_replay_luma_relative_to_center_pct": 86.8546313943795
+      },
+      "top_left": {
+        "raw_green_dn": 18550.8671875,
+        "lsc_green_gain": 1.1507322788238525,
+        "predicted_green_after_lsc": 21320.583984375,
+        "rgb_replay_luma": 168.06253051757812,
+        "raw_green_dn_relative_to_center_pct": 55.78119027981144,
+        "predicted_green_after_lsc_relative_to_center_pct": 62.46779081316279,
+        "rgb_replay_luma_relative_to_center_pct": 83.5842712787412
+      },
+      "top_right": {
+        "raw_green_dn": 14547.1982421875,
+        "lsc_green_gain": 1.3545808792114258,
+        "predicted_green_after_lsc": 19638.396484375,
+        "rgb_replay_luma": 164.97024536132812,
+        "raw_green_dn_relative_to_center_pct": 43.74243128280169,
+        "predicted_green_after_lsc_relative_to_center_pct": 57.539101386291186,
+        "rgb_replay_luma_relative_to_center_pct": 82.04635321589143
+      },
+      "bottom_left": {
+        "raw_green_dn": 19655.5703125,
+        "lsc_green_gain": 1.2279859781265259,
+        "predicted_green_after_lsc": 24114.8671875,
+        "rgb_replay_luma": 180.13108825683594,
+        "raw_green_dn_relative_to_center_pct": 59.102957105884634,
+        "predicted_green_after_lsc_relative_to_center_pct": 70.65484135237269,
+        "rgb_replay_luma_relative_to_center_pct": 89.58645154411433
+      },
+      "bottom_right": {
+        "raw_green_dn": 14245.08984375,
+        "lsc_green_gain": 1.4329519271850586,
+        "predicted_green_after_lsc": 20366.44140625,
+        "rgb_replay_luma": 168.4245147705078,
+        "raw_green_dn_relative_to_center_pct": 42.83401196805793,
+        "predicted_green_after_lsc_relative_to_center_pct": 59.67222109425054,
+        "rgb_replay_luma_relative_to_center_pct": 83.76430063985059
+      }
+    }
+  },
+  "1": {
+    "panel_roi_green_plane_xywh": [
+      624,
+      316,
+      1072,
+      728
+    ],
+    "exposure_us": 9990,
+    "analogue_gain": 1.3856562376022339,
+    "lsc_gain_range": [
+      1.0008000135421753,
+      2.6328001022338867
+    ],
+    "lsc_gain_center": 1.030400037765503,
+    "zones": {
+      "center": {
+        "raw_green_dn": 33033.34765625,
+        "lsc_green_gain": 1.0189125537872314,
+        "predicted_green_after_lsc": 33653.98046875,
+        "rgb_replay_luma": 200.3477783203125,
+        "raw_green_dn_relative_to_center_pct": 100.0,
+        "predicted_green_after_lsc_relative_to_center_pct": 100.0,
+        "rgb_replay_luma_relative_to_center_pct": 100.0
+      },
+      "top": {
+        "raw_green_dn": 25277.443359375,
+        "lsc_green_gain": 1.0547360181808472,
+        "predicted_green_after_lsc": 26657.94921875,
+        "rgb_replay_luma": 185.6298065185547,
+        "raw_green_dn_relative_to_center_pct": 76.52098607266781,
+        "predicted_green_after_lsc_relative_to_center_pct": 79.21187582403131,
+        "rgb_replay_luma_relative_to_center_pct": 92.65378836483679
+      },
+      "bottom": {
+        "raw_green_dn": 25698.734375,
+        "lsc_green_gain": 1.1117560863494873,
+        "predicted_green_after_lsc": 28545.806640625,
+        "rgb_replay_luma": 190.8386688232422,
+        "raw_green_dn_relative_to_center_pct": 77.79633672743347,
+        "predicted_green_after_lsc_relative_to_center_pct": 84.8214869178156,
+        "rgb_replay_luma_relative_to_center_pct": 95.25369855518572
+      },
+      "left": {
+        "raw_green_dn": 20548.408203125,
+        "lsc_green_gain": 1.1850457191467285,
+        "predicted_green_after_lsc": 24298.474609375,
+        "rgb_replay_luma": 180.3211212158203,
+        "raw_green_dn_relative_to_center_pct": 62.20504327007615,
+        "predicted_green_after_lsc_relative_to_center_pct": 72.20089353750525,
+        "rgb_replay_luma_relative_to_center_pct": 90.00405331549327
+      },
+      "right": {
+        "raw_green_dn": 20692.22265625,
+        "lsc_green_gain": 1.1990748643875122,
+        "predicted_green_after_lsc": 24753.22265625,
+        "rgb_replay_luma": 181.29579162597656,
+        "raw_green_dn_relative_to_center_pct": 62.64040469520798,
+        "predicted_green_after_lsc_relative_to_center_pct": 73.55213948387188,
+        "rgb_replay_luma_relative_to_center_pct": 90.49054256849509
+      },
+      "top_left": {
+        "raw_green_dn": 14635.736328125,
+        "lsc_green_gain": 1.2298442125320435,
+        "predicted_green_after_lsc": 17953.0546875,
+        "rgb_replay_luma": 155.15663146972656,
+        "raw_green_dn_relative_to_center_pct": 44.30594343760336,
+        "predicted_green_after_lsc_relative_to_center_pct": 53.346006735133834,
+        "rgb_replay_luma_relative_to_center_pct": 77.4436496229396
+      },
+      "top_right": {
+        "raw_green_dn": 17400.505859375,
+        "lsc_green_gain": 1.245663046836853,
+        "predicted_green_after_lsc": 21615.765625,
+        "rgb_replay_luma": 172.12669372558594,
+        "raw_green_dn_relative_to_center_pct": 52.67557512017035,
+        "predicted_green_after_lsc_relative_to_center_pct": 64.22944722711686,
+        "rgb_replay_luma_relative_to_center_pct": 85.91395181352738
+      },
+      "bottom_left": {
+        "raw_green_dn": 16226.2802734375,
+        "lsc_green_gain": 1.2885767221450806,
+        "predicted_green_after_lsc": 20872.91015625,
+        "rgb_replay_luma": 170.7918243408203,
+        "raw_green_dn_relative_to_center_pct": 49.1209078846341,
+        "predicted_green_after_lsc_relative_to_center_pct": 62.022114072455445,
+        "rgb_replay_luma_relative_to_center_pct": 85.24767570307735
+      },
+      "bottom_right": {
+        "raw_green_dn": 15733.2060546875,
+        "lsc_green_gain": 1.3063933849334717,
+        "predicted_green_after_lsc": 20467.5390625,
+        "rgb_replay_luma": 165.92681884765625,
+        "raw_green_dn_relative_to_center_pct": 47.62825196649645,
+        "predicted_green_after_lsc_relative_to_center_pct": 60.81758762980651,
+        "rgb_replay_luma_relative_to_center_pct": 82.81939547259435
+      }
+    }
+  }
+}

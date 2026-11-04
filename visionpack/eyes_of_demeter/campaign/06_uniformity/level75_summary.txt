@@ -1,0 +1,60 @@
+level25_reframed cam0 bbox=730,339 1072x723 aspect=1.483 coverage=25.2% exp=66645 gain=7.367
+  center       G= 31959.8 norm=0.06510 rel= 100.0%
+  top          G= 26938.9 norm=0.05487 rel=  84.3%
+  bottom       G= 28047.9 norm=0.05713 rel=  87.8%
+  left         G= 26541.5 norm=0.05406 rel=  83.0%
+  right        G= 18410.4 norm=0.03750 rel=  57.6%
+  top_left     G= 20020.4 norm=0.04078 rel=  62.6%
+  top_right    G= 15517.5 norm=0.03161 rel=  48.6%
+  bottom_left  G= 21616.9 norm=0.04403 rel=  67.6%
+  bottom_right G= 15964.4 norm=0.03252 rel=  50.0%
+level25_reframed cam1 bbox=624,320 1073x728 aspect=1.474 coverage=25.1% exp=66645 gain=7.585
+  center       G= 32565.2 norm=0.06442 rel= 100.0%
+  top          G= 27229.4 norm=0.05386 rel=  83.6%
+  bottom       G= 28610.8 norm=0.05660 rel=  87.9%
+  left         G= 22528.1 norm=0.04456 rel=  69.2%
+  right        G= 22406.7 norm=0.04432 rel=  68.8%
+  top_left     G= 16380.0 norm=0.03240 rel=  50.3%
+  top_right    G= 18902.1 norm=0.03739 rel=  58.0%
+  bottom_left  G= 18464.7 norm=0.03653 rel=  56.7%
+  bottom_right G= 18041.3 norm=0.03569 rel=  55.4%
+level50 cam0 bbox=730,338 1072x723 aspect=1.483 coverage=25.2% exp=39961 gain=2.000
+  center       G= 32217.7 norm=0.40311 rel= 100.0%
+  top          G= 26548.6 norm=0.33218 rel=  82.4%
+  bottom       G= 27107.3 norm=0.33917 rel=  84.1%
+  left         G= 25987.3 norm=0.32516 rel=  80.7%
+  right        G= 18039.2 norm=0.22571 rel=  56.0%
+  top_left     G= 19663.8 norm=0.24604 rel=  61.0%
+  top_right    G= 15198.1 norm=0.19016 rel=  47.2%
+  bottom_left  G= 20779.9 norm=0.26000 rel=  64.5%
+  bottom_right G= 15212.7 norm=0.19034 rel=  47.2%
+level50 cam1 bbox=624,318 1073x729 aspect=1.472 coverage=25.1% exp=41065 gain=2.000
+  center       G= 32769.7 norm=0.39900 rel= 100.0%
+  top          G= 26606.2 norm=0.32395 rel=  81.2%
+  bottom       G= 27458.9 norm=0.33433 rel=  83.8%
+  left         G= 21961.5 norm=0.26740 rel=  67.0%
+  right        G= 21960.8 norm=0.26739 rel=  67.0%
+  top_left     G= 15755.8 norm=0.19184 rel=  48.1%
+  top_right    G= 18489.4 norm=0.22512 rel=  56.4%
+  bottom_left  G= 17642.3 norm=0.21481 rel=  53.8%
+  bottom_right G= 17051.8 norm=0.20762 rel=  52.0%
+level75 cam0 bbox=730,337 1072x723 aspect=1.483 coverage=25.2% exp=19454 gain=1.499
+  center       G= 32398.2 norm=1.11079 rel= 100.0%
+  top          G= 25759.5 norm=0.88318 rel=  79.5%
+  bottom       G= 26159.7 norm=0.89690 rel=  80.7%
+  left         G= 25248.2 norm=0.86565 rel=  77.9%
+  right        G= 17482.6 norm=0.59940 rel=  54.0%
+  top_left     G= 18849.7 norm=0.64627 rel=  58.2%
+  top_right    G= 14704.1 norm=0.50414 rel=  45.4%
+  bottom_left  G= 19937.6 norm=0.68357 rel=  61.5%
+  bottom_right G= 14536.6 norm=0.49840 rel=  44.9%
+level75 cam1 bbox=624,318 1073x728 aspect=1.474 coverage=25.1% exp=19849 gain=1.499
+  center       G= 32756.2 norm=1.10072 rel= 100.0%
+  top          G= 25814.2 norm=0.86744 rel=  78.8%
+  bottom       G= 26339.5 norm=0.88509 rel=  80.4%
+  left         G= 21139.4 norm=0.71035 rel=  64.5%
+  right        G= 21175.2 norm=0.71156 rel=  64.6%
+  top_left     G= 15203.6 norm=0.51089 rel=  46.4%
+  top_right    G= 17860.5 norm=0.60017 rel=  54.5%
+  bottom_left  G= 16793.5 norm=0.56432 rel=  51.3%
+  bottom_right G= 16288.8 norm=0.54736 rel=  49.7%

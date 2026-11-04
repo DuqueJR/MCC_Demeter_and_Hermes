@@ -1,0 +1,21 @@
+=== ESTADO ANTES DEL CHUNK 12 ===
+2026-10-08T00:09:12.143Z
+
+--- RAM ---
+               total        used        free      shared  buff/cache   available
+Mem:            4049         269        2491           8        1364        3780
+Swap:           2047          18        2029
+
+--- TEMPERATURA CPU ---
+35.85 °C
+
+=== ESTADO DESPUÉS DEL CHUNK 12 ===
+2026-10-08T00:09:20.148Z
+
+--- RAM ---
+               total        used        free      shared  buff/cache   available
+Mem:            4049         268        2492           8        1364        3781
+Swap:           2047          18        2029
+
+--- TEMPERATURA CPU ---
+35.85 °C

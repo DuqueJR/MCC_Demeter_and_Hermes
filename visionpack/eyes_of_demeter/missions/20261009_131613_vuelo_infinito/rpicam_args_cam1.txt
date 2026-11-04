@@ -1,0 +1,1 @@
+--exposure short --metering centre --ev 0.0 --awbgains 2.136172,1.608011 --autofocus-mode manual --lens-position 0.0

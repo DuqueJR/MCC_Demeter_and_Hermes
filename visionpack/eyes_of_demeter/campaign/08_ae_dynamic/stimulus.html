@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demeter R8 AE</title>
+<style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+#screen { position: fixed; inset: 0; background: #000; }
+#start { position: fixed; inset: 0; display: grid; place-items: center; background: #000; color: #fff;
+         border: 0; font: 24px monospace; cursor: pointer; }
+#start[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<button id="start" type="button">INICIAR R8</button>
+<script>
+"use strict";
+const MARK_TIME = 2000;
+const LEVEL_TIME = 10000;
+const screen = document.getElementById("screen");
+const start = document.getElementById("start");
+let sequenceStart = 0;
+let sequenceId = null;
+
+function linearToSRGB(value) {
+    if (value <= 0.0031308) return 12.92 * value;
+    return 1.055 * Math.pow(value, 1 / 2.4) - 0.055;
+}
+
+function colorFor(step) {
+    if (step.mode === "solid") return step.color;
+    const code = Math.round(linearToSRGB(step.value) * 255);
+    return `rgb(${code},${code},${code})`;
+}
+
+const steps = [
+    { mode: "solid", color: "#FF00FF", marker: "START", ms: MARK_TIME },
+    { mode: "solid", color: "#0000FF", marker: "A", ms: MARK_TIME },
+    { mode: "linear", value: 0.10, label: "A1-10%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.90, label: "A2-90%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.10, label: "A3-10%", ms: LEVEL_TIME },
+    { mode: "solid", color: "#FF0000", marker: "B", ms: MARK_TIME },
+    { mode: "linear", value: 0.05, label: "B1-5%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.50, label: "B2-50%", ms: LEVEL_TIME },
+    { mode: "linear", value: 1.00, label: "B3-100%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.50, label: "B4-50%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.05, label: "B5-5%", ms: LEVEL_TIME },
+    { mode: "solid", color: "#00FF00", marker: "C", ms: MARK_TIME },
+    { mode: "linear", value: 0.20, label: "C1-20%", ms: LEVEL_TIME },
+    { mode: "linear", value: 1.00, label: "C2-100%", ms: LEVEL_TIME },
+    { mode: "linear", value: 0.20, label: "C3-20%", ms: LEVEL_TIME },
+    { mode: "solid", color: "#FFFF00", marker: "END", ms: MARK_TIME }
+];
+
+function sendEvent(step, elapsed) {
+    fetch("/api/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: step.marker || step.label,
+            mode: step.mode,
+            color: step.color || colorFor(step),
+            linear_luminance: step.value ?? null,
+            browser_elapsed_ms: elapsed,
+            browser_epoch_ms: Date.now()
+        })
+    }).catch(() => {});
+}
+
+function showStep(index) {
+    if (index >= steps.length) {
+        const idle = { mode: "solid", color: "#000000", marker: "IDLE" };
+        screen.style.backgroundColor = idle.color;
+        sendEvent(idle, performance.now() - sequenceStart);
+        return;
+    }
+    const step = steps[index];
+    screen.style.backgroundColor = colorFor(step);
+    const elapsed = performance.now() - sequenceStart;
+    sendEvent(step, elapsed);
+    if (step.ms > 0) window.setTimeout(() => showStep(index + 1), step.ms);
+}
+
+start.addEventListener("click", async () => {
+    try { await document.documentElement.requestFullscreen(); } catch (_) { }
+    const clickEpoch = Date.now();
+    const clickPerformance = performance.now();
+    const response = await fetch("/api/start", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ browser_epoch_ms: clickEpoch, browser_performance_ms: clickPerformance })
+    });
+    if (!response.ok) {
+        start.textContent = "ERROR: captura no preparada";
+        return;
+    }
+    const startData = await response.json();
+    sequenceId = startData.sequence_id;
+    sequenceStart = performance.now();
+    start.hidden = true;
+    showStep(0);
+}, { once: true });
+
+async function updateReady() {
+    if (start.hidden) return;
+    try {
+        const response = await fetch("/api/status", { cache: "no-store" });
+        const status = await response.json();
+        start.disabled = !status.ready || status.started;
+        start.textContent = status.ready ? "INICIAR R8" : "ESPERANDO CÁMARAS";
+    } catch (_) {
+        start.disabled = true;
+        start.textContent = "SIN CONEXIÓN CON LA PI";
+    }
+}
+window.setInterval(updateReady, 500);
+updateReady();
+
+window.addEventListener("keydown", (event) => {
+    if (event.code === "Space" && !start.hidden) {
+        event.preventDefault();
+        start.click();
+    }
+});
+</script>
+</body>
+</html>

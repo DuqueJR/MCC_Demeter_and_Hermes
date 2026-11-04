@@ -1,0 +1,13 @@
+{
+  "mission_start": "2026-10-08T00:14:06Z",
+  "mission_end": "2026-10-08T00:16:06Z",
+  "total_chunks": 15,
+  "chunk_time_s": 8,
+  "failed_chunks": 0,
+  "touchdown_detected": false,
+  "transfer_stats": {
+    "total_bytes": 0,
+    "total_time_s": 0.939327,
+    "avg_mb_s": 0.00
+  }
+}

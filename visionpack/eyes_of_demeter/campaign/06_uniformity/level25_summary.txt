@@ -1,0 +1,20 @@
+level25 cam0 exp=66645us gain=7.474 lens=0.0
+  center       G= 31136.7 norm=0.06251 rel_centro= 100.0%
+  top          G=   133.7 norm=0.00027 rel_centro=   0.4%
+  bottom       G= 23814.2 norm=0.04781 rel_centro=  76.5%
+  left         G=  7541.2 norm=0.01514 rel_centro=  24.2%
+  right        G=  7360.9 norm=0.01478 rel_centro=  23.6%
+  top_left     G=  1411.3 norm=0.00283 rel_centro=   4.5%
+  top_right    G=   166.0 norm=0.00033 rel_centro=   0.5%
+  bottom_left  G=  6512.3 norm=0.01307 rel_centro=  20.9%
+  bottom_right G=  7394.1 norm=0.01484 rel_centro=  23.7%
+level25 cam1 exp=66645us gain=7.642 lens=0.0
+  center       G= 31683.7 norm=0.06221 rel_centro= 100.0%
+  top          G=  7333.5 norm=0.01440 rel_centro=  23.1%
+  bottom       G= 21879.8 norm=0.04296 rel_centro=  69.1%
+  left         G=  7948.2 norm=0.01561 rel_centro=  25.1%
+  right        G=  7887.9 norm=0.01549 rel_centro=  24.9%
+  top_left     G=  3365.0 norm=0.00661 rel_centro=  10.6%
+  top_right    G=  1570.1 norm=0.00308 rel_centro=   5.0%
+  bottom_left  G=  6119.2 norm=0.01202 rel_centro=  19.3%
+  bottom_right G=  6960.0 norm=0.01367 rel_centro=  22.0%

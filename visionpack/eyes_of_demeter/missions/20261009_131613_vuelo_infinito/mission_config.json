@@ -1,0 +1,113 @@
+{
+  "profile": "vuelo_infinito",
+  "created_utc": "2026-10-09T18:16:13Z",
+  "profile_sha256": "4379468f61e67694f89c796a54e536519d25b268fad09bd61072badd42fe13ce",
+  "cameras": {
+    "0": {
+      "resolved": {
+        "name": "vuelo_infinito",
+        "description": "Vuelo: WB calibrado y fijo, exposicion automatica, foco fijo al infinito.",
+        "cameras": [
+          0,
+          1
+        ],
+        "capture": {
+          "width": 4608,
+          "height": 2592,
+          "settle_frames": 30
+        },
+        "exposure": {
+          "mode": "auto",
+          "exposure_mode": "short",
+          "metering": "centre-weighted",
+          "constraint": "highlight",
+          "ev": 0.0
+        },
+        "white_balance": {
+          "mode": "fixed",
+          "gains": [
+            2.290968,
+            1.51912
+          ],
+          "colour_temperature": 6492,
+          "calibration": "calibration/vuelo_infinito_cam0.json"
+        },
+        "focus": {
+          "mode": "infinity"
+        },
+        "develop": {
+          "black_level": "tune",
+          "white_level": null
+        },
+        "camera": 0
+      },
+      "rpicam_args": [
+        "--exposure",
+        "short",
+        "--metering",
+        "centre",
+        "--ev",
+        "0.0",
+        "--awbgains",
+        "2.290968,1.519120",
+        "--autofocus-mode",
+        "manual",
+        "--lens-position",
+        "0.0"
+      ]
+    },
+    "1": {
+      "resolved": {
+        "name": "vuelo_infinito",
+        "description": "Vuelo: WB calibrado y fijo, exposicion automatica, foco fijo al infinito.",
+        "cameras": [
+          0,
+          1
+        ],
+        "capture": {
+          "width": 4608,
+          "height": 2592,
+          "settle_frames": 30
+        },
+        "exposure": {
+          "mode": "auto",
+          "exposure_mode": "short",
+          "metering": "centre-weighted",
+          "constraint": "highlight",
+          "ev": 0.0
+        },
+        "white_balance": {
+          "mode": "fixed",
+          "gains": [
+            2.136172,
+            1.608011
+          ],
+          "colour_temperature": 5710,
+          "calibration": "calibration/vuelo_infinito_cam1.json"
+        },
+        "focus": {
+          "mode": "infinity"
+        },
+        "develop": {
+          "black_level": "tune",
+          "white_level": null
+        },
+        "camera": 1
+      },
+      "rpicam_args": [
+        "--exposure",
+        "short",
+        "--metering",
+        "centre",
+        "--ev",
+        "0.0",
+        "--awbgains",
+        "2.136172,1.608011",
+        "--autofocus-mode",
+        "manual",
+        "--lens-position",
+        "0.0"
+      ]
+    }
+  }
+}
