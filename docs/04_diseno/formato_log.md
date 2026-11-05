@@ -39,6 +39,7 @@ reemplaza: 05_plan/dos_sesiones/06_contratos/04_formato_log_y_replay.md (C-04), 
 | 10 | `EXT_LSM` | `ExtLsmRec` + palabras del FIFO del LSM6DSO32 de 7 B (tag + 6): acel., giro, marca del chip y **BMP581 por el hub** (crudo, con las palabras malas) |
 | 11 | `EXT_MMC` | `ExtMmcRec`: MMC5983MA, 16384 cuentas/G, ejes del chip |
 | 12 | `MISSION` | `MissionRec`: comando atendido o cambio de estado (`op`, `arg`, `result`, `from`, `to`, `moment`, `flags`, `reasons`, `counter`). **Automáticos (`op = 0`):** el aviso de `t_abort` (`reasons` = `RZ_SIN_BOOST`); **BOOST detectado (T-410):** `arg` = 1 inercial o 2 barométrico, y `counter` = el `dv` en cm/s o el salto en cm; **reanudado tras reinicio (T-411):** `arg` = 3, y `from`/`to` = el estado guardado |
+| 13 | `PI` | `PiRec` (16 B): la UART con la Pi de Demeter (`ext_pi`). `kind` 1 = la Pi informó otro estado, 2 = se perdió su latido (`status` = `0xFF`), 3 = se le mandó un comando (`prev` = el comando, `pad` = el intento, `status` = el estado de la Pi; D-055); en `kind` 1, `pad` = el motivo del error de la Pi (D-056); `status`, `prev`, y los contadores `rx_frames`, `crc_err` y `tx_pose` desde el arranque (D-054) |
 | 250 | `EVENT` | `EventRec`: incidentes de la SD (fallo de escritura o reapertura, errno, duración) |
 
 **Fuentes (`src`):** 0 QMI · 1 QMC · 2 BME · 3 GNSS · 4 RTC · 5 PMU · 6 LSM · 7 BMP · 8 MMC · 15 sistema.

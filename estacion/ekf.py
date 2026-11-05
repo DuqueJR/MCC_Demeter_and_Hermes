@@ -102,7 +102,7 @@ def euler_deg(C):
 def load_extra(path):
     """Lo que calib.load no trae: GNSS, PPS y barometros."""
     recs = tblog.records(open(path, 'rb').read())[0]
-    pvt, pps, bme, bmp = [], [], [], []
+    pvt, pps, bme, bmp, link, hb, sv = [], [], [], [], [], [], []
     for r in recs:
         if r[1] == tblog.T_PVT and len(r[4]) == 92:
             d = tblog.decode_pvt(r[4])
@@ -110,6 +110,13 @@ def load_extra(path):
             sacc = struct.unpack_from('<I', r[4], 68)[0]
             vacc = struct.unpack_from('<I', r[4], 44)[0]
             pvt.append((r[3], d['utc_sec'] + d['nano'] * 1e-9, d['fix'], d['lat'], d['lon'], d['h'], d['hacc'], vacc / 1000.0, vn / 1000.0, ve / 1000.0, vd / 1000.0, sacc / 1000.0))
+            sv.append((r[3], d['nsv']))
+        elif r[1] == tblog.T_LINK and len(r[4]) == 16:              # para el dashboard: el enlace (balizas de tierra recibidas)
+            direc, _, _, _, rssi, snr = struct.unpack_from('<BBBBhh', r[4])
+            if direc == 1:
+                link.append((r[3], rssi / 10.0, snr / 10.0))
+        elif r[1] == tblog.T_HB and len(r[4]) >= 32:                   # para el dashboard: lo escrito en la SD
+            hb.append((r[3], struct.unpack_from('<I', r[4], 28)[0]))
         elif r[1] == tblog.T_PPS and len(r[4]) >= 18:
             te, sec, used = struct.unpack_from('<qqB', r[4])
             if used:
@@ -138,7 +145,20 @@ def load_extra(path):
     bmp = arr(bmp, 2)
     if len(bmp) > 2:                                                 # mediana de 3, como el firmware
         bmp[1:-1, 1] = np.median(np.c_[bmp[:-2, 1], bmp[1:-1, 1], bmp[2:, 1]], axis=1)
-    return dict(pvt=arr(pvt, 12), pps=arr(pps, 2), bme=arr(bme, 2), bmp=bmp)
+    return dict(pvt=arr(pvt, 12), pps=arr(pps, 2), bme=arr(bme, 2), bmp=bmp, link=arr(link, 3), hb=arr(hb, 2), sv=arr(sv, 2))
+
+
+def last_at(series, t, cols):
+    """Ultimo valor de series (columna 0 = tiempo) en t, o NaN."""
+    if not len(series):
+        return [float('nan')] * len(cols)
+    i = int(np.searchsorted(series[:, 0], t, side='right')) - 1
+    return [float(series[i, c]) for c in cols] if i >= 0 else [float('nan')] * len(cols)
+
+
+def ned_to_latlon(n, e, d, o):
+    lat0 = np.radians(o[0])
+    return o[0] + np.degrees(n / 6378137.0), o[1] + np.degrees(e / (6378137.0 * np.cos(lat0))), o[2] - d
 
 
 def bin_steps(t, x, t0, n):
@@ -448,7 +468,14 @@ def run(path, a):
         if k % every == 0:
             C = q_to_C(e.q)
             yaw, pitch, roll = euler_deg(C)
-            out.append((tk, *e.q, yaw, pitch, roll, *e.p, *e.v, *(e.bg / DPS), *(e.ba / G), e.b['bmp'], e.b['bme'], -e.p[2] + e.b['bmp'], *np.sqrt(np.diag(e.Pm)[TH:TH + 3]) * 180 / np.pi))
+            sd = np.sqrt(np.diag(e.Pm))
+            ll = ned_to_latlon(e.p[0], e.p[1], e.p[2], origin) if origin else (float('nan'),) * 3
+            cnt = lambda pref: [sum(s[k2] for nm, s in e.stats.items() if nm.startswith(pref)) for k2 in ('ok', 'rej')]
+            gfix, ghacc = last_at(pvt, tk, (2, 6))
+            out.append((tk, *e.q, yaw, pitch, roll, *e.p, *e.v, *(e.bg / DPS), *(e.ba / G), e.b['bmp'], e.b['bme'], -e.p[2] + e.b['bmp'], *sd[TH:TH + 3] * 180 / np.pi,
+                        *(fk - e.ba / G), *(wk - e.bg / DPS), *ll, *sd[P:P + 3], *sd[V:V + 3],
+                        *cnt('gnss'), *[a_ + b_ for a_, b_ in zip(cnt('bmp'), cnt('bme'))], *[a_ + b_ for a_, b_ in zip(cnt('mmc'), cnt('qmc'))],
+                        gfix, last_at(x['sv'], tk, (1,))[0], ghacc, *last_at(x['link'], tk, (1, 2)), last_at(x['hb'], tk, (1,))[0] / 1e6))
         while pose_i < len(poses) and tk > poses[pose_i]['t1']:     # al llegar: antes de que la gravedad corrija
             p = poses[pose_i]
             pose_i += 1
@@ -477,7 +504,10 @@ def run(path, a):
 
     salida = os.path.splitext(path)[0] + '_ekf.csv'
     with open(salida, 'w') as f:
-        f.write('t_us,qw,qx,qy,qz,guinada_deg,cabeceo_deg,alabeo_deg,pn_m,pe_m,pd_m,vn_mps,ve_mps,vd_mps,bgx_dps,bgy_dps,bgz_dps,bax_g,bay_g,baz_g,b_bmp_m,b_bme_m,alt_baro_m,sig_x_deg,sig_y_deg,sig_z_deg\n')
+        # Las primeras 26 columnas no cambian; las demas son para el dashboard de control (radares G, mapa, enlace, SD, estadisticas)
+        f.write('t_us,qw,qx,qy,qz,guinada_deg,cabeceo_deg,alabeo_deg,pn_m,pe_m,pd_m,vn_mps,ve_mps,vd_mps,bgx_dps,bgy_dps,bgz_dps,bax_g,bay_g,baz_g,b_bmp_m,b_bme_m,alt_baro_m,sig_x_deg,sig_y_deg,sig_z_deg,'
+                'fx_g,fy_g,fz_g,wx_dps,wy_dps,wz_dps,lat_deg,lon_deg,alt_msl_m,sig_pn_m,sig_pe_m,sig_pd_m,sig_vn_mps,sig_ve_mps,sig_vd_mps,'
+                'gnss_ok,gnss_rej,baro_ok,baro_rej,mag_ok,mag_rej,gnss_fix,gnss_nsv,gnss_hacc_m,rssi_dbm,snr_db,sd_mb\n')
         for r in out:
             f.write(','.join(f'{v:.6g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
     print(f'escribi {salida}')

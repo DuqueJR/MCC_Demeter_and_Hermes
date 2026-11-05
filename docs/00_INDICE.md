@@ -25,6 +25,7 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | **La web pública o el dashboard de operación** (diseño, contrato `web-1`, plan y tareas T-6xx) | [08_gui/00_README.md](08_gui/00_README.md) |
 | **El plan de dos sesiones del back** (Jerónimo y Juan Pablo: contratos C-01 a C-05, hitos H0–H4) | [05_plan/dos_sesiones/00_LEEME.md](05_plan/dos_sesiones/00_LEEME.md) |
 | La Pi de Demeter | [04_diseno/visionpack_integracion.md](04_diseno/visionpack_integracion.md) y [06_revisiones/revision_codigo_pi_demeter.md](06_revisiones/revision_codigo_pi_demeter.md) |
+| Pose y cámaras para visión artificial (marcos, cuaterniones, sidecars) | [04_diseno/vision_pose_camaras.md](04_diseno/vision_pose_camaras.md) |
 | Por qué se decidió algo | [04_diseno/decisiones.md](04_diseno/decisiones.md) |
 | Qué hacer hoy | [05_plan/plan_maestro.md](05_plan/plan_maestro.md) → [05_plan/backlog.md](05_plan/backlog.md) |
 | Probar algo | [05_plan/plan_pruebas.md](05_plan/plan_pruebas.md) |

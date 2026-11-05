@@ -16,6 +16,15 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 > - **Su propuesta para después:** la LilyGO le manda el estado (actitud, posición y momento) con marca UTC a 20–50 Hz, y la Pi interpola al instante de cada cuadro (hasta 10 fps). La integración por UART (T-702) se rediseña con él.
 > - Las tablas de abajo quedan como la propuesta original.
 
+> **Actualización del 2026-11-04 (D-054, bloque 9a y 9b, escrito sin validar):**
+> - El cableado TX → 1k → RX de la Pi funciona: la Pi leyó el arranque de la ROM de la ESP32-S3 en `/dev/ttyAMA0` a 115200.
+> - `firmware/cohete/src/ext_pi.cpp` (solo Demeter): recibe el latido `PAYLOAD_STATUS` y envía la POSE 0x21 a 50 Hz (≈3 kB/s, 26 % de la UART). Sin EKF a bordo: GNSS, altura del barómetro sobre su p0, cuaternión identidad, `F_EKF` y `F_ATT` en 0. El suelo MSL se estima en tierra (GNSS menos barómetro) y queda fijo en FLY y RECOVERY.
+> - `demeter_missiond.py` publica su estado cada 1 s (latido). Sin latido en 3 s, la LilyGo lo da por desconocido (`0xFF`).
+> - El estado de la Pi va en el byte alto de `TELEM.actuators` y en el log (`T_PI`); el monitor muestra la línea `[pi  ]`.
+> - **D-056:** `PAYLOAD_STATUS` lleva además el motivo del error (`ErrorCode`), que llega a tierra en los bits 3-7 de `TELEM.actuators`.
+> - Pendiente: 9c (comandos de misión: PREFLIGHT, ARM, ABORT, START_ASCENT en BOOST, START_REC, TOUCHDOWN) y 9d (encendido por IO45, con `HandlePowerKey=ignore` en la Pi).
+> - Ojo: la línea Pi TX → IO44 va sin resistencia; si la LilyGo queda sin alimentación con la Pi encendida, la alimenta por los diodos del pin. Propuesta: 1 kΩ también ahí.
+
 ## 1. Enlace UART (ya definido por Demeter, no cambia)
 
 - 115200 baudios, 8N1, niveles de 3,3 V y **masa común**.
@@ -32,6 +41,27 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 | 0xA0, 0xA1, 0xA2, 0xB1, 0xC1, 0xF1 | LilyGO → Pi | — | Comandos (ver la sección 2) |
 
 ## 2. Qué transición de la LilyGO dispara cada comando (D-023)
+
+> **Desde el 2026-11-04 (D-055, bloque 9c):** la LilyGo no dispara un comando por transición. Calcula la fase objetivo de la Pi y le manda el siguiente comando según el estado de su latido (`firmware/cohete/src/pi_plan.h`):
+>
+> | Misión de la LilyGo | Fase objetivo de la Pi |
+> | --- | --- |
+> | TIERRA, o FLY forzado sin BOOST | READY |
+> | ARMED, o FLY sin BOOST (tras LAUNCH) | ARMED |
+> | BOOST o COAST | ASCENT (video del ascenso) |
+> | APOGEO, CAIDA o PARACAIDAS | RECORDING (captura del descenso) |
+> | ATERRIZAJE o RECOVERY | fin (TOUCHDOWN e ingesta) |
+>
+> | Estado de la Pi | Comando según la fase objetivo |
+> | --- | --- |
+> | BOOT, ABORTED, ERROR | PREFLIGHT (salvo en fin; en ERROR, cada 30 s) |
+> | READY | ARM si el objetivo es ARMED o más |
+> | ARMED | START_ASCENT si es ASCENT o más; ABORT si es READY o fin |
+> | ASCENT | START_REC si es REC o fin; ABORT si es READY |
+> | RECORDING | TOUCHDOWN si es fin; ABORT si es READY |
+> | PREFLIGHT, STARTING, INGESTING, PROCESSING, COMPLETE, desconocido | nada (esperar) |
+>
+> Se repite cada 1 s mientras la Pi no cambie de estado (3 intentos, luego 10 s de pausa). `PREFLIGHT_SYNC` no se usa: la hora llega por chrony. Los watchdogs de la Pi (15 s en ASCENT y 95 s en RECORDING) siguen activos por si la LilyGo no detecta un momento. La tabla de abajo es la propuesta original.
 
 | Evento en la LilyGO ([maquina_estados.md](maquina_estados.md)) | A la Pi | Notas |
 | --- | --- | --- |

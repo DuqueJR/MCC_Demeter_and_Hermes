@@ -32,7 +32,7 @@ input{width:75px}input.wide{width:110px}.note{color:#555;margin:4px 0}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const post=(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(async r=>{if(!r.ok){const e=await r.json();alert(e.error)}return r});
-const TABS=['Mando','Vuelo Demeter','Vuelo Hermes','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
+const TABS=['Mando','EKF','Vuelo Demeter','Vuelo Hermes','Diagnostico','Monitores','Descargas','Calibracion','Mision'];let tab='Mando';
 const ROCKETS=[['demeter','d','Demeter'],['hermes','h','Hermes']];
 const STATES=['tierra','armed','fly','recovery'];
 const MOMENTS=['launch','boost','coast','apogeo','caida','paracaidas','aterrizaje'];
@@ -47,6 +47,9 @@ $('nav').onclick=e=>{if(e.target.dataset.t){tab=e.target.dataset.t;build()}};
 
 function cmd(line){post('/api/cmd',{line})}
 const actText=a=>(a&1?'BUZZER SONANDO':'buzzer apagado')+' | '+(a&2?'PULSO A LA PI EN CURSO':'sin pulso')+(a&4?' | ya se envio un pulso a la Pi':'');
+const PI_ST={0:'BOOT',1:'PREFLIGHT',2:'READY',3:'ARMED',4:'STARTING',5:'INGESTING',6:'PROCESSING',7:'COMPLETE',8:'ASCENT',48:'RECORDING',224:'ABORTED',225:'SD_FULL',226:'RATE_FALLBACK',227:'TELEMETRY_LOST',228:'ABORT_REQUESTED',229:'CLOCK_UNSYNCED',239:'PIPELINE_ERROR',255:'desconocido (sin latido por la UART)'};
+const PI_MOT={1:'sin espacio en la SD',2:'SD lenta',3:'RAM o tmpfs',4:'camara',5:'telemetryd o UART',6:'fallo un proceso',7:'archivos o directorios',31:'otro'};
+const piText=a=>{const v=(a>>8)&255,m=(a>>3)&31;return (PI_ST[v]||('0x'+v.toString(16)))+(m?' - '+(PI_MOT[m]||('motivo '+m)):'')};   // byte alto de TELEM.actuators (ext_pi)
 const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 function spareText(l){if(l.spare===null||l.spare===undefined)return '-';if(l.spare==2)return 'lista';if(l.spare==1)return 'creando '+l.spare_pct+' %';return l.rec||l.prep?'ya en uso: es este archivo':'no hay'}
 function logText(l){if(!l)return '-';if(l.rec)return 'REGISTRANDO '+l.name+' | '+mmss(l.elapsed)+' | '+l.pct+' % | quedan '+mmss(l.remain);if(l.prep)return 'PREPARADO '+l.name;return 'sin registrar | reserva '+spareText(l)}
@@ -82,6 +85,7 @@ function build(){
  if(tab.startsWith('Vuelo ')){const r=tab.slice(6).toLowerCase();
   m.innerHTML=S&&!S.web?'<div class="box"><b>La web no esta compilada.</b> Compila la web: <code>npm run web:build</code> (desde la raiz del repo) y vuelve a abrir esta pestana.</div>'
    :`<div class="fill"><p class="note" style="margin:0 0 4px">Pagina de mision (la misma de la web publica), con los datos de este dashboard. <a href="/web/${r}/" target="_blank">Abrir en una pestana nueva</a></p><iframe class="web" src="/web/${r}/" title="Vuelo ${r}"></iframe></div>`}
+ if(tab=='EKF') window.ekfBuild(m);
  if(tab=='Mision') buildMission();
  if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calm"></div><pre id="calo"></pre></div>';lastCal='';calRender()}
  $('dr')&&($('dr').value=dlArgs.role);
@@ -158,12 +162,13 @@ function render(){
  $('bt').innerHTML='<tr><th></th><th>Estado</th><th>Momento</th><th>Modo</th><th>Registro</th></tr>'+[...S.rockets,S.ground].map(b=>`<tr class="${b.stale?'stale':''}"><td class="name">${b.name}</td><td>${esc(b.estado)}</td><td>${esc(b.momento)}</td><td class="${b.modo&&b.modo!='NORMAL'&&b.modo!='CON HORA'?'warn':''}">${esc(b.modo)}</td><td class="${b.log&&b.log.rec?'warn':''}">${b.name=='Tierra'?'':esc(logText(b.log))}</td></tr>`).join('');
  ROCKETS.forEach(([r],i)=>{const el=$('tm_'+r);if(!el)return;const t=S.rockets[i].telem,l=S.rockets[i].log;
   const reg=l?[['Registro',l.rec?'REGISTRANDO':(l.prep?'PREPARADO':'sin registrar')],['Archivo',l.name||'-'],...(l.rec?[['Tiempo / lleno',mmss(l.elapsed)+' / '+l.pct+' %'],['Cabe aun en este archivo',mmss(l.remain)+' min:s']]:[]),['Reserva',spareText(l)]]:[];
-  el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Actuadores',actText(t.actuators)],['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
+  el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Actuadores',actText(t.actuators)],...(r=='demeter'?[['Raspberry Pi',piText(t.actuators)]]:[]),['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});
  if(!paused){ROCKETS.forEach(([r])=>renderDiag('dg_'+r,S.diag[r]));renderDiag('dg_tierra',S.diag.tierra)}
  const st=$('dlst');if(st)st.textContent=S.job.running?jobPhase():'';
  const dl=$('dl');if(dl){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(txt!=lastDl){lastDl=txt;const near=dl.scrollTop+dl.clientHeight>=dl.scrollHeight-20;dl.textContent=txt;if(near)dl.scrollTop=dl.scrollHeight}}
  const ev=$('events'),evt=S.events.join('\n');if(evt!=lastEv){lastEv=evt;const near=ev.scrollTop+ev.clientHeight>=ev.scrollHeight-20;ev.textContent=evt;if(near)ev.scrollTop=ev.scrollHeight}  // solo si cambio: reescribirlo borraria la seleccion
  calRender();
+ window.ekfJob&&window.ekfJob();
  const md=$('modal');if(S.ask){md.style.display='flex';$('mq').textContent=S.ask.question;$('mr').innerHTML=S.ask.reasons.map(x=>`<li>${esc(x)}</li>`).join('');$('ml').textContent='Vence en '+S.ask.left+' s';$('myes').textContent=S.ask.reasons.length?'Forzar':'Confirmar'}else md.style.display='none';
 }
 $('myes').onclick=()=>cmd('si');$('mno').onclick=()=>cmd('no');
@@ -182,4 +187,5 @@ function jobPhase(){const L=S.job.lines,last=(L[L.length-1]||'').replace(/^~/,''
 async function pollRaw(){if(tab!='Monitores'||paused)return;const d=await (await fetch('/api/raw')).json();if(paused)return;rawData=d;for(const r in rawData){const el=$('raw_'+r);if(!el)continue;const near=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.textContent=rawData[r].join('\n');if(near)el.scrollTop=el.scrollHeight}}
 async function tick(){try{S=await (await fetch('/api/state')).json();render();conn();pollRaw()}catch(e){}}
 window.tick=tick;build();tick();setInterval(tick,500);
-</script></body></html>
+</script>
+<script src="/dashboard_ekf.js"></script></body></html>

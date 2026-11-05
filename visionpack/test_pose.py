@@ -22,6 +22,19 @@ class PoseTests(unittest.TestCase):
         self.assertTrue(dp.decode_flags(r["flags"])["hora"])
         self.assertEqual(dp.POSE_STRUCT.size, 54)
 
+    def test_sd_sin_estimar_es_none(self):
+        # La LilyGo sin EKF manda 0xFFFF en sd_actitud y sd_alt: no son 655.35 grados ni metros
+        payload = dp.encode_pose(10_000_000, 1, dp.F_POS | dp.F_TIME, 6.5, -75.8, 1.0, 1590.0, (0, 0, 0), [1, 0, 0, 0], (0, 0, 0),
+                                 None, 7.28, None)
+        r = dict(dp.decode_pose(payload), pi_ts=10.0)
+        self.assertIsNone(r["sd_actitud_deg"])
+        self.assertIsNone(r["sd_alt_m"])
+        self.assertAlmostEqual(r["sd_pos_m"], 7.28)
+        p = dp.interpolate_pose([r, dict(r, utc_us=10_020_000, seq=2)], 10_010_000, max_gap_s=0.1)
+        if p is not None:
+            self.assertIsNone(p["sd_alt_m"])
+            self.assertAlmostEqual(p["sd_pos_m"], 7.28)
+
     def test_cameras_30_deg_from_nadir_nose_down(self):
         for cam in CAMS.values():
             c = dp.camera_in_ned({"q_cuerpo_a_ned": NOSE_DOWN}, cam)
@@ -78,3 +91,40 @@ class PoseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ErrorCodeTests(unittest.TestCase):
+    """Motivo del error de la Pi hacia la LilyGo (D-056): los textos reales de missiond."""
+
+    def test_motivos(self):
+        from demeter_protocol import ErrorCode, error_code
+        casos = {
+            "espacio SD insuficiente para captura+revelado al límite de 95s: libres=1": ErrorCode.SD_ESPACIO,
+            "SD/tmpfs no sostiene ni 1 FPS durante 95s": ErrorCode.SD_LENTA,
+            "RAM disponible insuficiente para el backlog proyectado": ErrorCode.RAM,
+            "/mnt/ramcam no es un montaje tmpfs": ErrorCode.RAM,
+            "telemetryd no confirmó que el puerto serial está abierto": ErrorCode.TELEMETRIA,
+            "rpicam-vid terminó durante ascenso con estado 1": ErrorCode.CAMARA,
+            "touchdown; demeter_ingestd exit=2: x": ErrorCode.PROCESO,
+            "directorio de grabaciones no escribible: /x": ErrorCode.ARCHIVOS,
+            "fallo interno en ARM: KeyError: 3": ErrorCode.OTRO,
+        }
+        for texto, esperado in casos.items():
+            self.assertEqual(error_code(texto), esperado, texto)
+        self.assertEqual(error_code(None), ErrorCode.NINGUNO)
+        self.assertTrue(all(int(c) < 32 for c in ErrorCode))      # cabe en los 5 bits de TELEM.actuators
+
+
+class MontajeV2Tests(unittest.TestCase):
+    """camaras.json v2 (Pablo, 2026-11-05): cam0 en la cara de la marca (-Z), cam1 en la opuesta (+Z), rotadas 180 grados."""
+
+    def test_lados_y_rotacion(self):
+        for idx, lado in ((0, -1.0), (1, 1.0)):
+            q = CAMS[idx]["q_camara_cuerpo"]
+            eje = dp.q_rotate(q, [0.0, 0.0, 1.0])
+            abajo = dp.q_rotate(q, [0.0, 1.0, 0.0])
+            horiz = dp.q_rotate(q, [1.0, 0.0, 0.0])
+            self.assertAlmostEqual(eje[0], math.cos(math.radians(30)), places=6)        # 30 grados del eje, hacia la nariz
+            self.assertAlmostEqual(eje[2], lado * 0.5, places=6)                        # cam0 hacia -Z (marca), cam1 hacia +Z
+            self.assertAlmostEqual(abs(horiz[1]), 1.0, places=6)                        # horizontal de la imagen a lo largo de Y
+            self.assertGreater(abajo[0], 0.0)                                           # rotada: lo bajo de la imagen mira a la nariz

@@ -24,11 +24,12 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from typing import Any
 
-from demeter_protocol import StatusCode
+from demeter_protocol import StatusCode, error_code
 
 LOG = logging.getLogger("demeter_missiond")
 STOP = False
@@ -36,6 +37,7 @@ TOUCHDOWN_FLAG = Path("/tmp/touchdown_event.flag")
 MIN_MEM_AVAILABLE_KB = 1024 * 1024
 ASCENT_WATCHDOG_S = 15.0
 RECORDING_WATCHDOG_S = 95.0
+STATUS_EVERY_S = 1.0         # latido hacia la LilyGo: PAYLOAD_STATUS cada segundo, ademas de en cada cambio (sin latido, la LilyGo lo da por desconocido a los 3 s)
 RAW_PAIR_BUDGET_MIB = 24.0
 PROCESSED_PAIR_BUDGET_MIB = 30.0
 SD_WRITE_SAFETY_FACTOR = 0.9
@@ -465,6 +467,7 @@ class MissionDaemon:
         self.owns_touchdown_flag = False
         self.changed_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         self.last_error: str | None = None
+        self.last_status_sent = 0.0
         self.last_performance_sample = 0.0
         self.active_performance_alerts: dict[str, str] = {}
         self.previous_sd_counters: tuple[str, int, int, float] | None = None
@@ -620,11 +623,22 @@ class MissionDaemon:
                 kind, details.get("chunk"), details.get("process"), len(alerts),
             )
 
-    def publish_status(self) -> None:
-        message = json.dumps({"status": int(STATUS[self.state])}, separators=(",", ":")).encode()
+    def heartbeat_loop(self, stop: threading.Event) -> None:
+        """Latido hacia la LilyGo en su propio hilo: PREFLIGHT, TOUCHDOWN o la ingesta bloquean el bucle principal varios segundos,
+        y sin latido la LilyGo da a la Pi por desconocida a los 3 s."""
+        while not STOP and not stop.wait(STATUS_EVERY_S):
+            if time.monotonic() - self.last_status_sent >= STATUS_EVERY_S * 0.9:
+                self.publish_status(quiet=True)
+
+    def publish_status(self, quiet: bool = False) -> None:
+        self.last_status_sent = time.monotonic()
+        reason = error_code(self.last_error) if self.state == State.ERROR else 0     # motivo para la LilyGo (D-056)
+        message = json.dumps({"status": int(STATUS[self.state]), "motivo": reason}, separators=(",", ":")).encode()
         try:
             self.command_socket.sendto(message, str(self.args.telemetry_socket))
         except OSError as exc:
+            if quiet:       # latido: sin telemetryd no hay a quien avisar; ya se aviso en el ultimo cambio de estado
+                return
             LOG.warning(
                 "no se pudo publicar estado=%s a telemetryd en %s (%s): %s",
                 self.state.value, self.args.telemetry_socket, type(exc).__name__, exc,
@@ -1215,6 +1229,8 @@ class MissionDaemon:
             "error": None, "video_pid": None, "flight_pid": None,
         })
         self.publish_status()
+        heartbeat_stop = threading.Event()
+        threading.Thread(target=self.heartbeat_loop, args=(heartbeat_stop,), name="latido", daemon=True).start()
         try:
             while not STOP and self.state != State.COMPLETE:
                 readable, _, _ = select_select([self.command_socket, self.event_socket], 0.5)
@@ -1239,6 +1255,7 @@ class MissionDaemon:
             if STOP and self.state not in (State.BOOT, State.COMPLETE, State.ABORTED, State.ERROR):
                 self.abort()
         finally:
+            heartbeat_stop.set()
             if self.video_process:
                 self.stop_ascent_video()
             if self.process and self.process.poll() is None:

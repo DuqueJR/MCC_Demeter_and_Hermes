@@ -27,6 +27,7 @@ python estacion/dashboard.py --reproducir sesiones/AAAAMMDD_HHMMSS_tierra.txt --
 | Herramienta | Uso |
 | --- | --- |
 | `dashboard.py` + `dashboard.html` | La estación y el dashboard de misión (arriba). |
+| `dashboard_ekf.js` | La pestaña **EKF** del dashboard de control (abajo). No toca la web pública. |
 | `web1.py` | (T-661) Traduce las líneas de la estación (`@T`, `@L`, `@G`, `[cmd ]`, `[time]`) a mensajes `web-1`. Solo biblioteca estándar. Como librería: `Traductor.procesar(linea, t_local)`, `tick`, `comando` y `snapshot(mision)`. Por línea de comandos reprocesa una sesión: `python estacion/web1.py sesiones/AAAAMMDD_HHMMSS_tierra.txt --salida web1.jsonl [--snapshot snap.json]`. Desde T-662 `dashboard.py` lo usa: un `Traductor` por proceso, con candado. |
 | `tbget.py` | Descarga los logs de un cohete por USB: `python estacion/tbget.py COM3 list`, `get`, `get --ultimos 2`, `reset`. Opciones `--dir`, `--analizar`, `--csv`. Solo lee. |
 | `tblog.py` | Resume un log `.BIN`: `python estacion/tblog.py LOG.BIN` (`--csv` deja un CSV por fuente en `LOG_csv/`). |
@@ -38,6 +39,58 @@ Los `calib_*.json` y `dashboard.html` viven junto a los `.py` porque se buscan e
 Pruebas de `web1.py` y de la API local (unittest, sin dependencias nuevas): `python -m unittest discover -s estacion/pruebas`.
 
 Salidas locales que no se versionan: `sesiones/`, `mision.json`, `*.BIN`, `*_csv/`, `*_ekf.csv`. Los resúmenes de `tblog.py` de los logs reales de Pablo están en `datos/logs_referencia/pablo/`.
+
+## Pestaña EKF (dashboard de control)
+
+Es una sola vista con dos fuentes:
+
+- **Repaso:** un `NOMBRE_ekf.csv` de `ekf.py`.
+- **En vivo:** el TELEM de cada cohete.
+
+**Qué muestra:**
+- La actitud en 3D del cohete:
+  - en cuerpo FRD;
+  - naranja = la marca (-Z), azul = el costado derecho (+Y), verde = la velocidad;
+  - la vista se gira arrastrando.
+- La tabla de valores en el instante del cursor.
+- Las gráficas:
+  - altura, velocidad NED y Euler;
+  - la nariz: inclinación desde la vertical y rumbo, que sirven con el cohete vertical, donde Euler pierde sentido;
+  - la incertidumbre y los sesgos (solo en el repaso);
+  - la aceleración y el enlace (solo en vivo).
+- La trayectoria horizontal.
+- La línea de tiempo:
+  - reproducir y pausar con la barra espaciadora;
+  - ±1 s con las flechas y ±10 s con Shift;
+  - velocidad de 0.25 a 100x;
+  - ventana de 30 s, 2 min, 10 min o todo;
+  - clic en las gráficas para saltar a un instante.
+
+**En vivo:**
+- El servidor guarda el último TELEM de cada cohete (1 h a 10 Hz), así que al abrir la pestaña se ve todo desde que se conectó tierra.
+- Con `--reproducir` sirve para repasar una sesión de tierra guardada.
+- Mientras el cuaternion llegue en identidad, la pestaña avisa que aún no hay EKF a bordo.
+
+**Instrumentos (desde el 2026-11-05):**
+- **Fuerzas G:** un radar para el plano de la sección, visto desde la cola (+Y a la derecha, la marca arriba), y un indicador del eje X (nariz), donde se ve la gravedad (1 g quieto, nariz arriba). Estela de 2 s y banda de los últimos 10 s. En el repaso usan la fuerza específica en cuerpo ya calibrada; en vivo, los ejes del chip hasta que haya EKF a bordo.
+- **Posición:** la trayectoria sobre teselas de OpenStreetMap (si hay internet; si no, la cuadrícula), con lat/lon y distancia al origen.
+- **Estado:** batería (solo en vivo), RSSI y SNR, calidad del enlace (TELEM recibidos frente a los esperados, en vivo), SD (en vivo, el % del bloque; en el repaso, los MB escritos), GNSS y las estadísticas del EKF (sigmas y medidas aceptadas o rechazadas, en total y en los últimos 10 s).
+- Los `_ekf.csv` y `.BIN` se buscan también en subcarpetas (por ejemplo, `Calibraciones fallidas/`). Un `_ekf.csv` de antes de este cambio se ve, pero sin instrumentos: hay que recalcularlo.
+
+**Calcular:**
+- Corre `ekf.py` sobre un `.BIN` de esta carpeta y carga el resultado.
+- La calibración solo puede ser una que `ekf.py` acepte, es decir, con `retraso_ms` y `ganancia_giro` del QMI. Se busca aquí y en las subcarpetas.
+- Si la vigente no sirve, se escoge la más reciente de ese cohete.
+- Tarda alrededor de 1 min por `.BIN`.
+
+**Rutas:**
+
+| Ruta | Qué da |
+| --- | --- |
+| `GET /api/ekf/lista` | Los `_ekf.csv`, los `.BIN` y las calibraciones que sirven. |
+| `GET /api/ekf/archivo?f=NOMBRE_ekf.csv` | El CSV tal cual. |
+| `GET /api/ekf/vivo?r=1\|2&desde=N` | Los TELEM con número mayor que N, en columnas. |
+| `POST /api/ekf/run {name, opts, calib}` | Corre `ekf.py`. Usa el mismo panel de trabajos que las descargas, así que no corre mientras haya una descarga. |
 
 ## API local y páginas de misión (T-662)
 
@@ -53,6 +106,27 @@ Salidas locales que no se versionan: `sesiones/`, `mision.json`, `*.BIN`, `*_csv
 - La web usa `/api` (relativo), así que, servida desde aquí, lee estas rutas sin configurar nada.
 - Un stream SSE ocupa un hilo del servidor (`ThreadingHTTPServer`); no bloquea al resto.
 - Cada línea de tierra entra al `Traductor` (`procesar`), un hilo da el latido a 1 Hz (`tick`) y cada comando de `/api/cmd` llama antes a `comando()`.
+
+## Pendiente del dashboard de control (pedido de Pablo, 2026-11-04)
+
+El dashboard de control es privado: tiene toda la información, los controles y las herramientas, y hace relay a la web pública de lo que se decida, cuando y como se decida. La web pública (`gui/web`, `web1.py`, contrato `web-1`) es trabajo aparte.
+
+Para cuando se retome el dashboard:
+
+- Toda la información del vuelo: aceleraciones, actitud, ubicación y velocidades.
+- Dos indicadores de fuerzas G tipo radar (un punto que se desplaza dentro de un círculo): uno para el plano de la sección del cohete (Y-Z del cuerpo) y otro para el eje longitudinal (X del cuerpo), donde se ve la gravedad.
+- El visualizador de actitud (ya existe en la pestaña EKF).
+- La carga de las baterías, la intensidad de la señal y la calidad del enlace.
+- La posición actual del cohete en un mapa.
+- Las estadísticas del EKF.
+- El nivel de las memorias SD de la LilyGo y de la Pi.
+
+Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
+
+- SD: la reserva preasignada en verde y, al excederla, lo que se graba fuera de ella en otro color.
+- Filtros seleccionables por variable (paso alto y de ruido) en las gráficas, con un filtro recomendado según los registros (identificar las vibraciones y sugerir el corte).
+- Mapa: la flecha del rumbo de la nariz, con largo según la proyección horizontal de la punta (casi nula con la nariz arriba).
+- Reubicar el selector de ventana.
 
 ## Qué viene (épica E10 del backlog)
 

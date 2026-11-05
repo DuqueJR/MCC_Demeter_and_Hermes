@@ -6,6 +6,7 @@
 #include "in_bar.h"
 #include "mission.h"
 #include "ext_act.h"
+#include "ext_pi.h"
 #include "logger.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
@@ -88,7 +89,7 @@ static void buildTelem(net::Telem &p, int64_t utc_us, uint8_t timeFlags) {
     p.flags = (uint8_t)((s_flying ? net::TF_FLYING : 0) | missionFlags());
     p.state = missionStateByte();
     p.cmd_ack = missionAck();
-    p.actuators = extActBits();
+    p.actuators = (uint16_t)(extActBits() | ((uint16_t)(piReason() & 0x1F) << 3) | ((uint16_t)piStatus() << 8));   // bits 3-7: motivo; byte alto: estado de la Pi
     p.quat[0] = 32767;                                  // identidad hasta que exista el EKF
     p.vbat_mv = g_vbat_mv;
 
@@ -253,6 +254,8 @@ static void netTask(void *) {
     for (;;) {
         MissionLog ml;
         while (missionTakeLog(ml)) bus_log(RING_NET, rec::T_MISSION, rec::S_SYS, ml.t_us, &ml.r, sizeof(ml.r));
+        PiLog pl;
+        while (piTakeLog(pl)) bus_log(RING_NET, rec::T_PI, rec::S_SYS, pl.t_us, &pl.r, sizeof(pl.r));
         TimeModel m;
         const int64_t now = esp_timer_get_time();
         if (!timeUsable(m, now)) {

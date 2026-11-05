@@ -13,6 +13,8 @@
 #include "ext_bmp.h"
 #include "ext_drv.h"
 #include "ext_act.h"
+#include "ext_pi.h"
+#include "pi_plan.h"
 #include "logger.h"
 #include "net_radio.h"
 #include <Preferences.h>
@@ -198,6 +200,10 @@ static uint32_t readyReasons() {
     if (!g_gnss.get(g) || g.fix < 3 || now - g.t_rx_us > FRESH_US) m |= rz(RZ_GNSS);
     if (g_vbat_mv < s_cfg->vbat_arm_mv) m |= rz(RZ_VBAT);
     if (!accAtRest()) m |= rz(RZ_MOVIMIENTO);
+    if (s_rocket == ROCKET_DEMETER) {                  // la Pi debe estar lista o ya armada (D-055); se puede forzar con confirmacion
+        const uint8_t pi = piStatus();
+        if (pi != piplan::PS_READY && pi != piplan::PS_ARMED) m |= rz(RZ_PI_NO_LISTA);
+    }
     return m | motionReasons();
 }
 

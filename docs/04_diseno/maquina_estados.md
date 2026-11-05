@@ -40,7 +40,7 @@ reemplaza: 99_archivo/diseno_v1/maquina_estados.md (D-010 a D-014)
 
 | Comando | Desde | Hacia | Apto si… (si no, `NO_APTO` con motivos y confirmación) |
 | --- | --- | --- | --- |
-| `armar` | TIERRA | ARMED | **Siempre en dos pasos** (`CONFIRMA`, y luego `si`). Antes, sin motivos de "listo": reserva al 100 %, SD bien, LSM y BMP con datos, fix 3D, `vbat ≥ vbat_arm_mv` (3700 mV (P)), `\|a\|` en 1 ± 0,25 g y `\|Vz\| ≤ 2 m/s` |
+| `armar` | TIERRA | ARMED | **Siempre en dos pasos** (`CONFIRMA`, y luego `si`). Antes, sin motivos de "listo": reserva al 100 %, SD bien, LSM y BMP con datos, fix 3D, `vbat ≥ vbat_arm_mv` (3700 mV (P)), `\|a\|` en 1 ± 0,25 g y `\|Vz\| ≤ 2 m/s`; en Demeter, además, la Pi en READY o ARMED (`RZ_PI_NO_LISTA`, D-055) |
 | `desarmar` | ARMED | TIERRA | Siempre |
 | `desarmar` / `estado tierra` | FLY | TIERRA | Sin BOOST: apto (es abortar en el banco). **Con BOOST: no apto (en vuelo)** |
 | `launch` | ARMED | FLY (momento LAUNCH) | Apto. Desde TIERRA: no apto ("no armado"), pero con confirmación entra a FLY **forzado**, que es como se registra en el banco |

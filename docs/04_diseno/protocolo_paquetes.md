@@ -43,7 +43,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 54 | `temp_c[2]` | i8 ×2 | [0] = BME280; [1] reservado |
 | 56 | `state` | u8 | **Estado en los bits 0–3, momento en los bits 4–7** ([maquina_estados](maquina_estados.md)) |
 | 57 | `flags` | u8 | Bit 0 `TF_FLYING` (10 Hz) · 1 `TF_BOOST_SIN_ARMAR` · 2 `TF_FORZADO` · 3 `TF_LAUNCH_VENCIDO` · 4 `TF_REANUDADO` (T-411, D-052) |
-| 58 | `actuators` | u16 | Bit 0: buzzer activo · bit 1: pulso de la Pi en curso · bit 2: se envió algún pulso a la Pi desde el arranque (T-413) |
+| 58 | `actuators` | u16 | Bit 0: buzzer activo · bit 1: pulso de la Pi en curso · bit 2: se envió algún pulso a la Pi desde el arranque (T-413) · **bits 3-7: motivo del error de la Pi** (`ErrorCode` de `demeter_protocol.py`: 0 ninguno, 1 sin espacio en la SD, 2 SD lenta, 3 RAM o tmpfs, 4 cámara, 5 telemetryd o UART, 6 proceso, 7 archivos, 31 otro; D-056) · **bits 8-15: estado de la Pi** por la UART (`StatusCode` de `demeter_protocol.py`; `0xFF` = desconocido, sin latido en 3 s, y siempre en Hermes) (D-054) |
 | 60 | `time_flags` | u8 | Bits 0–1: **calidad** (0 = PPS reciente, 1 = error < 1 ms, 2 = error ≥ 1 ms, 3 = sin hora). Bits 2–3: **fuente** (0 = ninguna, 1 = GNSS, 2 = baliza) |
 | 61 | `cmd_ack` | u8 | Bits 0–5: el contador del último comando (mod 64). Bits 6–7: su `CmdResult` |
 | 62 | `crc` | u16 | |
@@ -121,6 +121,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 8 | Altura disminuyendo | 19 | Contador antiguo |
 | 9 | Aceleración ≠ 1 g (se mueve) | 20 | Comando desconocido |
 | 10 | En vuelo: ya hubo BOOST | 21 | **No se sabe si la Pi está encendida: una pulsación podría apagarla** (T-413, D-049) |
+| | | 22 | **La Pi no está lista (READY): no grabaría el vuelo.** Solo en Demeter, al armar; se puede forzar (D-055) |
 
 Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal cual** para `salud.go_nogo` (§6).
 
