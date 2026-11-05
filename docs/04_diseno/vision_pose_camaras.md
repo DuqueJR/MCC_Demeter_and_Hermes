@@ -18,8 +18,8 @@ El código de referencia está en `visionpack/demeter_pose.py`; las cámaras, en
 > **Estado al 2026-11-05.**
 > - La hora, la posición y la sincronía entre cámaras ya sirven.
 > - La **actitud todavía no:** el EKF aún no corre a bordo. Mientras tanto, el cuaternión llega en identidad y `pose.valida` es `false`.
-> - Los extrínsecos son nominales: falta confirmar con una foto qué índice corresponde a qué lado.
-> - Los intrínsecos son nominales: falta calibrarlos con tablero.
+> - **Extrínsecos:** el lado de cada cámara está confirmado (`camaras.json` v2). Los ángulos son los de diseño; falta medir la desalineación fina de cada montaje.
+> - **Intrínsecos:** calibrados con tablero el 2026-11-05 (`camaras.json` v3), con su distorsión.
 >
 > Los datos de banco sirven para probar el formato, no la geometría.
 
@@ -59,31 +59,43 @@ R = [[1-2(y²+z²),  2(xy-wz),    2(xz+wy)],
   - 4608 × 2592 px;
   - FOV nominal ≈ 66° × 41°;
   - focal 4.74 mm, píxel 1.4 µm.
-- **Montaje:** las dos van en la nariz, a 90° de la marca y a 180° entre sí.
-- **Eje óptico:** apunta 60° por encima de la sección del cohete, hacia la nariz; es decir, a 30° del eje longitudinal.
-- **Orientación de la imagen:** su horizontal es paralela a la sección.
-  - En la cámara 0, la x de la imagen apunta hacia la marca (−Z del cuerpo).
-  - En la cámara 1, apunta al lado opuesto (+Z).
-  - En las dos, la y de la imagen (hacia abajo) queda en el plano X-Y del cuerpo, perpendicular al eje óptico: apunta hacia la cola y hacia afuera de su costado (cámara 0: −0.5·X + 0.866·Y).
+- **Montaje (`camaras.json` v2, Pablo, 2026-11-05):** las dos van en la nariz.
+  - **Cámara 0 ("marca"):** en la cara de la marca (−Z del cuerpo).
+  - **Cámara 1 ("opuesta"):** en la cara opuesta (+Z).
+- **Eje óptico:** apunta 60° por encima de la sección del cohete, hacia la nariz; es decir, a 30° del eje longitudinal, saliendo por su cara.
+- **Orientación de la imagen:** su horizontal es paralela a la sección, a lo largo de Y del cuerpo. Las dos cámaras van rotadas 180°: lo alto de la imagen mira hacia la cola y lo bajo hacia la nariz.
 
 | Índice | Nombre | Eje óptico en cuerpo | `R_camara_a_cuerpo` (columnas = x, y, z de la cámara en cuerpo) | `q_camara_a_cuerpo` |
 | --- | --- | --- | --- | --- |
-| 0 | derecha (+Y) | `cos30·X + sin30·Y` = (0.866, 0.5, 0) | `[[0, -0.5, 0.866], [0, 0.866, 0.5], [-1, 0, 0]]` | `[0.6830, -0.1830, 0.6830, 0.1830]` |
-| 1 | izquierda (−Y) | `cos30·X − sin30·Y` = (0.866, −0.5, 0) | `[[0, -0.5, 0.866], [0, -0.866, -0.5], [1, 0, 0]]` | en el sidecar |
+| 0 | marca (−Z) | `cos30·X − sin30·Z` = (0.866, 0, −0.5) | `[[0, 0.5, 0.866], [1, 0, 0], [0, 0.866, -0.5]]` | `[0.3536, 0.6124, 0.6124, 0.3536]` |
+| 1 | opuesta (+Z) | `cos30·X + sin30·Z` = (0.866, 0, 0.5) | `[[0, 0.5, 0.866], [-1, 0, 0], [0, -0.866, 0.5]]` | `[0.6124, -0.3536, 0.3536, -0.6124]` |
 
-- **Extrínsecos (pendiente):** son nominales (`extrinsecos_confirmados: false`). Falta confirmar con una foto que el índice 0 sea la derecha y el sentido de la imagen.
-  - Si una cámara resulta invertida, solo cambia su fila en `camaras.json`.
-  - Los sidecars dicen qué versión del archivo se usó.
-- **Intrínsecos:** se usa el modelo de cámara estenopeica.
+- **Extrínsecos:** el lado y el sentido de cada cámara están confirmados (`confirmado: true`). Los ángulos (30° y 180°) son los de diseño.
+  - Falta medir la desalineación fina de cada montaje: unos pocos grados posibles, y 1° a 300 m son ~5 m en el suelo.
+  - Cuando se mida, solo cambia la fila de esa cámara en `camaras.json`. Los sidecars dicen qué versión del archivo se usó.
+- **Intrínsecos (calibrados, `camaras.json` v3):** modelo estenopeico con la distorsión de OpenCV (`k1 k2 p1 p2 k3`), para 4608 × 2592 con el foco de vuelo (infinito).
 
   ```
-  u = fx · x/z + cx
-  v = fy · y/z + cy
+  (x', y') = (x/z, y/z) distorsionados con k1 k2 p1 p2 k3   (cv2.projectPoints)
+  u = fx · x' + cx
+  v = fy · y' + cy
   ```
 
-  - Valores nominales: `fx = fy = 3385.7 px` (4.74 mm / 1.4 µm), `cx = 2304`, `cy = 1296`, sin distorsión (`distorsion: null`, `calibrado: false`).
-  - Si la imagen se escala, se escalan `fx`, `fy`, `cx` y `cy`. El sidecar ya trae los valores de su imagen.
-  - Falta calibrar con tablero, por cámara y con el foco de vuelo. La distorsión de la lente es apreciable en los bordes.
+  | Cámara | fx = fy (px) | cx, cy (px) | `[k1, k2, p1, p2, k3]` | RMS | Distorsión en las esquinas |
+  | --- | --- | --- | --- | --- | --- |
+  | 0 marca | 3360.0 | 2351.6, 1295.9 | `[0.128952, -0.29604, -0.002272, 0.000032, 0.245457]` | 0.50 px | 52–69 px |
+  | 1 opuesta | 3339.8 | 2291.2, 1295.5 | `[0.092311, -0.207235, 0.000947, 0.000052, 0.166389]` | 0.41 px | 40–47 px |
+
+  - **Cómo se calibraron:** con un ChArUco en pantalla y 55 y 44 fotos. Los datos llegan al 94 % del radio de la esquina: en el 6 % más externo el modelo extrapola. El detalle y los scripts están en `visionpack/eyes_of_demeter/calibration/intrinsecos/README.md`.
+  - **Foco:** se calibró con el lente fijo a 1.5 dioptrías (~0.67 m), y fx se llevó a infinito con el modelo de lente delgada (−0.7 %). Esa conversión no está verificada contra una escena lejana.
+  - **cx de la cámara 0:** como número aislado vale ±30 px, porque se compensa con la distorsión tangencial. Lo que sirve es el conjunto `fx, cx, cy, distorsion`, que reproyecta a 0.5 px en el campo cubierto. Hay que usarlo completo, sin mezclar valores sueltos.
+  - **Modos de captura:**
+    - En 2304 × 1296 (binning), `fx`, `fy`, `cx` y `cy` se escalan por 0.5 y la distorsión no cambia. El sidecar ya trae los valores de su imagen.
+    - El modo 1536 × 864 es un recorte del sensor: ahí el sidecar dice `calibrado: false`.
+  - **Quién corrige la distorsión: el equipo de visión.** Las imágenes se entregan **sin corregir**, tal como salen del sensor, para no remuestrearlas. Cada sidecar trae `intrinsecos` con `distorsion`.
+    - Para ubicar detecciones, basta corregir sus coordenadas de píxel (sección 8).
+    - Para trabajar sobre una imagen rectificada: `cv2.undistort(img, K, D)` o `cv2.initUndistortRectifyMap`, con `K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]` y `D = distorsion`.
+    - En los bordes la corrección mueve los píxeles hasta ~70 px. Ignorarla da errores de ~1° en las esquinas.
 - **Distancia entre cámara y GNSS:** es de unos centímetros y se desprecia.
 
 ## 4. Tiempo
@@ -135,7 +147,7 @@ R = [[1-2(y²+z²),  2(xy-wz),    2(xz+wy)],
 
 ## 7. El sidecar de cada cuadro
 
-Ejemplo real del vuelo de banco del 2026-11-05. Los valores están recortados, y la actitud es identidad porque no hay EKF:
+Ejemplo del vuelo de banco del 2026-11-05, con los bloques `camara` y `camara_en_ned` ya como salen con `camaras.json` v3. Los valores están recortados, y la actitud es identidad porque no hay EKF:
 
 ```json
 {
@@ -150,10 +162,11 @@ Ejemplo real del vuelo de banco del 2026-11-05. Los valores están recortados, y
     "utc": "2026-11-05T04:13:19.972231+00:00"
   },
   "camara": {
-    "indice": 0, "nombre": "derecha", "calibracion": "camaras.json v1", "extrinsecos_confirmados": false,
-    "q_camara_a_cuerpo": [0.6830, -0.1830, 0.6830, 0.1830],
-    "intrinsecos": {"fx_px": 3385.7, "fy_px": 3385.7, "cx_px": 2304.0, "cy_px": 1296.0,
-                    "ancho_px": 4608, "alto_px": 2592, "distorsion": null, "calibrado": false}
+    "indice": 0, "nombre": "marca", "calibracion": "camaras.json v3", "extrinsecos_confirmados": true,
+    "q_camara_a_cuerpo": [0.3536, 0.6124, 0.6124, 0.3536],
+    "intrinsecos": {"fx_px": 3360.0, "fy_px": 3360.0, "cx_px": 2351.63, "cy_px": 1295.86,
+                    "ancho_px": 4608, "alto_px": 2592,
+                    "distorsion": [0.128952, -0.29604, -0.002272, 0.000032, 0.245457], "calibrado": true}
   },
   "pose": {
     "valida": false, "metodo": "slerp", "seq_antes": 26149, "seq_despues": 26150, "hueco_s": 0.0194,
@@ -166,10 +179,10 @@ Ejemplo real del vuelo de banco del 2026-11-05. Los valores están recortados, y
                "gnss_3d": true, "en_vuelo": true, "fuente_hora": "gnss_pps"}
   },
   "camara_en_ned": {
-    "q_camara_a_ned": [0.6830, -0.1830, 0.6830, 0.1830],
-    "eje_optico_ned": [0.866, 0.5, 0.0],
-    "angulo_desde_nadir_deg": 90.0,
-    "rumbo_eje_deg": 30.0
+    "q_camara_a_ned": [0.3536, 0.6124, 0.6124, 0.3536],
+    "eje_optico_ned": [0.866, 0.0, -0.5],
+    "angulo_desde_nadir_deg": 120.0,
+    "rumbo_eje_deg": 0.0
   }
 }
 ```
@@ -188,6 +201,7 @@ Ejemplo real del vuelo de banco del 2026-11-05. Los valores están recortados, y
 
 ```python
 import math
+import cv2
 import numpy as np
 
 def R_desde_q(q):                              # q = [w, x, y, z], Hamilton
@@ -198,8 +212,11 @@ def R_desde_q(q):                              # q = [w, x, y, z], Hamilton
 
 def pixel_al_suelo(sidecar, u, v, terreno_msl):
     """Interseca el rayo del píxel (u, v) con un plano horizontal a terreno_msl. Devuelve lat, lon y distancia."""
-    K, p = sidecar["camara"]["intrinsecos"], sidecar["pose"]
-    rayo_cam = np.array([(u - K["cx_px"]) / K["fx_px"], (v - K["cy_px"]) / K["fy_px"], 1.0])   # sin distorsión
+    I, p = sidecar["camara"]["intrinsecos"], sidecar["pose"]
+    K = np.array([[I["fx_px"], 0, I["cx_px"]], [0, I["fy_px"], I["cy_px"]], [0, 0, 1]])
+    D = np.array(I["distorsion"] or [0, 0, 0, 0, 0], float)
+    x, y = cv2.undistortPoints(np.array([[[u, v]]], float), K, D).ravel()    # quita la distorsión
+    rayo_cam = np.array([x, y, 1.0])
     rayo_ned = R_desde_q(sidecar["camara_en_ned"]["q_camara_a_ned"]) @ rayo_cam
     h = p["alt_msl_m"] - terreno_msl              # altura de la cámara sobre ese terreno
     if rayo_ned[2] <= 0:                          # el rayo no baja: cielo u horizonte
@@ -211,7 +228,10 @@ def pixel_al_suelo(sidecar, u, v, terreno_msl):
     return lat, lon, t * np.linalg.norm(rayo_ned)
 ```
 
-- **Comprobación:** con el cohete nariz abajo (`q_cuerpo_a_ned = [cos(−45°), 0, sin(−45°), 0]`) a 300 m sobre un terreno plano, el centro de la imagen de la cámara 0 cae 173 m al este, a 346 m de distancia. Su eje queda a 30° del nadir, hacia el lado +Y del cohete.
+- **Comprobación:** con el cohete nariz abajo (`q_cuerpo_a_ned = [cos(−45°), 0, sin(−45°), 0]`; en esa actitud la marca mira al norte) a 300 m sobre un terreno plano:
+  - el eje de la cámara 0 cae 173 m al norte, a 346 m de distancia y a 30° del nadir, hacia el lado de la marca;
+  - el de la cámara 1 cae 173 m al sur.
+  - Para el centro óptico, usa `(cx, cy)` y no el centro geométrico de la imagen.
 - **Terreno real:** hay que intersecar contra el modelo de terreno iterando el punto. Con la cámara casi horizontal, el error de actitud domina.
 - **Aproximación:** se usa un plano local tangente, suficiente para cientos de metros. Para distancias mayores conviene ECEF.
 
@@ -220,7 +240,7 @@ def pixel_al_suelo(sidecar, u, v, terreno_msl):
 | Pendiente | Efecto | Quién |
 | --- | --- | --- |
 | EKF a bordo (actitud en la pose) | Sin él no hay `q_cuerpo_a_ned` real: no se puede ubicar nada | Firmware (Pablo) |
-| Confirmar lado y sentido de cada cámara (foto) | Un índice cruzado pone los objetos en el lado opuesto | Pablo |
-| Calibrar intrínsecos y distorsión (tablero, foco de vuelo) | Error angular en los bordes de la imagen | Visión y Pablo |
+| Medir la desalineación fina de cada cámara frente al cuerpo (tablero + IMU de la LilyGo) | Unos pocos grados de error de apuntamiento | Pablo |
+| Verificar fx al infinito (escena lejana de tamaño conocido) | Hasta ~0.7 % de escala si la conversión desde 1.5 dioptrías falla | Pablo |
 | Medir `t_linea` del obturador rodante | Pose por fila con el cohete girando | Visión y Pablo |
 | Modelo del terreno y referencia del geoide | Altura de la cámara sobre el suelo bajo ella | Por definir |

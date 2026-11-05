@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "descripcion": "Extrinsecos e intrinsecos de las camaras de Demeter. Cuerpo FRD: X hacia la nariz, Y a la derecha (mirando de la cola a la nariz con la marca arriba), Z opuesto a la marca. Camara estilo OpenCV: x derecha de la imagen, y abajo, z eje optico. R_camara_a_cuerpo: filas = componentes en cuerpo, columnas = ejes x, y, z de la camara. v2 (Pablo, 2026-11-05): cam0 en la cara de la marca (-Z) y cam1 en la opuesta (+Z); horizontal de la imagen paralela a la seccion (a lo largo de Y); las dos rotadas 180 grados: lo alto de la imagen mira hacia la cola y lo bajo hacia la nariz. Intrinsecos nominales: falta calibrar con tablero.",
+  "version": 3,
+  "descripcion": "Extrinsecos e intrinsecos de las camaras de Demeter. Cuerpo FRD: X hacia la nariz, Y a la derecha (mirando de la cola a la nariz con la marca arriba), Z opuesto a la marca. Camara estilo OpenCV: x derecha de la imagen, y abajo, z eje optico. R_camara_a_cuerpo: filas = componentes en cuerpo, columnas = ejes x, y, z de la camara. v2 (Pablo, 2026-11-05): cam0 en la cara de la marca (-Z) y cam1 en la opuesta (+Z); horizontal de la imagen paralela a la seccion (a lo largo de Y); las dos rotadas 180 grados: lo alto de la imagen mira hacia la cola y lo bajo hacia la nariz. v3 (2026-11-05): intrinsecos calibrados con ChArUco en pantalla, lente fijo a 1.5 dioptrias (~0.67 m); fx llevado a foco infinito con lente delgada (fx_inf = fx_cal * (1 - f*D)). Modelo OpenCV k1 k2 p1 p2 k3, valido hasta ~94 % del radio de la esquina. Escala a otros modos solo si son de campo completo (binning).",
   "camaras": [
     {
       "indice": 0,
@@ -32,6 +32,38 @@
         "fy_px": 3385.7,
         "distorsion": null,
         "calibrado": false
+      },
+      "intrinsecos": {
+        "modelo": "OpenCV pinhole + k1 k2 p1 p2 k3",
+        "ancho_px": 4608,
+        "alto_px": 2592,
+        "fx_px": 3360.0,
+        "fy_px": 3360.0,
+        "cx_px": 2351.63,
+        "cy_px": 1295.86,
+        "distorsion": [
+          0.128952,
+          -0.29604,
+          -0.002272,
+          3.2e-05,
+          0.245457
+        ],
+        "foco": "infinito (lens-position 0), fx corregido desde la calibracion",
+        "calibracion": {
+          "fecha": "2026-11-05",
+          "lens_position_dioptrias": 1.5,
+          "fx_px_a_1p5_dioptrias": 3384.06,
+          "factor_a_infinito": 0.99289,
+          "rms_px": 0.497,
+          "fotos": 55,
+          "sd_cx_cy_px": [
+            5.1,
+            4.9
+          ],
+          "tablero": "ChArUco 11x7 DICT_5X5 (calib.io) y 7x5 DICT_4X4, en pantalla",
+          "modo": "4608:2592:10"
+        },
+        "calibrado": true
       }
     },
     {
@@ -64,6 +96,38 @@
         "fy_px": 3385.7,
         "distorsion": null,
         "calibrado": false
+      },
+      "intrinsecos": {
+        "modelo": "OpenCV pinhole + k1 k2 p1 p2 k3",
+        "ancho_px": 4608,
+        "alto_px": 2592,
+        "fx_px": 3339.79,
+        "fy_px": 3339.79,
+        "cx_px": 2291.19,
+        "cy_px": 1295.46,
+        "distorsion": [
+          0.092311,
+          -0.207235,
+          0.000947,
+          5.2e-05,
+          0.166389
+        ],
+        "foco": "infinito (lens-position 0), fx corregido desde la calibracion",
+        "calibracion": {
+          "fecha": "2026-11-05",
+          "lens_position_dioptrias": 1.5,
+          "fx_px_a_1p5_dioptrias": 3363.71,
+          "factor_a_infinito": 0.99289,
+          "rms_px": 0.408,
+          "fotos": 44,
+          "sd_cx_cy_px": [
+            5.0,
+            5.1
+          ],
+          "tablero": "ChArUco 11x7 DICT_5X5 (calib.io) y 7x5 DICT_4X4, en pantalla",
+          "modo": "4608:2592:10"
+        },
+        "calibrado": true
       }
     }
   ]
