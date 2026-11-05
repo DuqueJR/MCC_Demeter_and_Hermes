@@ -238,6 +238,7 @@ def run(args: argparse.Namespace) -> int:
     synced = False
     sync_deadline = time.monotonic() + args.sync_window_s if args.preflight else None
     preflight_open = args.preflight
+    last_status_sent: int | None = None
     backoff = 1.0
     reconnect_attempt = 0
     try:
@@ -282,7 +283,9 @@ def run(args: argparse.Namespace) -> int:
                                 elif "status" in command:
                                     status = int(command["status"])
                                     port.write(encode_frame(PAYLOAD_STATUS, STATUS_STRUCT.pack(status)))
-                                    LOG.info("estado UART enviado: %d", status)
+                                    if status != last_status_sent:      # missiond lo repite cada segundo (latido): solo se anotan los cambios
+                                        LOG.info("estado UART enviado: %d", status)
+                                        last_status_sent = status
                                 else:
                                     frame_type = COMMANDS[command["command"]]
                                     port.write(encode_frame(frame_type))

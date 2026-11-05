@@ -16,7 +16,7 @@ static const uint16_t HDR_SIZE = 14;
 static const uint16_t CRC_SIZE = 2;
 static const uint16_t MAX_LEN  = 512;
 
-enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_EVENT = 250 };
+enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_PI = 13, T_EVENT = 250 };
 enum Src  : uint8_t { S_IN_IMU = 0, S_IN_MAG = 1, S_IN_BAR = 2, S_IN_GNSS = 3, S_IN_RTC = 4, S_IN_PMU = 5,
                       S_EX_IMU = 6, S_EX_BAR = 7, S_EX_MAG = 8, S_SYS = 15 };
 
@@ -46,6 +46,10 @@ struct EventRec { int64_t t_us; uint32_t pos; uint32_t dur_us; int16_t err; uint
 enum EventCode : uint8_t { EV_WRITE_FAIL = 1, EV_REOPEN_OK = 2, EV_REOPEN_FAIL = 3 };
 // payload de T_MISSION: comando atendido o cambio de estado. op 0 = automatico; to = estado despues; reasons = bits de net::Reason.
 struct MissionRec { uint32_t counter; uint32_t reasons; uint8_t op; uint8_t arg; uint8_t result; uint8_t from; uint8_t to; uint8_t moment; uint8_t flags; uint8_t pad; };
+// payload de T_PI: la UART con la Pi de Demeter (ext_pi). kind: PIK_CHANGE = la Pi informo otro estado, PIK_LOST = se perdio su latido
+//   (status = PI_DESCONOCIDO, 0xFF). prev = el estado anterior. Contadores acumulados desde el arranque.
+struct PiRec { uint8_t status; uint8_t prev; uint8_t kind; uint8_t pad; uint32_t rx_frames; uint32_t crc_err; uint32_t tx_pose; };
+enum PiKind : uint8_t { PIK_CHANGE = 1, PIK_LOST = 2 };
 // payload de T_LINK: un evento de radio; t_us de la cabecera = fin de TX o RX. slot 0xFF = fuera de ranuras (baliza lenta).
 struct LinkRec { uint8_t dir; uint8_t slot; uint8_t len; uint8_t pad; int16_t rssi_x10; int16_t snr_x10; int32_t late_us; uint32_t air_us; };
 enum LinkDir : uint8_t { LD_TX = 0, LD_RX = 1 };

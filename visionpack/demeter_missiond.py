@@ -36,6 +36,7 @@ TOUCHDOWN_FLAG = Path("/tmp/touchdown_event.flag")
 MIN_MEM_AVAILABLE_KB = 1024 * 1024
 ASCENT_WATCHDOG_S = 15.0
 RECORDING_WATCHDOG_S = 95.0
+STATUS_EVERY_S = 1.0         # latido hacia la LilyGo: PAYLOAD_STATUS cada segundo, ademas de en cada cambio (sin latido, la LilyGo lo da por desconocido a los 3 s)
 RAW_PAIR_BUDGET_MIB = 24.0
 PROCESSED_PAIR_BUDGET_MIB = 30.0
 SD_WRITE_SAFETY_FACTOR = 0.9
@@ -465,6 +466,7 @@ class MissionDaemon:
         self.owns_touchdown_flag = False
         self.changed_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         self.last_error: str | None = None
+        self.last_status_sent = 0.0
         self.last_performance_sample = 0.0
         self.active_performance_alerts: dict[str, str] = {}
         self.previous_sd_counters: tuple[str, int, int, float] | None = None
@@ -620,11 +622,14 @@ class MissionDaemon:
                 kind, details.get("chunk"), details.get("process"), len(alerts),
             )
 
-    def publish_status(self) -> None:
+    def publish_status(self, quiet: bool = False) -> None:
+        self.last_status_sent = time.monotonic()
         message = json.dumps({"status": int(STATUS[self.state])}, separators=(",", ":")).encode()
         try:
             self.command_socket.sendto(message, str(self.args.telemetry_socket))
         except OSError as exc:
+            if quiet:       # latido: sin telemetryd no hay a quien avisar; ya se aviso en el ultimo cambio de estado
+                return
             LOG.warning(
                 "no se pudo publicar estado=%s a telemetryd en %s (%s): %s",
                 self.state.value, self.args.telemetry_socket, type(exc).__name__, exc,
@@ -1235,6 +1240,8 @@ class MissionDaemon:
                     except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                         LOG.warning("mensaje IPC inválido en %s (%s): %s", channel.getsockname(), type(exc).__name__, exc)
                 self.poll_process()
+                if time.monotonic() - self.last_status_sent >= STATUS_EVERY_S:
+                    self.publish_status(quiet=True)
             # En BOOT no hay mision ni procesos: parar es solo salir (BOOT -> ABORTED no es transicion valida)
             if STOP and self.state not in (State.BOOT, State.COMPLETE, State.ABORTED, State.ERROR):
                 self.abort()

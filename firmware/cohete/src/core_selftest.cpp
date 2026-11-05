@@ -16,6 +16,7 @@
 #include "ext_mmc.h"
 #include "core_sleep.h"
 #include "mission.h"
+#include "ext_pi.h"
 #include <fw_build.h>
 
 #ifndef ROCKET_ID
@@ -35,6 +36,7 @@ void coreSelftestBegin() {
     extLsmBegin();
     i2cBegin();
     missionBegin(ROCKET_ID);
+    piBegin(ROCKET_ID);            // UART con la Pi (solo Demeter)
     netBegin(ROCKET_ID, MISSION_ID);
 }
 
@@ -137,6 +139,16 @@ void coreSelftestReport() {
     Serial.printf("[mis ] estado=%s momento=%s flags=0x%02X alt=%.1f m vz=%.1f m/s baro=%s | cmd=%lu rx=%lu resp=%lu ult_contador=%lu ult_res=%u motivos=0x%08lX\n",
                   STATE_NAME[ms.state], MOMENT_NAME[ms.moment], ms.flags, ms.altM, ms.vzMps, ms.baroSrc == 0 ? "BMP" : (ms.baroSrc == 1 ? "BME" : "ninguno"),
                   (unsigned long)ms.cmds, (unsigned long)nt.rxCmd, (unsigned long)nt.txResp, (unsigned long)ms.lastCounter, ms.lastResult, (unsigned long)ms.lastReasons);
+    const PiStats pi = piStats();
+    if (pi.active) {
+        char edad[16];
+        if (pi.ageMs == 0xFFFFFFFFu) snprintf(edad, sizeof(edad), "nunca");
+        else snprintf(edad, sizeof(edad), "%.1f s", pi.ageMs / 1000.0f);
+        Serial.printf("[pi  ] estado=%s (0x%02X) latido=%s cambios=%lu perdidas=%lu | rx=%lu B tramas=%lu crc_mal=%lu otras=%lu | pose=%lu omitidas=%lu banderas=0x%03X\n",
+                      piStatusName(pi.status), pi.status, edad, (unsigned long)pi.changes, (unsigned long)pi.losses,
+                      (unsigned long)pi.rxBytes, (unsigned long)pi.rxFrames, (unsigned long)pi.crcErr, (unsigned long)pi.otherFrames,
+                      (unsigned long)pi.txPose, (unsigned long)pi.txSkipped, pi.lastFlags);
+    }
     Serial.printf("[ring] gnss=%lu/%lu imu=%lu/%lu i2c=%lu/%lu ext=%lu/%lu drops gnss=%lu imu=%lu i2c=%lu net=%lu ext=%lu (log imu=%lu) malos=%lu resync=%lu\n",
                   (unsigned long)bus_ring_used(RING_GNSS), (unsigned long)bus_ring_capacity(RING_GNSS),
                   (unsigned long)bus_ring_used(RING_IMU), (unsigned long)bus_ring_capacity(RING_IMU),

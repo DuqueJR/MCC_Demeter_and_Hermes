@@ -21,6 +21,7 @@ STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
 TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO = 2, 4, 8, 16   # TF_REANUDADO: T-411, D-052
 ACT_BUZZER, ACT_PI_EN_CURSO, ACT_PI_ENVIADO = 1, 2, 4       # bits de TELEM.actuators (protocolo_paquetes.md seccion 2, T-413)
+PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # byte alto de TELEM.actuators (ext_pi)
 STALE_S = 3.0
 ROLES = {'tierra': 'COM5', 'demeter': 'COM4', 'hermes': 'COM3'}
 ROCKET_ROLE = {1: 'demeter', 2: 'hermes'}
@@ -188,6 +189,9 @@ def note_telem(rid, old, new):
         event(f'{name}: buzzer apagado')
     if act_up & ACT_PI_EN_CURSO:
         event(f'{name}: pulso de encendido a la Pi')
+    pi_old, pi_new = old['actuators'] >> 8, new['actuators'] >> 8
+    if rid == 1 and pi_new != pi_old:
+        event(f"{name}: Raspberry Pi {PI_STATUS.get(pi_new, hex(pi_new))}")
 
 
 def note_log(rid, old, new):

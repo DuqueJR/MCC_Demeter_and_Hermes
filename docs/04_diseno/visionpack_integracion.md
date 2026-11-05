@@ -16,6 +16,14 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 > - **Su propuesta para después:** la LilyGO le manda el estado (actitud, posición y momento) con marca UTC a 20–50 Hz, y la Pi interpola al instante de cada cuadro (hasta 10 fps). La integración por UART (T-702) se rediseña con él.
 > - Las tablas de abajo quedan como la propuesta original.
 
+> **Actualización del 2026-11-04 (D-054, bloque 9a y 9b, escrito sin validar):**
+> - El cableado TX → 1k → RX de la Pi funciona: la Pi leyó el arranque de la ROM de la ESP32-S3 en `/dev/ttyAMA0` a 115200.
+> - `firmware/cohete/src/ext_pi.cpp` (solo Demeter): recibe el latido `PAYLOAD_STATUS` y envía la POSE 0x21 a 50 Hz (≈3 kB/s, 26 % de la UART). Sin EKF a bordo: GNSS, altura del barómetro sobre su p0, cuaternión identidad, `F_EKF` y `F_ATT` en 0. El suelo MSL se estima en tierra (GNSS menos barómetro) y queda fijo en FLY y RECOVERY.
+> - `demeter_missiond.py` publica su estado cada 1 s (latido). Sin latido en 3 s, la LilyGo lo da por desconocido (`0xFF`).
+> - El estado de la Pi va en el byte alto de `TELEM.actuators` y en el log (`T_PI`); el monitor muestra la línea `[pi  ]`.
+> - Pendiente: 9c (comandos de misión: PREFLIGHT, ARM, ABORT, START_ASCENT en BOOST, START_REC, TOUCHDOWN) y 9d (encendido por IO45, con `HandlePowerKey=ignore` en la Pi).
+> - Ojo: la línea Pi TX → IO44 va sin resistencia; si la LilyGo queda sin alimentación con la Pi encendida, la alimenta por los diodos del pin. Propuesta: 1 kΩ también ahí.
+
 ## 1. Enlace UART (ya definido por Demeter, no cambia)
 
 - 115200 baudios, 8N1, niveles de 3,3 V y **masa común**.
