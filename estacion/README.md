@@ -121,6 +121,13 @@ Para cuando se retome el dashboard:
 - Las estadísticas del EKF.
 - El nivel de las memorias SD de la LilyGo y de la Pi.
 
+Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
+
+- SD: la reserva preasignada en verde y, al excederla, lo que se graba fuera de ella en otro color.
+- Filtros seleccionables por variable (paso alto y de ruido) en las gráficas, con un filtro recomendado según los registros (identificar las vibraciones y sugerir el corte).
+- Mapa: la flecha del rumbo de la nariz, con largo según la proyección horizontal de la punta (casi nula con la nariz arriba).
+- Reubicar el selector de ventana.
+
 ## Qué viene (épica E10 del backlog)
 
 | Tarea | Qué agrega |
