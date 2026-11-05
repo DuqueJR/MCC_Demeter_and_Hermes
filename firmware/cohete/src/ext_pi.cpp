@@ -39,6 +39,7 @@ static QueueHandle_t     s_logQ = nullptr;
 static volatile uint8_t  s_status = PI_DESCONOCIDO;
 static volatile uint32_t s_lastStatusMs = 0;
 static volatile bool     s_haveStatus = false;
+static volatile uint8_t  s_reason = 0;               // motivo del error de la Pi (ErrorCode de demeter_protocol.py); 0 si no hay
 static PiStats           s_st;                       // contadores: solo los escribe la tarea
 static float             s_groundMsl = NAN;          // suelo MSL estimado (m), congelado en vuelo
 
@@ -57,15 +58,17 @@ static void logEvent(uint8_t status, uint8_t prev, uint8_t kind, uint8_t extra =
 
 static void onFrame(uint8_t type, const uint8_t *p, uint8_t len) {
     s_st.rxFrames++;
-    if (type == PI_T_STATUS && len == 1) {
+    if (type == PI_T_STATUS && (len == 1 || len == 2)) {     // 2 bytes desde D-056: estado y motivo
         s_st.statusMsgs++;
-        const uint8_t prev = s_status;
+        const uint8_t prev = s_status, prevReason = s_reason;
+        const uint8_t reason = len == 2 ? (uint8_t)(p[1] > PI_MOTIVO_MAX ? PI_MOTIVO_MAX : p[1]) : 0;
         s_lastStatusMs = millis();
         s_haveStatus = true;
-        if (p[0] != prev) {
+        if (p[0] != prev || reason != prevReason) {
             s_status = p[0];
+            s_reason = reason;
             s_st.changes++;
-            logEvent(p[0], prev, rec::PIK_CHANGE);
+            logEvent(p[0], prev, rec::PIK_CHANGE, reason);
         }
         return;
     }
@@ -213,6 +216,7 @@ static void piTask(void *) {
         if (s_haveStatus && s_status != PI_DESCONOCIDO && millis() - s_lastStatusMs > PI_LATIDO_MS) {
             const uint8_t prev = s_status;
             s_status = PI_DESCONOCIDO;
+            s_reason = 0;
             s_st.losses++;
             logEvent(PI_DESCONOCIDO, prev, rec::PIK_LOST);
         }
@@ -233,16 +237,32 @@ void piBegin(uint8_t rocketId) {
 }
 
 uint8_t piStatus() { return s_status; }
+uint8_t piReason() { return s_reason; }
 
 PiStats piStats() {
     PiStats s = s_st;
     s.active = s_active;
     s.status = s_status;
+    s.reason = s_reason;
     s.ageMs = s_haveStatus ? millis() - s_lastStatusMs : SIN_LATIDO;
     return s;
 }
 
 bool piTakeLog(PiLog &l) { return s_logQ && xQueueReceive(s_logQ, &l, 0) == pdTRUE; }
+
+const char *piReasonName(uint8_t r) {
+    switch (r) {
+    case 0: return "-";
+    case 1: return "SD_ESPACIO";
+    case 2: return "SD_LENTA";
+    case 3: return "RAM";
+    case 4: return "CAMARA";
+    case 5: return "TELEMETRIA";
+    case 6: return "PROCESO";
+    case 7: return "ARCHIVOS";
+    default: return "OTRO";
+    }
+}
 
 const char *piStatusName(uint8_t s) {
     switch (s) {

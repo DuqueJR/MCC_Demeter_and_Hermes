@@ -36,6 +36,7 @@ from demeter_protocol import (
     PREFLIGHT_SYNC,
     POSE_UPDATE,
     STATUS_STRUCT,
+    STATUS_REASON_STRUCT,
     StatusCode,
     StreamDecoder,
     encode_frame,
@@ -238,7 +239,7 @@ def run(args: argparse.Namespace) -> int:
     synced = False
     sync_deadline = time.monotonic() + args.sync_window_s if args.preflight else None
     preflight_open = args.preflight
-    last_status_sent: int | None = None
+    last_status_sent: tuple[int, int] | None = None
     backoff = 1.0
     reconnect_attempt = 0
     try:
@@ -282,10 +283,11 @@ def run(args: argparse.Namespace) -> int:
                                     LOG.info("preflight cerrado; no se aceptarán más ajustes de reloj")
                                 elif "status" in command:
                                     status = int(command["status"])
-                                    port.write(encode_frame(PAYLOAD_STATUS, STATUS_STRUCT.pack(status)))
-                                    if status != last_status_sent:      # missiond lo repite cada segundo (latido): solo se anotan los cambios
-                                        LOG.info("estado UART enviado: %d", status)
-                                        last_status_sent = status
+                                    reason = int(command.get("motivo", 0))
+                                    port.write(encode_frame(PAYLOAD_STATUS, STATUS_REASON_STRUCT.pack(status, reason)))
+                                    if (status, reason) != last_status_sent:      # missiond lo repite cada segundo (latido): solo se anotan los cambios
+                                        LOG.info("estado UART enviado: %d motivo=%d", status, reason)
+                                        last_status_sent = (status, reason)
                                 else:
                                     frame_type = COMMANDS[command["command"]]
                                     port.write(encode_frame(frame_type))

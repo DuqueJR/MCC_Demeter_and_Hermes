@@ -9,6 +9,7 @@ import os, sys, struct, argparse, statistics, collections
 T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 250
 PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # demeter_protocol.StatusCode
 PI_CMD = {0xA0: 'PREFLIGHT', 0xA1: 'ARM', 0xA2: 'START_ASCENT', 0xB1: 'START_REC', 0xC1: 'TOUCHDOWN', 0xF1: 'ABORT'}   # comandos LilyGo -> Pi (T_PI kind 3)
+PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # demeter_protocol.ErrorCode (T_PI kind 1, en pad; D-056)
 HDR, CRC = 14, 2
 
 def crc16(data, c=0xFFFF):
@@ -431,7 +432,8 @@ def main():
                 print(f"  t={t / 1e6:.2f} s  comando {PI_CMD.get(prev, hex(prev))} (intento {intento}) con la Pi en {PI_STATUS.get(stt, hex(stt))}")
                 continue
             que = 'latido perdido' if kind == 2 else 'estado'
-            print(f"  t={t / 1e6:.2f} s  {que}: {PI_STATUS.get(prev, hex(prev))} -> {PI_STATUS.get(stt, hex(stt))}  tramas={rx} crc_mal={crc} pose={pose}")
+            mot = f"  motivo={PI_MOTIVO.get(intento, intento)}" if kind == 1 and intento else ''
+            print(f"  t={t / 1e6:.2f} s  {que}: {PI_STATUS.get(prev, hex(prev))} -> {PI_STATUS.get(stt, hex(stt))}{mot}  tramas={rx} crc_mal={crc} pose={pose}")
         if a.csv:
             with open('pi.csv', 'w') as f:
                 f.write('t_us,evento,de,a,tramas,crc_mal,pose\n')

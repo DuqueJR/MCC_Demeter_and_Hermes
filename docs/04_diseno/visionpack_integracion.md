@@ -21,6 +21,7 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 > - `firmware/cohete/src/ext_pi.cpp` (solo Demeter): recibe el latido `PAYLOAD_STATUS` y envía la POSE 0x21 a 50 Hz (≈3 kB/s, 26 % de la UART). Sin EKF a bordo: GNSS, altura del barómetro sobre su p0, cuaternión identidad, `F_EKF` y `F_ATT` en 0. El suelo MSL se estima en tierra (GNSS menos barómetro) y queda fijo en FLY y RECOVERY.
 > - `demeter_missiond.py` publica su estado cada 1 s (latido). Sin latido en 3 s, la LilyGo lo da por desconocido (`0xFF`).
 > - El estado de la Pi va en el byte alto de `TELEM.actuators` y en el log (`T_PI`); el monitor muestra la línea `[pi  ]`.
+> - **D-056:** `PAYLOAD_STATUS` lleva además el motivo del error (`ErrorCode`), que llega a tierra en los bits 3-7 de `TELEM.actuators`.
 > - Pendiente: 9c (comandos de misión: PREFLIGHT, ARM, ABORT, START_ASCENT en BOOST, START_REC, TOUCHDOWN) y 9d (encendido por IO45, con `HandlePowerKey=ignore` en la Pi).
 > - Ojo: la línea Pi TX → IO44 va sin resistencia; si la LilyGo queda sin alimentación con la Pi encendida, la alimenta por los diodos del pin. Propuesta: 1 kΩ también ahí.
 

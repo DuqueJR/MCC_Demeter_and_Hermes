@@ -91,3 +91,25 @@ class PoseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ErrorCodeTests(unittest.TestCase):
+    """Motivo del error de la Pi hacia la LilyGo (D-056): los textos reales de missiond."""
+
+    def test_motivos(self):
+        from demeter_protocol import ErrorCode, error_code
+        casos = {
+            "espacio SD insuficiente para captura+revelado al límite de 95s: libres=1": ErrorCode.SD_ESPACIO,
+            "SD/tmpfs no sostiene ni 1 FPS durante 95s": ErrorCode.SD_LENTA,
+            "RAM disponible insuficiente para el backlog proyectado": ErrorCode.RAM,
+            "/mnt/ramcam no es un montaje tmpfs": ErrorCode.RAM,
+            "telemetryd no confirmó que el puerto serial está abierto": ErrorCode.TELEMETRIA,
+            "rpicam-vid terminó durante ascenso con estado 1": ErrorCode.CAMARA,
+            "touchdown; demeter_ingestd exit=2: x": ErrorCode.PROCESO,
+            "directorio de grabaciones no escribible: /x": ErrorCode.ARCHIVOS,
+            "fallo interno en ARM: KeyError: 3": ErrorCode.OTRO,
+        }
+        for texto, esperado in casos.items():
+            self.assertEqual(error_code(texto), esperado, texto)
+        self.assertEqual(error_code(None), ErrorCode.NINGUNO)
+        self.assertTrue(all(int(c) < 32 for c in ErrorCode))      # cabe en los 5 bits de TELEM.actuators

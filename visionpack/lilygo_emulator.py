@@ -32,6 +32,7 @@ from demeter_protocol import (
     PAYLOAD_STATUS,
     POSE_UPDATE,
     STATUS_STRUCT,
+    ErrorCode,
     StatusCode,
     StreamDecoder,
     encode_frame,
@@ -156,12 +157,14 @@ def receive_status(port: serial.Serial, stop: threading.Event) -> None:
             if frame.message_type != PAYLOAD_STATUS:
                 LOG.warning("RX recibió tipo de trama no esperado: 0x%02X", frame.message_type)
                 continue
-            if len(frame.payload) != STATUS_STRUCT.size:
-                LOG.warning("RX estado inválido: payload=%d bytes; esperado=%d", len(frame.payload), STATUS_STRUCT.size)
+            if len(frame.payload) not in (STATUS_STRUCT.size, STATUS_STRUCT.size + 1):     # D-056: estado y, opcional, motivo
+                LOG.warning("RX estado inválido: payload=%d bytes; esperado 1 o 2", len(frame.payload))
                 continue
-            status = STATUS_STRUCT.unpack(frame.payload)[0]
+            status = frame.payload[0]
+            reason = frame.payload[1] if len(frame.payload) == 2 else 0
             name = STATUS_NAMES.get(status, "UNKNOWN")
-            print(f"\n[Pi -> LilyGO] Estado 0x{status:02X}: {name}", flush=True)
+            extra = f" motivo={ErrorCode(reason).name if reason in ErrorCode._value2member_map_ else reason}" if reason else ""
+            print(f"\n[Pi -> LilyGO] Estado 0x{status:02X}: {name}{extra}", flush=True)
 
 
 class FlightRun:

@@ -1,7 +1,7 @@
 ---
 fecha: 2026-11-04
 tipo: sesion
-ids: [D-054, D-055, T-702]
+ids: [D-054, D-055, D-056, T-702]
 autor: Claude, con Pablo
 rama: feature/pi-uart
 ---
@@ -55,6 +55,14 @@ rama: feature/pi-uart
 - **Latido (corregido en la Pi):** PREFLIGHT (~3.5 s), TOUCHDOWN y la ingesta bloquean el bucle de `missiond`, y el latido se cortaba: "desconocido" de 1-2 s. El latido va ahora en un hilo propio.
 - **QMI y SD al desarmar:** a las 23:11:05, al desarmar, 204 muestras perdidas de golpe con 2 timeouts y 1 FIFO llena, y luego `err` de SD de 0 a 47 (`reab` 19) hasta las 23:12:08: es la creación de la reserva nueva de 32 MB (ya documentado: no importa porque no se vuela sin armar). Durante el registro (23:12:40-23:17:36) el QMI pierde ~1 muestra/s, el 0.2 % ya conocido por compartir el bus con la SD. LSM: ~2.5 pérdidas por minuto en todo momento, también antes de la Pi (el salto de marca conocido). Nada apunta a `ext_pi`.
 - Pruebas de `visionpack` corridas en la Pi (copia en `/tmp`): 30 OK.
+
+## 2026-11-05: motivo del error, pruebas de PC y sincronía de cámaras
+
+- **Motivo del error de la Pi (D-056):** `PAYLOAD_STATUS` de 2 bytes; en tierra, bits 3-7 de `TELEM.actuators`. Prueba nueva en `test_pose.py` con los textos reales de `missiond`.
+- **Pruebas de PC con g++ (WinLibs 16.2):** `test/host/correr_pruebas.py` pasa completo. Nuevo `prueba_pi_plan.cpp` (28 comprobaciones contra un modelo de las transiciones de `missiond`) y `ext_pi.cpp` en la revisión de sintaxis; faltaba `<stdio.h>` en `core_selftest.cpp`.
+- **Sidecars:** la `v_ned` ruidosa fue por mover el cohete (Pablo). `sd` sin estimar (0xFFFF) se decodifica ahora como `null`.
+- **Sincronía de cámaras:** en la captura del 21 oct (copia en OneDrive), por pares del mismo `frame_id`, cam0 − cam1 = 0.024 ms de mediana (máx 0.13 ms): la sincronía por software de libcamera (`SyncMode`) funciona. Los 18.7 ms de hoy se midieron por cercanía y con el centro de la exposición: si cada cámara tiene su propia exposición automática, los centros se separan la mitad de la diferencia de exposiciones aunque el inicio esté sincronizado. Hoy no se pudo verificar (la captura se borró): en la próxima, medir por `frame_id` y comparar `exposicion_us` de ambas.
+- **SD de la Pi:** Pablo borró las capturas de prueba (35 GB libres) y la Pi volvió sola a READY.
 
 ## Pendiente
 

@@ -29,7 +29,7 @@ import time
 import uuid
 from typing import Any
 
-from demeter_protocol import StatusCode
+from demeter_protocol import StatusCode, error_code
 
 LOG = logging.getLogger("demeter_missiond")
 STOP = False
@@ -632,7 +632,8 @@ class MissionDaemon:
 
     def publish_status(self, quiet: bool = False) -> None:
         self.last_status_sent = time.monotonic()
-        message = json.dumps({"status": int(STATUS[self.state])}, separators=(",", ":")).encode()
+        reason = error_code(self.last_error) if self.state == State.ERROR else 0     # motivo para la LilyGo (D-056)
+        message = json.dumps({"status": int(STATUS[self.state]), "motivo": reason}, separators=(",", ":")).encode()
         try:
             self.command_socket.sendto(message, str(self.args.telemetry_socket))
         except OSError as exc:

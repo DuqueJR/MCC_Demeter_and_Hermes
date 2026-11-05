@@ -89,7 +89,7 @@ static void buildTelem(net::Telem &p, int64_t utc_us, uint8_t timeFlags) {
     p.flags = (uint8_t)((s_flying ? net::TF_FLYING : 0) | missionFlags());
     p.state = missionStateByte();
     p.cmd_ack = missionAck();
-    p.actuators = (uint16_t)(extActBits() | ((uint16_t)piStatus() << 8));   // byte alto: estado de la Pi (0xFF desconocido)
+    p.actuators = (uint16_t)(extActBits() | ((uint16_t)(piReason() & 0x1F) << 3) | ((uint16_t)piStatus() << 8));   // bits 3-7: motivo; byte alto: estado de la Pi
     p.quat[0] = 32767;                                  // identidad hasta que exista el EKF
     p.vbat_mv = g_vbat_mv;
 
