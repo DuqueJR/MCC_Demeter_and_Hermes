@@ -39,6 +39,7 @@ F_FLY = 1 << 8           # la LilyGo esta en FLY
 TIME_SOURCES = ("ninguna", "gnss_pps", "baliza_tierra", "retencion")
 
 Q_SCALE = 32767.0
+SD_UNKNOWN = 0xFFFF       # sd_* sin estimar (la LilyGo sin EKF): se decodifica como None
 
 
 def decode_flags(flags: int) -> dict[str, Any]:
@@ -107,15 +108,23 @@ def slerp(a: Sequence[float], b: Sequence[float], f: float) -> list[float]:
 
 def encode_pose(utc_us: int, seq: int, flags: int, lat_deg: float, lon_deg: float, alt_agl_m: float, ground_msl_m: float,
                 v_ned_mps: Sequence[float], q_body_ned: Sequence[float], gyro_body_dps: Sequence[float],
-                sd_att_deg: float, sd_pos_m: float, sd_alt_m: float) -> bytes:
+                sd_att_deg: float | None, sd_pos_m: float | None, sd_alt_m: float | None) -> bytes:
     q = q_normalize(q_body_ned)
     clamp16 = lambda v: max(-32768, min(32767, int(round(v))))
-    clampu = lambda v: max(0, min(65535, int(round(v))))
+    sdu = lambda v: SD_UNKNOWN if v is None else max(0, min(SD_UNKNOWN - 1, int(round(v * 100))))   # None = sin estimar
     return POSE_STRUCT.pack(
         utc_us, seq & 0xFFFF, flags & 0xFFFF, int(round(lat_deg * 1e7)), int(round(lon_deg * 1e7)),
         int(round(alt_agl_m * 100)), int(round(ground_msl_m * 100)), *(clamp16(v * 100) for v in v_ned_mps),
         *(clamp16(c * Q_SCALE) for c in q), *(clamp16(g * 10) for g in gyro_body_dps),
-        clampu(sd_att_deg * 100), clampu(sd_pos_m * 100), clampu(sd_alt_m * 100))
+        sdu(sd_att_deg), sdu(sd_pos_m), sdu(sd_alt_m))
+
+
+def _sd(raw: int) -> float | None:
+    return None if raw == SD_UNKNOWN else raw / 100.0
+
+
+def _sd_max(a: float | None, b: float | None) -> float | None:
+    return None if a is None or b is None else max(a, b)
 
 
 def decode_pose(payload: bytes) -> dict[str, Any]:
@@ -129,7 +138,7 @@ def decode_pose(payload: bytes) -> dict[str, Any]:
         "lat": lat / 1e7, "lon": lon / 1e7, "alt_agl": agl / 100.0, "alt_msl": (agl + ground) / 100.0,
         "suelo_msl": ground / 100.0, "v_ned": [vn / 100.0, ve / 100.0, vd / 100.0], "q": q,
         "giro_dps": [gx / 10.0, gy / 10.0, gz / 10.0],
-        "sd_actitud_deg": sd_att / 100.0, "sd_pos_m": sd_pos / 100.0, "sd_alt_m": sd_alt / 100.0,
+        "sd_actitud_deg": _sd(sd_att), "sd_pos_m": _sd(sd_pos), "sd_alt_m": _sd(sd_alt),
     }
 
 
@@ -250,8 +259,8 @@ def interpolate_pose(samples: Sequence[dict[str, Any]], t_utc_us: int, max_gap_s
         "v_ned_mps": [x + f * (y - x) for x, y in zip(a["v_ned"], b["v_ned"])],
         "q_cuerpo_a_ned": slerp(a["q"], b["q"], f),
         "giro_cuerpo_dps": [x + f * (y - x) for x, y in zip(a["giro_dps"], b["giro_dps"])],
-        "sd_actitud_deg": max(a["sd_actitud_deg"], b["sd_actitud_deg"]),
-        "sd_pos_m": max(a["sd_pos_m"], b["sd_pos_m"]), "sd_alt_m": max(a["sd_alt_m"], b["sd_alt_m"]),
+        "sd_actitud_deg": _sd_max(a["sd_actitud_deg"], b["sd_actitud_deg"]),
+        "sd_pos_m": _sd_max(a["sd_pos_m"], b["sd_pos_m"]), "sd_alt_m": _sd_max(a["sd_alt_m"], b["sd_alt_m"]),
         "estado": ok,
     }
 

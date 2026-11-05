@@ -22,6 +22,19 @@ class PoseTests(unittest.TestCase):
         self.assertTrue(dp.decode_flags(r["flags"])["hora"])
         self.assertEqual(dp.POSE_STRUCT.size, 54)
 
+    def test_sd_sin_estimar_es_none(self):
+        # La LilyGo sin EKF manda 0xFFFF en sd_actitud y sd_alt: no son 655.35 grados ni metros
+        payload = dp.encode_pose(10_000_000, 1, dp.F_POS | dp.F_TIME, 6.5, -75.8, 1.0, 1590.0, (0, 0, 0), [1, 0, 0, 0], (0, 0, 0),
+                                 None, 7.28, None)
+        r = dict(dp.decode_pose(payload), pi_ts=10.0)
+        self.assertIsNone(r["sd_actitud_deg"])
+        self.assertIsNone(r["sd_alt_m"])
+        self.assertAlmostEqual(r["sd_pos_m"], 7.28)
+        p = dp.interpolate_pose([r, dict(r, utc_us=10_020_000, seq=2)], 10_010_000, max_gap_s=0.1)
+        if p is not None:
+            self.assertIsNone(p["sd_alt_m"])
+            self.assertAlmostEqual(p["sd_pos_m"], 7.28)
+
     def test_cameras_30_deg_from_nadir_nose_down(self):
         for cam in CAMS.values():
             c = dp.camera_in_ned({"q_cuerpo_a_ned": NOSE_DOWN}, cam)
