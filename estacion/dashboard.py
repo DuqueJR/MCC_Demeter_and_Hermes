@@ -1002,7 +1002,7 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path == '/api/calib/run' and os.path.exists(calib_path(role, True)):
                     os.remove(calib_path(role, True))        # un resultado viejo no debe poder aceptarse si este falla
                 # El aviso aparece antes de soltar el puerto; list y get salen con reset para que la placa no quede en modo descarga
-                args = ['get', a['name'], '--reset'] if self.path == '/api/calib/run' else a['args'] + ([] if a['args'][0] == 'reset' else ['--reset'])
+                args = ['get', a['name'], '--registro', '--reset'] if self.path == '/api/calib/run' else a['args'] + ([] if a['args'][0] == 'reset' else ['--reset'])
                 with lock:
                     job.update(running=True, role=role, port=port, rc=None, lines=[f'> tbget {port} ' + ' '.join(args)])
                 if self.path == '/api/calib/run':

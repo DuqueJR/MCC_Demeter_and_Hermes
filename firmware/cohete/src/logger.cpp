@@ -51,6 +51,7 @@ static volatile bool s_allowPre = true;
 static volatile bool s_stopReq = false, s_recReq = false, s_prepReq = false;
 static uint16_t s_rocket = 0;
 static uint32_t s_mission = 0, s_boot = 0;
+static bool     s_continua = false;      // el siguiente archivo continua el registro (rollover)
 
 static int      s_f = -1;            // archivo activo
 static uint32_t s_filePos = 0;
@@ -230,13 +231,15 @@ static void appendRecord(uint8_t type, uint8_t src, const void *payload, uint16_
 
 static void writeFileHeader() {
     rec::FileHdrRec h; memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "TBLG", 4); h.version = 2; h.rocket_id = s_rocket; h.mission_id = s_mission;
+    memcpy(h.magic, "TBLG", 4); h.version = 3; h.rocket_id = s_rocket; h.mission_id = s_mission;
     h.boot_count = s_boot; h.file_idx = s_s.fileIdx;
     h.utc_us = time_to_utc_us(esp_timer_get_time());
     strncpy(h.fw, __DATE__, sizeof(h.fw) - 1);
     strncpy(h.env, FW_ENV, sizeof(h.env) - 1);
     strncpy(h.git, FW_GIT, sizeof(h.git) - 1);
     h.tx_dbm = NET_TX_DBM;
+    h.flags = s_continua ? rec::FH_CONTINUA : 0;
+    s_continua = false;
     appendRecord(rec::T_FILEHDR, rec::S_SYS, &h, sizeof(h));
 }
 
@@ -348,7 +351,9 @@ static bool openNext() {
 static void rollover() {
     if (s_s.spareState != 2) return;                               // sin reserva: se sigue extendiendo el archivo
     xSemaphoreTake(g_sdBusMx, portMAX_DELAY); ::fsync(s_f); ::close(s_f); s_f = -1; xSemaphoreGive(g_sdBusMx);
+    s_continua = true;
     if (openNext()) s_s.rollovers++;
+    s_continua = false;
 }
 
 // ---------------- anillos ----------------

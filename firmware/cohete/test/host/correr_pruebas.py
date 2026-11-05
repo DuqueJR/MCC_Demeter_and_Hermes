@@ -139,6 +139,12 @@ def compilar_mision():
     cmd = ["g++", "-std=gnu++11", "-O1", "-Wall", "-Wextra"] + inc + ["-o", str(BUILD / "prueba_amb"), str(AQUI / "prueba_amb.cpp")]
     print("$", " ".join(cmd))
     subprocess.run(cmd, check=True)
+    # D-059: los arneses de la calibracion a bordo que usa comparar_cal.py (C++ puro, sin stubs); se recompilan siempre para no comparar uno viejo
+    sin_stubs = ["-I" + str(src), "-I" + str(src.parent.parent / "common" / "net_proto")]
+    for nombre, fuentes in (("prueba_cal", [AQUI / "prueba_cal.cpp", src / "cal_core.cpp"]), ("prueba_cal_blob", [AQUI / "prueba_cal_blob.cpp"])):
+        cmd = ["g++", "-std=gnu++11", "-O2"] + sin_stubs + ["-o", str(BUILD / nombre)] + [str(f) for f in fuentes]
+        print("$", " ".join(cmd))
+        subprocess.run(cmd, check=True)
     sintaxis = []
     for f in ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "ext_pi.cpp", "amb_temp.cpp", "cal_onboard.cpp", "cal_core.cpp"):
         sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + [str(src / f)], capture_output=True, text=True))

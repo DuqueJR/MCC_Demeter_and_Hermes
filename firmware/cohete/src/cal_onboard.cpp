@@ -12,6 +12,7 @@
 #include "cal_core.h"
 #include "core_bus.h"
 #include "logger.h"
+#include "rec_format.h"
 
 static const uint32_t CHUNK = 32768;
 static const uint32_t RES_CADA_MS = 4000;          // mientras analiza o hay un resultado sin aplicar: una pagina cada 4 s
@@ -82,8 +83,16 @@ static const char *guardar(const uint8_t *b, uint16_t n) {
 // ---------- analisis ----------
 static void ceder() { vTaskDelay(1); }
 
-// El ultimo registro de este cohete en la SD (indice mas alto). Los nombres son PRE_M00_AAAAMMDD_HHMMSS_NNNN.BIN o PRE_M00_SINFECHA_NNNN.BIN
-static bool ultimoRegistro(char *path, size_t cap, uint32_t &size) {
+// Los archivos del ultimo registro de este cohete: el de indice mas alto y, hacia atras, los que este continua.
+// Nombres PRE_M00_AAAAMMDD_HHMMSS_NNNN.BIN o PRE_M00_SINFECHA_NNNN.BIN. Un registro largo (la guia con 30 min de calentamiento)
+// ocupa varios archivos de 32 MB. Continua: mismo arranque y, desde la cabecera v3, la bandera FH_CONTINUA; en v1-v2 basta el mismo arranque.
+static const int MAX_ARCH = 16;
+struct Arch { char nm[40]; uint32_t size; };
+static Arch s_arch[MAX_ARCH];
+static int  s_nArch = 0;
+
+// Busca el archivo de indice "quiero" o, con quiero < 0, el de indice mas alto menor que "antes" (antes < 0: el mas alto de todos)
+static bool buscar(long quiero, long antes, Arch &out, long &idx) {
     const char *pre = s_rocket == net::DEMETER ? "DEM_" : "HER_";
     long mejor = -1;
     xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
@@ -99,56 +108,108 @@ static bool ultimoRegistro(char *path, size_t cap, uint32_t &size) {
         xSemaphoreGive(g_sdBusMx);
         if (!hay) break;
         const size_t len = strlen(nm);
-        if (dir || len < 9 || strncmp(nm, pre, 4) != 0 || strcmp(nm + len - 4, ".BIN") != 0) continue;
-        const long idx = strtol(nm + len - 8, nullptr, 10);
-        if (idx > mejor) { mejor = idx; snprintf(path, cap, "/%s", nm); size = sz; strncpy(s_archivo, nm, sizeof(s_archivo) - 1); }
+        if (dir || len < 9 || len >= sizeof(out.nm) || strncmp(nm, pre, 4) != 0 || strcmp(nm + len - 4, ".BIN") != 0) continue;
+        const long i = strtol(nm + len - 8, nullptr, 10);
+        const bool vale = quiero >= 0 ? i == quiero : (antes < 0 || i < antes);
+        if (vale && i > mejor) { mejor = i; strncpy(out.nm, nm, sizeof(out.nm) - 1); out.nm[sizeof(out.nm) - 1] = 0; out.size = sz; }
+        vTaskDelay(1);
     }
     xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
     root.close();
     xSemaphoreGive(g_sdBusMx);
+    idx = mejor;
     return mejor >= 0;
 }
 
-static bool pasada(const char *path, uint32_t size, cal::Analizador *an, int cual, uint8_t *buf) {
+struct Cab { bool ok; uint16_t ver; uint32_t boot; uint8_t flags; };
+static Cab cabecera(const char *nm, uint8_t *buf) {
+    Cab c; memset(&c, 0, sizeof(c));
+    char path[48]; snprintf(path, sizeof(path), "/%s", nm);
     xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
     File f = SD.open(path, FILE_READ);
+    const int got = f ? f.read(buf, 512) : 0;
+    if (f) f.close();
     xSemaphoreGive(g_sdBusMx);
-    if (!f) return false;
+    if (got <= 0) return c;
     cal::Lector lec;
-    uint32_t leido = 0;
-    for (;;) {
-        xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
-        const int got = f.read(buf, CHUNK);
-        xSemaphoreGive(g_sdBusMx);
-        if (got <= 0) break;
-        leido += (uint32_t)got;
-        if (cual == 1) lec.feed(buf, (size_t)got, [an](const uint8_t *r, uint16_t len) { an->pasada1(r, len); });
-        else lec.feed(buf, (size_t)got, [an](const uint8_t *r, uint16_t len) { an->pasada2(r, len); });
-        s_prog = (uint8_t)((cual == 1 ? 0 : 45) + (size ? 45ull * leido / size : 0));
-        vTaskDelay(1);
+    lec.feed(buf, (size_t)got, [&c](const uint8_t *r, uint16_t len) {
+        rec::Hdr h; memcpy(&h, r, sizeof(h));
+        if (c.ok || h.type != rec::T_FILEHDR || len < rec::HDR_SIZE + rec::CRC_SIZE + sizeof(rec::FileHdrRec)) return;
+        rec::FileHdrRec fh; memcpy(&fh, r + rec::HDR_SIZE, sizeof(fh));
+        c.ok = true; c.ver = fh.version; c.boot = fh.boot_count; c.flags = fh.version >= 3 ? fh.flags : 0;
+    });
+    return c;
+}
+
+static bool archivosDelRegistro(uint8_t *buf, uint64_t &total) {
+    s_nArch = 0; total = 0;
+    Arch a; long idx;
+    if (!buscar(-1, -1, a, idx)) return false;
+    s_arch[s_nArch++] = a;
+    Cab cur = cabecera(a.nm, buf);
+    while (cur.ok && s_nArch < MAX_ARCH) {
+        if (cur.ver >= 3 && !(cur.flags & rec::FH_CONTINUA)) break;      // empieza el registro
+        Arch p; long pidx;
+        if (!buscar(-1, idx, p, pidx)) break;
+        const Cab cp = cabecera(p.nm, buf);
+        if (!cp.ok || cp.boot != cur.boot) break;                      // otro arranque: otro registro
+        memmove(&s_arch[1], &s_arch[0], s_nArch * sizeof(Arch));
+        s_arch[0] = p; s_nArch++;
+        cur = cp; idx = pidx;
     }
-    xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
-    f.close();
-    xSemaphoreGive(g_sdBusMx);
+    for (int i = 0; i < s_nArch; i++) total += s_arch[i].size;
+    if (s_nArch == 1) snprintf(s_archivo, sizeof(s_archivo), "%s", s_arch[0].nm);
+    else snprintf(s_archivo, sizeof(s_archivo), "%.32s +%d", s_arch[0].nm, s_nArch - 1);
+    return true;
+}
+
+static bool todoCeros(const uint8_t *b, int n) { for (int i = 0; i < n; i++) if (b[i]) return false; return true; }
+
+// Una pasada por todos los archivos del registro, en orden. La cola de ceros de la preasignacion no se lee.
+static bool pasada(uint64_t total, cal::Analizador *an, int cual, uint8_t *buf) {
+    uint64_t leido = 0;
+    for (int k = 0; k < s_nArch; k++) {
+        char path[48]; snprintf(path, sizeof(path), "/%s", s_arch[k].nm);
+        xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
+        File f = SD.open(path, FILE_READ);
+        xSemaphoreGive(g_sdBusMx);
+        if (!f) return false;
+        cal::Lector lec;
+        uint64_t esteArch = 0;
+        for (;;) {
+            xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
+            const int got = f.read(buf, CHUNK);
+            xSemaphoreGive(g_sdBusMx);
+            if (got <= 0 || todoCeros(buf, got)) break;
+            esteArch += (uint32_t)got;
+            if (cual == 1) lec.feed(buf, (size_t)got, [an](const uint8_t *r, uint16_t len) { an->pasada1(r, len); });
+            else lec.feed(buf, (size_t)got, [an](const uint8_t *r, uint16_t len) { an->pasada2(r, len); });
+            s_prog = (uint8_t)((cual == 1 ? 0 : 45) + (total ? 45ull * (leido + esteArch) / total : 0));
+            vTaskDelay(1);
+        }
+        leido += s_arch[k].size;
+        xSemaphoreTake(g_sdBusMx, portMAX_DELAY);
+        f.close();
+        xSemaphoreGive(g_sdBusMx);
+    }
     return true;
 }
 
 static void calTask(void *) {
-    char path[64];
-    uint32_t size = 0;
+    uint64_t size = 0;
     uint8_t *buf = (uint8_t *)ps_malloc(CHUNK);
     cal::Analizador *an = new cal::Analizador();
-    bool ok = buf && an && ultimoRegistro(path, sizeof(path), size);
+    bool ok = buf && an && archivosDelRegistro(buf, size);
     if (ok) {
         cal::ceder = ceder;
         an->inicio(s_act.lsm.ok ? &s_act.lsm : nullptr);
         s_estado = CE_PASADA1;
-        ok = pasada(path, size, an, 1, buf);
+        ok = pasada(size, an, 1, buf);
         if (ok) {
             s_estado = CE_CALCULANDO;
             an->finPasada1();
             s_estado = CE_PASADA2;
-            ok = pasada(path, size, an, 2, buf);
+            ok = pasada(size, an, 2, buf);
         }
         if (ok) {
             s_estado = CE_CALCULANDO; s_prog = 95;
