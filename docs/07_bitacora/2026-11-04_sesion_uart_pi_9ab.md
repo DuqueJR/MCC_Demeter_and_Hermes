@@ -64,6 +64,15 @@ rama: feature/pi-uart
 - **Sincronía de cámaras:** en la captura del 21 oct (copia en OneDrive), por pares del mismo `frame_id`, cam0 − cam1 = 0.024 ms de mediana (máx 0.13 ms): la sincronía por software de libcamera (`SyncMode`) funciona. Los 18.7 ms de hoy se midieron por cercanía y con el centro de la exposición: si cada cámara tiene su propia exposición automática, los centros se separan la mitad de la diferencia de exposiciones aunque el inicio esté sincronizado. Hoy no se pudo verificar (la captura se borró): en la próxima, medir por `frame_id` y comparar `exposicion_us` de ambas.
 - **SD de la Pi:** Pablo borró las capturas de prueba (35 GB libres) y la Pi volvió sola a READY.
 
+## 2026-11-05: segundo vuelo de banco (misión `20261105_051446_428223`, sesión `20261105_001025`)
+
+- Cadena completa sin intervención: ARM, BOOST → ASCENT, RECORDING, TOUCHDOWN, COMPLETE (338 imágenes, 296 s), y después abortar (ARMED forzado → la Pi se arma), desarmar (ABORT → READY).
+- RECORDING lo inició el watchdog de 15 s de la Pi (00:15:29.4), 1 s antes del APOGEO manual: en el vuelo real el apogeo de Demeter llega a 11.5 s.
+- **Sincronía de cámaras:** 0.019 ms de mediana por `frame_id` (168 de 169 pares); el único fuera (19.5 ms) es el primer cuadro guardado, antes de "Sync achieved". Exposiciones iguales (60 ms).
+- **Sidecars:** 338 con hora de misión, residuo 0.012 ms, hueco de pose 0.020 s.
+- **Riesgo:** telemetryd se detuvo 3.6 s a las 00:15:58.8, durante la captura, con el tmpfs al 85 % (unos 2.5 GB de RAW en una Pi de 4 GB) y swap en uso. No perdió tramas, pero el latido no llegó y la LilyGo vio a la Pi "desconocida" 1 s. Probable presión de memoria: revisar el presupuesto del tmpfs y fijar en RAM a telemetryd (o subir su prioridad).
+- Documento para visión artificial: [vision_pose_camaras](../04_diseno/vision_pose_camaras.md).
+
 ## Pendiente
 
 - 9c: validar de nuevo con la espera en ERROR y el latido en hilo; decidir el espacio de la SD de la Pi; comandos manuales a la Pi desde tierra (`OP_PI_CMD`), si hacen falta.
