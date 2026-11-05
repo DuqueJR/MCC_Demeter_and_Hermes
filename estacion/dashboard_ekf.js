@@ -16,6 +16,7 @@ const PLOTS=[
  {title:'Nariz (grados)',wrap:true,s:[['tilt','inclinacion desde la vertical'],['naz','rumbo']]},
  {title:'Incertidumbre de actitud 1 sigma (grados)',s:[['sx','x'],['sy','y'],['sz','z (rumbo)']]},
  {title:'Sesgo del giro (dps)',s:[['bgx','x'],['bgy','y'],['bgz','z']]},
+ {title:'Factor de escala del giro (%)',s:[['sgx_pct','x'],['sgy_pct','y'],['sgz_pct','z']]},
  {title:'Fuerza especifica en cuerpo (g)',s:[['fx','X nariz'],['fy','Y derecha'],['fz','Z']]},
  {title:'Aceleracion en el chip (g)',s:[['ax','x'],['ay','y'],['az','z']]},
  {title:'Incertidumbre de posicion 1 sigma (m)',s:[['sig_pn','N'],['sig_pe','E'],['sig_pd','D']]},
@@ -277,8 +278,9 @@ function status(d,i){
   out.push('<h4>EKF</h4><table><tr><td>Sigma posicion N E D</td><td colspan="2">'+[v('sig_pn'),v('sig_pe'),v('sig_pd')].map(x=>fmt(x,2)).join(' ')+' m</td></tr>'
    +'<tr><td>Sigma velocidad N E D</td><td colspan="2">'+[v('sig_vn'),v('sig_ve'),v('sig_vd')].map(x=>fmt(x,3)).join(' ')+' m/s</td></tr>'
    +'<tr><td>Sigma actitud x y z</td><td colspan="2">'+[v('sx'),v('sy'),v('sz')].map(x=>fmt(x,2)).join(' ')+' grados</td></tr>'
+   +(d.sgx_pct?'<tr><td>Escala del giro x y z</td><td colspan="2">'+[v('sgx_pct'),v('sgy_pct'),v('sgz_pct')].map(x=>fmt(x,2)).join(' ')+' % (1&sigma; '+fmt(v('sig_sgx_pct'),2)+')</td></tr>':'')
    +'<tr><td><i>medidas</i></td><td><i>acept. / rech.</i></td><td><i>rech. 10 s</i></td></tr>'
-   +rowm('GNSS','gnss_ok','gnss_rej')+rowm('Barometros','baro_ok','baro_rej')+rowm('Magnetometros','mag_ok','mag_rej')+'</table>');
+   +rowm('GNSS','gnss_ok','gnss_rej')+rowm('Barometros (BMP; BME de respaldo)','baro_ok','baro_rej')+rowm('Magnetometros','mag_ok','mag_rej')+'</table>');
  }
  el.innerHTML=out.join('');
 }
