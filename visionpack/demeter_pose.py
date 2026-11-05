@@ -283,7 +283,8 @@ def camera_in_ned(pose: dict[str, Any], cam: dict[str, Any]) -> dict[str, Any]:
         "q_camara_a_ned": q,
         "eje_optico_ned": axis,
         "angulo_desde_nadir_deg": math.degrees(math.atan2(horiz, axis[2])),
-        "rumbo_eje_deg": (math.degrees(math.atan2(axis[1], axis[0])) % 360.0) if horiz > 1e-6 else None,
+        # el redondeo evita 360.0 cuando el componente este es -0 por error numerico
+        "rumbo_eje_deg": (round(math.degrees(math.atan2(axis[1], axis[0])), 9) % 360.0) if horiz > 1e-6 else None,
     }
 
 
