@@ -46,8 +46,18 @@ rama: feature/pi-uart
 - `tblog.py` imprime los comandos; Diagnóstico muestra la fase y el último comando. `web1.py` (web pública) no se toca: tampoco conoce el motivo 21.
 - Pruebas de PC (`test/host`): stub de `piStatus` y `RZ_COUNT = 23`. No se corrieron: no hay g++ en el PC.
 
+## Prueba en banco de 9c (Pablo, 2026-11-04 23:04-23:21; sesión `20261104_230851_demeter`, journal de la Pi)
+
+- Funcionó la cadena completa: PREFLIGHT automático en TIERRA (READY a los 3.7 s), ARM (23:10:17), desarme con ABORT y vuelta a READY, ARM, BOOST → ASCENT con `rpicam-vid` (23:12:54), APOGEO → RECORDING (23:13:08), ATERRIZAJE → TOUCHDOWN (23:13:40) → INGESTING → PROCESSING (23:14:12) → COMPLETE (23:17:13, 330 imágenes) → reinicio en BOOT.
+- **Procesamiento en la Pi:** 3.5 min tras TOUCHDOWN para 32 s de captura a ~10 fps (ingesta 245 s; revelado 179 s), con alertas `sd_read/write_throughput_low`. En vuelo serían hasta 95 s de captura: ~10 min después de aterrizar. No afecta el vuelo, sí la batería en recuperación.
+- **Espacio:** la prueba dejó 5.9 GB en la SD de la Pi (RAW 3.7, PNG 1.9, JPEG 0.3). Con 20.17 GB libres, PREFLIGHT falla su presupuesto (21.25 GB para 95 s): la Pi queda en ERROR.
+- **Error de la LilyGo (corregido):** en ERROR, PREFLIGHT pasa por PREFLIGHT y vuelve a ERROR, y ese cambio de estado reiniciaba la espera de 30 s: la LilyGo mandaba PREFLIGHT cada ~3.4 s (y cada uno escribe una prueba en la SD de la Pi). Ahora la espera en ERROR se cuenta por tiempo.
+- **Latido (corregido en la Pi):** PREFLIGHT (~3.5 s), TOUCHDOWN y la ingesta bloquean el bucle de `missiond`, y el latido se cortaba: "desconocido" de 1-2 s. El latido va ahora en un hilo propio.
+- **QMI y SD al desarmar:** a las 23:11:05, al desarmar, 204 muestras perdidas de golpe con 2 timeouts y 1 FIFO llena, y luego `err` de SD de 0 a 47 (`reab` 19) hasta las 23:12:08: es la creación de la reserva nueva de 32 MB (ya documentado: no importa porque no se vuela sin armar). Durante el registro (23:12:40-23:17:36) el QMI pierde ~1 muestra/s, el 0.2 % ya conocido por compartir el bus con la SD. LSM: ~2.5 pérdidas por minuto en todo momento, también antes de la Pi (el salto de marca conocido). Nada apunta a `ext_pi`.
+- Pruebas de `visionpack` corridas en la Pi (copia en `/tmp`): 30 OK.
+
 ## Pendiente
 
-- 9c: validar en banco; comandos manuales a la Pi desde tierra (`OP_PI_CMD`), si hacen falta.
+- 9c: validar de nuevo con la espera en ERROR y el latido en hilo; decidir el espacio de la SD de la Pi; comandos manuales a la Pi desde tierra (`OP_PI_CMD`), si hacen falta.
 - 9d: encendido por IO45 con el latido; proponer `HandlePowerKey=ignore` en la Pi.
 - Hardware: 1 kΩ también en la línea Pi TX → IO44.

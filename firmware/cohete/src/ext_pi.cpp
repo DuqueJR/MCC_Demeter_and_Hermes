@@ -166,6 +166,8 @@ static void sendPose() {
 static uint8_t  s_cmdStatus = PI_DESCONOCIDO;      // estado de la Pi cuando se mando el ultimo comando
 static uint8_t  s_cmdLast = 0, s_cmdTries = 0;
 static uint32_t s_cmdNextMs = 0;
+static uint32_t s_errPreflightMs = 0;             // ultimo PREFLIGHT mandado con la Pi en ERROR
+static bool     s_errPreflightSent = false;
 
 static void stepPlan(uint32_t nowMs) {
     const MissionStats ms = missionStats();
@@ -176,6 +178,9 @@ static void stepPlan(uint32_t nowMs) {
     if (st != s_cmdStatus || c != s_cmdLast) { s_cmdTries = 0; s_cmdNextMs = nowMs; }   // la Pi avanzo o cambio el objetivo
     if (c == piplan::C_NADA) { s_cmdLast = 0; return; }
     if ((int32_t)(nowMs - s_cmdNextMs) < 0) return;
+    // En ERROR, PREFLIGHT pasa por PREFLIGHT y vuelve a ERROR: ese cambio de estado no debe reiniciar la espera, o se repetiria cada
+    // ~3.5 s (lo que tardan sus revisiones, que ademas escriben una prueba en la SD de la Pi). Se cuenta aparte, por tiempo.
+    if (st == piplan::PS_ERROR && c == piplan::C_PREFLIGHT && s_errPreflightSent && nowMs - s_errPreflightMs < ERROR_RETRY_MS) return;
     if (s_cmdTries >= CMD_TRIES) {                   // la Pi no responde a este comando: pausa y vuelve a empezar
         s_st.cmdGaveUp++;
         s_cmdTries = 0;
@@ -188,6 +193,7 @@ static void stepPlan(uint32_t nowMs) {
     s_cmdLast = (uint8_t)c;
     s_cmdStatus = st;
     s_cmdNextMs = nowMs + (st == piplan::PS_ERROR ? ERROR_RETRY_MS : CMD_RETRY_MS);
+    if (st == piplan::PS_ERROR) { s_errPreflightMs = nowMs; s_errPreflightSent = true; }
     s_st.cmds++;
     s_st.lastCmd = (uint8_t)c;
     logEvent(st, (uint8_t)c, rec::PIK_CMD, s_cmdTries);

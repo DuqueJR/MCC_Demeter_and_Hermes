@@ -24,6 +24,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from typing import Any
@@ -621,6 +622,13 @@ class MissionDaemon:
                 "evento rendimiento kind=%s chunk=%s process=%s alerts=%d",
                 kind, details.get("chunk"), details.get("process"), len(alerts),
             )
+
+    def heartbeat_loop(self, stop: threading.Event) -> None:
+        """Latido hacia la LilyGo en su propio hilo: PREFLIGHT, TOUCHDOWN o la ingesta bloquean el bucle principal varios segundos,
+        y sin latido la LilyGo da a la Pi por desconocida a los 3 s."""
+        while not STOP and not stop.wait(STATUS_EVERY_S):
+            if time.monotonic() - self.last_status_sent >= STATUS_EVERY_S * 0.9:
+                self.publish_status(quiet=True)
 
     def publish_status(self, quiet: bool = False) -> None:
         self.last_status_sent = time.monotonic()
@@ -1220,6 +1228,8 @@ class MissionDaemon:
             "error": None, "video_pid": None, "flight_pid": None,
         })
         self.publish_status()
+        heartbeat_stop = threading.Event()
+        threading.Thread(target=self.heartbeat_loop, args=(heartbeat_stop,), name="latido", daemon=True).start()
         try:
             while not STOP and self.state != State.COMPLETE:
                 readable, _, _ = select_select([self.command_socket, self.event_socket], 0.5)
@@ -1240,12 +1250,11 @@ class MissionDaemon:
                     except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                         LOG.warning("mensaje IPC inválido en %s (%s): %s", channel.getsockname(), type(exc).__name__, exc)
                 self.poll_process()
-                if time.monotonic() - self.last_status_sent >= STATUS_EVERY_S:
-                    self.publish_status(quiet=True)
             # En BOOT no hay mision ni procesos: parar es solo salir (BOOT -> ABORTED no es transicion valida)
             if STOP and self.state not in (State.BOOT, State.COMPLETE, State.ABORTED, State.ERROR):
                 self.abort()
         finally:
+            heartbeat_stop.set()
             if self.video_process:
                 self.stop_ascent_video()
             if self.process and self.process.poll() is None:
