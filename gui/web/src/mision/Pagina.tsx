@@ -3,13 +3,13 @@
 import type { ComponentChildren } from "preact";
 import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
+import { Graficas } from "../graficas/Graficas";
 import { SeccionMapa } from "../mapa/SeccionMapa";
 import { aterrizado } from "./aterrizado";
 import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
 import { Equipo } from "./Equipo";
 import { EstadoMision } from "./EstadoMision";
-import { Hueco } from "./Hueco";
 import { Inicio } from "./Inicio";
 import { Navegacion } from "./Navegacion";
 import { Pie } from "./Pie";
@@ -42,7 +42,7 @@ export function Pagina({ contenido, extra }: Props) {
         <SeccionMapa />
         {!enTierra && <Recuperacion />}
         <Actitud />
-        <Hueco id="graficas" titulo="Gráficas" />
+        <Graficas />
         <Salud mision={contenido.mision} />
         {extra}
         <Equipo contenido={contenido} />
