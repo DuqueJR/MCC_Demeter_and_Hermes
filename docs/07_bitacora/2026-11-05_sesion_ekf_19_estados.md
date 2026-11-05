@@ -102,3 +102,29 @@ La escala es observable cuando el cohete gira, y en vuelo girará. Las dos posic
 - **La altura** queda en 2-5 m. La diferencia de 1 % entre la atmósfera de OpenRocket y la fórmula hipsométrica es lo que queda.
 
 **Validez:** son pruebas sobre supuestos. Los números sirven para comparar variantes, no para predecir el vuelo. El primer vuelo real dirá la vibración, el alabeo y el comportamiento del GNSS.
+
+## Temperatura del suelo: decisiones y estrategia (Pablo, 2026-11-05)
+
+- **Fuente:** la temperatura para la altura barométrica sale del BMP581. No hay otra fuente mejor: tierra no tiene barómetro ni termómetro.
+- **Precisión aceptada:** ±2-3 m en el apogeo.
+  - Los 3.3 cm del BMP581 son su precisión entre muestras.
+  - La altura absoluta sobre unos 670 m depende de la temperatura de toda la columna de aire: el gradiente real puede ser de hasta 9.8 °C/km a mediodía, frente a los 6.5 de la fórmula. Eso es el límite físico, no del sensor.
+- **Simulaciones:** ninguna tiene la atmósfera de Santa Fe de Antioquia. Hermes trae la atmósfera estándar (11.7 °C, 953.5 hPa); Demeter trae 31 °C con 1014.9 hPa, la presión del nivel del mar. Hay que corregir las condiciones del sitio en los archivos de OpenRocket.
+- **Calentamiento medido en banco** (sesiones con `[boot]`, cohete abierto): +0.3 a +0.9 °C en 10 min. El BME (en la placa) lee 0.5-1.5 °C más que el BMP, salvo una sesión.
+
+### Estrategia propuesta (sin implementar)
+
+1. **Muestra en frío:** en los primeros 10-30 s tras encender o despertar, antes de transmitir a 22 dBm y antes de encender la Pi. Cuenta como fría si la placa llevaba más de 30 min apagada o dormida. Al despertar para el lanzamiento ya la tiene.
+2. **Contraste BMP con BME:** la muestra vale si difieren menos de 1.5 °C y ninguno sube más de 0.05 °C/min. Si no, queda marcada como dudosa y se usa la menor.
+3. **NVS:** se guarda con su hora UTC.
+4. **ARM revisa la temperatura:** compara la muestra fría con el BMP y el BME de ese momento. Una discrepancia grande es un motivo de "no apto", que se puede forzar.
+5. **Dashboard:** la muestra, su hora y su coherencia, más las temperaturas actuales; corrección por el comando de calibración a NVS.
+6. **Hermes como referencia en tierra (idea de Pablo):** Hermes no lleva la Pi; si está en tierra (incluso abierto) mientras vuela Demeter, su BMP581 sirve de termómetro y de barómetro de referencia.
+   - Con eso se ve cuánto se desvía la temperatura de Demeter.
+   - También se ve la deriva de la presión por el clima durante el vuelo (unos 0.5 hPa/h, unos 4 m/h).
+   - Requiere que la telemetría lleve la temperatura y la presión del BMP con buena resolución. Hoy TELEM solo trae `temp_c[0]` del BME en grados enteros, así que hay que ampliar el contrato: candidato, el LogInfo de cada 5 s.
+
+### Pendientes en hardware
+
+- Calibrar con el cohete cerrado en el fuselaje: la calibración correcta.
+- En la misma sesión, la curva de calentamiento: encender Demeter en frío y cerrado, encender la Pi a los 5 min y registrar 30 min.
