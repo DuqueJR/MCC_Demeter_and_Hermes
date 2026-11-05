@@ -55,3 +55,50 @@ La escala es observable cuando el cohete gira, y en vuelo girará. Las dos posic
 - `calib.py` estima la escala del giro en la fase de "2 min girando" de la guía, contra la gravedad y el magnetómetro, con el cohete cerrado.
 - El EKF arranca de ese valor con una sigma de unos 0.5 % y un ruido de proceso menor.
 - En vuelo el giro es rápido (alabeo de cientos de dps): un 1 % de escala a 300 dps son 3 dps, que deriva la actitud muy rápido. Por eso vale la pena el estado.
+
+## Vuelo sintético, pesos por fase y temperatura del suelo
+
+**`estacion/vuelo_sintetico.py`:**
+- Toma la simulación de OpenRocket de cada cohete: trayectoria, elevación y rumbo, empuje, presión y eventos.
+- Genera los sensores con los ruidos y sesgos de los logs de banco: LSM a 1610 Hz (±32 g), QMI a 445 Hz (±16 g, satura en el empuje), BMP, BME, MMC, QMC, GNSS a 10 Hz con PPS, y los momentos de la misión con sus retardos de detección.
+- Corre el mismo `ekf.py` (`navigate`) y compara contra la verdad.
+- **Supuestos, todos parametrizados:**
+  - alabeo de hasta 200 dps;
+  - vibración del motor de 1 g;
+  - escala real del giro de +0.75 / 0 / +1.5 %;
+  - choque de la carga (25 g, 15 ms) y su pulso de presión (+300 Pa, τ 0.15 s);
+  - volteo a colgar del paracaídas en 1 s;
+  - nariz abajo con balanceo de ±10° bajo el paracaídas;
+  - pérdida del GNSS por encima de 4 g, con recuperación en 1.5 s;
+  - impacto contra el suelo en 0.15 s.
+
+**Pesos por fase en `ekf.py`:**
+- Tabla `FASES`: multiplica el ruido de proceso (acel, giro) y el de medida (GNSS, barómetro, magnetómetro), o apaga la medida.
+- La fase sale del momento de la misión: `T_MISSION` en los logs reales, la verdad con retardos en el sintético.
+- Fases: reposo, boost, coast, eyección (2 s tras PARACAIDAS, sin barómetro ni magnetómetro), paracaídas y aterrizaje.
+- `--sin-fases` lo apaga.
+
+**Temperatura del suelo (hallazgo):**
+- `ekf.py` convertía la presión con la atmósfera estándar (15 °C).
+- La simulación de Demeter tiene 31 °C en el sitio: eso daba **25-37 m de error de altura** (un 5.5 %).
+- Ahora la altura barométrica usa la temperatura del suelo: `--t-suelo`, o la del BMP581 en la ventana quieta.
+- Con eso, Demeter queda en 2-5 m.
+- **En vuelo:** la temperatura del BMP581 está calentada por la electrónica, así que conviene ingresar la del aire en las condiciones de misión del dashboard y enviarla con la calibración.
+
+**Resultados, mediana / máximo del error de actitud en grados:**
+
+| Fase | Hermes completo | sin fases | sin escala | Demeter completo | sin fases | sin escala |
+| --- | --- | --- | --- | --- | --- | --- |
+| Empuje | 0.37 / 1.31 | 0.33 / 0.57 | 0.37 / 1.70 | 0.33 / 1.51 | 0.30 / 0.86 | 0.33 / 2.42 |
+| Inercia | 0.67 / 1.72 | 0.41 / 0.70 | 1.53 / 4.23 | 0.50 / 1.82 | 0.49 / 0.89 | 1.67 / 8.12 |
+| Eyección + 2 s | 2.34 / 12.96 | 10.24 / 34.13 | 1.84 / 11.21 | 1.50 / 6.28 | 3.05 / 11.96 | 1.41 / 3.84 |
+| Paracaídas | 0.13 / 11.05 | 0.45 / 25.75 | 0.67 / 10.33 | 0.16 / 6.27 | 0.28 / 32.31 | 0.68 / 4.07 |
+| Suelo | 0.06 / 0.30 | 0.23 / 1.79 | 0.09 / 1.14 | 0.08 / 0.32 | 0.19 / 1.72 | 0.08 / 0.61 |
+
+**Lectura:**
+- **Las fases** son las que evitan perder la actitud en la carga y bajo el paracaídas (máximos de 25-34° sin fases). En el empuje y la inercia todavía restan un poco (máximos de 1.3-1.8° frente a 0.6-0.9°): queda por ajustar con el vuelo real.
+- **La escala** sí importa con alabeo: sin ella, la inercia llega a 4-8°. En el eje de alabeo se estima bien (+0.76/+0.78 % frente a +0.75 % real). Los ejes que casi no giran quedan con sigma de 0.6-1 %, por eso conviene darles un valor inicial medido en `calib.py`.
+- **La posición horizontal** queda en 0.4-2.8 m y la velocidad en menos de 0.7 m/s, salvo en la carga (unos 2.3 m/s).
+- **La altura** queda en 2-5 m. La diferencia de 1 % entre la atmósfera de OpenRocket y la fórmula hipsométrica es lo que queda.
+
+**Validez:** son pruebas sobre supuestos. Los números sirven para comparar variantes, no para predecir el vuelo. El primer vuelo real dirá la vibración, el alabeo y el comportamiento del GNSS.

@@ -42,6 +42,7 @@ MAG_NORM_TOL = 0.05          # el modulo calibrado debe quedar a +-5 % del radio
 MAG_DIP_DEG = 32.0           # inclinacion esperada: las calibraciones dieron 29 (Demeter) y 35 (Hermes)
 MAG_DIP_TOL_DEG = 8.0
 BARO_RATE_HZ = 20.0
+T_ESTANDAR_C = 15.0          # sin temperatura del suelo, la atmosfera estandar; a 31 C eso infla la altura ~5.5 % (37 m a 670 m)
 GATE = 5.0                   # sigmas para aceptar una medida
 GATE_RUN = {'gnss': 20, 'baro': 40, 'mag': 40}    # tras tantos rechazos seguidos se abre la covarianza: mejor recuperar que quedar ciego
 GNSS_MAX_HACC_M = 50.0       # peor que esto no es referencia: pasa con la antena tapada o girando
@@ -51,6 +52,34 @@ STILL_G = 0.03               # quieto: |a| a menos de esto de 1 g
 STILL_DPS = 5.0              # y girando menos que esto
 STILL_N = 200                # durante 0.5 s
 R_GRAV_RAD = 0.03
+
+# Pesos por fase del vuelo (2026-11-05): multiplicadores del ruido de proceso (acel, giro) y del ruido de medida (GNSS, barometro,
+# magnetometro); None = esa medida no se usa en la fase. La fase sale del momento que detecta la mision (T_MISSION en los logs; la
+# verdad con sus retardos en el vuelo sintetico): el EKF lee la mision, la mision nunca lee el EKF. --sin-fases deja todo en 'reposo'.
+# Valores iniciales, a ajustar con el vuelo sintetico y despues con el vuelo real.
+FASES = {
+    'reposo':     (1.0, 1.0, 1.0, 1.0, 1.0),
+    'boost':      (10.0, 1.5, 5.0, 2.0, None),     # vibracion y empuje; el M10S (aereo, <4 g) se atrasa o pierde la solucion
+    'coast':      (1.5, 1.0, 1.0, 1.0, 2.0),
+    'eyeccion':   (10.0, 4.0, 2.0, None, None),    # 2 s tras la carga: pulso de presion y choque
+    'paracaidas': (4.0, 3.0, 1.0, 1.5, 2.0),       # balanceo bajo el paracaidas
+    'aterrizaje': (1.0, 1.0, 1.0, 1.0, 1.0),
+}
+EYECCION_S = 2.0
+M_NONE, M_LAUNCH, M_BOOST, M_COAST, M_APOGEO, M_CAIDA, M_PARACAIDAS, M_ATERRIZAJE = range(8)
+
+
+def fase_de(momento, t_us, t_paracaidas):
+    if momento in (M_BOOST,):
+        return 'boost'
+    if momento in (M_COAST, M_APOGEO, M_CAIDA):
+        return 'coast'
+    if momento == M_PARACAIDAS:
+        return 'eyeccion' if t_paracaidas is not None and t_us - t_paracaidas < EYECCION_S * 1e6 else 'paracaidas'
+    if momento == M_ATERRIZAJE:
+        return 'aterrizaje'
+    return 'reposo'
+
 
 # 19 estados de error: actitud, posicion, velocidad, sesgo del giro, sesgo del acel, factor de escala del giro y sesgo del BMP581.
 # El BME280 no es un estado: es respaldo del BMP581 (y comparte su sesgo), y se registra siempre.
@@ -110,7 +139,7 @@ def euler_deg(C):
 def load_extra(path):
     """Lo que calib.load no trae: GNSS, PPS y barometros."""
     recs = tblog.records(open(path, 'rb').read())[0]
-    pvt, pps, bme, bmp, link, hb, sv = [], [], [], [], [], [], []
+    pvt, pps, bme, bmp, link, hb, sv, momentos, bmp_t = [], [], [], [], [], [], [], [], []
     for r in recs:
         if r[1] == tblog.T_PVT and len(r[4]) == 92:
             d = tblog.decode_pvt(r[4])
@@ -123,6 +152,9 @@ def load_extra(path):
             direc, _, _, _, rssi, snr = struct.unpack_from('<BBBBhh', r[4])
             if direc == 1:
                 link.append((r[3], rssi / 10.0, snr / 10.0))
+        elif r[1] == tblog.T_MISSION and len(r[4]) == 16:          # momento del vuelo tras cada transicion (pesos por fase)
+            to, mo = r[4][12], r[4][13]                                 # MissionRec: ... from(11) to(12) moment(13)
+            momentos.append((r[3], mo if to == 3 else (M_ATERRIZAJE if to == 4 else M_NONE)))
         elif r[1] == tblog.T_HB and len(r[4]) >= 32:                   # para el dashboard: lo escrito en la SD
             hb.append((r[3], struct.unpack_from('<I', r[4], 28)[0]))
         elif r[1] == tblog.T_PPS and len(r[4]) >= 18:
@@ -149,11 +181,13 @@ def load_extra(path):
                     p, c = pp / 64.0, tt / 65536.0
                     if 20000 <= p <= 115000 and -40 <= c <= 85:      # igual que el firmware
                         bmp.append((t_first + (n - n0) * period, p))
+                        bmp_t.append(c)
     arr = lambda v, w: np.array(v, dtype=float) if v else np.zeros((0, w))
     bmp = arr(bmp, 2)
     if len(bmp) > 2:                                                 # mediana de 3, como el firmware
         bmp[1:-1, 1] = np.median(np.c_[bmp[:-2, 1], bmp[1:-1, 1], bmp[2:, 1]], axis=1)
-    return dict(pvt=arr(pvt, 12), pps=arr(pps, 2), bme=arr(bme, 2), bmp=bmp, link=arr(link, 3), hb=arr(hb, 2), sv=arr(sv, 2))
+    return dict(pvt=arr(pvt, 12), pps=arr(pps, 2), bme=arr(bme, 2), bmp=bmp, link=arr(link, 3), hb=arr(hb, 2), sv=arr(sv, 2), momentos=momentos,
+                bmp_temp=np.array(bmp_t, dtype=float))
 
 
 def last_at(series, t, cols):
@@ -205,13 +239,15 @@ def find_still(t, a, g):
 
 
 class Ekf:
-    def __init__(self, q, ref):
+    def __init__(self, q, ref, t_suelo_c=T_ESTANDAR_C):
         self.q, self.p, self.v = q, np.zeros(3), np.zeros(3)
         self.bg, self.ba = np.zeros(3), np.zeros(3)
         self.b = {'bmp': 0.0, 'bme': float('nan')}            # 'bme' ya no es un estado: queda en el CSV como NaN
         self.sg = np.zeros(3)                                # factor de escala del giro: w_medido = (1 + sg) w + bg
         self.gyr_sf = GYR_SF
+        self.fase = 'reposo'
         self.ref = ref                                       # p0 por barometro
+        self.h_escala = (t_suelo_c + 273.15) / 0.0065        # 44330 m a 15 C: altura barometrica con la temperatura del suelo
         s = np.r_[[np.radians(2)] * 2, np.radians(10), [5.0] * 3, [0.5] * 3, [0.2 * DPS] * 3, [0.2] * 3, [SG0] * 3, 0.05]
         self.Pm = np.diag(s ** 2)
         self.I = np.eye(NX)
@@ -235,6 +271,9 @@ class Ekf:
         F[V:V + 3, BA:BA + 3] = -C * DT
         self.Pm = F @ self.Pm @ F.T
         qd = QD.copy()
+        qa, qgy = FASES[self.fase][0], FASES[self.fase][1]
+        qd[V:V + 3] *= qa * qa
+        qd[TH:TH + 3] *= qgy * qgy
         qd[TH:TH + 3] += (self.gyr_sf * np.linalg.norm(w)) ** 2
         if self.gyr_sf > GYR_SF:                             # --sin-escala: la escala queda fija en cero
             qd[SG:SG + 3] = 0.0
@@ -272,21 +311,31 @@ class Ekf:
         self.b['bmp'] += dx[B_BMP]
 
     def scalar(self, name, idx, y, r):
+        k = FASES[self.fase][2]
+        if k is None:
+            return
+        r = r * k
         H = np.zeros(NX)
         H[idx] = 1.0
         self.update(name, H, y, r, 'gnss')
 
     def baro(self, which, press):
-        alt = 44330.0 * (1.0 - (press / self.ref[which]) ** 0.19029)
+        k = FASES[self.fase][3]
+        if k is None:
+            return
+        alt = self.h_escala * (1.0 - (press / self.ref[which]) ** 0.190263)
         idx = B_BMP                                          # el BME280, cuando entra de respaldo, usa el sesgo del BMP581
         H = np.zeros(NX)
         H[P + 2] = -1.0                                      # hacia abajo en el estado, hacia arriba en la medida
         H[idx] = 1.0
-        self.update(which, H, alt - (-self.p[2] + self.b['bmp']), R_BARO_M[which], 'baro')
+        self.update(which, H, alt - (-self.p[2] + self.b['bmp']), R_BARO_M[which] * k, 'baro')
 
     def heading(self, which, m, radius):
         """Solo el rumbo: un error magnetico no debe inclinar el cohete. Antes, el campo tiene que parecer el de la Tierra:
         cerca de acero (techo del carro, rampa) cambian el modulo y la inclinacion, y el rumbo sale con decenas de grados de error."""
+        k = FASES[self.fase][4]
+        if k is None:
+            return
         C = q_to_C(self.q)
         mn = C @ m
         nm = np.linalg.norm(m)
@@ -301,7 +350,7 @@ class Ekf:
         y = (y + np.pi) % (2 * np.pi) - np.pi
         H = np.zeros(NX)
         H[TH:TH + 3] = C[2, :]
-        self.update(which, H, y, np.radians(R_MAG_DEG[which]), 'mag')
+        self.update(which, H, y, np.radians(R_MAG_DEG[which]) * k, 'mag')
 
     def gravity(self, f):
         """Quieto, el acelerometro mide la vertical: referencia absoluta de inclinacion. Nunca corrige la guinada."""
@@ -323,7 +372,18 @@ def latlon_to_ned(lat, lon, h, o):
     return np.array([(lat - o[0]) * k * Rn, (lon - o[1]) * k * Rn * np.cos(o[0] * k), o[2] - h])
 
 
-def run(path, a):
+def run(path, a, data=None, salida=None):
+    """data = (d, x, c): datos ya cargados (el vuelo sintetico); si no, se leen del .BIN y de la calibracion."""
+    if data is not None:
+        d, x, c = data
+        base = os.path.basename(path)
+        print(f'datos {base} (en memoria)')
+    else:
+        d, x, c, base = load_run(path, a)
+    return navigate(d, x, c, base, path, a, salida)
+
+
+def load_run(path, a):
     d = calib.load(path)
     x = load_extra(path)
     base = os.path.basename(path)
@@ -337,6 +397,10 @@ def run(path, a):
     import json
     c = json.load(open(cal_path, encoding='utf-8'))
     print(f'log {base}, calibracion {os.path.basename(cal_path)}')
+    return d, x, c, base
+
+
+def navigate(d, x, c, base, path, a, salida=None):
 
     la, lg = to_body(c['lsm'], d['lsm_a'], d['lsm_g'])
     qa, qg = to_body(c['qmi'], d['qmi_a'], d['qmi_g'])
@@ -419,7 +483,16 @@ def run(path, a):
     for name, s in (('bmp', x['bmp']), ('bme', x['bme'])):
         w = (s[:, 0] >= still[0]) & (s[:, 0] <= still[1])
         ref[name] = float(s[w, 1].mean()) if w.any() else (float(s[0, 1]) if len(s) else 101325.0)
-    e = Ekf(q0, ref)
+    t_suelo = a.t_suelo
+    if t_suelo is None:
+        bt = x.get('bmp_temp', np.zeros(0))
+        w = (x['bmp'][:, 0] >= still[0]) & (x['bmp'][:, 0] <= still[1]) if len(bt) == len(x['bmp']) and len(bt) else None
+        t_suelo = float(bt[w].mean()) if w is not None and w.any() else T_ESTANDAR_C
+        fuente = 'BMP581 en la ventana quieta' if w is not None and w.any() else 'atmosfera estandar'
+    else:
+        fuente = '--t-suelo'
+    print(f'temperatura del suelo para la altura barometrica: {t_suelo:.1f} C ({fuente})')
+    e = Ekf(q0, ref, t_suelo)
     if a.sin_escala:                                         # comparacion: sin estimar el factor de escala (como antes)
         e.Pm[SG:SG + 3, :] = 0.0
         e.Pm[:, SG:SG + 3] = 0.0
@@ -437,8 +510,18 @@ def run(path, a):
     pose_i = 0
     k_ev = 0
     every = int(round(1 / (50 * DT)))
+    momentos = sorted(x.get('momentos', []))              # (t_us, momento): de T_MISSION o de la verdad del vuelo sintetico
+    k_mo, momento, t_par = 0, M_NONE, None
+    fase_t = {}                                              # segundos de navegacion en cada fase
     for k in range(n):
         tk = t0 + (k + 1) * DT * 1e6
+        while k_mo < len(momentos) and momentos[k_mo][0] <= tk:
+            momento = momentos[k_mo][1]
+            if momento == M_PARACAIDAS and t_par is None:
+                t_par = momentos[k_mo][0]
+            k_mo += 1
+        e.fase = 'reposo' if a.sin_fases else fase_de(momento, tk, t_par)
+        fase_t[e.fase] = fase_t.get(e.fase, 0) + DT
         while k_ev < len(ev) and ev[k_ev][0] <= tk:
             _, kind, v = ev[k_ev]
             k_ev += 1
@@ -530,7 +613,9 @@ def run(path, a):
         for name, tilt, yaw, pitch, roll in pose_checks:
             print(f'  {name:18s} error {tilt:5.2f} grados   guinada {yaw:7.1f}  cabeceo {pitch:6.1f}  alabeo {roll:7.1f}')
 
-    salida = os.path.splitext(path)[0] + '_ekf.csv'
+    if momentos:
+        print('fases (s): ' + ', '.join(f'{k} {v:.1f}' for k, v in fase_t.items()) + ('   [--sin-fases]' if a.sin_fases else ''))
+    salida = salida or os.path.splitext(path)[0] + '_ekf.csv'
     with open(salida, 'w') as f:
         # Las primeras 26 columnas no cambian; las demas son para el dashboard de control (radares G, mapa, enlace, SD, estadisticas)
         f.write('t_us,qw,qx,qy,qz,guinada_deg,cabeceo_deg,alabeo_deg,pn_m,pe_m,pd_m,vn_mps,ve_mps,vd_mps,bgx_dps,bgy_dps,bgz_dps,bax_g,bay_g,baz_g,b_bmp_m,b_bme_m,alt_baro_m,sig_x_deg,sig_y_deg,sig_z_deg,'
@@ -540,6 +625,7 @@ def run(path, a):
         for r in out:
             f.write(','.join(f'{v:.6g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
     print(f'escribi {salida}')
+    e.out = out
     return e, pose_checks
 
 
@@ -547,8 +633,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('file')
     ap.add_argument('--calib')
-    for o in ('sin-gnss', 'sin-mag', 'sin-baro', 'sin-gravedad', 'solo-lsm', 'solo-qmi', 'sin-escala', 'con-bme'):
+    for o in ('sin-gnss', 'sin-mag', 'sin-baro', 'sin-gravedad', 'solo-lsm', 'solo-qmi', 'sin-escala', 'con-bme', 'sin-fases'):
         ap.add_argument('--' + o, action='store_true')
+    ap.add_argument('--t-suelo', type=float, default=None, help='temperatura del aire en el suelo (C) para la altura barometrica')
     a = ap.parse_args()
     run(a.file, a)
 
