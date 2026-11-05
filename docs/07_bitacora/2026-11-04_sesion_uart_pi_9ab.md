@@ -1,7 +1,7 @@
 ---
 fecha: 2026-11-04
 tipo: sesion
-ids: [D-054, T-702]
+ids: [D-054, D-055, T-702]
 autor: Claude, con Pablo
 rama: feature/pi-uart
 ---
@@ -38,8 +38,16 @@ rama: feature/pi-uart
 - Al detener `demeter-mission`: `estado=desconocido`, `perdidas=1`; al arrancarlo vuelve a BOOT.
 - Faltó: ver el estado de la Pi en TELEM por LoRa (fila Raspberry Pi en Mando, con tierra conectada) y el `T_PI` en el log con `tblog`. El dashboard de control muestra ahora la línea `[pi  ]` en Diagnóstico.
 
+## 9c: comandos de misión hacia la Pi (escrito sin compilar)
+
+- `pi_plan.h` (C++ puro): fase objetivo de la Pi según la misión y siguiente comando según su latido (D-055). Simulado en Python contra las transiciones de `missiond`: vuelo normal, BOOST sin armar, desarme, reinicio de la Pi en ASCENT y aterrizaje sin apogeo dan las cadenas correctas.
+- `ext_pi.cpp`: manda el comando cada 1 s mientras la Pi no cambie (3 intentos, 10 s de pausa; en ERROR, cada 30 s) y lo registra (`T_PI` kind 3). La línea `[pi  ]` agrega `meta`, `ult_cmd`, `cmds` y `agotados`.
+- `mission.cpp`: ARM de Demeter exige la Pi en READY o ARMED (motivo 22, `RZ_PI_NO_LISTA`, se puede forzar). Hay que recompilar también tierra para que muestre el texto del motivo nuevo.
+- `tblog.py` imprime los comandos; Diagnóstico muestra la fase y el último comando. `web1.py` (web pública) no se toca: tampoco conoce el motivo 21.
+- Pruebas de PC (`test/host`): stub de `piStatus` y `RZ_COUNT = 23`. No se corrieron: no hay g++ en el PC.
+
 ## Pendiente
 
-- 9c: comandos de misión a la Pi (PREFLIGHT al verla en BOOT, ARM, ABORT, START_ASCENT en BOOST, START_REC, TOUCHDOWN) y `OP_PI_CMD` desde tierra.
+- 9c: validar en banco; comandos manuales a la Pi desde tierra (`OP_PI_CMD`), si hacen falta.
 - 9d: encendido por IO45 con el latido; proponer `HandlePowerKey=ignore` en la Pi.
 - Hardware: 1 kΩ también en la línea Pi TX → IO44.

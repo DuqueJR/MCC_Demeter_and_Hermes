@@ -17,6 +17,7 @@
 #include "core_sleep.h"
 #include "mission.h"
 #include "ext_pi.h"
+#include "pi_plan.h"
 #include <fw_build.h>
 
 #ifndef ROCKET_ID
@@ -144,10 +145,11 @@ void coreSelftestReport() {
         char edad[16];
         if (pi.ageMs == 0xFFFFFFFFu) snprintf(edad, sizeof(edad), "nunca");
         else snprintf(edad, sizeof(edad), "%.1f s", pi.ageMs / 1000.0f);
-        Serial.printf("[pi  ] estado=%s (0x%02X) latido=%s cambios=%lu perdidas=%lu | rx=%lu B tramas=%lu crc_mal=%lu otras=%lu | pose=%lu omitidas=%lu banderas=0x%03X\n",
+        Serial.printf("[pi  ] estado=%s (0x%02X) latido=%s cambios=%lu perdidas=%lu | rx=%lu B tramas=%lu crc_mal=%lu otras=%lu | pose=%lu omitidas=%lu banderas=0x%03X | meta=%s ult_cmd=%s cmds=%lu agotados=%lu\n",
                       piStatusName(pi.status), pi.status, edad, (unsigned long)pi.changes, (unsigned long)pi.losses,
                       (unsigned long)pi.rxBytes, (unsigned long)pi.rxFrames, (unsigned long)pi.crcErr, (unsigned long)pi.otherFrames,
-                      (unsigned long)pi.txPose, (unsigned long)pi.txSkipped, pi.lastFlags);
+                      (unsigned long)pi.txPose, (unsigned long)pi.txSkipped, pi.lastFlags,
+                      piplan::goalName(pi.goal), piplan::cmdName(pi.lastCmd), (unsigned long)pi.cmds, (unsigned long)pi.cmdGaveUp);
     }
     Serial.printf("[ring] gnss=%lu/%lu imu=%lu/%lu i2c=%lu/%lu ext=%lu/%lu drops gnss=%lu imu=%lu i2c=%lu net=%lu ext=%lu (log imu=%lu) malos=%lu resync=%lu\n",
                   (unsigned long)bus_ring_used(RING_GNSS), (unsigned long)bus_ring_capacity(RING_GNSS),

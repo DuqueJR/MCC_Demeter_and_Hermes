@@ -121,6 +121,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 8 | Altura disminuyendo | 19 | Contador antiguo |
 | 9 | Aceleración ≠ 1 g (se mueve) | 20 | Comando desconocido |
 | 10 | En vuelo: ya hubo BOOST | 21 | **No se sabe si la Pi está encendida: una pulsación podría apagarla** (T-413, D-049) |
+| | | 22 | **La Pi no está lista (READY): no grabaría el vuelo.** Solo en Demeter, al armar; se puede forzar (D-055) |
 
 Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal cual** para `salud.go_nogo` (§6).
 

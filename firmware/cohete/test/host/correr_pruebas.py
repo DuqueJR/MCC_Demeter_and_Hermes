@@ -314,7 +314,7 @@ def main():
     if r.returncode:
         print(r.stdout)
     nr = (AQUI.parent.parent / "src" / "net_radio.cpp").read_text()
-    anotar("net_radio.cpp: TELEM.actuators sale de extActBits() (revision de texto: la radio no corre en el PC)", "p.actuators = extActBits();" in nr and '#include "ext_act.h"' in nr, "buildTelem asigna p.actuators")
+    anotar("net_radio.cpp: TELEM.actuators sale de extActBits() (revision de texto: la radio no corre en el PC)", "p.actuators = (uint16_t)(extActBits()" in nr and '#include "ext_act.h"' in nr, "buildTelem asigna p.actuators")
     nombres = ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "tierra/gnd_cmd.cpp", "in_imu.cpp", "core_sleep.cpp", "net_radio.cpp", "core_selftest.cpp")
     for nombre, r in zip(nombres, sintaxis):
         anotar("g++ -std=gnu++11 -fsyntax-only %s (con stubs)" % nombre, r.returncode == 0 and "warning" not in r.stderr, r.stderr.strip()[:200] or "sin errores ni avisos")

@@ -1,8 +1,9 @@
-// ext_pi.h - UART con la Raspberry Pi de Demeter (bloque 9). Dueno de UART0: TXD 43 -> 1k -> RX de la Pi, RXD 44 <- TX de la Pi, 115200 8N1.
+// ext_pi.h - UART con la Raspberry Pi de Demeter (bloque 9a, 9b y 9c). Dueno de UART0: TXD 43 -> 1k -> RX de la Pi, RXD 44 <- TX de la Pi, 115200 8N1.
 //   Trama (visionpack/demeter_protocol.py): AA 55 | tipo u8 | len u8 | payload | CRC16 CCITT-FALSE de tipo+len+payload, en big endian.
 //   Recibe PAYLOAD_STATUS (0x30, 1 B): el latido de la Pi, cada 1 s y en cada cambio de estado. Sin latido en PI_LATIDO_MS: desconocido.
 //   Envia POSE (0x21, 54 B, demeter_pose.POSE_STRUCT) a 50 Hz. utc_us es la hora del primer byte: la Pi le resta lo que tarda la trama
 //   y con eso disciplina su reloj (chrony, refclock SOCK) y ubica la pose de cada cuadro.
+//   Comandos de mision (9c): la fase objetivo de la Pi sale del estado de la mision y se le manda el siguiente comando (pi_plan.h).
 //   Solo corre en Demeter. Hermes no tiene Pi: piBegin no hace nada y piStatus da PI_DESCONOCIDO.
 #pragma once
 #include <stdint.h>
@@ -37,6 +38,9 @@ struct PiStats {
     uint32_t rxBytes, rxFrames, crcErr, otherFrames, statusMsgs, changes, losses;
     uint32_t txPose, txSkipped;     // POSE enviadas; omitidas porque la FIFO de TX no tenia espacio
     uint16_t lastFlags;             // banderas de la ultima POSE
+    uint8_t  goal;                  // fase objetivo de la Pi (piplan::Goal)
+    uint8_t  lastCmd;               // ultimo comando enviado (0 ninguno)
+    uint32_t cmds, cmdGaveUp;       // comandos enviados; veces que se agotaron los intentos de uno
 };
 
 // El anillo de red tiene un solo productor: la tarea de radio escribe estos registros (T_PI) en el log.

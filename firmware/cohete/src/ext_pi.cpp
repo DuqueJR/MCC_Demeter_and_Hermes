@@ -1,4 +1,4 @@
-// ext_pi.cpp - UART con la Raspberry Pi de Demeter (bloque 9a y 9b): latido de la Pi y POSE a 50 Hz. Ver ext_pi.h.
+// ext_pi.cpp - UART con la Raspberry Pi de Demeter (bloque 9a, 9b y 9c): latido de la Pi, POSE a 50 Hz y comandos de mision. Ver ext_pi.h.
 //   Tarea "ext_pi" en el nucleo 0, prioridad 2 (como el logger y la mision; debajo de GNSS, I2C y radio). Vuelta de PI_POSE_MS con
 //   vTaskDelayUntil: siempre cede CPU. Una POSE de 60 B tarda 5.2 ms a 115200 y cabe entera en la FIFO de TX (128 B), asi que write()
 //   no bloquea y el primer byte sale al copiarla: la hora se toma justo antes.
@@ -11,6 +11,7 @@
 #include <net_proto.h>
 #include "core_bus.h"
 #include "mission.h"
+#include "pi_plan.h"
 
 #pragma pack(push, 1)
 struct PoseMsg {                       // demeter_pose.POSE_STRUCT "<QHHiiiihhh4h3hHHH"
@@ -28,6 +29,10 @@ static_assert(sizeof(PoseMsg) == 54, "POSE debe medir 54 B (demeter_pose.POSE_ST
 static const uint32_t SIN_LATIDO      = 0xFFFFFFFFu;
 static const float    GROUND_ALPHA    = 0.002f;     // promedio del suelo MSL a 50 Hz: ~10 s
 static const uint32_t GROUND_VACC_MM  = 10000;      // GNSS vertical aceptable para estimar el suelo
+static const uint32_t CMD_RETRY_MS    = 1000;       // sin cambio de estado de la Pi tras un comando: se repite a este intervalo
+static const uint8_t  CMD_TRIES       = 3;          // intentos seguidos del mismo comando con la Pi en el mismo estado
+static const uint32_t CMD_BACKOFF_MS  = 10000;      // tras esos intentos, pausa antes de volver a intentar
+static const uint32_t ERROR_RETRY_MS  = 30000;      // con la Pi en ERROR, un PREFLIGHT cada tanto (sus revisiones pueden tardar)
 
 static bool              s_active = false;
 static QueueHandle_t     s_logQ = nullptr;
@@ -41,11 +46,11 @@ static float             s_groundMsl = NAN;          // suelo MSL estimado (m), 
 static uint8_t  s_buf[2 + 2 + 255 + 2];
 static uint16_t s_n = 0;
 
-static void logEvent(uint8_t status, uint8_t prev, uint8_t kind) {
+static void logEvent(uint8_t status, uint8_t prev, uint8_t kind, uint8_t extra = 0) {
     if (!s_logQ) return;
     PiLog l; memset(&l, 0, sizeof(l));
     l.t_us = time_local_now();
-    l.r.status = status; l.r.prev = prev; l.r.kind = kind;
+    l.r.status = status; l.r.prev = prev; l.r.kind = kind; l.r.pad = extra;
     l.r.rx_frames = s_st.rxFrames; l.r.crc_err = s_st.crcErr; l.r.tx_pose = s_st.txPose;
     xQueueSend(s_logQ, &l, 0);
 }
@@ -102,7 +107,7 @@ static void sendFrame(uint8_t type, const void *payload, uint8_t len, PoseMsg *s
         const int64_t t = time_local_now();
         stampUtc->utc_us = (time_snapshot(m) && m.valid()) ? (uint64_t)m.toUtcUs(t) : 0;
     }
-    memcpy(f + 4, payload, len);
+    if (len) memcpy(f + 4, payload, len);
     const uint16_t crc = rec::crc16(f + 2, (size_t)2 + len);
     f[4 + len] = (uint8_t)(crc >> 8);
     f[5 + len] = (uint8_t)crc;
@@ -154,6 +159,40 @@ static void sendPose() {
     s_st.txPose++;
 }
 
+// ---------- Comandos de mision (9c) ----------
+// La fase objetivo sale del estado de la mision; el comando, de esa fase y del ultimo estado de la Pi (pi_plan.h). Cada comando se repite
+// cada CMD_RETRY_MS mientras la Pi no cambie de estado, hasta CMD_TRIES veces; luego espera CMD_BACKOFF_MS. Un cambio de estado de la Pi
+// permite el siguiente comando enseguida (PREFLIGHT, ARM y START_ASCENT encadenados en un BOOST sin armar).
+static uint8_t  s_cmdStatus = PI_DESCONOCIDO;      // estado de la Pi cuando se mando el ultimo comando
+static uint8_t  s_cmdLast = 0, s_cmdTries = 0;
+static uint32_t s_cmdNextMs = 0;
+
+static void stepPlan(uint32_t nowMs) {
+    const MissionStats ms = missionStats();
+    const piplan::Goal g = piplan::goalFor(ms.state, ms.moment, ms.flags);
+    s_st.goal = g;
+    const uint8_t st = s_status;
+    const piplan::Cmd c = piplan::nextCmd(g, st);
+    if (st != s_cmdStatus || c != s_cmdLast) { s_cmdTries = 0; s_cmdNextMs = nowMs; }   // la Pi avanzo o cambio el objetivo
+    if (c == piplan::C_NADA) { s_cmdLast = 0; return; }
+    if ((int32_t)(nowMs - s_cmdNextMs) < 0) return;
+    if (s_cmdTries >= CMD_TRIES) {                   // la Pi no responde a este comando: pausa y vuelve a empezar
+        s_st.cmdGaveUp++;
+        s_cmdTries = 0;
+        s_cmdNextMs = nowMs + CMD_BACKOFF_MS;
+        return;
+    }
+    if ((size_t)Serial0.availableForWrite() < 6) return;
+    sendFrame((uint8_t)c, nullptr, 0, nullptr);
+    s_cmdTries++;
+    s_cmdLast = (uint8_t)c;
+    s_cmdStatus = st;
+    s_cmdNextMs = nowMs + (st == piplan::PS_ERROR ? ERROR_RETRY_MS : CMD_RETRY_MS);
+    s_st.cmds++;
+    s_st.lastCmd = (uint8_t)c;
+    logEvent(st, (uint8_t)c, rec::PIK_CMD, s_cmdTries);
+}
+
 // ---------- Tarea ----------
 static void piTask(void *) {
     TickType_t wake = xTaskGetTickCount();
@@ -171,6 +210,7 @@ static void piTask(void *) {
             s_st.losses++;
             logEvent(PI_DESCONOCIDO, prev, rec::PIK_LOST);
         }
+        stepPlan(millis());
         sendPose();
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(PI_POSE_MS));
     }

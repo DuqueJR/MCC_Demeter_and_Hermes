@@ -41,6 +41,27 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 
 ## 2. Qué transición de la LilyGO dispara cada comando (D-023)
 
+> **Desde el 2026-11-04 (D-055, bloque 9c):** la LilyGo no dispara un comando por transición. Calcula la fase objetivo de la Pi y le manda el siguiente comando según el estado de su latido (`firmware/cohete/src/pi_plan.h`):
+>
+> | Misión de la LilyGo | Fase objetivo de la Pi |
+> | --- | --- |
+> | TIERRA, o FLY forzado sin BOOST | READY |
+> | ARMED, o FLY sin BOOST (tras LAUNCH) | ARMED |
+> | BOOST o COAST | ASCENT (video del ascenso) |
+> | APOGEO, CAIDA o PARACAIDAS | RECORDING (captura del descenso) |
+> | ATERRIZAJE o RECOVERY | fin (TOUCHDOWN e ingesta) |
+>
+> | Estado de la Pi | Comando según la fase objetivo |
+> | --- | --- |
+> | BOOT, ABORTED, ERROR | PREFLIGHT (salvo en fin; en ERROR, cada 30 s) |
+> | READY | ARM si el objetivo es ARMED o más |
+> | ARMED | START_ASCENT si es ASCENT o más; ABORT si es READY o fin |
+> | ASCENT | START_REC si es REC o fin; ABORT si es READY |
+> | RECORDING | TOUCHDOWN si es fin; ABORT si es READY |
+> | PREFLIGHT, STARTING, INGESTING, PROCESSING, COMPLETE, desconocido | nada (esperar) |
+>
+> Se repite cada 1 s mientras la Pi no cambie de estado (3 intentos, luego 10 s de pausa). `PREFLIGHT_SYNC` no se usa: la hora llega por chrony. Los watchdogs de la Pi (15 s en ASCENT y 95 s en RECORDING) siguen activos por si la LilyGo no detecta un momento. La tabla de abajo es la propuesta original.
+
 | Evento en la LilyGO ([maquina_estados.md](maquina_estados.md)) | A la Pi | Notas |
 | --- | --- | --- |
 | La Pi responde por primera vez en PREFLIGHT | `0xA0 CMD_PREFLIGHT` y luego `0x10 PREFLIGHT_SYNC` | Solo si la hora es válida |

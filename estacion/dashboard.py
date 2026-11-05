@@ -46,10 +46,10 @@ DIAG_KEYS = {
     'mmc': ['id', 'muestras', '|B|', 'sat', 'err', 'gap_max'], 'drv': ['iman', 'despertar'],
     'rx': ['balizas', 'malas', 'residuo'], 'net': ['tx', 'err', 'saltadas', 'tarde_max', 'fin_max', 'aire'],
     'mis': ['estado', 'momento', 'flags', 'alt', 'vz', 'baro', 'cmd', 'ult_res', 'motivos'],
-    'pi': ['estado', 'latido', 'cambios', 'perdidas', 'tramas', 'crc_mal', 'pose', 'omitidas', 'banderas'],   # UART con la Pi (solo Demeter)
+    'pi': ['estado', 'latido', 'perdidas', 'crc_mal', 'pose', 'omitidas', 'banderas', 'meta', 'ult_cmd', 'cmds', 'agotados'],   # UART con la Pi (solo Demeter)
     'ring': ['malos', 'resync'], 'log': ['archivo', 'tiempo', 'lleno', 'restante', 'reserva'],
 }
-ALERT_KEYS = {'crc_mal', 'omitidas', 'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
+ALERT_KEYS = {'crc_mal', 'omitidas', 'agotados', 'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
 KV = re.compile(r'([\w/|]+)=(\S+(?: (?:mV|ns|us|Hz|kHz|MB|KB|G|Pa|C|ppm|m/s|m|g|s)\b| %)?)')
 TAG = re.compile(r'^\[([^\]]+)\]\s*(.*)$')
 
