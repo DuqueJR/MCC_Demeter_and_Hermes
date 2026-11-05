@@ -46,9 +46,10 @@ DIAG_KEYS = {
     'mmc': ['id', 'muestras', '|B|', 'sat', 'err', 'gap_max'], 'drv': ['iman', 'despertar'],
     'rx': ['balizas', 'malas', 'residuo'], 'net': ['tx', 'err', 'saltadas', 'tarde_max', 'fin_max', 'aire'],
     'mis': ['estado', 'momento', 'flags', 'alt', 'vz', 'baro', 'cmd', 'ult_res', 'motivos'],
+    'pi': ['estado', 'latido', 'cambios', 'perdidas', 'tramas', 'crc_mal', 'pose', 'omitidas', 'banderas'],   # UART con la Pi (solo Demeter)
     'ring': ['malos', 'resync'], 'log': ['archivo', 'tiempo', 'lleno', 'restante', 'reserva'],
 }
-ALERT_KEYS = {'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
+ALERT_KEYS = {'crc_mal', 'omitidas', 'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
 KV = re.compile(r'([\w/|]+)=(\S+(?: (?:mV|ns|us|Hz|kHz|MB|KB|G|Pa|C|ppm|m/s|m|g|s)\b| %)?)')
 TAG = re.compile(r'^\[([^\]]+)\]\s*(.*)$')
 
@@ -161,6 +162,8 @@ def diag_line(role, line):
         return
     shown = [(k, v) for k, v in kv if keys is None or k in keys]
     alert = [k for k, v in shown if k in ALERT_KEYS and tag != 'time' and v.split(' ')[0] not in ('0', '0.0')]   # en [time], err es el error estimado
+    if tag == 'pi' and dict(shown).get('estado') == 'desconocido':     # sin latido de la Pi en 3 s
+        alert.append('estado')
     bad = bool(re.search(r'CAIDO|ERROR|FALLO|SIN ', status))
     with lock:
         diag[role][tag] = dict(tag=tag, status=status, kv=shown, alert=alert, bad=bad, raw=line, t=time.time())
