@@ -21,6 +21,8 @@ STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
 TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO = 2, 4, 8, 16   # TF_REANUDADO: T-411, D-052
 ACT_BUZZER, ACT_PI_EN_CURSO, ACT_PI_ENVIADO = 1, 2, 4       # bits de TELEM.actuators (protocolo_paquetes.md seccion 2, T-413)
+PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # bits 3-7 de TELEM.actuators (demeter_protocol.ErrorCode, D-056)
+PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # byte alto de TELEM.actuators (ext_pi)
 STALE_S = 3.0
 ROLES = {'tierra': 'COM5', 'demeter': 'COM4', 'hermes': 'COM3'}
 ROCKET_ROLE = {1: 'demeter', 2: 'hermes'}
@@ -45,9 +47,10 @@ DIAG_KEYS = {
     'mmc': ['id', 'muestras', '|B|', 'sat', 'err', 'gap_max'], 'drv': ['iman', 'despertar'],
     'rx': ['balizas', 'malas', 'residuo'], 'net': ['tx', 'err', 'saltadas', 'tarde_max', 'fin_max', 'aire'],
     'mis': ['estado', 'momento', 'flags', 'alt', 'vz', 'baro', 'cmd', 'ult_res', 'motivos'],
+    'pi': ['estado', 'motivo', 'latido', 'perdidas', 'crc_mal', 'pose', 'omitidas', 'banderas', 'meta', 'ult_cmd', 'cmds', 'agotados'],   # UART con la Pi (solo Demeter)
     'ring': ['malos', 'resync'], 'log': ['archivo', 'tiempo', 'lleno', 'restante', 'reserva'],
 }
-ALERT_KEYS = {'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
+ALERT_KEYS = {'crc_mal', 'omitidas', 'agotados', 'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
 KV = re.compile(r'([\w/|]+)=(\S+(?: (?:mV|ns|us|Hz|kHz|MB|KB|G|Pa|C|ppm|m/s|m|g|s)\b| %)?)')
 TAG = re.compile(r'^\[([^\]]+)\]\s*(.*)$')
 
@@ -222,6 +225,8 @@ def diag_line(role, line):
         return
     shown = [(k, v) for k, v in kv if keys is None or k in keys]
     alert = [k for k, v in shown if k in ALERT_KEYS and tag != 'time' and v.split(' ')[0] not in ('0', '0.0')]   # en [time], err es el error estimado
+    if tag == 'pi' and dict(shown).get('estado') == 'desconocido':     # sin latido de la Pi en 3 s
+        alert.append('estado')
     bad = bool(re.search(r'CAIDO|ERROR|FALLO|SIN ', status))
     with lock:
         diag[role][tag] = dict(tag=tag, status=status, kv=shown, alert=alert, bad=bad, raw=line, t=time.time())
@@ -250,6 +255,10 @@ def note_telem(rid, old, new):
         event(f'{name}: buzzer apagado')
     if act_up & ACT_PI_EN_CURSO:
         event(f'{name}: pulso de encendido a la Pi')
+    pi_old, pi_new = old['actuators'] >> 3, new['actuators'] >> 3      # estado (bits 8-15) y motivo (bits 3-7)
+    if rid == 1 and pi_new != pi_old:
+        st, mot = pi_new >> 5, pi_new & 31
+        event(f"{name}: Raspberry Pi {PI_STATUS.get(st, hex(st))}" + (f" ({PI_MOTIVO.get(mot, mot)})" if mot else ''))
 
 
 def note_log(rid, old, new):

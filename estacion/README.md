@@ -101,6 +101,20 @@ Es una sola vista con dos fuentes:
 - Un stream SSE ocupa un hilo del servidor (`ThreadingHTTPServer`); no bloquea al resto.
 - Cada línea de tierra entra al `Traductor` (`procesar`), un hilo da el latido a 1 Hz (`tick`) y cada comando de `/api/cmd` llama antes a `comando()`.
 
+## Pendiente del dashboard de control (pedido de Pablo, 2026-11-04)
+
+El dashboard de control es privado: tiene toda la información, los controles y las herramientas, y hace relay a la web pública de lo que se decida, cuando y como se decida. La web pública (`gui/web`, `web1.py`, contrato `web-1`) es trabajo aparte.
+
+Para cuando se retome el dashboard:
+
+- Toda la información del vuelo: aceleraciones, actitud, ubicación y velocidades.
+- Dos indicadores de fuerzas G tipo radar (un punto que se desplaza dentro de un círculo): uno para el plano de la sección del cohete (Y-Z del cuerpo) y otro para el eje longitudinal (X del cuerpo), donde se ve la gravedad.
+- El visualizador de actitud (ya existe en la pestaña EKF).
+- La carga de las baterías, la intensidad de la señal y la calidad del enlace.
+- La posición actual del cohete en un mapa.
+- Las estadísticas del EKF.
+- El nivel de las memorias SD de la LilyGo y de la Pi.
+
 ## Qué viene (épica E10 del backlog)
 
 | Tarea | Qué agrega |

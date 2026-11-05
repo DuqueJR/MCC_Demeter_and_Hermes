@@ -21,7 +21,8 @@ CMD_TOUCHDOWN = 0xC1
 CMD_ABORT = 0xF1
 
 PREFLIGHT_SYNC_STRUCT = struct.Struct("<Q")
-STATUS_STRUCT = struct.Struct("<B")
+STATUS_STRUCT = struct.Struct("<B")          # PAYLOAD_STATUS de 1 byte (anterior a D-056): solo el estado
+STATUS_REASON_STRUCT = struct.Struct("<BB")  # PAYLOAD_STATUS de 2 bytes (D-056): estado y motivo (ErrorCode)
 
 
 class StatusCode(IntEnum):
@@ -42,6 +43,41 @@ class StatusCode(IntEnum):
     ABORT_REQUESTED = 0xE4
     CLOCK_UNSYNCED = 0xE5
     PIPELINE_ERROR = 0xEF
+
+
+class ErrorCode(IntEnum):
+    """Motivo del ultimo error de la Pi. Viaja en PAYLOAD_STATUS y en TELEM.actuators (bits 3-7): cabe en 5 bits."""
+    NINGUNO = 0
+    SD_ESPACIO = 1        # espacio libre por debajo del presupuesto de captura
+    SD_LENTA = 2          # la SD o el tmpfs no sostienen la captura
+    RAM = 3               # memoria o tmpfs insuficientes
+    CAMARA = 4            # rpicam-vid o demeter_rec no disponibles o fallaron
+    TELEMETRIA = 5        # telemetryd o la UART no respondieron
+    PROCESO = 6           # fallo la captura, la ingesta o el revelado
+    ARCHIVOS = 7          # directorios, scripts o flags
+    OTRO = 31
+
+
+# Patrones en el texto del error de missiond, en orden: el primero que aparezca decide.
+_ERROR_PATTERNS = (
+    (ErrorCode.SD_ESPACIO, ("espacio",)),
+    (ErrorCode.SD_LENTA, ("no sostiene", "presupuesto")),
+    (ErrorCode.RAM, ("ram ", "ram:", "memavailable", "tmpfs")),
+    (ErrorCode.TELEMETRIA, ("telemetryd", "serial")),
+    (ErrorCode.CAMARA, ("rpicam", "demeter_rec", "video")),
+    (ErrorCode.PROCESO, ("ingestd", "postprocess", "grabación", "touchdown:", "proceso")),
+    (ErrorCode.ARCHIVOS, ("directorio", "script", "flag", "ejecutable")),
+)
+
+
+def error_code(reason: str | None) -> int:
+    if not reason:
+        return int(ErrorCode.NINGUNO)
+    text = reason.lower()
+    for code, patterns in _ERROR_PATTERNS:
+        if any(p in text for p in patterns):
+            return int(code)
+    return int(ErrorCode.OTRO)
 
 
 @dataclass(frozen=True)

@@ -42,7 +42,7 @@ static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto,
 // Motivos de una respuesta: mascara de bits; tierra los traduce con reasonText.
 enum Reason : uint8_t {
     RZ_TRANSICION = 0, RZ_RESERVA, RZ_SD, RZ_LSM, RZ_BMP, RZ_GNSS, RZ_VBAT, RZ_SUBIENDO, RZ_BAJANDO, RZ_MOVIMIENTO, RZ_EN_VUELO,
-    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_COUNT
+    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_PI_NO_LISTA, RZ_COUNT
 };
 inline const char *reasonText(uint8_t r) {
     static const char *const T[RZ_COUNT] = {
@@ -50,7 +50,7 @@ inline const char *reasonText(uint8_t r) {
         "sin fix 3D del GNSS", "bateria baja", "altura aumentando", "altura disminuyendo", "aceleracion distinta de 1 g: el cohete se mueve", "en vuelo: ya hubo BOOST",
         "sin aterrizaje detectado", "sin BOOST detectado", "el cohete no esta armado", "no ha habido vuelo", "ya esta en ese estado", "hay un iman presente: despertaria al instante",
         "RECOVERY: aun sin bateria baja, el cohete debe seguir transmitiendo", "confirmacion invalida o vencida", "contador antiguo", "comando desconocido",
-        "no se sabe si la Pi esta encendida: una pulsacion podria apagarla"
+        "no se sabe si la Pi esta encendida: una pulsacion podria apagarla", "la Pi no esta lista (READY): no grabaria el vuelo"
     };
     return r < RZ_COUNT ? T[r] : "?";
 }

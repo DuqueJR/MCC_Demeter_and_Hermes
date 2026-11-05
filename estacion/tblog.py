@@ -6,7 +6,10 @@ Formato: [A5 5A][len u16][type u8][src u8][t_us i64] payload [crc16 ccitt-false]
 """
 import os, sys, struct, argparse, statistics, collections
 
-T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 250
+T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 250
+PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # demeter_protocol.StatusCode
+PI_CMD = {0xA0: 'PREFLIGHT', 0xA1: 'ARM', 0xA2: 'START_ASCENT', 0xB1: 'START_REC', 0xC1: 'TOUCHDOWN', 0xF1: 'ABORT'}   # comandos LilyGo -> Pi (T_PI kind 3)
+PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # demeter_protocol.ErrorCode (T_PI kind 1, en pad; D-056)
 HDR, CRC = 14, 2
 
 def crc16(data, c=0xFFFF):
@@ -107,10 +110,10 @@ def main():
     recs, skipped, resync, trunc = records(buf)
     print(f"archivo: {a.file}  tamano={len(buf)} B  registros={len(recs)}  bytes_saltados={skipped}  resync={resync}" + ("  (registro final cortado por el apagado, resto ceros)" if trunc else ""))
     tipos = collections.Counter(r[1] for r in recs)
-    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_EVENT: 'EVENT'}
+    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_PI: 'PI', T_EVENT: 'EVENT'}
     print("por tipo: " + ", ".join(f"{names.get(k, k)}={v}" for k, v in sorted(tipos.items())))
     if recs:
-        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION)]     # lo guardado antes de registrar no cuenta
+        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION, T_PI)]     # lo guardado antes de registrar no cuenta
         if sens:
             print(f"duracion (reloj local): {(max(sens) - min(sens)) / 1e6:.1f} s")
 
@@ -420,8 +423,28 @@ def main():
                 for t, ctr, rz, op, arg, r_, fr, to, m, fl, _ in mis:
                     f.write(f"{t},{ops.get(op & 0x7F, op)},{1 if op & 0x80 else 0},{arg},{ctr},{res[r_ & 3]},0x{rz:08X},{st[fr]},{st[to]},{mo[m]},0x{fl:02X}\n")
 
+    # ---- Raspberry Pi de Demeter por la UART (ext_pi) ----
+    pis = [(r[3],) + struct.unpack('<BBBBIII', r[4]) for r in recs if r[1] == T_PI and len(r[4]) == 16]
+    if pis:
+        print(f"\nPI: {len(pis)} registros")
+        for t, stt, prev, kind, intento, rx, crc, pose in pis:
+            if kind == 3:
+                print(f"  t={t / 1e6:.2f} s  comando {PI_CMD.get(prev, hex(prev))} (intento {intento}) con la Pi en {PI_STATUS.get(stt, hex(stt))}")
+                continue
+            que = 'latido perdido' if kind == 2 else 'estado'
+            mot = f"  motivo={PI_MOTIVO.get(intento, intento)}" if kind == 1 and intento else ''
+            print(f"  t={t / 1e6:.2f} s  {que}: {PI_STATUS.get(prev, hex(prev))} -> {PI_STATUS.get(stt, hex(stt))}{mot}  tramas={rx} crc_mal={crc} pose={pose}")
+        if a.csv:
+            with open('pi.csv', 'w') as f:
+                f.write('t_us,evento,de,a,tramas,crc_mal,pose\n')
+                for t, stt, prev, kind, intento, rx, crc, pose in pis:
+                    if kind == 3:
+                        f.write(f"{t},comando {PI_CMD.get(prev, prev)} intento {intento},{PI_STATUS.get(stt, stt)},{PI_STATUS.get(stt, stt)},{rx},{crc},{pose}\n")
+                    else:
+                        f.write(f"{t},{'perdido' if kind == 2 else 'estado'},{PI_STATUS.get(prev, prev)},{PI_STATUS.get(stt, stt)},{rx},{crc},{pose}\n")
+
     # ---- Incidentes de SD y silencios ----
-    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION)
+    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION, T_PI)
     ts = sorted(r[3] for r in recs if r[1] not in no_sensor)
     t0 = ts[0] if ts else 0
     evs = [struct.unpack('<qIIhBB', r[4]) for r in recs if r[1] == T_EVENT and len(r[4]) == 20]

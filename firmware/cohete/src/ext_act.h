@@ -19,6 +19,7 @@ static const uint32_t BUZZER_OFF_MS  = 1500;
 static const uint16_t ACT_BUZZER_ACTIVO  = 1u << 0;   // el patron del buzzer corre
 static const uint16_t ACT_PI_EN_CURSO    = 1u << 1;   // el pulso de la Pi esta en alto
 static const uint16_t ACT_PI_ENVIADO     = 1u << 2;   // se envio algun pulso a la Pi desde el arranque
+// Bits 3-7 de TELEM.actuators: motivo del error de la Pi (ErrorCode de demeter_protocol.py, D-056). Bits 8-15: estado de la Pi por la UART (ext_pi.h, StatusCode de demeter_protocol.py; 0xFF = desconocido o Hermes)
 
 void     extActBegin();                           // pines en bajo; libera el hold de un sueno profundo anterior. Antes de missionBegin
 void     extActBuzzer(bool on, uint32_t nowMs);   // on: empieza el patron (si ya corre, no lo reinicia). off: lo apaga ya

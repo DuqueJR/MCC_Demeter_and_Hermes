@@ -5,8 +5,7 @@
 
 void setup() {
     setupBoards();
-    Serial.printf("[boot] tbeam_tierra %s %s compilado %s
-", FW_ENV, FW_GIT, __DATE__);
+    Serial.printf("[boot] tbeam_tierra %s %s compilado %s\n", FW_ENV, FW_GIT, __DATE__);
     gndTimeBegin();
     gndRxBegin();
 }
