@@ -425,13 +425,13 @@ def main():
     pis = [(r[3],) + struct.unpack('<BBBBIII', r[4]) for r in recs if r[1] == T_PI and len(r[4]) == 16]
     if pis:
         print(f"\nPI: {len(pis)} registros")
-        for t, stt, prev, kind, rx, crc, pose in pis:
+        for t, stt, prev, kind, _pad, rx, crc, pose in pis:
             que = 'latido perdido' if kind == 2 else 'estado'
             print(f"  t={t / 1e6:.2f} s  {que}: {PI_STATUS.get(prev, hex(prev))} -> {PI_STATUS.get(stt, hex(stt))}  tramas={rx} crc_mal={crc} pose={pose}")
         if a.csv:
             with open('pi.csv', 'w') as f:
                 f.write('t_us,evento,de,a,tramas,crc_mal,pose\n')
-                for t, stt, prev, kind, rx, crc, pose in pis:
+                for t, stt, prev, kind, _pad, rx, crc, pose in pis:
                     f.write(f"{t},{'perdido' if kind == 2 else 'estado'},{PI_STATUS.get(prev, prev)},{PI_STATUS.get(stt, stt)},{rx},{crc},{pose}\n")
 
     # ---- Incidentes de SD y silencios ----
