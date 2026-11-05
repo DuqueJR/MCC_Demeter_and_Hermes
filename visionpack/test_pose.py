@@ -113,3 +113,18 @@ class ErrorCodeTests(unittest.TestCase):
             self.assertEqual(error_code(texto), esperado, texto)
         self.assertEqual(error_code(None), ErrorCode.NINGUNO)
         self.assertTrue(all(int(c) < 32 for c in ErrorCode))      # cabe en los 5 bits de TELEM.actuators
+
+
+class MontajeV2Tests(unittest.TestCase):
+    """camaras.json v2 (Pablo, 2026-11-05): cam0 en la cara de la marca (-Z), cam1 en la opuesta (+Z), rotadas 180 grados."""
+
+    def test_lados_y_rotacion(self):
+        for idx, lado in ((0, -1.0), (1, 1.0)):
+            q = CAMS[idx]["q_camara_cuerpo"]
+            eje = dp.q_rotate(q, [0.0, 0.0, 1.0])
+            abajo = dp.q_rotate(q, [0.0, 1.0, 0.0])
+            horiz = dp.q_rotate(q, [1.0, 0.0, 0.0])
+            self.assertAlmostEqual(eje[0], math.cos(math.radians(30)), places=6)        # 30 grados del eje, hacia la nariz
+            self.assertAlmostEqual(eje[2], lado * 0.5, places=6)                        # cam0 hacia -Z (marca), cam1 hacia +Z
+            self.assertAlmostEqual(abs(horiz[1]), 1.0, places=6)                        # horizontal de la imagen a lo largo de Y
+            self.assertGreater(abajo[0], 0.0)                                           # rotada: lo bajo de la imagen mira a la nariz
