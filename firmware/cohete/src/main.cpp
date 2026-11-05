@@ -18,8 +18,7 @@ static int lastChg = -1;
 
 void setup() {
     setupBoards();            // PMU, rails, buses I2C/SPI, UART del GNSS
-    Serial.printf("[boot] tbeam_fw %s %s compilado %s
-", FW_ENV, FW_GIT, __DATE__);
+    Serial.printf("[boot] tbeam_fw %s %s compilado %s\n", FW_ENV, FW_GIT, __DATE__);
 #ifdef TEST_CORE
     coreSelftestBegin();
 #endif
