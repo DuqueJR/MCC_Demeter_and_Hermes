@@ -10,6 +10,7 @@ y las paginas de mision de gui/web (el dist/ de `npm run web:build`).
 import argparse, collections, json, math, os, re, socket, struct, subprocess, sys, threading, time, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import web1
+import reenviador
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8765
@@ -157,6 +158,7 @@ tr_lock = threading.Lock()
 bus = {m: dict(seq=0, buf=collections.deque(maxlen=WEB_BUS_MAX)) for m in web1.NODO}   # mision -> contador y (id, tipo, json)
 bus_cond = threading.Condition()
 web_errores = 0
+envio = None                 # el Reenviador de T-605a (None = apagado, por defecto); publicar() no bloquea ni lanza
 
 
 def calib_path(role, new):
@@ -182,6 +184,8 @@ def web_publicar(msgs):
             b = bus[m['mision']]
             b['seq'] += 1
             b['buf'].append((b['seq'], m['tipo'], datos))
+            if envio is not None:
+                envio.publicar(m['mision'], m['tipo'], datos)
         bus_cond.notify_all()
 
 
@@ -884,6 +888,7 @@ class OnlyOneServer(ThreadingHTTPServer):
 
 def main():
     global demo, PORT, WEB_DIST, replay, replay_vel
+    global envio
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--demo', action='store_true')
     ap.add_argument('--no-abrir', action='store_true')
@@ -891,16 +896,21 @@ def main():
     ap.add_argument('--reproducir', metavar='SESION', help='repite una sesion de tierra guardada (sesiones/AAAAMMDD_HHMMSS_tierra.txt) en vez de leer el puerto')
     ap.add_argument('--velocidad', type=float, default=1.0, help='con --reproducir: 2 = al doble de la velocidad real')
     ap.add_argument('--web-dist', default=WEB_DIST, help='carpeta con el build de la web (por defecto gui/web/dist)')
+    ap.add_argument('--web-relay', metavar='URL', help='T-605a: sube los mensajes web-1 a este relay (token en WEB_INGESTA_TOKEN o en estacion/.env); sin esto, apagado')
+    ap.add_argument('--web-cola', metavar='ARCHIVO', help='cola en disco del reenviador (por defecto estacion/cola_web.db)')
     a = ap.parse_args()
     demo = a.demo
     PORT = a.puerto
     WEB_DIST = os.path.abspath(a.web_dist)
     replay, replay_vel = a.reproducir, a.velocidad
+    envio = reenviador.configurar(a.web_relay, a.web_cola, event, modo='demo' if demo else 'reproduccion' if replay else '')
     try:
         srv = OnlyOneServer(('127.0.0.1', PORT), Handler)
     except OSError:
         raise SystemExit(f'El puerto {PORT} esta ocupado: ya hay un dashboard abierto. Cierralo primero (Ctrl+C en su ventana), o usa --puerto 8766.')
     threading.Thread(target=web_tick, daemon=True).start()
+    if envio is not None:                       # T-605a: despues de reservar el puerto, para que un segundo dashboard no comparta la cola
+        envio.iniciar()
     if demo or replay:                          # sin placas: la estacion arranca conectada para ver las paginas de mision
         connect('tierra', ROLES['tierra'])
     print(f'http://127.0.0.1:{PORT}' + ('  (demo)' if demo else '  (reproduccion)' if replay else ''))
