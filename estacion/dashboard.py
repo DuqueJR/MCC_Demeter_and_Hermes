@@ -91,12 +91,29 @@ def ekf_note(rid, t):
                           *[x / 1000.0 for x in t['acc']], *[x / 10.0 for x in t['gyro']], t['fix'], t['nsv'], t['state'], t['moment'], t['flags'], t['rssi'], t['snr'], t['vbat']])
 
 
+def ekf_walk():
+    """Archivos de esta carpeta y sus subcarpetas (sin sesiones, pruebas ni *_csv), como rutas relativas con '/'."""
+    for root, dirs, files in os.walk(HERE):
+        dirs[:] = [x for x in dirs if x not in ('sesiones', 'pruebas', '__pycache__') and not x.endswith('_csv')]
+        for f in files:
+            yield os.path.relpath(os.path.join(root, f), HERE).replace(os.sep, '/')
+
+
+def ekf_path(rel, pattern):
+    """Ruta absoluta de rel si esta dentro de esta carpeta, existe y su nombre cumple pattern; si no, None."""
+    if not isinstance(rel, str) or not pattern.fullmatch(os.path.basename(rel)) or '..' in rel.replace(chr(92), '/').split('/'):
+        return None
+    full = os.path.realpath(os.path.join(HERE, rel))
+    return full if full.startswith(os.path.realpath(HERE) + os.sep) and os.path.isfile(full) else None
+
+
 def ekf_files():
-    """Los _ekf.csv que dejo ekf.py y los .BIN sobre los que se puede correr, de lo mas nuevo a lo mas viejo."""
-    names = os.listdir(HERE)
+    """Los _ekf.csv que dejo ekf.py y los .BIN sobre los que se puede correr (aqui y en subcarpetas), de lo mas nuevo a lo mas viejo."""
+    names = list(ekf_walk())
     by_time = lambda n: -os.path.getmtime(os.path.join(HERE, n))
-    csv = sorted((n for n in names if EKF_CSV.fullmatch(n)), key=by_time)
-    bins = sorted((n for n in names if EKF_BIN.fullmatch(n) and not n.startswith(('RES_', 'LOG'))), key=by_time)
+    base = os.path.basename
+    csv = sorted((n for n in names if EKF_CSV.fullmatch(base(n))), key=by_time)
+    bins = sorted((n for n in names if EKF_BIN.fullmatch(base(n)) and not base(n).startswith(('RES_', 'LOG'))), key=by_time)
     return dict(csv=[dict(name=n, mb=round(os.path.getsize(os.path.join(HERE, n)) / 1e6, 1)) for n in csv],
                 bin=[dict(name=n, csv=os.path.exists(os.path.join(HERE, n[:-4] + '_ekf.csv'))) for n in bins],
                 calib=ekf_calibs())
@@ -749,9 +766,8 @@ class Handler(BaseHTTPRequestHandler):
                     rows = [r for r in ekf_hist.get(rid, ()) if r[0] > desde]
                 return self.reply(200, dict(cols=EKF_COLS, rows=rows))
             if path == '/api/ekf/archivo':
-                name = arg('f')
-                full = os.path.join(HERE, name)
-                if not EKF_CSV.fullmatch(name) or not os.path.isfile(full):
+                full = ekf_path(arg('f'), EKF_CSV)
+                if not full:
                     return self.reply(404, {'error': 'no existe ese _ekf.csv'})
                 with open(full, 'rb') as f:
                     return self.reply(200, f.read(), 'text/csv; charset=utf-8')
@@ -809,7 +825,7 @@ class Handler(BaseHTTPRequestHandler):
                     json.dump(a, f, indent=1, ensure_ascii=False)
             elif self.path == '/api/ekf/run':
                 name, opts = a.get('name', ''), [o for o in a.get('opts', []) if o in EKF_OPTS]
-                if not EKF_BIN.fullmatch(name) or not os.path.isfile(os.path.join(HERE, name)):
+                if not ekf_path(name, EKF_BIN):
                     return self.reply(400, {'error': 'ese .BIN no esta en la carpeta estacion'})
                 if a.get('calib'):
                     if a['calib'] not in [c['path'] for c in ekf_calibs()]:

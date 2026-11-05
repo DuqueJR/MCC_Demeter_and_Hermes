@@ -71,6 +71,12 @@ Es una sola vista con dos fuentes:
 - Con `--reproducir` sirve para repasar una sesión de tierra guardada.
 - Mientras el cuaternion llegue en identidad, la pestaña avisa que aún no hay EKF a bordo.
 
+**Instrumentos (desde el 2026-11-05):**
+- **Fuerzas G:** un radar para el plano de la sección, visto desde la cola (+Y a la derecha, la marca arriba), y un indicador del eje X (nariz), donde se ve la gravedad (1 g quieto, nariz arriba). Estela de 2 s y banda de los últimos 10 s. En el repaso usan la fuerza específica en cuerpo ya calibrada; en vivo, los ejes del chip hasta que haya EKF a bordo.
+- **Posición:** la trayectoria sobre teselas de OpenStreetMap (si hay internet; si no, la cuadrícula), con lat/lon y distancia al origen.
+- **Estado:** batería (solo en vivo), RSSI y SNR, calidad del enlace (TELEM recibidos frente a los esperados, en vivo), SD (en vivo, el % del bloque; en el repaso, los MB escritos), GNSS y las estadísticas del EKF (sigmas y medidas aceptadas o rechazadas, en total y en los últimos 10 s).
+- Los `_ekf.csv` y `.BIN` se buscan también en subcarpetas (por ejemplo, `Calibraciones fallidas/`). Un `_ekf.csv` de antes de este cambio se ve, pero sin instrumentos: hay que recalcularlo.
+
 **Calcular:**
 - Corre `ekf.py` sobre un `.BIN` de esta carpeta y carga el resultado.
 - La calibración solo puede ser una que `ekf.py` acepte, es decir, con `retraso_ms` y `ganancia_giro` del QMI. Se busca aquí y en las subcarpetas.
