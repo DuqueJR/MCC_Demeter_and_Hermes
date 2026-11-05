@@ -31,8 +31,7 @@ rama: feature/pi-uart
 
 ## Validación en banco (Pablo, 2026-11-04, env `demeter`)
 
-- Hubo que corregir antes el `printf` de `[boot]` en `main.cpp` de cohete y tierra, que venía roto desde la importación `69a75b8` (un `
-` convertido en salto de línea real).
+- Hubo que corregir antes el `printf` de `[boot]` en `main.cpp` de cohete y tierra, que venía roto desde la importación `69a75b8` (un `\n` convertido en salto de línea real).
 - `[pi  ]`: estado BOOT, latido 0.5 s, `crc_mal=0`, `otras=0`, `omitidas=0`, banderas `0x0DC` (posición, altura, hora por GNSS+PPS, hora válida, GNSS 3D).
 - En la Pi: `seq` seguido, `ofs_reloj_ms` entre -0.18 y +0.001 ms (casi siempre por debajo de 20 µs).
 - chrony con `LILY` como fuente (`#*`, estrato 1): desfase RMS 1.5 µs, ±100 µs estimados, frecuencia 2.77 ppm. Las fuentes NTP quedan como respaldo, a 4-15 ms.
