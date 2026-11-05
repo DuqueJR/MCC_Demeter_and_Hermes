@@ -54,6 +54,7 @@ struct Resultado {
     bool     qmi_giro;
     Mag      mmc, qmc;
     double   mag_acuerdo_min, mag_acuerdo_max;
+    double   calentamiento_s;             // lo quieto al inicio (curva de calentamiento) que no cuenta como posicion ni para los magnetometros
     Curva    bmp, bme;
     uint32_t avisos;
     bool     ok;
@@ -84,7 +85,7 @@ public:
     struct Pose { int64_t t1, t2; double u[3]; };
 private:
     void ventana(std::vector<Ventana> &w, int64_t &t0, int64_t t, const double a[3], const double *g);
-    void posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out);
+    void posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out, int64_t &tGuia);
     bool media(const std::vector<Ventana> &w, const Pose &p, double m[3]);
     void imu(const std::vector<Ventana> &w, Imu &c, bool esLsm, uint32_t avSinDatos, uint32_t avMal);
     void magnetometro(std::vector<Muestra> &m, Mag &c, int base);
@@ -94,6 +95,7 @@ private:
     Imu prev_; bool hayPrev_;
     std::vector<Ventana> wl_, wq_;               // ventanas de 0.5 s: LSM (acel y giro) y QMI (acel)
     int64_t tl0_, tq0_, t0_;                     // origenes; t0_ para los tiempos en float
+    int64_t tGuia_;                              // inicio de la guia: fin del calentamiento (INT64_MIN si no hubo)
     std::vector<double> gb_s_[3]; std::vector<uint32_t> gb_n_;   // giro del LSM en ventanas de 100 ms (dps, chip)
     std::vector<Muestra> mmc_, qmc_;
     std::vector<int64_t> txA_, txB_;             // ventanas de transmision (para descartar el magnetometro)
@@ -105,7 +107,7 @@ private:
     double magPos_mmc[NPOS][3], magPos_qmc[NPOS][3];             // campo en cuerpo en cada posicion limpia (MMC contra QMC)
     bool   magHay_mmc[NPOS], magHay_qmc[NPOS];
     double sesgoGiro_[3];
-    // pasada 2: tramo de giro para el retraso y la ganancia del QMI
+    // pasada 2: magnetometros (desde tGuia_) y tramo de giro para el retraso y la ganancia del QMI
     int64_t segA_, segB_;
     std::vector<float> l5_[3]; std::vector<uint32_t> l5n_;      // LSM en ventanas de 5 ms
     std::vector<Muestra> q2_;                                   // QMI crudo en el tramo

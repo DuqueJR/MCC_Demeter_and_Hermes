@@ -8,7 +8,7 @@
 namespace cal {
 
 // Umbrales de calib.py
-static const double STILL_WIN_US = 0.5e6, STILL_SD_G = 0.03, STILL_MIN_S = 4.0, NEW_POSE_DEG = 30.0, ANGLE_WARN_DEG = 12.0;
+static const double STILL_WIN_US = 0.5e6, STILL_SD_G = 0.03, STILL_MIN_S = 4.0, WARM_MIN_S = 120.0, NEW_POSE_DEG = 30.0, ANGLE_WARN_DEG = 12.0;
 static const int64_t TX_MARGIN_US = 15000;
 static const int    BIN_KEEP = 300;
 static const double COVER_MIN = 0.8, RES_WARN_MG = 15.0, DIP_MIN_DEG = 10.0, DIP_RANGE_WARN_DEG = 25.0, DIP_POSE_DEG = 12.0;
@@ -110,7 +110,7 @@ void Analizador::inicio(const Imu *prev) {
     memset(&r_, 0, sizeof(r_));
     hayPrev_ = prev && prev->ok;
     if (hayPrev_) prev_ = *prev;
-    wl_.clear(); wq_.clear(); tl0_ = tq0_ = t0_ = INT64_MIN;
+    wl_.clear(); wq_.clear(); tl0_ = tq0_ = t0_ = tGuia_ = INT64_MIN;
     for (int i = 0; i < 3; i++) { gb_s_[i].clear(); l5_[i].clear(); }
     gb_n_.clear(); l5n_.clear(); mmc_.clear(); qmc_.clear(); txA_.clear(); txB_.clear(); q2_.clear();
     tb_s_.clear(); te_s_.clear(); tb_n_.clear(); te_n_.clear(); bmpPrevN_ = 0;
@@ -190,17 +190,6 @@ void Analizador::pasada1(const uint8_t *rec, uint16_t len) {
             ventana(wq_, tq0_, t, a, nullptr);
             r_.n_qmi++;
         }
-    } else if (h.type == rec::T_EXT_MMC && n == 14) {
-        if (p[12] & 7) return;
-        int32_t v[3]; memcpy(v, p, 12);
-        Muestra m; m.t = (float)((h.t_us - t0_) / 1e6); for (int i = 0; i < 3; i++) m.v[i] = (float)(v[i] / 16384.0);
-        mmc_.push_back(m);
-    } else if (h.type == rec::T_MAG && n == 8) {
-        if (p[6] & 1 || !p[7]) return;
-        int16_t v[3]; memcpy(v, p, 6);
-        const double lsb = 32000.0 / p[7];
-        Muestra m; m.t = (float)((h.t_us - t0_) / 1e6); for (int i = 0; i < 3; i++) m.v[i] = (float)(v[i] / lsb);
-        qmc_.push_back(m);
     } else if (h.type == rec::T_LINK && n == 16 && p[0] == rec::LD_TX) {
         uint32_t air; memcpy(&air, p + 12, 4);
         txA_.push_back(h.t_us - (int64_t)air - TX_MARGIN_US); txB_.push_back(h.t_us + TX_MARGIN_US);
@@ -211,8 +200,9 @@ void Analizador::pasada1(const uint8_t *rec, uint16_t len) {
 }
 
 // ---------- posiciones ----------
-void Analizador::posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out) {
+void Analizador::posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out, int64_t &tGuia) {
     out.clear();
+    tGuia = INT64_MIN;
     std::vector<std::pair<int64_t, int64_t> > segs;
     bool en = false; int64_t a = 0, b = 0;
     for (size_t k = 0; k < w.size(); k++) {
@@ -227,8 +217,19 @@ void Analizador::posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out) 
         else if (en) { segs.push_back(std::make_pair(a, b)); en = false; }
     }
     if (en) segs.push_back(std::make_pair(a, b));
+    // Calentamiento (D-058): un tramo quieto de 2 min o mas seguido de posiciones de la guia. La guia empieza al final del ultimo;
+    // lo anterior no son posiciones ni sirve para los magnetometros (su mediana quedaria en ese punto). El reposo final no cuenta: no lo siguen posiciones.
+    for (size_t s = 0; s < segs.size(); s++) {
+        const double d = (segs[s].second - segs[s].first) / 1e6;
+        if (d < WARM_MIN_S) continue;
+        for (size_t q = s + 1; q < segs.size(); q++) {
+            const double dq = (segs[q].second - segs[q].first) / 1e6;
+            if (dq >= STILL_MIN_S && dq < WARM_MIN_S) { tGuia = segs[s].second; break; }
+        }
+    }
     for (size_t s = 0; s < segs.size(); s++) {
         const int64_t t1 = segs[s].first, t2 = segs[s].second;
+        if (t2 <= tGuia) continue;
         if ((t2 - t1) / 1e6 < STILL_MIN_S) continue;
         Pose p; p.t1 = t1; p.t2 = t2;
         double m[3];
@@ -653,8 +654,9 @@ static bool cuadra(const std::vector<Analizador::Pose> &p, const double u[NPOS][
 
 void Analizador::finPasada1() {
     const bool hayLsm = !wl_.empty();
-    if (hayLsm) posesDe(wl_, poses_);
-    if (poses_.empty() && !wq_.empty()) { posesDe(wq_, poses_); r_.avisos |= AV_SIN_LSM; }
+    if (hayLsm) posesDe(wl_, poses_, tGuia_);
+    if (poses_.empty() && !wq_.empty()) { posesDe(wq_, poses_, tGuia_); r_.avisos |= AV_SIN_LSM; }
+    if (tGuia_ != INT64_MIN && t0_ != INT64_MIN) r_.calentamiento_s = (tGuia_ - t0_) / 1e6;
     r_.n_pos = (int)poses_.size();
     // Nombrar las posiciones: con la calibracion anterior, con el montaje nominal o por geometria
     if (hayLsm && poses_.size() == NPOS) {
@@ -709,17 +711,6 @@ void Analizador::finPasada1() {
         }
         if (n) for (int i = 0; i < 3; i++) sesgoGiro_[i] = s[i] / n;
     }
-    for (int k = 0; k < NPOS; k++) { magHay_mmc[k] = magHay_qmc[k] = false; }
-    magnetometro(mmc_, r_.mmc, AV_MMC_BASE);
-    magnetometro(qmc_, r_.qmc, AV_QMC_BASE);
-    r_.n_mmc = (uint32_t)mmc_.size(); r_.n_qmc = (uint32_t)qmc_.size();
-    // MMC contra QMC en las posiciones
-    if (r_.mmc.alineado && r_.qmc.alineado && hayUps_) {
-        double mn = 1e9, mx = -1e9; int n = 0;
-        for (int k = 0; k < NPOS; k++) if (magHay_mmc[k] && magHay_qmc[k]) { const double a = angDeg(magPos_mmc[k], magPos_qmc[k]); mn = std::min(mn, a); mx = std::max(mx, a); n++; }
-        if (!n) r_.avisos |= AV_MAG_NO_COMPARABLES;
-        else { r_.mag_acuerdo_min = mn; r_.mag_acuerdo_max = mx; if (mx > MAG_AGREE_WARN_DEG) r_.avisos |= AV_MAG_DIFIEREN; }
-    }
     curva(tb_s_, tb_n_, r_.bmp);
     curva(te_s_, te_n_, r_.bme);
     // tramo de la pasada 2: despues de la ultima posicion
@@ -729,15 +720,30 @@ void Analizador::finPasada1() {
         segA_ = fin;
         segB_ = INT64_MAX;
     }
-    mmc_.clear(); mmc_.shrink_to_fit(); qmc_.clear(); qmc_.shrink_to_fit();     // libera memoria para la pasada 2
 }
 
 // ---------- pasada 2: retraso y ganancia del QMI ----------
 void Analizador::pasada2(const uint8_t *rec, uint16_t len) {
-    if (!r_.lsm.ok || !r_.qmi.ok || !segA_) return;
     rec::Hdr h; memcpy(&h, rec, sizeof(h));
     const uint8_t *p = rec + rec::HDR_SIZE;
     const uint16_t n = (uint16_t)(len - rec::HDR_SIZE - rec::CRC_SIZE);
+    // Magnetometros: solo desde el fin del calentamiento (con 30 min quieto no caben en la PSRAM y arrastrarian la mediana)
+    if (h.type == rec::T_EXT_MMC && n == 14) {
+        if (p[12] & 7 || h.t_us < tGuia_) return;
+        int32_t v[3]; memcpy(v, p, 12);
+        Muestra m; m.t = (float)((h.t_us - t0_) / 1e6); for (int i = 0; i < 3; i++) m.v[i] = (float)(v[i] / 16384.0);
+        mmc_.push_back(m);
+        return;
+    }
+    if (h.type == rec::T_MAG && n == 8) {
+        if (p[6] & 1 || !p[7] || h.t_us < tGuia_) return;
+        int16_t v[3]; memcpy(v, p, 6);
+        const double lsb = 32000.0 / p[7];
+        Muestra m; m.t = (float)((h.t_us - t0_) / 1e6); for (int i = 0; i < 3; i++) m.v[i] = (float)(v[i] / lsb);
+        qmc_.push_back(m);
+        return;
+    }
+    if (!r_.lsm.ok || !r_.qmi.ok || !segA_) return;
     if (h.type == rec::T_EXT_LSM && n >= 24) {
         uint32_t n0; uint16_t cnt; int64_t tf; float period;
         memcpy(&n0, p, 4); memcpy(&cnt, p + 4, 2); memcpy(&tf, p + 8, 8); memcpy(&period, p + 16, 4);
@@ -776,6 +782,18 @@ void Analizador::pasada2(const uint8_t *rec, uint16_t len) {
 }
 
 void Analizador::finPasada2() {
+    for (int k = 0; k < NPOS; k++) { magHay_mmc[k] = magHay_qmc[k] = false; }
+    magnetometro(mmc_, r_.mmc, AV_MMC_BASE);
+    magnetometro(qmc_, r_.qmc, AV_QMC_BASE);
+    r_.n_mmc = (uint32_t)mmc_.size(); r_.n_qmc = (uint32_t)qmc_.size();
+    mmc_.clear(); mmc_.shrink_to_fit(); qmc_.clear(); qmc_.shrink_to_fit();
+    // MMC contra QMC en las posiciones
+    if (r_.mmc.alineado && r_.qmc.alineado && hayUps_) {
+        double mn = 1e9, mx = -1e9; int n = 0;
+        for (int k = 0; k < NPOS; k++) if (magHay_mmc[k] && magHay_qmc[k]) { const double a = angDeg(magPos_mmc[k], magPos_qmc[k]); mn = std::min(mn, a); mx = std::max(mx, a); n++; }
+        if (!n) r_.avisos |= AV_MAG_NO_COMPARABLES;
+        else { r_.mag_acuerdo_min = mn; r_.mag_acuerdo_max = mx; if (mx > MAG_AGREE_WARN_DEG) r_.avisos |= AV_MAG_DIFIEREN; }
+    }
     r_.qmi_giro = false;
     if (r_.lsm.ok && r_.qmi.ok && l5n_.size() > 100 && q2_.size() > 100) {
         std::sort(q2_.begin(), q2_.end(), [](const Muestra &a, const Muestra &b) { return a.t < b.t; });

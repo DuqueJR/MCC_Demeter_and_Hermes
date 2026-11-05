@@ -15,7 +15,7 @@ decisiones: [D-057, D-059]
 - Manda por radio **solo un resumen** para aprobarlo. No sube ni baja datos de calibración en bloque.
 - El registro queda en la SD, así que siempre se puede repetir el análisis en el PC.
 
-**Respaldo:** con el cohete abierto, `calib.py` en el PC y la carga del resultado por USB (`estacion/cal_blob.py`, clave `TBCAL`).
+**Respaldo:** con el cohete abierto, `calib.py` en el PC y la carga del resultado por USB (`estacion/cal_blob.py`, clave `TBCAL`). `calib.py` recibe el primer archivo y toma solo los que continúan el registro en la misma carpeta (`--solo` lo evita); "Bajar y analizar" del dashboard baja todo el registro (`tbget get NOMBRE --registro`).
 
 ## Flujo
 
@@ -23,6 +23,8 @@ decisiones: [D-057, D-059]
 2. **Análisis:** orden `cal analizar` (dashboard, pestaña Calibración → "Analizar el último registro").
    - Solo en TIERRA y sin registrar.
    - Una tarea en el núcleo 0, prioridad 1, lee de la SD el último registro de ese cohete, con `g_sdBusMx`, en dos pasadas.
+   - **El registro puede ocupar varios archivos** (la guía con 30 min de calentamiento llena unos 4 de 32 MB). Se toma el archivo de índice más alto y, hacia atrás, los que este continúa: mismo arranque y la bandera `FH_CONTINUA` de la cabecera v3 ([formato_log](formato_log.md)); en archivos v1-v2 basta el mismo arranque. Hasta 16 archivos. La cola de ceros de la preasignación no se lee.
+   - **El calentamiento no es una posición:** un tramo quieto de 2 min o más seguido de posiciones de la guía. La guía empieza al final del último; lo anterior solo sirve para la curva de temperatura. Sin esto, los 30 min quietos ocupaban la PSRAM con el magnetómetro y llevaban su mediana a ese punto, y el filtro descartaba el giro (falla del 5 nov, DEM 0101-0104). Los magnetómetros se leen en la segunda pasada, ya con el inicio de la guía conocido.
 3. **Resumen:** dos paquetes `CAL_RES`, en lugar de TELEM:
    - mientras analiza, el progreso, una página cada 4 s;
    - con el resultado listo, las dos páginas alternadas;
