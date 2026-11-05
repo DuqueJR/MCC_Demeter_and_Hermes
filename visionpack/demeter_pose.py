@@ -216,10 +216,20 @@ def load_cameras(path: Path) -> dict[int, dict[str, Any]]:
 
 
 def intrinsics_for(cam: dict[str, Any], width: int, height: int) -> dict[str, Any]:
-    nom = cam["intrinsecos_nominales"]
-    scale = width / float(nom["ancho_px"])
-    return {"fx_px": nom["fx_px"] * scale, "fy_px": nom["fy_px"] * scale, "cx_px": width / 2.0, "cy_px": height / 2.0,
-            "ancho_px": width, "alto_px": height, "distorsion": nom.get("distorsion"), "calibrado": nom.get("calibrado", False)}
+    """Intrinsecos para un cuadro de width x height. Usa los calibrados si existen (camaras.json v3) y si no los
+    nominales. Solo valen para los modos de campo completo del IMX708 (4608x2592 y su binning 2304x1296): el modo
+    1536x864 es un recorte central del sensor y no se escala igual, asi que ahi se marcan como no calibrados."""
+    cal = cam.get("intrinsecos")
+    base = cal if cal and cal.get("calibrado") else cam["intrinsecos_nominales"]
+    scale = width / float(base["ancho_px"])
+    campo_completo = (width, height) in ((base["ancho_px"], base["alto_px"]),
+                                         (base["ancho_px"] // 2, base["alto_px"] // 2))
+    cx = base.get("cx_px", (base["ancho_px"] - 1) / 2.0)
+    cy = base.get("cy_px", (base["alto_px"] - 1) / 2.0)
+    return {"fx_px": base["fx_px"] * scale, "fy_px": base["fy_px"] * scale,
+            "cx_px": (cx + 0.5) * scale - 0.5, "cy_px": (cy + 0.5) * scale - 0.5,
+            "ancho_px": width, "alto_px": height, "distorsion": base.get("distorsion"),
+            "calibrado": bool(base is cal and campo_completo)}
 
 
 # ---------------- pose de un cuadro ----------------
