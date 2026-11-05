@@ -24,6 +24,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 4 | `CMD_RESP` | 28 B | Cohete → tierra | Las 2 propias siguientes, en lugar de TELEM | CRC |
 | 5 | `LOG_INFO` | 54 B | Cohete → tierra | Una propia cada 5 s, en lugar de TELEM | CRC |
 | 6 | `AMB` | 18 B | Cohete → tierra | Una propia cada 10 s, en lugar de TELEM (no justo tras un LogInfo) | CRC |
+| 7 | `CAL_RES` | 60 o 54 B | Cohete → tierra | Resumen de la calibración a bordo: página 0 (estado, IMU) y 1 (magnetómetros, temperatura); ver [calibracion_nvs](calibracion_nvs.md) | CRC |
 
 ## 2. `TELEM` (64 B)
 
@@ -124,6 +125,8 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 10 | En vuelo: ya hubo BOOST | 21 | **No se sabe si la Pi está encendida: una pulsación podría apagarla** (T-413, D-049) |
 | | | 22 | **La Pi no está lista (READY): no grabaría el vuelo.** Solo en Demeter, al armar; se puede forzar (D-055) |
 | | | 23 | **Temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora.** Al armar; se puede forzar (D-058) |
+| | | 24 | **Calibración: no hay resultado listo, se está analizando o registrando, o no hay una anterior.** No se puede forzar (D-059) |
+| | | 25 | **Calibración: el análisis dejó avisos.** Al aplicar; se puede forzar (D-059) |
 
 Los textos exactos están en `reasonText()`. **El servicio de tierra los usa tal cual** para `salud.go_nogo` (§6).
 
@@ -170,6 +173,7 @@ Para la temperatura del suelo y para usar un cohete en tierra (por ejemplo Herme
 | `@T <rssi> <snr> <hex>` | Cada TELEM válido (CRC, ID 1 o 2) | RSSI en dBm y SNR en dB con 1 decimal; los 64 B en hex minúscula |
 | `@L <hex>` | Cada LogInfo válido | Los 54 B (sin RSSI; PEN-23) |
 | `@A <hex>` | Cada AMB válido | Los 18 B (D-058). `web-1` no lo usa |
+| `@C <hex>` | Cada CAL_RES válido | Las páginas de la calibración a bordo (D-059). `web-1` no lo usa |
 | `@G <0\|1>` | Una vez por segundo | 1 si tierra tiene hora propia (puede transmitir) |
 | `[cmd ] …` | Al responder un comando | **Texto:** `Demeter: NO APTO \| estado=… momento=… alt=… vz=… reserva=…% vbat=… mV`, una línea `  - <motivo>` por cada motivo, y si hace falta, `… (10 s): escribe si o no` |
 | `[time] … pos(n)=<lat> <lon> <alt> m` | Una vez por segundo | **La posición promediada de la estación** (texto) |

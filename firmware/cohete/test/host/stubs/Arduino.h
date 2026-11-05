@@ -6,6 +6,7 @@
 typedef void* QueueHandle_t; typedef void* SemaphoreHandle_t; typedef void* TaskHandle_t; typedef int BaseType_t; typedef uint32_t TickType_t;
 #define pdTRUE 1
 #define pdFALSE 0
+#define pdPASS 1
 #define portMAX_DELAY 0xFFFFFFFFu
 #define IRAM_ATTR
 #define pdMS_TO_TICKS(x) (x)
@@ -19,6 +20,10 @@ typedef void* QueueHandle_t; typedef void* SemaphoreHandle_t; typedef void* Task
 #define SPI_MODE0 0
 #define SPI_MODE3 3
 uint32_t millis();
+void *ps_malloc(size_t);
+#ifndef INT16_MIN
+#define INT16_MIN (-32768)
+#endif
 void delay(uint32_t);
 void pinMode(int,int); void digitalWrite(int,int);
 int digitalPinToInterrupt(int);

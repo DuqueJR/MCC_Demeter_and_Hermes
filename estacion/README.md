@@ -32,6 +32,7 @@ python estacion/dashboard.py --reproducir sesiones/AAAAMMDD_HHMMSS_tierra.txt --
 | `tbget.py` | Descarga los logs de un cohete por USB: `python estacion/tbget.py COM3 list`, `get`, `get --ultimos 2`, `reset`. Opciones `--dir`, `--analizar`, `--csv`. Solo lee. |
 | `tblog.py` | Resume un log `.BIN`: `python estacion/tblog.py LOG.BIN` (`--csv` deja un CSV por fuente en `LOG_csv/`). |
 | `calib.py` | Calibración de un cohete desde un log hecho con la guía del dashboard: `python estacion/calib.py LOG.BIN --salida calib_x.json`. |
+| `cal_blob.py` | La calibración en el formato binario del cohete (D-059) y su carga por USB, como respaldo de la calibración a bordo: `python estacion/cal_blob.py calib_demeter.json --puerto COM4`. También desde el dashboard (Calibración → Cargar por USB). |
 | `ekf.py` | EKF de prueba en PC (INS + GNSS) sobre un log: `python estacion/ekf.py LOG.BIN` deja `NOMBRE_ekf.csv`. |
 
 Los `calib_*.json` y `dashboard.html` viven junto a los `.py` porque se buscan en la carpeta del propio script. Dependencias: `pyserial` para los puertos; `numpy` y `scipy` solo para `calib.py` y `ekf.py`.

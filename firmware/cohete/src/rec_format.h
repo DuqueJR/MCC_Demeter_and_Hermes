@@ -16,7 +16,7 @@ static const uint16_t HDR_SIZE = 14;
 static const uint16_t CRC_SIZE = 2;
 static const uint16_t MAX_LEN  = 512;
 
-enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_PI = 13, T_AMB = 14, T_EVENT = 250 };
+enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_PI = 13, T_AMB = 14, T_CAL = 15, T_EVENT = 250 };
 enum Src  : uint8_t { S_IN_IMU = 0, S_IN_MAG = 1, S_IN_BAR = 2, S_IN_GNSS = 3, S_IN_RTC = 4, S_IN_PMU = 5,
                       S_EX_IMU = 6, S_EX_BAR = 7, S_EX_MAG = 8, S_SYS = 15 };
 
@@ -57,6 +57,9 @@ enum PiKind : uint8_t { PIK_CHANGE = 1, PIK_LOST = 2, PIK_CMD = 3 };
 //   t_*_ahora = lecturas de ese instante (NaN sin sensor).
 struct AmbRec { float t_bmp; float t_bme; float t_usada; float pend_bmp; float pend_bme; int64_t utc_ms; float t_bmp_ahora; float t_bme_ahora;
                 uint8_t fuente; uint8_t calidad; uint8_t evento; uint8_t arm; };
+// payload de T_CAL: calibracion a bordo (cal_onboard, D-059). evento 1 resultado listo, 2 aplicada por radio, 3 aplicada por USB,
+//   4 vuelta a la anterior, 5 copia al empezar a registrar, 6 error del analisis. crc_activo = la calibracion en uso desde ese momento.
+struct CalRec { uint32_t crc_activo; uint32_t crc_resultado; uint32_t avisos; uint8_t evento; uint8_t estado; uint8_t n_pos; uint8_t ok; };
 // payload de T_LINK: un evento de radio; t_us de la cabecera = fin de TX o RX. slot 0xFF = fuera de ranuras (baliza lenta).
 struct LinkRec { uint8_t dir; uint8_t slot; uint8_t len; uint8_t pad; int16_t rssi_x10; int16_t snr_x10; int32_t late_us; uint32_t air_us; };
 enum LinkDir : uint8_t { LD_TX = 0, LD_RX = 1 };

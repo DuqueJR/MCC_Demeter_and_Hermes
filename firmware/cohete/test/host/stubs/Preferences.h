@@ -11,5 +11,8 @@ struct Preferences {
     size_t getBytes(const char*, void*, size_t);
     size_t putBytes(const char*, const void*, size_t);
     bool remove(const char*);
+    size_t getBytesLength(const char*);          // cal_onboard.cpp (solo revision de sintaxis)
+    uint8_t getUChar(const char*, uint8_t);
+    size_t putUChar(const char*, uint8_t);
     const char *ns_ = "";
 };

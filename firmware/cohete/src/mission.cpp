@@ -15,6 +15,7 @@
 #include "ext_act.h"
 #include "ext_pi.h"
 #include "amb_temp.h"
+#include "cal_onboard.h"
 #include "pi_plan.h"
 #include "logger.h"
 #include "net_radio.h"
@@ -269,6 +270,18 @@ static uint32_t evaluate(uint8_t op, uint8_t arg) {
         if (arg == M_ATERRIZAJE) m |= motionReasons();
         return m;
     }
+    // Calibracion a bordo (D-059): solo en TIERRA y sin registrar. RZ_CAL_NO_LISTA no se puede forzar (no hay nada que aplicar).
+    case OP_CAL_ANALIZAR:
+        if (s_state != ST_TIERRA) return rz(RZ_TRANSICION);
+        return (loggerRecInfo().recording || calAnalizando()) ? rz(RZ_CAL_NO_LISTA) : 0;
+    case OP_CAL_APLICAR:
+        if (s_state != ST_TIERRA) return rz(RZ_TRANSICION);
+        if (!calListo()) return rz(RZ_CAL_NO_LISTA);
+        return calListoConAvisos() ? rz(RZ_CAL_AVISOS) : 0;
+    case OP_CAL_DESCARTAR: return (calListo() || calEstado() == CE_ERROR) ? 0 : rz(RZ_CAL_NO_LISTA);
+    case OP_CAL_ANTERIOR:
+        if (s_state != ST_TIERRA) return rz(RZ_TRANSICION);
+        return calHayAnterior() ? 0 : rz(RZ_CAL_NO_LISTA);
     default:           return rz(RZ_OP);
     }
 }
@@ -366,6 +379,10 @@ static void execute(uint8_t op, uint8_t arg) {
         break;
     case OP_BUZZER:    extActBuzzer(arg != 0, millis()); break;
     case OP_PI_POWER:  if (s_rocket == ROCKET_DEMETER) extActPiPulse(millis()); break;     // en Hermes no hay nada que pulsar
+    case OP_CAL_ANALIZAR:  calAnalizar(); break;
+    case OP_CAL_APLICAR:   calAplicar(); break;
+    case OP_CAL_DESCARTAR: calDescartar(); break;
+    case OP_CAL_ANTERIOR:  calAnterior(); break;
     default: break;
     }
 }
@@ -395,11 +412,13 @@ static void handleCmd(const Cmd &c) {
 
     const uint8_t op = c.op & (uint8_t)~OP_CONFIRM, from = s_state;
     const bool confirming = c.op & OP_CONFIRM;
-    const bool needsTwoSteps = op == OP_ARM || (op == OP_SET_STATE && c.arg == ST_ARMED && s_state == ST_TIERRA);
+    const bool esCal = op >= OP_CAL_ANALIZAR && op <= OP_CAL_ANTERIOR;
+    const bool needsTwoSteps = op == OP_ARM || (op == OP_SET_STATE && c.arg == ST_ARMED && s_state == ST_TIERRA) ||
+                               op == OP_CAL_APLICAR || op == OP_CAL_ANTERIOR;          // cambiar la calibracion: siempre se confirma
     const uint32_t mask = evaluate(op, c.arg);
     uint8_t result;
 
-    if (mask & rz(RZ_OP)) {                            // D-051: un comando que no aplica no se confirma ni se ejecuta (ni forzado)
+    if (mask & (rz(RZ_OP) | rz(RZ_CAL_NO_LISTA))) {    // D-051: un comando que no aplica no se confirma ni se ejecuta (ni forzado)
         s_pendOn = false;
         reply(c, CR_ERROR, mask, true);
         logTransition(c.op, c.arg, CR_ERROR, from, c.counter, mask);
@@ -414,7 +433,7 @@ static void handleCmd(const Cmd &c) {
             result = mask ? CR_NO_APTO : CR_CONFIRMA;
         } else {
             s_pendOn = false;
-            if (mask) s_flags = (uint8_t)(s_flags | TF_FORZADO);
+            if (mask && !esCal) s_flags = (uint8_t)(s_flags | TF_FORZADO);   // forzar una calibracion no fuerza la mision
             execute(op, c.arg);
             result = CR_OK;
         }
@@ -439,6 +458,7 @@ static void missionTask(void *) {
         last += TASK_MS;
         if (millis() - last > 10 * TASK_MS) last = millis();
         ambStep(millis());
+        calStep(millis());
         baroStep();
         boostStep();
         extActStep(millis());

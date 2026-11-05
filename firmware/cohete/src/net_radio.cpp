@@ -8,6 +8,7 @@
 #include "ext_act.h"
 #include "ext_pi.h"
 #include "amb_temp.h"
+#include "cal_onboard.h"
 #include "logger.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
@@ -77,6 +78,10 @@ static size_t specialPacket(uint8_t *out) {
         p.crc = net::crc16((const uint8_t *)&p, sizeof(p) - 2);
         memcpy(out, &p, sizeof(p));
         return sizeof(p);
+    }
+    if (millis() - s_lastLogInfoMs >= 1000) {                        // resumen de la calibracion a bordo (D-059), cuando toca
+        const size_t n = calPaquete(out);
+        if (n) return n;
     }
     if (millis() - s_lastLogInfoMs < LOG_INFO_MS) return 0;
     s_lastLogInfoMs = millis();
@@ -277,6 +282,8 @@ static void netTask(void *) {
         while (piTakeLog(pl)) bus_log(RING_NET, rec::T_PI, rec::S_SYS, pl.t_us, &pl.r, sizeof(pl.r));
         AmbLog al;
         while (ambTakeLog(al)) bus_log(RING_NET, rec::T_AMB, rec::S_SYS, al.t_us, &al.r, sizeof(al.r));
+        CalLog cl;
+        while (calTakeLog(cl)) bus_log(RING_NET, rec::T_CAL, rec::S_SYS, cl.t_us, &cl.r, sizeof(cl.r));
         TimeModel m;
         const int64_t now = esp_timer_get_time();
         if (!timeUsable(m, now)) {
