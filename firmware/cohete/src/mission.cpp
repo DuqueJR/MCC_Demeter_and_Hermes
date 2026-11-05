@@ -14,6 +14,7 @@
 #include "ext_drv.h"
 #include "ext_act.h"
 #include "ext_pi.h"
+#include "amb_temp.h"
 #include "pi_plan.h"
 #include "logger.h"
 #include "net_radio.h"
@@ -157,7 +158,7 @@ static void baroStep() {
     if (src != s_src) { s_src = src; s_histN = 0; s_histIdx = 0; s_jump.reset(); }      // otro sensor: no se mezclan sus alturas
     if (src == 2) { s_jumpHit = false; return; }
 
-    const float alt = 44330.0f * (1.0f - powf(p[src] / s_ref[src], 0.19029f));
+    const float alt = amb::altura(p[src], s_ref[src], ambTempC());     // con la temperatura del suelo (D-058); 15 C sin muestra
     s_jumpHit = s_jump.feed(esp_timer_get_time(), alt);                // BOOST barometrico: la altura sin filtrar, el filtro de ALT_TAU_S solo la atrasaria
     s_alt = s_histN ? s_alt + (alt - s_alt) * dt / ALT_TAU_S : alt;
     const float old = s_altHist[s_histN < VZ_WINDOW ? 0 : s_histIdx];
@@ -204,6 +205,7 @@ static uint32_t readyReasons() {
         const uint8_t pi = piStatus();
         if (pi != piplan::PS_READY && pi != piplan::PS_ARMED) m |= rz(RZ_PI_NO_LISTA);
     }
+    if (ambArmBits()) m |= rz(RZ_TEMP);                // temperatura del suelo dudosa (D-058); se puede forzar con confirmacion
     return m | motionReasons();
 }
 
@@ -436,6 +438,7 @@ static void missionTask(void *) {
         if (millis() - last < TASK_MS) continue;
         last += TASK_MS;
         if (millis() - last > 10 * TASK_MS) last = millis();
+        ambStep(millis());
         baroStep();
         boostStep();
         extActStep(millis());

@@ -7,6 +7,7 @@
 #include "mission.h"
 #include "ext_act.h"
 #include "ext_pi.h"
+#include "amb_temp.h"
 #include "logger.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
@@ -37,6 +38,8 @@ static uint8_t       s_respLeft = 0;
 static const uint8_t RESP_REPEATS = 2;
 static const uint32_t LOG_INFO_MS = 5000;
 static uint32_t      s_lastLogInfoMs = 0;
+static uint32_t      s_lastAmbMs = 0;
+static const uint32_t AMB_INFO_MS = 10000;       // ambiente (D-058): cada 10 s en lugar de un TELEM
 
 static void IRAM_ATTR onDio1() {
     s_tDone = esp_timer_get_time();
@@ -59,6 +62,22 @@ static bool takeResp(net::CmdResp &out) {
 static size_t specialPacket(uint8_t *out) {
     net::CmdResp r;
     if (takeResp(r)) { memcpy(out, &r, sizeof(r)); return sizeof(r); }
+    if (millis() - s_lastAmbMs >= AMB_INFO_MS && millis() - s_lastLogInfoMs >= 1000) {     // no seguido de un LogInfo
+        s_lastAmbMs = millis();
+        const AmbInfo a = ambInfo();
+        net::Amb p; memset(&p, 0, sizeof(p));
+        p.type = net::P_AMB; p.rocket_id = s_rocket;
+        p.flags = (uint8_t)((a.hay ? 1 : 0) | (a.hay && a.m.calidad ? 2 : 0) | ((a.hay ? a.m.fuente & 3 : 0) << 2) | (a.tomando ? 16 : 0) |
+                            (isnan(a.t_bmp) ? 0 : 32) | (isnan(a.t_bme) ? 0 : 64));
+        p.arm = a.armBits;
+        p.press_pa = a.p_bmp;
+        const auto cC = [](float t) -> int16_t { return isnan(t) ? INT16_MIN : (int16_t)lroundf(fmaxf(-300.0f, fminf(t, 300.0f)) * 100.0f); };
+        p.t_bmp_cC = cC(a.t_bmp); p.t_bme_cC = cC(a.t_bme); p.t_amb_cC = a.hay ? cC(a.m.t_usada) : INT16_MIN;
+        p.edad_min = a.edad_s < 0 ? 0xFFFF : (uint16_t)(a.edad_s / 60 > 0xFFFE ? 0xFFFE : a.edad_s / 60);
+        p.crc = net::crc16((const uint8_t *)&p, sizeof(p) - 2);
+        memcpy(out, &p, sizeof(p));
+        return sizeof(p);
+    }
     if (millis() - s_lastLogInfoMs < LOG_INFO_MS) return 0;
     s_lastLogInfoMs = millis();
     const LoggerRecInfo i = loggerRecInfo();
@@ -256,6 +275,8 @@ static void netTask(void *) {
         while (missionTakeLog(ml)) bus_log(RING_NET, rec::T_MISSION, rec::S_SYS, ml.t_us, &ml.r, sizeof(ml.r));
         PiLog pl;
         while (piTakeLog(pl)) bus_log(RING_NET, rec::T_PI, rec::S_SYS, pl.t_us, &pl.r, sizeof(pl.r));
+        AmbLog al;
+        while (ambTakeLog(al)) bus_log(RING_NET, rec::T_AMB, rec::S_SYS, al.t_us, &al.r, sizeof(al.r));
         TimeModel m;
         const int64_t now = esp_timer_get_time();
         if (!timeUsable(m, now)) {
