@@ -165,6 +165,11 @@ describe("marcasDe: solo los eventos que existen", () => {
     ]);
   });
 
+  it("cada marca lleva un rótulo corto para escribirlo sobre la gráfica", () => {
+    const m = marcasDe([evento("fin_combustion", 3), evento("eyeccion", 9)]);
+    expect(m.map((x) => x.rotulo)).toEqual(["Fin combustión", "Eyección"]);
+  });
+
   it("vuelo real hoy: solo `fase` y `despegue` -> una sola marca, sin error", () => {
     const m = marcasDe([evento("fase", 0, { fase: "BOOST" }), evento("despegue", 0)]);
     expect(m).toHaveLength(1);
@@ -187,7 +192,7 @@ describe("marcasDe: solo los eventos que existen", () => {
   });
 
   it("la frase de cada marca", () => {
-    expect(textoMarca({ tipo: "apogeo", etiqueta: "Apogeo", tMasS: 21.5 })).toBe(
+    expect(textoMarca({ tipo: "apogeo", etiqueta: "Apogeo", rotulo: "Apogeo", tMasS: 21.5 })).toBe(
       "Apogeo: a los 21,5 s",
     );
   });
@@ -202,7 +207,7 @@ describe("rangos de los ejes", () => {
 
   it("X incluye una marca más tardía que el último dato", () => {
     const [, max] = rangoX({ t: [0, 10], y: [0, 1] }, [
-      { tipo: "apogeo", etiqueta: "Apogeo", tMasS: 12 },
+      { tipo: "apogeo", etiqueta: "Apogeo", rotulo: "Apogeo", tMasS: 12 },
     ]);
     expect(max).toBe(12);
   });
@@ -265,7 +270,7 @@ describe("textos", () => {
 
 describe("medidasDelLienzo: 390 px, horizontal y redimensionar", () => {
   it("celular vertical (390 px): el alto sigue al ancho, con mínimo legible", () => {
-    expect(medidasDelLienzo(358, 844)).toEqual({ ancho: 358, alto: 215 });
+    expect(medidasDelLienzo(358, 844)).toEqual({ ancho: 358, alto: 269 });
     expect(medidasDelLienzo(200, 844).alto).toBe(GRAFICAS_ALTO_MIN_PX);
   });
 

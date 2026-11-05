@@ -100,17 +100,24 @@ function valorDe(serie: Serie, i: number, m: MagnitudId): number | null {
 
 // ---- Eventos
 
-/** Los eventos que llevan marca vertical (03 §3.7), con su nombre público. */
-export const EVENTOS_CON_MARCA: Readonly<Partial<Record<TipoEvento, string>>> = {
-  despegue: "Despegue",
-  fin_combustion: "Fin de la combustión",
-  eyeccion: "Eyección del paracaídas",
-  apogeo: "Apogeo",
+/**
+ * Los eventos que llevan marca vertical (03 §3.7), con su nombre público y un rótulo corto para
+ * escribir sobre la gráfica (el nombre completo va en la lista que sigue a la gráfica).
+ */
+export const EVENTOS_CON_MARCA: Readonly<
+  Partial<Record<TipoEvento, { etiqueta: string; rotulo: string }>>
+> = {
+  despegue: { etiqueta: "Despegue", rotulo: "Despegue" },
+  fin_combustion: { etiqueta: "Fin de la combustión", rotulo: "Fin combustión" },
+  eyeccion: { etiqueta: "Eyección del paracaídas", rotulo: "Eyección" },
+  apogeo: { etiqueta: "Apogeo", rotulo: "Apogeo" },
 };
 
 export interface Marca {
   tipo: TipoEvento;
   etiqueta: string;
+  /** El nombre corto, para escribirlo sobre la gráfica. */
+  rotulo: string;
   /** Segundos desde el despegue (>= 0). */
   tMasS: number;
 }
@@ -124,11 +131,11 @@ export function marcasDe(eventos: readonly Evento[]): Marca[] {
   const vistos = new Set<TipoEvento>();
   const marcas: Marca[] = [];
   for (const e of eventos) {
-    const etiqueta = EVENTOS_CON_MARCA[e.tipo];
+    const nombre = EVENTOS_CON_MARCA[e.tipo];
     const t = finito(e.t_mas_s);
-    if (etiqueta === undefined || t === null || t < 0 || vistos.has(e.tipo)) continue;
+    if (nombre === undefined || t === null || t < 0 || vistos.has(e.tipo)) continue;
     vistos.add(e.tipo);
-    marcas.push({ tipo: e.tipo, etiqueta, tMasS: t });
+    marcas.push({ tipo: e.tipo, ...nombre, tMasS: t });
   }
   return marcas.sort((a, b) => a.tMasS - b.tMasS);
 }

@@ -25,9 +25,9 @@ export const GRAFICAS_RANGO_PLANO = 1;
 
 // ---- Medidas del lienzo (px)
 /** (P) Alto del lienzo como fracción de su ancho, con tope arriba y abajo. */
-export const GRAFICAS_PROPORCION = 0.6;
-export const GRAFICAS_ALTO_MIN_PX = 190;
-export const GRAFICAS_ALTO_MAX_PX = 360;
+export const GRAFICAS_PROPORCION = 0.75;
+export const GRAFICAS_ALTO_MIN_PX = 220;
+export const GRAFICAS_ALTO_MAX_PX = 380;
 /** (P) En horizontal en un celular, el lienzo no pasa de esta fracción del alto de la ventana. */
 export const GRAFICAS_ALTO_MAX_VENTANA = 0.7;
 /** (P) Ancho que se usa mientras el contenedor aún no tiene medida (antes de la primera lectura). */
@@ -37,7 +37,12 @@ export const GRAFICAS_ANCHO_POR_DEFECTO_PX = 320;
 export const GRAFICAS_ANCHO_LINEA_PX = 2;
 export const GRAFICAS_TAM_TEXTO_PX = 12;
 export const GRAFICAS_TAM_TEXTO_MARCA_PX = 11;
-export const GRAFICAS_ANCHO_EJE_Y_PX = 52;
+export const GRAFICAS_ANCHO_EJE_Y_PX = 44;
+export const GRAFICAS_ALTO_EJE_X_PX = 32;
+/** Espacio que se reserva al rótulo de cada eje ("Altitud (m)"…). */
+export const GRAFICAS_ROTULO_EJE_PX = 22;
+/** (P) Grosor del contorno que separa el rótulo de una marca de la línea de datos. */
+export const GRAFICAS_MARCA_HALO_PX = 3;
 /** (P) Marcas de eventos: trazo discontinuo (px de raya y de hueco). */
 export const GRAFICAS_MARCA_RAYA_PX = 5;
 export const GRAFICAS_MARCA_HUECO_PX = 4;
