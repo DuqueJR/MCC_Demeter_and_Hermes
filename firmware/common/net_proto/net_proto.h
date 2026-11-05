@@ -26,7 +26,7 @@ static const int64_t  BEACON_AIR_US = 12864;   // tiempo en aire teorico de un B
 static const int64_t  RX_OPEN_US    = 6000;    // el cohete abre recepcion antes del inicio de la ranura de tierra
 static const int64_t  RX_CLOSE_US   = 24000;   // y la cierra aqui: alcanza para un paquete de tierra de hasta 32 B
 
-enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5 };
+enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5, P_AMB = 6 };
 enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8, TF_REANUDADO = 16 };
 
 // Estados de la LilyGo y momentos del vuelo. En telemetria van juntos: estado en los 4 bits bajos, momento en los 4 altos.
@@ -42,7 +42,7 @@ static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto,
 // Motivos de una respuesta: mascara de bits; tierra los traduce con reasonText.
 enum Reason : uint8_t {
     RZ_TRANSICION = 0, RZ_RESERVA, RZ_SD, RZ_LSM, RZ_BMP, RZ_GNSS, RZ_VBAT, RZ_SUBIENDO, RZ_BAJANDO, RZ_MOVIMIENTO, RZ_EN_VUELO,
-    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_PI_NO_LISTA, RZ_COUNT
+    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_PI_NO_LISTA, RZ_TEMP, RZ_COUNT
 };
 inline const char *reasonText(uint8_t r) {
     static const char *const T[RZ_COUNT] = {
@@ -50,7 +50,8 @@ inline const char *reasonText(uint8_t r) {
         "sin fix 3D del GNSS", "bateria baja", "altura aumentando", "altura disminuyendo", "aceleracion distinta de 1 g: el cohete se mueve", "en vuelo: ya hubo BOOST",
         "sin aterrizaje detectado", "sin BOOST detectado", "el cohete no esta armado", "no ha habido vuelo", "ya esta en ese estado", "hay un iman presente: despertaria al instante",
         "RECOVERY: aun sin bateria baja, el cohete debe seguir transmitiendo", "confirmacion invalida o vencida", "contador antiguo", "comando desconocido",
-        "no se sabe si la Pi esta encendida: una pulsacion podria apagarla", "la Pi no esta lista (READY): no grabaria el vuelo"
+        "no se sabe si la Pi esta encendida: una pulsacion podria apagarla", "la Pi no esta lista (READY): no grabaria el vuelo",
+        "temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error"
     };
     return r < RZ_COUNT ? T[r] : "?";
 }
@@ -133,7 +134,20 @@ struct LogInfo {
     uint32_t remain_s;         // lo que aun cabe en este archivo
     uint16_t crc;
 };
+// Ambiente (D-058): cada AMB_INFO_MS en lugar de un TELEM, para la temperatura del suelo y para usar un cohete en tierra (Hermes)
+// de referencia de temperatura y de presion para el otro. Tierra lo reenvia como "@A hex".
+struct Amb {
+    uint8_t  type;             // P_AMB
+    uint8_t  rocket_id;
+    uint8_t  flags;            // bit0 hay muestra, bit1 dudosa, bits2-3 fuente (1 sueno, 2 encendido, 3 a mano), bit4 tomandola, bit5 BMP vivo, bit6 BME vivo
+    uint8_t  arm;              // amb::ArmBits: 0 = la temperatura sirve para armar
+    float    press_pa;         // BMP581 ahora (NaN sin el)
+    int16_t  t_bmp_cC, t_bme_cC, t_amb_cC;   // centesimas de C: BMP ahora, BME ahora, muestra del suelo (INT16_MIN = no hay)
+    uint16_t edad_min;         // desde la muestra (0xFFFF = no se sabe)
+    uint16_t crc;
+};
 #pragma pack(pop)
+static_assert(sizeof(Amb) == 18, "Amb debe medir 18 B");
 static_assert(sizeof(Telem) == 64, "Telem debe medir 64 B");
 static_assert(sizeof(Beacon) == 18, "Beacon debe medir 18 B");
 static_assert(sizeof(Cmd) == 20, "Cmd debe medir 20 B");

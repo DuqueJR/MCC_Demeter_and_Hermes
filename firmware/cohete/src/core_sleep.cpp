@@ -3,6 +3,7 @@
 #include "ext_drv.h"
 #include "ext_act.h"
 #include "logger.h"
+#include "amb_temp.h"
 #include "LoRaBoards.h"
 #include <driver/rtc_io.h>
 #include <esp_sleep.h>
@@ -26,6 +27,7 @@ bool coreSleepEnter() {
     esp_sleep_enable_ext0_wakeup((gpio_num_t)EXT_DRV_PIN, 0);
     rtc_gpio_pullup_en((gpio_num_t)EXT_DRV_PIN);
     rtc_gpio_pulldown_dis((gpio_num_t)EXT_DRV_PIN);
+    ambSleep();                      // la hora del sueno: al despertar, si fue largo, se toma la temperatura del suelo en frio
     esp_deep_sleep_start();
     return true;
 }

@@ -18,6 +18,7 @@
 #include "core_sleep.h"
 #include "mission.h"
 #include "ext_pi.h"
+#include "amb_temp.h"
 #include "pi_plan.h"
 #include <fw_build.h>
 
@@ -37,6 +38,7 @@ void coreSelftestBegin() {
     imuBegin();
     extLsmBegin();
     i2cBegin();
+    ambBegin();                    // temperatura del suelo: antes de la mision, que la usa para la altura
     missionBegin(ROCKET_ID);
     piBegin(ROCKET_ID);            // UART con la Pi (solo Demeter)
     netBegin(ROCKET_ID, MISSION_ID);
@@ -141,6 +143,16 @@ void coreSelftestReport() {
     Serial.printf("[mis ] estado=%s momento=%s flags=0x%02X alt=%.1f m vz=%.1f m/s baro=%s | cmd=%lu rx=%lu resp=%lu ult_contador=%lu ult_res=%u motivos=0x%08lX\n",
                   STATE_NAME[ms.state], MOMENT_NAME[ms.moment], ms.flags, ms.altM, ms.vzMps, ms.baroSrc == 0 ? "BMP" : (ms.baroSrc == 1 ? "BME" : "ninguno"),
                   (unsigned long)ms.cmds, (unsigned long)nt.rxCmd, (unsigned long)nt.txResp, (unsigned long)ms.lastCounter, ms.lastResult, (unsigned long)ms.lastReasons);
+    {
+        const AmbInfo am = ambInfo();
+        static const char *const FU[4] = {"-", "sueno", "encendido", "a mano"};
+        char edad[16];
+        if (am.edad_s < 0) snprintf(edad, sizeof(edad), "?");
+        else snprintf(edad, sizeof(edad), "%ld min", (long)(am.edad_s / 60));
+        Serial.printf("[amb ] %s suelo=%.2f C (%s, %s) bmp=%.2f bme=%.2f pend=%.3f/%.3f C/min edad=%s | ahora bmp=%.2f bme=%.2f C P=%.1f Pa arm=0x%02X\n",
+                      am.tomando ? "TOMANDO" : (am.hay ? "ok" : "SIN MUESTRA"), ambTempC(), am.hay ? FU[am.m.fuente & 3] : "-", am.hay ? (am.m.calidad ? "dudosa" : "buena") : "-",
+                      am.m.t_bmp, am.m.t_bme, am.m.pend_bmp, am.m.pend_bme, edad, am.t_bmp, am.t_bme, am.p_bmp, am.armBits);
+    }
     const PiStats pi = piStats();
     if (pi.active) {
         char edad[16];

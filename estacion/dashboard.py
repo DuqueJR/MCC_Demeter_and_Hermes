@@ -17,6 +17,9 @@ MISSION_FILE = os.path.join(HERE, 'mision.json')
 SESSION_DIR = os.path.join(HERE, 'sesiones')
 TELEM = struct.Struct('<BBHQiiihhh4h3h3hBBH2bBBHBBH')       # net::Telem, 64 B
 LOGINFO = struct.Struct('<BBBBBB34sIIIH')                   # net::LogInfo, 54 B
+AMB = struct.Struct('<BBBBfhhhHH')                          # net::Amb, 18 B (D-058): temperatura del suelo y ambiente
+AMB_FUENTE = ['-', 'sueno largo', 'encendido', 'a mano']
+AMB_ARM = {1: 'sin muestra', 2: 'dudosa', 4: 'vieja', 8: 'el BMP se alejo de la muestra', 16: 'BMP y BME discrepan'}
 STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
 TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO = 2, 4, 8, 16   # TF_REANUDADO: T-411, D-052
@@ -47,6 +50,7 @@ DIAG_KEYS = {
     'mmc': ['id', 'muestras', '|B|', 'sat', 'err', 'gap_max'], 'drv': ['iman', 'despertar'],
     'rx': ['balizas', 'malas', 'residuo'], 'net': ['tx', 'err', 'saltadas', 'tarde_max', 'fin_max', 'aire'],
     'mis': ['estado', 'momento', 'flags', 'alt', 'vz', 'baro', 'cmd', 'ult_res', 'motivos'],
+    'amb': ['suelo', 'bmp', 'bme', 'pend', 'edad', 'arm'],   # temperatura del suelo (D-058)
     'pi': ['estado', 'motivo', 'latido', 'perdidas', 'crc_mal', 'pose', 'omitidas', 'banderas', 'meta', 'ult_cmd', 'cmds', 'agotados'],   # UART con la Pi (solo Demeter)
     'ring': ['malos', 'resync'], 'log': ['archivo', 'tiempo', 'lleno', 'restante', 'reserva'],
 }
@@ -58,6 +62,7 @@ lock = threading.RLock()
 links = {}
 telem = {}                    # rocket_id -> ultimo TELEM
 loginfo = {}                  # rocket_id -> ultimo LogInfo
+ambinfo = {}                  # rocket_id -> ultimo Amb (temperatura del suelo y ambiente)
 diag = {r: {} for r in ROLES}  # rol -> etiqueta -> fila
 raw_lines = {r: collections.deque(maxlen=400) for r in ROLES}   # monitor en crudo, sin las lineas de maquina
 events = []
@@ -320,6 +325,24 @@ def ground_line(line):
             if prev:
                 note_log(f[1], prev, loginfo[f[1]])
         return
+    if line.startswith('@A '):
+        try:
+            f = AMB.unpack(bytes.fromhex(line[3:].strip()))
+        except (ValueError, struct.error):
+            return
+        cC = lambda v: None if v == -32768 else v / 100.0
+        a = dict(t=time.time(), hay=bool(f[2] & 1), dudosa=bool(f[2] & 2), fuente=AMB_FUENTE[(f[2] >> 2) & 3], tomando=bool(f[2] & 16),
+                 arm=f[3], arm_txt=', '.join(v for k, v in AMB_ARM.items() if f[3] & k), p=None if f[4] != f[4] else round(f[4], 1),
+                 t_bmp=cC(f[5]), t_bme=cC(f[6]), t_suelo=cC(f[7]), edad_min=None if f[8] == 0xFFFF else f[8])
+        with lock:
+            prev = ambinfo.get(f[1])
+            ambinfo[f[1]] = a
+            name = ROCKET_ROLE.get(f[1], str(f[1]))
+            if a['hay'] and (not prev or not prev['hay'] or prev['t_suelo'] != a['t_suelo']):
+                event(f"{name}: temperatura del suelo {a['t_suelo']:.2f} C ({a['fuente']}, {'dudosa' if a['dudosa'] else 'buena'})")
+            if prev and prev['arm'] != a['arm']:
+                event(f"{name}: temperatura para armar: " + (a['arm_txt'] or 'sirve'))
+        return
     if line.startswith('@G '):
         ground_time = line[3:].strip() == '1'
         return
@@ -414,6 +437,8 @@ class DemoLink:
                     ground_line(f'@T {-70.0 - rid:.1f} 9.5 {b.hex()}')
                     run = time.time() - self.rec_t[rid] if st == 3 and self.rec_t[rid] else 0
                     ground_line('@L ' + LOGINFO.pack(5, rid, 1 if st == 3 else (2 if st == 2 else 0), int(run * 45000 * 100 / 33554432), 0 if st in (2, 3) else 2, 0 if st in (2, 3) else 100, b'DEM_M00_20261102_101500_0072.BIN' if st in (2, 3) else b'', int(run), int(run * 45000), int(745 - run), 0).hex())
+                    # ambiente (D-058): Demeter mas caliente (la Pi), Hermes de referencia
+                    ground_line('@A ' + AMB.pack(6, rid, 1 | (2 << 2) | 32 | 64, 0, 95480.0 + 3 * rid + math.sin(t / 7), int((29.6 + 1.4 * (rid == 1)) * 100), int((30.4 + 1.6 * (rid == 1)) * 100), int((28.1 + 0.3 * (rid == 1)) * 100), 12, 0).hex())
                 ground_line('[time] q=0 err=0.4 us deriva=+0.10 ppm UTC=15:00:00 anclas=120 sin_flanco=0 | pos(5)=6.5790000 -75.8150000 505.0 m')   # la estacion, a ~1,3 km de la rampa
                 diag_line('tierra', f'[bcn ] tx={int(t)} err=0 tarde_max=90 us aire=12850 us adelanto=6500 us')
             else:
@@ -530,7 +555,7 @@ def rocket_view(rid):
     t = telem.get(rid)
     fresh = t is not None and now - t['t'] < STALE_S
     usb = diag[role].get('mis')
-    view = dict(name=role.capitalize(), estado='-', momento='-', modo='SIN ENLACE', stale=True, telem=t and dict(t, age=round(now - t['t'], 1)), log=log_view(rid, now))
+    view = dict(name=role.capitalize(), estado='-', momento='-', modo='SIN ENLACE', stale=True, telem=t and dict(t, age=round(now - t['t'], 1)), log=log_view(rid, now), amb=amb_view(rid, now))
     if t:
         view['estado'], view['momento'] = STATES[t['state']] if t['state'] <= 4 else '?', MOMENTS[t['moment']] if t['moment'] <= 7 else '?'
     if fresh:
@@ -553,6 +578,20 @@ def rocket_view(rid):
         elif not fresh:
             view.update(estado='SLEEP', modo='DORMIDO')
     return view
+
+
+def amb_view(rid, now):
+    """Ambiente del cohete y, si el otro cohete tambien informa (por ejemplo Hermes en tierra), su diferencia: referencia de temperatura y de presion."""
+    a = ambinfo.get(rid)
+    if not a:
+        return None
+    v = dict(a, age=round(now - a['t'], 1))
+    o = ambinfo.get(3 - rid)
+    if o and now - o['t'] < 60:
+        v['ref'] = dict(name=ROCKET_ROLE.get(3 - rid, ''), dt_bmp=None if a['t_bmp'] is None or o['t_bmp'] is None else round(a['t_bmp'] - o['t_bmp'], 2),
+                        dp=None if a['p'] is None or o['p'] is None else round(a['p'] - o['p'], 1),
+                        dt_suelo=None if a['t_suelo'] is None or o['t_suelo'] is None else round(a['t_suelo'] - o['t_suelo'], 2))
+    return v
 
 
 def snapshot():

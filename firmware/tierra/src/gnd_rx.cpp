@@ -44,7 +44,7 @@ static uint32_t s_crcBad = 0, s_lenBad = 0, s_err = 0, s_foreign = 0;
 static uint32_t s_bcnTx = 0, s_bcnErr = 0, s_bcnLateMax = 0, s_bcnAir = 0, s_cmdTx = 0, s_cmdErr = 0;
 static int64_t  s_bcnLead = 6000, s_bcnSec = 0;        // duracion medida de startTransmit; ultimo segundo con baliza
 
-// Lineas para el dashboard: "@T rssi snr bytes-en-hex" (TELEM), "@L bytes-en-hex" (LogInfo). El resto de la salida sigue siendo texto para leer.
+// Lineas para el dashboard: "@T rssi snr bytes-en-hex" (TELEM), "@L bytes-en-hex" (LogInfo), "@A bytes-en-hex" (ambiente). El resto de la salida sigue siendo texto para leer.
 static void emitPacket(char tag, const void *pkt, size_t len, float rssi, float snr) {
     char b[32 + 2 * sizeof(net::Telem)];
     int n = tag == 'T' ? snprintf(b, 31, "@T %.1f %.1f ", rssi, snr) : snprintf(b, 31, "@%c ", tag);
@@ -143,6 +143,12 @@ static void processRx() {
         net::LogInfo l;
         memcpy(&l, &p, sizeof(l));
         if (l.crc == net::crc16((const uint8_t *)&l, sizeof(l) - 2)) { if (l.rocket_id <= 2) s_r[l.rocket_id].others++; emitPacket('L', &l, sizeof(l), 0, 0); }
+        else s_foreign++;
+    }
+    else if (len == sizeof(net::Amb) && p.type == net::P_AMB) {                     // ambiente (D-058): "@A hex"
+        net::Amb a;
+        memcpy(&a, &p, sizeof(a));
+        if (a.crc == net::crc16((const uint8_t *)&a, sizeof(a) - 2)) { if (a.rocket_id <= 2) s_r[a.rocket_id].others++; emitPacket('A', &a, sizeof(a), 0, 0); }
         else s_foreign++;
     }
     else if (len != sizeof(p)) s_lenBad++;

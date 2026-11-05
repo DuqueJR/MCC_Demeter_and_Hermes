@@ -120,6 +120,10 @@ void loggerAllowPrealloc(bool a) { g_prealloc = a ? 1 : 0; }
 void netSetFlying(bool f) { g_flying = f ? 1 : 0; }
 static uint8_t g_piStatus = 0x02;                 // la Pi en READY: ARM apto en Demeter (D-055)
 uint8_t piStatus() { return g_piStatus; }
+static uint8_t g_ambBits = 0;                    // temperatura del suelo valida: ARM apto (D-058)
+float ambTempC() { return 15.0f; }
+uint8_t ambArmBits() { return g_ambBits; }
+void ambStep(uint32_t) {}
 void netQueueResp(const CmdResp &r) { g_resp = r; g_haveResp = true; }
 DrvStats extDrvStats() { DrvStats d; d.magnet = false; d.detections = 0; return d; }
 
@@ -812,7 +816,7 @@ static void cargarArchivos(const char *rtc, const char *nvs) {
 
 static int prueba_protocolo() {                                // contrato de net_proto.h
     static_assert(OP_BUZZER == 10 && OP_PI_POWER == 11, "ops 10 y 11");
-    static_assert(RZ_PI_DESCONOCIDA == 21 && RZ_PI_NO_LISTA == 22 && RZ_COUNT == 23, "motivos 21 y 22, RZ_COUNT = 23");
+    static_assert(RZ_PI_DESCONOCIDA == 21 && RZ_PI_NO_LISTA == 22 && RZ_TEMP == 23 && RZ_COUNT == 24, "motivos 21 a 23, RZ_COUNT = 24");
     CHECK(RZ_OP == 20, "RZ_OP sigue en 20");
     for (uint8_t i = 0; i < RZ_COUNT; i++) { char m[64]; snprintf(m, sizeof(m), "reasonText(%u) existe", i); CHECK(reasonText(i) && reasonText(i)[0] && strcmp(reasonText(i), "?") != 0, m); }
     CHECK(strcmp(reasonText(RZ_COUNT), "?") == 0, "fuera de rango da ?");

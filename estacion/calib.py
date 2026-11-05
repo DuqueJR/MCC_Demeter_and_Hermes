@@ -368,6 +368,62 @@ def dips(b_imu, ups):
     return np.array([np.degrees(np.arcsin(-(b @ u) / np.linalg.norm(b) / np.linalg.norm(u))) for b, u in zip(b_imu, ups) if b is not None])
 
 
+def curva_temperatura(path):
+    """Curva de calentamiento del BMP581 (detras de la placa, por el hub del LSM) y del BME280 (en la placa) durante la calibracion (D-058).
+    La guia empieza en frio: encender, forzar FLY y registrar 30 min con el cohete cerrado (y en Demeter, la Pi encendida a los 5 min).
+    Ajusta T(t) = Tinf - (Tinf - T0) exp(-t / tau) a cada sensor; con eso se fijan los umbrales de la muestra en frio y del armado."""
+    recs = tblog.records(open(path, 'rb').read())[0]
+    bme = np.array([(r[3], struct.unpack_from('<f', r[4], 24)[0]) for r in recs if r[1] == tblog.T_BAR and len(r[4]) == 32], dtype=float).reshape(-1, 2)
+    bmp = []
+    for r in recs:                                          # BMP581 por el hub del LSM: palabras con etiqueta 0x0E (como ekf.load_extra)
+        if r[1] != tblog.T_EXT_LSM or len(r[4]) < 24:
+            continue
+        n0, cnt, _, _, t_first, period = struct.unpack_from('<IHBBqf', r[4], 0)
+        if len(r[4]) != 24 + 7 * cnt:
+            continue
+        n = n0
+        for i in range(cnt):
+            w = r[4][24 + 7 * i:24 + 7 * i + 7]
+            tag = w[0] >> 3
+            if tag == 2:
+                n += 1
+            elif tag == 0x0E:
+                pp = w[4] | (w[5] << 8) | (w[6] << 16)
+                tt = w[1] | (w[2] << 8) | (w[3] << 16)
+                pp -= (pp & 0x800000) << 1
+                tt -= (tt & 0x800000) << 1
+                if 20000 <= pp / 64.0 <= 115000 and -40 <= tt / 65536.0 <= 85:
+                    bmp.append((t_first + (n - n0) * period, tt / 65536.0))
+    bmp = np.array(bmp, dtype=float).reshape(-1, 2)
+    if len(bmp) > 2:                                        # mediana de 3, como el firmware: quita las palabras corruptas
+        bmp[1:-1, 1] = np.median(np.c_[bmp[:-2, 1], bmp[1:-1, 1], bmp[2:, 1]], axis=1)
+    out = {}
+    for name, s in (('bmp', bmp), ('bme', bme)):
+        if len(s) < 100:
+            continue
+        t = (s[:, 0] - s[0, 0]) / 60e6                      # minutos desde el inicio del registro
+        v = s[:, 1]
+        best = None
+        for tau in np.geomspace(0.5, 120, 60):              # tau en minutos: busqueda en rejilla, lineal en T0 y Tinf
+            e = np.exp(-t / tau)
+            A = np.c_[1 - e, e]
+            coef, res, *_ = np.linalg.lstsq(A, v, rcond=None)
+            r = float(np.sum((A @ coef - v) ** 2))
+            if best is None or r < best[0]:
+                best = (r, tau, coef)
+        _, tau, (tinf, t0) = best
+        dur = float(t[-1])
+        sube = lambda m: round(float(tinf - (tinf - t0) * np.exp(-m / tau) - t0), 2) if m <= dur + 0.05 else None   # solo dentro de lo registrado
+        out[name] = dict(t0_C=round(float(t0), 2), tinf_C=round(float(tinf), 2), tau_min=round(float(tau), 1), duracion_min=round(dur, 1),
+                         sube_5min_C=sube(5), sube_10min_C=sube(10), sube_30min_C=sube(30),
+                         pendiente_inicial_Cmin=round(float((tinf - t0) / tau), 3), final_C=round(float(v[t >= dur - 1].mean()), 2),
+                         tau_fiable=bool(tau < dur))
+    if 'bmp' in out and 'bme' in out:
+        out['bme_menos_bmp_inicio_C'] = round(out['bme']['t0_C'] - out['bmp']['t0_C'], 2)
+        out['bme_menos_bmp_final_C'] = round(out['bme']['final_C'] - out['bmp']['final_C'], 2)    # medido, el ultimo minuto
+    return out
+
+
 def run(path):
     d = load(path)
     out = dict(archivo=path.replace('\\', '/').split('/')[-1], avisos=[])
@@ -495,6 +551,22 @@ def run(path):
         if par and max(par) > MAG_AGREE_WARN_DEG:
             out['avisos'].append(f'MMC y QMC difieren hasta {max(par):.1f} grados: revisar ejes o signo')
 
+    try:
+        out['temperatura'] = curva_temperatura(path) if os.path.isfile(path) else {}
+        tc = out['temperatura']
+        if tc:
+            print()
+            print('curva de calentamiento (D-058; la calibracion debe empezar en frio):')
+            for name in ('bmp', 'bme'):
+                if name in tc:
+                    c = tc[name]
+                    print(f"  {name.upper()}: inicio {c['t0_C']} C, final {c['final_C']} C, sube {c['sube_5min_C']} / {c['sube_10min_C']} / {c['sube_30min_C']} C "
+                          f"a 5 / 10 / 30 min, tau {c['tau_min']} min{'' if c['tau_fiable'] else ' (mas largo que el registro: no fiable)'}, "
+                          f"pendiente inicial {c['pendiente_inicial_Cmin']} C/min ({c['duracion_min']} min registrados)")
+            if 'bme_menos_bmp_inicio_C' in tc:
+                print(f"  BME - BMP: {tc['bme_menos_bmp_inicio_C']} C al inicio, {tc['bme_menos_bmp_final_C']} C al final")
+    except Exception as e:                                   # la curva es informativa: no tumba la calibracion ni cuenta como aviso
+        out['temperatura'] = dict(error=f'{type(e).__name__}: {e}')
     out['ok'] = not out['avisos'] and all(k in out for k in ('lsm', 'qmi', 'mmc', 'qmc'))
     print('\nAVISOS:' if out['avisos'] else '\nsin avisos')
     for a in out['avisos']:
