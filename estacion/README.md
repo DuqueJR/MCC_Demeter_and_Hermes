@@ -139,3 +139,23 @@ Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
 | T-605a | Reenviador de `web-1` al relay (solo de salida, con cola en disco) |
 
 **Leer primero:** [estacion_terrena](../docs/04_diseno/estacion_terrena.md), [protocolo_paquetes](../docs/04_diseno/protocolo_paquetes.md) y [constantes](../docs/02_requisitos/constantes.md).
+
+## Reenviador al relay público (T-605a)
+
+`reenviador.py` sube los mensajes `web-1` de los dos cohetes al relay público (`POST /api/v1/ingesta`, lotes `{"mensajes": [...]}` con `Authorization: Bearer <token>`). **Está apagado por defecto**: sin URL y sin token no hay hilo, ni archivos, ni cambios en el dashboard. Solo biblioteca estándar. Nota: el relay (T-640) todavía no existe; esto se probó contra un servidor de mentira.
+
+```
+cp estacion/.env.example estacion/.env      # y llena WEB_INGESTA_TOKEN (y WEB_RELAY_URL, si no usas --web-relay)
+python estacion/dashboard.py --web-relay https://relay.ejemplo.org
+```
+
+- **Token:** la variable de entorno `WEB_INGESTA_TOKEN` o `estacion/.env` (ignorado por git; la variable gana). No se pasa por línea de comandos y no sale en los eventos. Con `http://` a otra máquina avisa que el token viaja sin cifrar.
+- `--web-relay URL` (o `WEB_RELAY_URL`): la URL base del relay. `--web-cola ARCHIVO`: la cola en disco (por defecto `estacion/cola_web.db`, ignorada por git).
+- **Solo de salida:** no abre puertos ni recibe nada. Solo `web-1` de `demeter` y `hermes`; nunca comandos ni la API local.
+- **No afecta al dashboard:** `web_publicar` (dentro de `tr_lock`) solo agrega a una cola en memoria acotada (5000); un hilo aparte hace el disco y la red, con tiempo límite de 5 s. Un relay caído, lento o colgado, un disco lleno o una excepción solo se ven en los eventos.
+- **Cola en disco** (sqlite): sobrevive a reiniciar el dashboard y guarda hasta 50 000 mensajes; si se llena, descarta lo más viejo y lo cuenta. Si el disco falla, sigue en memoria.
+- **Reintentos:** retroceso de 0,5 s a 8 s. Con 401 o 403 avisa una vez y reintenta cada 60 s. Un 400, 413 o 422 parte el lote hasta aislar el mensaje malo, que se descarta y se cuenta.
+- **Orden tras una caída:** cada lote lleva hasta 50 mensajes viejos (en orden) más todo lo de los últimos 5 s. Lo que pasa ahora llega enseguida (objetivo `WEB_LATENCIA_MAX_S` = 2 s) y el atraso se vacía en paralelo. Un lote sin respuesta se reintenta idéntico, con el mismo `X-Lote-Id`.
+- **Estado en los eventos del dashboard:** `web: reenviador CONECTADO ...`, `... SIN CONEXION ...` y, mientras esté caído, una línea por minuto con los mensajes en cola y los perdidos.
+- Con `--demo` o `--reproducir` avisa que lo que sube no es del vuelo (el `meta.modo` seguirá diciendo `vivo`): no lo uses contra el relay real.
+- Pruebas: `python -m unittest discover -s estacion/pruebas` (`test_reenviador.py`, sin red real).
