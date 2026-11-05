@@ -19,6 +19,7 @@
 #include "mission.h"
 #include "ext_pi.h"
 #include "amb_temp.h"
+#include "cal_onboard.h"
 #include "pi_plan.h"
 #include <fw_build.h>
 
@@ -39,6 +40,7 @@ void coreSelftestBegin() {
     extLsmBegin();
     i2cBegin();
     ambBegin();                    // temperatura del suelo: antes de la mision, que la usa para la altura
+    calBegin(ROCKET_ID);           // calibracion activa en NVS (D-059)
     missionBegin(ROCKET_ID);
     piBegin(ROCKET_ID);            // UART con la Pi (solo Demeter)
     netBegin(ROCKET_ID, MISSION_ID);
@@ -48,6 +50,8 @@ void coreSelftestReport() {
     static uint32_t lastPvt = 0, lastMs = 0, lastMag = 0, lastBar = 0, lastTx = 0;
     static uint8_t dlMatch = 0;
     static const char DL_KEY[] = "TBDL";                 // la envia tools/tbget.py: pasa al modo de descarga de logs
+    static const char CAL_KEY[] = "TBCAL";               // la envia estacion/cal_blob.py: carga una calibracion por USB (D-059)
+    static uint8_t calMatch = 0;
     while (Serial.available()) {                         // prueba: 'f' alterna 2 Hz / 10 Hz hasta que exista la deteccion de vuelo
         const int c = Serial.read();                     // 'g' deja de anclar la hora al GNSS, para probar la hora por baliza
         if (c == 'f') netSetFlying(!netFlying());
@@ -55,6 +59,8 @@ void coreSelftestReport() {
         else if (c == 's' && !coreSleepEnter()) Serial.println("[sleep] no duerme: hay un iman presente, retiralo");   // 's': prueba, luego sera un comando de tierra
         dlMatch = (c == DL_KEY[dlMatch]) ? (uint8_t)(dlMatch + 1) : (uint8_t)(c == DL_KEY[0] ? 1 : 0);
         if (DL_KEY[dlMatch] == 0) logDownloadServe();
+        calMatch = (c == CAL_KEY[calMatch]) ? (uint8_t)(calMatch + 1) : (uint8_t)(c == CAL_KEY[0] ? 1 : 0);
+        if (CAL_KEY[calMatch] == 0) { calMatch = 0; calUsbRecibir(); }
     }
     if (missionTakeReset()) { loggerStop(5000); ESP.restart(); }
     if (missionTakeSleep() && !coreSleepEnter()) Serial.println("[sleep] no duerme: hay un iman presente, retiralo");
@@ -143,6 +149,12 @@ void coreSelftestReport() {
     Serial.printf("[mis ] estado=%s momento=%s flags=0x%02X alt=%.1f m vz=%.1f m/s baro=%s | cmd=%lu rx=%lu resp=%lu ult_contador=%lu ult_res=%u motivos=0x%08lX\n",
                   STATE_NAME[ms.state], MOMENT_NAME[ms.moment], ms.flags, ms.altM, ms.vzMps, ms.baroSrc == 0 ? "BMP" : (ms.baroSrc == 1 ? "BME" : "ninguno"),
                   (unsigned long)ms.cmds, (unsigned long)nt.rxCmd, (unsigned long)nt.txResp, (unsigned long)ms.lastCounter, ms.lastResult, (unsigned long)ms.lastReasons);
+    {
+        static const char *const CE[8] = {"sin analisis", "PASADA 1", "PASADA 2", "CALCULANDO", "LISTO (sin aplicar)", "ERROR", "aplicada", "descartada"};
+        const calblob::Calibracion &ca = calActiva();
+        Serial.printf("[cal ] activa=%08lX (%s) | analisis: %s %s archivo=%s\n", (unsigned long)(ca.lsm.ok ? ca.crc : 0),
+                      ca.ok ? "completa" : (ca.lsm.ok ? "parcial" : "ninguna"), CE[calEstado() & 7], calAnalizando() ? "..." : "", calArchivo()[0] ? calArchivo() : "-");
+    }
     {
         const AmbInfo am = ambInfo();
         static const char *const FU[4] = {"-", "sueno", "encendido", "a mano"};

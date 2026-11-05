@@ -18,6 +18,17 @@ SESSION_DIR = os.path.join(HERE, 'sesiones')
 TELEM = struct.Struct('<BBHQiiihhh4h3h3hBBH2bBBHBBH')       # net::Telem, 64 B
 LOGINFO = struct.Struct('<BBBBBB34sIIIH')                   # net::LogInfo, 54 B
 AMB = struct.Struct('<BBBBfhhhHH')                          # net::Amb, 18 B (D-058): temperatura del suelo y ambiente
+CALRES0 = struct.Struct('<8B3I3h3hH3h3hHbB3HHH')              # net::CalRes0, 60 B (D-059): calibracion a bordo, pagina 0
+CALRES1 = struct.Struct('<4B3HBBHhHBBH3HBBHhHBBH2H4hH')       # net::CalRes1, 54 B: magnetometros y curva de temperatura
+CAL_ESTADOS = ['sin analisis', 'leyendo el registro (1/2)', 'leyendo el registro (2/2)', 'calculando', 'LISTO, sin aplicar', 'ERROR', 'aplicada', 'descartada']
+CAL_NOMBRADAS = ['por orden de aparicion', 'con la calibracion anterior', 'con el montaje nominal', 'por geometria']
+CAL_AVISOS = {0: 'sin LSM: posiciones halladas con el QMI', 1: 'faltan posiciones: acelerometros sin calibrar', 2: 'LSM: sin datos',
+              3: 'QMI: sin datos', 4: 'LSM: las posiciones no cuadran (orden equivocado o mal sostenido); repite',
+              5: 'QMI: las posiciones no cuadran; repite', 6: 'giro del QMI y del LSM poco parecidos: falto mover el cohete o hay un eje mal',
+              24: 'MMC y QMC difieren mas de 15 grados: revisar ejes o signo', 25: 'MMC y QMC: ninguna posicion limpia en los dos'}
+CAL_AVISOS_MAG = {0: 'sin datos', 1: 'el ajuste fallo (pocas muestras o sin cobertura)', 2: 'cobertura baja: gira mas', 3: 'residuo alto',
+                  4: 'muchas muestras con campo anomalo: algo magnetico cerca', 5: 'poco giro para alinear', 6: 'menos de 3 posiciones con campo limpio',
+                  7: 'inclinacion dudosa o cambia mucho entre posiciones'}
 AMB_FUENTE = ['-', 'sueno largo', 'encendido', 'a mano']
 AMB_ARM = {1: 'sin muestra', 2: 'dudosa', 4: 'vieja', 8: 'el BMP se alejo de la muestra', 16: 'BMP y BME discrepan'}
 STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
@@ -63,6 +74,7 @@ links = {}
 telem = {}                    # rocket_id -> ultimo TELEM
 loginfo = {}                  # rocket_id -> ultimo LogInfo
 ambinfo = {}                  # rocket_id -> ultimo Amb (temperatura del suelo y ambiente)
+calres = {}                   # rocket_id -> paginas del resumen de la calibracion a bordo
 diag = {r: {} for r in ROLES}  # rol -> etiqueta -> fila
 raw_lines = {r: collections.deque(maxlen=400) for r in ROLES}   # monitor en crudo, sin las lineas de maquina
 events = []
@@ -343,6 +355,31 @@ def ground_line(line):
             if prev and prev['arm'] != a['arm']:
                 event(f"{name}: temperatura para armar: " + (a['arm_txt'] or 'sirve'))
         return
+    if line.startswith('@C '):
+        try:
+            b = bytes.fromhex(line[3:].strip())
+            f = (CALRES0 if len(b) == CALRES0.size else CALRES1).unpack(b)
+        except (ValueError, struct.error):
+            return
+        rid = f[1]
+        with lock:
+            c = calres.setdefault(rid, dict(t=0))
+            c['t'] = time.time()
+            if f[2] == 0:
+                prev = c.get('estado')
+                c.update(estado=f[3], progreso=f[4], nombradas=f[5], n_pos=f[6], ok=bool(f[7]), avisos=f[8], crc_res=f[9], crc_activo=f[10],
+                         lsm=dict(sesgo_mg=list(f[11:14]), escala_ppm=[v * 10 for v in f[14:17]], err=f[17] / 100),
+                         qmi=dict(sesgo_mg=list(f[18:21]), escala_ppm=[v * 10 for v in f[21:24]], err=f[24] / 100),
+                         retraso_ms=f[25], giro=bool(f[26]), ganancia=[v / 1e4 for v in f[27:30]], corr=f[30] / 1e4)
+                if prev != f[3]:
+                    event(f"{ROCKET_ROLE.get(rid, rid)}: calibracion a bordo: {CAL_ESTADOS[f[3] & 7]}" + (f" (activa {f[10]:08X})" if f[3] in (6,) else ''))
+            else:
+                mag = lambda o: dict(radio_mG=f[o], max_min=f[o + 1] / 1000, residuo_mG=f[o + 2] / 100, cobertura=f[o + 3], ok=bool(f[o + 4] & 1),
+                                     alineado=bool(f[o + 4] & 2), invertido=bool(f[o + 4] & 4), descartadas=f[o + 5], dip=f[o + 6] / 10,
+                                     dip_rango=f[o + 7] / 10, dip_n=f[o + 8], giro_res=f[o + 10] / 10)
+                cC = lambda v: None if v == -32768 else v / 100
+                c.update(mmc=mag(4), qmc=mag(15), acuerdo=[f[26] / 10, f[27] / 10], bmp=[cC(f[28]), cC(f[29])], bme=[cC(f[30]), cC(f[31])])
+        return
     if line.startswith('@G '):
         ground_time = line[3:].strip() == '1'
         return
@@ -437,6 +474,14 @@ class DemoLink:
                     ground_line(f'@T {-70.0 - rid:.1f} 9.5 {b.hex()}')
                     run = time.time() - self.rec_t[rid] if st == 3 and self.rec_t[rid] else 0
                     ground_line('@L ' + LOGINFO.pack(5, rid, 1 if st == 3 else (2 if st == 2 else 0), int(run * 45000 * 100 / 33554432), 0 if st in (2, 3) else 2, 0 if st in (2, 3) else 100, b'DEM_M00_20261102_101500_0072.BIN' if st in (2, 3) else b'', int(run), int(run * 45000), int(745 - run), 0).hex())
+                    # calibracion a bordo (D-059): Demeter con un resultado listo, Hermes con su calibracion activa
+                    if rid == 1:
+                        ground_line('@C ' + CALRES0.pack(7, 1, 0, 4, 100, 1, 6, 1, 0, 0x95224E09, 0x5BC16081, -14, -5, 37, -429, -109, 373, 710,
+                                                         97, 79, 16, -327, 351, -336, 713, 42, 1, 9769, 10097, 11646, 9874, 0).hex())
+                        ground_line('@C ' + CALRES1.pack(7, 1, 1, 0, 256, 1886, 596, 100, 3, 0, 281, 87, 6, 0, 18, 271, 1275, 943, 100, 3, 0, 279, 150, 6, 0, 21,
+                                                         4, 25, 2270, 166, 2566, -83, 0).hex())
+                    else:
+                        ground_line('@C ' + CALRES0.pack(7, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0x7A11C2D3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).hex())
                     # ambiente (D-058): Demeter mas caliente (la Pi), Hermes de referencia
                     ground_line('@A ' + AMB.pack(6, rid, 1 | (2 << 2) | 32 | 64, 0, 95480.0 + 3 * rid + math.sin(t / 7), int((29.6 + 1.4 * (rid == 1)) * 100), int((30.4 + 1.6 * (rid == 1)) * 100), int((28.1 + 0.3 * (rid == 1)) * 100), 12, 0).hex())
                 ground_line('[time] q=0 err=0.4 us deriva=+0.10 ppm UTC=15:00:00 anclas=120 sin_flanco=0 | pos(5)=6.5790000 -75.8150000 505.0 m')   # la estacion, a ~1,3 km de la rampa
@@ -555,7 +600,7 @@ def rocket_view(rid):
     t = telem.get(rid)
     fresh = t is not None and now - t['t'] < STALE_S
     usb = diag[role].get('mis')
-    view = dict(name=role.capitalize(), estado='-', momento='-', modo='SIN ENLACE', stale=True, telem=t and dict(t, age=round(now - t['t'], 1)), log=log_view(rid, now), amb=amb_view(rid, now))
+    view = dict(name=role.capitalize(), estado='-', momento='-', modo='SIN ENLACE', stale=True, telem=t and dict(t, age=round(now - t['t'], 1)), log=log_view(rid, now), amb=amb_view(rid, now), cal=cal_view(rid))
     if t:
         view['estado'], view['momento'] = STATES[t['state']] if t['state'] <= 4 else '?', MOMENTS[t['moment']] if t['moment'] <= 7 else '?'
     if fresh:
@@ -591,6 +636,19 @@ def amb_view(rid, now):
         v['ref'] = dict(name=ROCKET_ROLE.get(3 - rid, ''), dt_bmp=None if a['t_bmp'] is None or o['t_bmp'] is None else round(a['t_bmp'] - o['t_bmp'], 2),
                         dp=None if a['p'] is None or o['p'] is None else round(a['p'] - o['p'], 1),
                         dt_suelo=None if a['t_suelo'] is None or o['t_suelo'] is None else round(a['t_suelo'] - o['t_suelo'], 2))
+    return v
+
+
+def cal_view(rid):
+    """Calibracion a bordo: estado, avisos en texto y metricas (las mismas que muestra calib.py)."""
+    c = calres.get(rid)
+    if not c or 'estado' not in c:
+        return None
+    v = dict(c, age=round(time.time() - c['t'], 1), estado_txt=CAL_ESTADOS[c['estado'] & 7], nombradas_txt=CAL_NOMBRADAS[c['nombradas'] & 3])
+    av = [t for b, t in CAL_AVISOS.items() if c['avisos'] >> b & 1]
+    for base, n in ((8, 'MMC'), (16, 'QMC')):
+        av += [f'{n}: {t}' for b, t in CAL_AVISOS_MAG.items() if c['avisos'] >> (base + b) & 1]
+    v['avisos_txt'] = av
     return v
 
 
@@ -682,6 +740,36 @@ def run_tbget(role, args, then=None):
         reconnect()
     with lock:
         job.update(running=False, role=role, rc=rc, reconnect=None)
+
+
+def run_cal_usb(role, port):
+    """Respaldo de la calibracion a bordo (D-059): carga calib_<cohete>.json en la NVS por USB, con el puerto libre."""
+    import cal_blob
+    was = role in links
+    disconnect(role)
+    rc = 1
+    try:
+        c = json.load(open(calib_path(role, False), encoding='utf-8'))
+        blob = cal_blob.armar(c, {'demeter': 1, 'hermes': 2}[role])
+        with lock:
+            job['lines'].append(f'blob de {len(blob)} B; enviando...')
+        r = cal_blob.cargar_usb(port, blob)
+        with lock:
+            job['lines'].append(r)
+        rc = 0 if r.startswith('CAL OK') else 1
+        event(f'{role}: calibracion por USB: {r}')
+    except Exception as e:
+        with lock:
+            job['lines'].append(f'fallo: {e}')
+    if was:
+        for _ in range(25):
+            try:
+                connect(role, port)
+                break
+            except Exception:
+                time.sleep(0.4)
+    with lock:
+        job.update(running=False, role=role, rc=rc, port_free=True, reconnect=None)
 
 
 def list_ports():
@@ -875,6 +963,20 @@ class Handler(BaseHTTPRequestHandler):
                         return self.reply(409, {'error': 'ya hay un trabajo en curso (descarga o EKF)'})
                     job.update(running=True, role='ekf', port='', rc=None, port_free=True, reconnect=None, lines=[f'> ekf.py {name} ' + ' '.join(opts)])
                 threading.Thread(target=run_ekf, args=(name, opts), daemon=True).start()
+            elif self.path == '/api/calib/usb':
+                role = a['role']
+                if demo:
+                    return self.reply(409, {'error': 'en modo demo no hay USB'})
+                if job['running']:
+                    return self.reply(409, {'error': 'ya hay un trabajo en curso'})
+                if not os.path.exists(calib_path(role, False)):
+                    return self.reply(409, {'error': f'no hay calib_{role}.json aceptada'})
+                port = links[role].port if role in links else ROLES[role]
+                if port not in list_ports():
+                    return self.reply(409, {'error': f'{role}: no veo {port}. Conecta el USB.'})
+                with lock:
+                    job.update(running=True, role=role, port=port, rc=None, port_free=False, reconnect=None, lines=[f'> cargar calib_{role}.json por USB en {port}'])
+                threading.Thread(target=run_cal_usb, args=(role, port), daemon=True).start()
             elif self.path == '/api/calib/accept':
                 os.replace(calib_path(a['role'], True), calib_path(a['role'], False))
                 event(f"{a['role']}: calibracion aceptada: {os.path.basename(calib_path(a['role'], False))}")

@@ -124,6 +124,18 @@ static uint8_t g_ambBits = 0;                    // temperatura del suelo valida
 float ambTempC() { return 15.0f; }
 uint8_t ambArmBits() { return g_ambBits; }
 void ambStep(uint32_t) {}
+// calibracion a bordo (D-059): sin resultado ni anterior en estas pruebas
+bool calAnalizando() { return false; }
+bool calListo() { return false; }
+bool calListoConAvisos() { return false; }
+uint8_t calEstado() { return 0; }
+bool calHayAnterior() { return false; }
+bool calAnalizar() { return true; }
+bool calAplicar() { return false; }
+void calDescartar() {}
+bool calAnterior() { return false; }
+void calStep(uint32_t) {}
+LoggerRecInfo loggerRecInfo() { LoggerRecInfo i; memset(&i, 0, sizeof(i)); return i; }
 void netQueueResp(const CmdResp &r) { g_resp = r; g_haveResp = true; }
 DrvStats extDrvStats() { DrvStats d; d.magnet = false; d.detections = 0; return d; }
 
@@ -816,7 +828,7 @@ static void cargarArchivos(const char *rtc, const char *nvs) {
 
 static int prueba_protocolo() {                                // contrato de net_proto.h
     static_assert(OP_BUZZER == 10 && OP_PI_POWER == 11, "ops 10 y 11");
-    static_assert(RZ_PI_DESCONOCIDA == 21 && RZ_PI_NO_LISTA == 22 && RZ_TEMP == 23 && RZ_COUNT == 24, "motivos 21 a 23, RZ_COUNT = 24");
+    static_assert(RZ_PI_DESCONOCIDA == 21 && RZ_PI_NO_LISTA == 22 && RZ_TEMP == 23 && RZ_CAL_NO_LISTA == 24 && RZ_CAL_AVISOS == 25 && RZ_COUNT == 26, "motivos 21 a 25, RZ_COUNT = 26");
     CHECK(RZ_OP == 20, "RZ_OP sigue en 20");
     for (uint8_t i = 0; i < RZ_COUNT; i++) { char m[64]; snprintf(m, sizeof(m), "reasonText(%u) existe", i); CHECK(reasonText(i) && reasonText(i)[0] && strcmp(reasonText(i), "?") != 0, m); }
     CHECK(strcmp(reasonText(RZ_COUNT), "?") == 0, "fuera de rango da ?");

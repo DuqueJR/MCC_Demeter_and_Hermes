@@ -145,6 +145,13 @@ static void processRx() {
         if (l.crc == net::crc16((const uint8_t *)&l, sizeof(l) - 2)) { if (l.rocket_id <= 2) s_r[l.rocket_id].others++; emitPacket('L', &l, sizeof(l), 0, 0); }
         else s_foreign++;
     }
+    else if ((len == sizeof(net::CalRes0) || len == sizeof(net::CalRes1)) && p.type == net::P_CAL_RES) {   // calibracion a bordo: "@C hex"
+        uint8_t b[sizeof(net::CalRes0)];
+        memcpy(b, &p, len);
+        uint16_t crc; memcpy(&crc, b + len - 2, 2);
+        if (crc == net::crc16(b, len - 2) && b[1] <= 2) { s_r[b[1]].others++; emitPacket('C', b, len, 0, 0); }
+        else s_foreign++;
+    }
     else if (len == sizeof(net::Amb) && p.type == net::P_AMB) {                     // ambiente (D-058): "@A hex"
         net::Amb a;
         memcpy(&a, &p, sizeof(a));

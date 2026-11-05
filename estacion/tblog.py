@@ -6,7 +6,7 @@ Formato: [A5 5A][len u16][type u8][src u8][t_us i64] payload [crc16 ccitt-false]
 """
 import os, sys, struct, argparse, statistics, collections, time
 
-T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_AMB, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 250
+T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_AMB, T_CAL, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 250
 PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # demeter_protocol.StatusCode
 PI_CMD = {0xA0: 'PREFLIGHT', 0xA1: 'ARM', 0xA2: 'START_ASCENT', 0xB1: 'START_REC', 0xC1: 'TOUCHDOWN', 0xF1: 'ABORT'}   # comandos LilyGo -> Pi (T_PI kind 3)
 PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # demeter_protocol.ErrorCode (T_PI kind 1, en pad; D-056)
@@ -110,10 +110,10 @@ def main():
     recs, skipped, resync, trunc = records(buf)
     print(f"archivo: {a.file}  tamano={len(buf)} B  registros={len(recs)}  bytes_saltados={skipped}  resync={resync}" + ("  (registro final cortado por el apagado, resto ceros)" if trunc else ""))
     tipos = collections.Counter(r[1] for r in recs)
-    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_PI: 'PI', T_AMB: 'AMB', T_EVENT: 'EVENT'}
+    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_PI: 'PI', T_AMB: 'AMB', T_CAL: 'CAL', T_EVENT: 'EVENT'}
     print("por tipo: " + ", ".join(f"{names.get(k, k)}={v}" for k, v in sorted(tipos.items())))
     if recs:
-        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB)]     # lo guardado antes de registrar no cuenta
+        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL)]     # lo guardado antes de registrar no cuenta
         if sens:
             print(f"duracion (reloj local): {(max(sens) - min(sens)) / 1e6:.1f} s")
 
@@ -457,8 +457,17 @@ def main():
                   f"BMP {tb:.2f} C ({pb:+.3f} C/min), BME {te:.2f} C ({pe:+.3f} C/min); ahora BMP {tba:.2f}, BME {tea:.2f} C; "
                   f"armar: {', '.join(v for k, v in armb.items() if arm & k) or 'sirve'}")
 
+    # ---- Calibracion a bordo (cal_onboard, D-059) ----
+    cals = [(r[3],) + struct.unpack('<IIIBBBB', r[4]) for r in recs if r[1] == T_CAL and len(r[4]) == 16]
+    if cals:
+        ev = {1: 'resultado listo', 2: 'aplicada por radio', 3: 'aplicada por USB', 4: 'vuelta a la anterior', 5: 'calibracion en uso al registrar', 6: 'error del analisis'}
+        print()
+        print(f"CALIBRACION A BORDO: {len(cals)} registros")
+        for t, act, res, av, e, est, npos, ok in cals:
+            print(f"  t={t / 1e6:.2f} s  {ev.get(e, e)}: activa {act:08X}" + (f", resultado {res:08X} ({'ok' if ok else 'con avisos 0x%08X' % av}, {npos} posiciones)" if res else ''))
+
     # ---- Incidentes de SD y silencios ----
-    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB)
+    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL)
     ts = sorted(r[3] for r in recs if r[1] not in no_sensor)
     t0 = ts[0] if ts else 0
     evs = [struct.unpack('<qIIhBB', r[4]) for r in recs if r[1] == T_EVENT and len(r[4]) == 20]

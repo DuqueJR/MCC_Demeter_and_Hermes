@@ -26,7 +26,7 @@ static const int64_t  BEACON_AIR_US = 12864;   // tiempo en aire teorico de un B
 static const int64_t  RX_OPEN_US    = 6000;    // el cohete abre recepcion antes del inicio de la ranura de tierra
 static const int64_t  RX_CLOSE_US   = 24000;   // y la cierra aqui: alcanza para un paquete de tierra de hasta 32 B
 
-enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5, P_AMB = 6 };
+enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5, P_AMB = 6, P_CAL_RES = 7 };
 enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8, TF_REANUDADO = 16 };
 
 // Estados de la LilyGo y momentos del vuelo. En telemetria van juntos: estado en los 4 bits bajos, momento en los 4 altos.
@@ -34,7 +34,9 @@ enum State  : uint8_t { ST_NONE = 0, ST_TIERRA = 1, ST_ARMED = 2, ST_FLY = 3, ST
 enum Moment : uint8_t { M_NONE = 0, M_LAUNCH = 1, M_BOOST = 2, M_COAST = 3, M_APOGEO = 4, M_CAIDA = 5, M_PARACAIDAS = 6, M_ATERRIZAJE = 7 };
 
 // Comandos. Con OP_CONFIRM en op, es la confirmacion de un comando que el cohete declaro no apto (o de ARM).
-enum Op : uint8_t { OP_PING = 1, OP_ARM = 2, OP_DISARM = 3, OP_LAUNCH = 4, OP_ABORT = 5, OP_SLEEP = 6, OP_SET_STATE = 7, OP_SET_MOMENT = 8, OP_RESET = 9, OP_BUZZER = 10, OP_PI_POWER = 11, OP_CONFIRM = 0x80 };
+enum Op : uint8_t { OP_PING = 1, OP_ARM = 2, OP_DISARM = 3, OP_LAUNCH = 4, OP_ABORT = 5, OP_SLEEP = 6, OP_SET_STATE = 7, OP_SET_MOMENT = 8, OP_RESET = 9, OP_BUZZER = 10, OP_PI_POWER = 11,
+               OP_CAL_ANALIZAR = 12, OP_CAL_APLICAR = 13, OP_CAL_DESCARTAR = 14, OP_CAL_ANTERIOR = 15,   // calibracion a bordo (D-059)
+               OP_CONFIRM = 0x80 };
 // CR_OK: ejecutado. CR_NO_APTO: no ejecutado, con motivos; espera confirmacion. CR_CONFIRMA: apto, pero pide segundo paso (ARM). CR_ERROR: no ejecutado, sin confirmacion posible.
 enum CmdResult : uint8_t { CR_OK = 0, CR_NO_APTO = 1, CR_CONFIRMA = 2, CR_ERROR = 3 };
 static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto, y solo si el comando y los motivos no cambiaron
@@ -42,7 +44,7 @@ static const uint32_t CONFIRM_WINDOW_MS = 10000;   // la confirmacion vale esto,
 // Motivos de una respuesta: mascara de bits; tierra los traduce con reasonText.
 enum Reason : uint8_t {
     RZ_TRANSICION = 0, RZ_RESERVA, RZ_SD, RZ_LSM, RZ_BMP, RZ_GNSS, RZ_VBAT, RZ_SUBIENDO, RZ_BAJANDO, RZ_MOVIMIENTO, RZ_EN_VUELO,
-    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_PI_NO_LISTA, RZ_TEMP, RZ_COUNT
+    RZ_SIN_ATERRIZAJE, RZ_SIN_BOOST, RZ_NO_ARMADO, RZ_SIN_VUELO, RZ_YA_ESTA, RZ_IMAN, RZ_RECOVERY, RZ_CONFIRM, RZ_CONTADOR, RZ_OP, RZ_PI_DESCONOCIDA, RZ_PI_NO_LISTA, RZ_TEMP, RZ_CAL_NO_LISTA, RZ_CAL_AVISOS, RZ_COUNT
 };
 inline const char *reasonText(uint8_t r) {
     static const char *const T[RZ_COUNT] = {
@@ -51,7 +53,9 @@ inline const char *reasonText(uint8_t r) {
         "sin aterrizaje detectado", "sin BOOST detectado", "el cohete no esta armado", "no ha habido vuelo", "ya esta en ese estado", "hay un iman presente: despertaria al instante",
         "RECOVERY: aun sin bateria baja, el cohete debe seguir transmitiendo", "confirmacion invalida o vencida", "contador antiguo", "comando desconocido",
         "no se sabe si la Pi esta encendida: una pulsacion podria apagarla", "la Pi no esta lista (READY): no grabaria el vuelo",
-        "temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error"
+        "temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error",
+        "calibracion: no hay resultado listo, se esta analizando o registrando, o no hay una anterior",
+        "calibracion: el analisis dejo avisos; revisalos antes de aplicarla"
     };
     return r < RZ_COUNT ? T[r] : "?";
 }
@@ -146,7 +150,54 @@ struct Amb {
     uint16_t edad_min;         // desde la muestra (0xFFFF = no se sabe)
     uint16_t crc;
 };
+// Resultado de la calibracion a bordo (D-059): dos paginas, en lugar de un TELEM. Tierra las reenvia como "@C hex".
+// estado: 0 sin analisis, 1 pasada 1, 2 pasada 2, 3 calculando, 4 listo (sin aplicar), 5 error, 6 aplicada, 7 descartada
+struct CalRes0 {
+    uint8_t  type;             // P_CAL_RES
+    uint8_t  rocket_id;
+    uint8_t  pagina;           // 0
+    uint8_t  estado;
+    uint8_t  progreso;         // %
+    uint8_t  nombradas;        // 0 orden, 1 calibracion anterior, 2 montaje nominal, 3 geometria
+    uint8_t  n_pos;
+    uint8_t  ok;
+    uint32_t avisos;           // cal::Aviso
+    uint32_t crc_resultado;    // CRC32 del blob analizado (0 si no hay)
+    uint32_t crc_activo;       // CRC32 de la calibracion en uso (0 = ninguna)
+    int16_t  lsm_sesgo_mg[3];
+    int16_t  lsm_escala_e5[3]; // (escala - 1) x 1e5
+    uint16_t lsm_err_cdeg;
+    int16_t  qmi_sesgo_mg[3];
+    int16_t  qmi_escala_e5[3];
+    uint16_t qmi_err_cdeg;
+    int8_t   qmi_retraso_ms;
+    uint8_t  qmi_giro;         // 1 si se midieron retraso y ganancia
+    uint16_t qmi_gan_e4[3];    // ganancia x 1e4
+    uint16_t qmi_corr_e4;      // correlacion minima x 1e4
+    uint16_t crc;
+};
+struct CalResMag {
+    uint16_t radio_mG, maxmin_e3, residuo_cmG;   // residuo en centesimas de mG
+    uint8_t  cobertura_pct, flags;               // bit0 ok, bit1 alineado, bit2 invertido
+    uint16_t descartadas;
+    int16_t  dip_dgr;                            // inclinacion media, decimas de grado
+    uint16_t dip_rango_dgr;
+    uint8_t  dip_n, pad;
+    uint16_t giro_res_dgr;
+};
+struct CalRes1 {
+    uint8_t   type;            // P_CAL_RES
+    uint8_t   rocket_id;
+    uint8_t   pagina;          // 1
+    uint8_t   pad;
+    CalResMag mmc, qmc;
+    uint16_t  acuerdo_min_dgr, acuerdo_max_dgr;  // MMC contra QMC en las posiciones
+    int16_t   bmp_t0_cC, bmp_sube5_cC, bme_t0_cC, bme_sube5_cC;   // curva de calentamiento (INT16_MIN = no hay)
+    uint16_t  crc;
+};
 #pragma pack(pop)
+static_assert(sizeof(CalRes0) == 60, "CalRes0 debe medir 60 B");
+static_assert(sizeof(CalRes1) == 54, "CalRes1 debe medir 54 B");
 static_assert(sizeof(Amb) == 18, "Amb debe medir 18 B");
 static_assert(sizeof(Telem) == 64, "Telem debe medir 64 B");
 static_assert(sizeof(Beacon) == 18, "Beacon debe medir 18 B");

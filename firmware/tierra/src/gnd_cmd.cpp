@@ -90,6 +90,12 @@ static void parseLine(char *s) {
     } else if (strcmp(order, "pi") == 0) {
         if (!arg || strcmp(arg, "encender") != 0) { Serial.println("[cmd ] pi solo admite: pi encender"); return; }
         op = OP_PI_POWER;
+    } else if (strcmp(order, "cal") == 0) {                     // calibracion a bordo (D-059)
+        static const char *const CAL_ARG[4] = {"analizar", "aplicar", "descartar", "anterior"};
+        int v = -1;
+        for (int i = 0; arg && i < 4; i++) if (strcmp(arg, CAL_ARG[i]) == 0) v = i;
+        if (v < 0) { Serial.println("[cmd ] cal admite: analizar, aplicar, descartar, anterior"); return; }
+        op = (uint8_t)(OP_CAL_ANALIZAR + v);
     } else if (strcmp(order, "estado") == 0 || strcmp(order, "momento") == 0) {
         const bool st = order[0] == 'e';
         const int v = arg ? (st ? findArg(arg, STATE_ARG, 5) : findArg(arg, MOMENT_ARG, 8)) : -1;

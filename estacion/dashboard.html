@@ -142,9 +142,28 @@ function calTick(){
  if(cal.step==7&&cal.spinT&&now-cal.spinT>=SPIN_S){cal.step=8;cal.spinT=0}
  if(cal.step==8&&cal.sent&&l&&!l.rec){cal.sent=false;cal.step=9}
 }
+// Calibracion a bordo (D-059): con el cohete cerrado, el cohete analiza su registro y manda el resumen; se aplica en dos pasos
+function calBordo(r,k,n,x){
+ const f1=v=>v===null||v===undefined?'-':(+v).toFixed(1),f3=v=>(+v).toFixed(3);
+ let h=`<div class="box" style="margin:6px 0"><b>A bordo, sin USB</b> <span class="note">con ${n} cerrado: haz la guia (registro), luego Analizar; el cohete manda el resumen y lo apruebas.</span><br>`;
+ h+=`<button onclick="cmd('${k} cal analizar')">Analizar el ultimo registro</button> <button onclick="cmd('${k} cal aplicar')">Aplicar</button> <button onclick="cmd('${k} cal descartar')">Descartar</button> <button onclick="cmd('${k} cal anterior')">Volver a la anterior</button> <button onclick="if(confirm('Cargar calib_${r}.json en ${n} por USB?'))post('/api/calib/usb',{role:'${r}'}).then(tick)">Cargar por USB (respaldo, cohete abierto)</button>`;
+ if(!x)return h+'<p class="note">Sin resumen todavia (llega por radio).</p></div>';
+ h+=`<p>Estado: <b>${esc(x.estado_txt)}</b>${x.estado>=1&&x.estado<=3?' '+x.progreso+' %':''} &nbsp; activa: <b>${x.crc_activo?x.crc_activo.toString(16).toUpperCase().padStart(8,'0'):'ninguna'}</b>${x.crc_res?' &nbsp; resultado: '+x.crc_res.toString(16).toUpperCase().padStart(8,'0'):''} &nbsp; <span class="note">hace ${x.age} s</span></p>`;
+ if(x.estado>=4&&x.estado!=5||x.n_pos){
+  h+=`<p>${x.ok?'<b>CALIBRACION COMPLETA</b>':'<b class="alert">CALIBRACION INCOMPLETA</b>'} &nbsp; ${x.n_pos} posiciones, nombradas ${esc(x.nombradas_txt)}</p>`;
+  if(x.avisos_txt.length)h+='<ul>'+x.avisos_txt.map(a=>`<li class="alert">${esc(a)}</li>`).join('')+'</ul>';
+  const im=(nm,q)=>`<tr><td>${nm}</td><td>${q.sesgo_mg.join(' ')} mg</td><td>${q.escala_ppm.map(v=>(v>=0?'+':'')+v).join(' ')} ppm</td><td>${f1(q.err)} grados</td></tr>`;
+  h+=`<table class="t"><tr><th></th><th>sesgo</th><th>escala - 1</th><th>peor error de posicion</th></tr>${im('LSM',x.lsm)}${im('QMI',x.qmi)}</table>`;
+  if(x.giro)h+=`<p>Giro del QMI respecto al LSM: retraso ${x.retraso_ms} ms, ganancia ${x.ganancia.map(f3).join(' ')}, correlacion minima ${f3(x.corr)}</p>`;
+  const mg=(nm,m)=>m?`<tr><td>${nm}</td><td>${m.radio_mG} mG</td><td>${f3(m.max_min)}</td><td>${f1(m.residuo_mG)} mG</td><td>${m.cobertura} %</td><td>${m.descartadas}</td><td>${f1(m.dip)} (rango ${f1(m.dip_rango)}, ${m.dip_n} pos.)</td><td>${m.alineado?(m.invertido?'si, invertido':'si'):'no'}</td></tr>`:'';
+  if(x.mmc)h+=`<table class="t"><tr><th></th><th>radio</th><th>max/min</th><th>residuo</th><th>cobertura</th><th>descartadas</th><th>inclinacion</th><th>alineado</th></tr>${mg('MMC',x.mmc)}${mg('QMC',x.qmc)}</table><p>MMC contra QMC: ${f1(x.acuerdo[0])} a ${f1(x.acuerdo[1])} grados${x.bmp[0]!==null?' &nbsp; temperatura BMP '+f1(x.bmp[0])+' C (+'+f1(x.bmp[1])+' a 5 min), BME '+f1(x.bme[0])+' C':''}</p>`;
+ }
+ return h+'</div>';
+}
 function calRender(){
  const el=$('calm');if(!el||!S)return;calTick();
  const [r,,n]=calR(),v=calView(),now=Date.now()/1000,c=S.calib[r];let h='';
+ const bordo=calBordo(r,calR()[1],n,v.cal);
  const sel=`<p>Cohete <select ${cal.step?'disabled':''} onchange="calSet({role:this.value})">${ROCKETS.map(([x,,y])=>`<option value="${x}" ${x==r?'selected':''}>${y}</option>`).join('')}</select> &nbsp; Calibracion vigente: ${c.vigente?'si':'no'} &nbsp; Paso ${Math.min(cal.step,10)} de 10</p>`;
  if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion.</p><p><label><input type="checkbox" style="width:auto" ${cal.warm?'checked':''} onchange="cal.warm=this.checked"> Empezar con la <b>curva de calentamiento</b> (30 min quieto; la placa debe venir <b>en frio</b>: apagada o dormida al menos 30 min, y empezar el registro apenas encienda)</label></p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}<p class="note">Si ya hiciste la captura: conecta el USB, escribe el archivo (lo da Listar, en Descargas) <input id="calname" class="wide" placeholder="DEM_M00_..._0091.BIN"> <button onclick="calExisting()">Bajar y analizar</button></p>`;
  else if(cal.step==0.5){const left=Math.max(0,Math.ceil(WARM_S-(now-cal.warmT))),pi=now-cal.warmT>=WARM_PI_S;
@@ -156,7 +175,7 @@ function calRender(){
  else if(cal.step==9)h=`<p>Conecta el <b>USB</b> de ${n} y espera a que Windows lo reconozca. El archivo es ${esc(cal.name)}.</p><button onclick="calRun()">Bajar y analizar</button>`;
  else if(cal.step==10)h=S.job.running?`<p>${jobPhase()}</p>`:S.job.rc?`<p class="alert">No se pudo bajar o analizar ${esc(cal.name)}. La captura sigue en la SD del cohete.</p><button onclick="calRun()">Reintentar</button> <button onclick="if(confirm('Descartar esta captura y empezar otra?'))calSet({step:0,name:''})">Hacer otra captura</button>`:`<p>Revisa el resultado abajo.</p><button ${c.nuevo?'':'disabled'} onclick="calAccept()">Aceptar</button> <button onclick="calSet({step:0,name:''})">Repetir</button>`;
  else h=`<p>Calibracion guardada en calib_${r}.json. Aun no viaja al cohete: la usara el EKF.</p><button onclick="calSet({step:0,name:''})">Otra calibracion</button>`;
- h=sel+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
+ h=sel+bordo+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
  if(h!=lastCal){lastCal=h;el.innerHTML=h}
  const o=$('calo');if(o&&cal.step<10&&o.textContent)o.textContent='';if(o&&cal.step>=10){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(o.textContent!=txt){o.textContent=txt;o.scrollTop=o.scrollHeight}}
 }
