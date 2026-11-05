@@ -62,3 +62,6 @@ estacion/mision.json
 *_csv/
 *_ekf.csv
 pio_cache/
+
+# Reenviador de la estacion (T-605a): la cola en disco (sqlite, con sus -wal y -shm)
+estacion/cola_web.db*
