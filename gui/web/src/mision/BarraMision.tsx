@@ -13,6 +13,8 @@ import type { Contenido } from "../contenido/tipos";
 import type { Estado, Evento } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/api";
 import { edad, estado, estadoPagina, eventos } from "../datos/api";
+import { simulacionLocal } from "../datos/compuerta";
+import { BotonSalirSimulacion } from "../simulacion/BotonSimulacion";
 import { TITULO_FASE } from "./fases";
 import { hace, numero, tMas } from "./formato";
 
@@ -114,6 +116,7 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
         <div class="banner banner-info" role="status">
           <Info aria-hidden="true" />
           <span>Simulación: así será el vuelo</span>
+          {simulacionLocal.value && <BotonSalirSimulacion />}
         </div>
       )}
     </div>

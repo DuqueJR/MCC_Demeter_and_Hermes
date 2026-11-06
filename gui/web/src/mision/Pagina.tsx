@@ -5,6 +5,7 @@ import { Actitud } from "../actitud/Actitud";
 import type { Contenido } from "../contenido/tipos";
 import { Graficas } from "../graficas/Graficas";
 import { SeccionMapa } from "../mapa/SeccionMapa";
+import type { Simulacion } from "../simulacion/guion";
 import { aterrizado } from "./aterrizado";
 import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
@@ -21,9 +22,11 @@ interface Props {
   contenido: Contenido;
   /** Sección exclusiva de una misión (por ejemplo, Los ojos de Deméter). */
   extra?: ComponentChildren;
+  /** La simulación del vuelo de esta misión (T-635). Hermes no la tiene (PEN-07): sin ella no hay botón. */
+  simulacion?: Simulacion;
 }
 
-export function Pagina({ contenido, extra }: Props) {
+export function Pagina({ contenido, extra, simulacion }: Props) {
   // Aterrizado (03 §4): Recuperación sube al inicio del <main>, en el DOM y no solo a la vista,
   // para que el orden de lectura y del teclado coincida con lo que se ve.
   const enTierra = aterrizado.value;
@@ -37,7 +40,7 @@ export function Pagina({ contenido, extra }: Props) {
       <main class="panel" data-aterrizado={enTierra ? "si" : "no"}>
         {enTierra && <Recuperacion />}
         <Inicio contenido={contenido} />
-        <EstadoMision mision={contenido.mision} />
+        <EstadoMision mision={contenido.mision} simulacion={simulacion} />
         <Telemetria />
         <SeccionMapa />
         {!enTierra && <Recuperacion />}
