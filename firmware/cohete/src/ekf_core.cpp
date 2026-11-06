@@ -10,7 +10,8 @@ namespace ekf {
 static const double G = 9.80665, DPS = M_PI / 180.0, DT = DT_US / 1e6;
 static const double DECL_DEG = -8.0;
 static const double ACC_SAT_G = 15.0, GYR_SAT_DPS = 1000.0, ACC_DISAGREE_G = 1.0, GYR_DISAGREE_DPS = 30.0;
-static const double STILL_S = 1.5, BLOQUE_US = 250000;
+// La ventana quieta de ekf.py (STILL_S = 1,5 s) es aqui de 6 bloques de BLOQUE_US (6 x 0,25 s): ver bloqueReposo. No hay constante propia: no se usaba (Apple clang avisaba -Wunused-const-variable)
+static const double BLOQUE_US = 250000;
 static const double W_LSM = 0.8;
 static const double Q_GYR = 0.05 * DPS, Q_ACC = 0.03, Q_BG = 0.002 * DPS, Q_BA = 0.0005, Q_BARO = 0.001, Q_SG = 2e-5, SG0 = 0.03;
 static const double BME_RESPALDO_US = 0.5e6;
