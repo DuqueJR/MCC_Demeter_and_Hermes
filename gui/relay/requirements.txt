@@ -1,0 +1,7 @@
+# Versiones fijas (probadas en Python 3.14.3 el 2026-11-05; el contrato pide Python >= 3.12).
+# starlette y anyio los trae fastapi; se fijan igual para que las dos maquinas instalen lo mismo.
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn==0.54.0
+sse-starlette==3.6.0
+jsonschema==4.26.0

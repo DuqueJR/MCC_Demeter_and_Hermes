@@ -1,0 +1,8 @@
+# La carpeta de datos del relay (los JSONL de cada mision): se genera al correr y NUNCA se versiona
+datos/
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+# La configuracion local con el token (el ejemplo es .env.example)
+.env
