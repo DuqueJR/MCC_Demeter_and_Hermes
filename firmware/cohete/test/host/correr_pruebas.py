@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Pruebas en el PC de la deteccion de BOOST (T-410) y de los actuadores (T-413): genera las entradas, compila prueba_boost.cpp con g++ y comprueba los criterios.
 
-Uso:  python3 firmware/cohete/test/host/correr_pruebas.py [--reposo-min 30] [--semilla 1] [--sin-replay] [--replay-dir DIR]
+Uso:  python3 firmware/cohete/test/host/correr_pruebas.py [--reposo-min 30] [--semilla 1] [--sin-replay] [--replay-dir DIR] [--logs-banco DIR]
 Al final corre el banco de replay (T-305, test/host/replay/) sobre los 24 .BIN sinteticos de T-304; --sin-replay lo omite.
+--logs-banco DIR ademas lo corre sobre los .BIN reales sin vuelo de esa carpeta y exige 0 BOOST y 0 transiciones falsas.
 Necesita: g++ y numpy. No toca la placa ni PlatformIO. Escribe en test/host/entradas/ y test/host/build/ (ignorados por git).
 Sale con codigo 0 si todos los criterios se cumplen.
 """
@@ -224,6 +225,7 @@ def main():
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--sin-replay", action="store_true", help="no corre el banco de replay (T-305) sobre los sinteticos de T-304")
     ap.add_argument("--replay-dir", default=None, help="carpeta de los sinteticos (por omision estacion/vuelos_replay/; si faltan se generan: unos 4 min, con numpy y scipy)")
+    ap.add_argument("--logs-banco", default=None, help="carpeta con .BIN reales SIN vuelo (calibracion, manipulacion): el banco exige 0 BOOST y 0 transiciones falsas en cada uno")
     args = ap.parse_args()
     rng = np.random.default_rng(args.semilla)
     compilar()
@@ -354,7 +356,7 @@ def main():
     # --- Banco de replay (T-305, P-03): la logica real de deteccion sobre los 24 vuelos sinteticos de T-304 (test/host/replay/) ---
     sys.path.insert(0, str(AQUI / "replay"))
     import replay
-    replay.para_pruebas(anotar, filas, sin_replay=args.sin_replay, **({"carpeta": args.replay_dir} if args.replay_dir else {}))
+    replay.para_pruebas(anotar, filas, sin_replay=args.sin_replay, logs_banco=args.logs_banco, **({"carpeta": args.replay_dir} if args.replay_dir else {}))
 
     ancho = max(len(f[0]) for f in filas)
     print()

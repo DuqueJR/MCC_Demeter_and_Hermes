@@ -302,8 +302,33 @@ def correr_lote(bins, inicio="armed", cohete=None, arma_en=2.0, launch_en=4.0, c
     return vuelos
 
 
-def para_pruebas(anotar, filas_tabla, sin_replay=False, carpeta=SINTETICOS, salida=SALIDA):
-    """Lo que correr_pruebas.py agrega a su tabla: el banco sobre los sinteticos. anotar(nombre, ok, detalle) cuenta como criterio; filas_tabla.append((nombre, estado, detalle)) no."""
+def logs_de_banco(anotar, carpeta, exe=None, salida=SALIDA):
+    """.BIN reales SIN vuelo (calibracion, manipulacion, banco): cada uno, armado en la rampa, no debe dar ningun BOOST, ningun T_MISSION automatico ni transiciones falsas."""
+    carpeta = Path(carpeta)
+    bins = sorted(list(carpeta.glob("*.BIN")) + list(carpeta.glob("*.bin")))
+    if not bins:
+        anotar("replay logs de banco: hay .BIN en %s" % carpeta, False, "la carpeta no tiene .BIN")
+        return
+    exe = exe or compilar()
+    vuelos = []
+    for b in bins:
+        res = correr([b], exe=exe)
+        an = analizar(res, None)
+        auto = [e for e in res["eventos"] if e["tipo"] == "T_MISSION" and e["op"] == 0]
+        ok = "BOOST" not in an["det"] and not auto and not an["falsas"] and res["bytes_saltados"] == 0
+        dur = (res["t_fin_us"] - res["t_ini_us"]) / 1e6
+        anotar("replay log de banco %s: sin BOOST, sin T_MISSION automatico, sin transiciones falsas ni bytes corruptos" % b.name, ok,
+               "%s, %.0f s, %d registros, %d bytes saltados; %s" % ({1: "Demeter", 2: "Hermes"}.get(res["cohete_id"], "?"), dur, sum(a["registros"] for a in res["archivos"]), res["bytes_saltados"],
+                                                                 "; ".join(an["falsas"] + ["T_MISSION automatico a t_us=%d" % e["t_us"] for e in auto]) or "0 eventos de vuelo"))
+        vuelos.append((b.stem, res, an, None))
+    escribir_reportes(vuelos, Path(salida) / "logs_banco")
+
+
+def para_pruebas(anotar, filas_tabla, sin_replay=False, carpeta=SINTETICOS, salida=SALIDA, logs_banco=None):
+    """Lo que correr_pruebas.py agrega a su tabla: el banco sobre los sinteticos. anotar(nombre, ok, detalle) cuenta como criterio; filas_tabla.append((nombre, estado, detalle)) no.
+    logs_banco = carpeta con .BIN reales sin vuelo: se exige 0 BOOST y 0 transiciones (solo si se pide)."""
+    if logs_banco:
+        logs_de_banco(anotar, logs_banco, salida=salida)
     if sin_replay:
         filas_tabla.append(("replay P-03: el banco sobre los sinteticos de T-304", "OMITIDO", "--sin-replay"))
         return
