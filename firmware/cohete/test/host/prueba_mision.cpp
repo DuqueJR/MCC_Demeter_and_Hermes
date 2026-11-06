@@ -119,6 +119,10 @@ static void esc_tierra(int t) {
         CHECK(l && l->r.counter >= 500 && l->r.counter <= 650, "counter = dv en cm/s (alrededor de 500)");
         if (l) printf("  T_MISSION: counter = %u cm/s, flags = 0x%02X\n", (unsigned)l->r.counter, l->r.flags);
     }
+    if (t == 85) { g_haveResp = false; cmd(OP_SET_STATE, ST_TIERRA); }                    // estado tierra: NO_APTO (EN_VUELO), se confirma
+    if (t == 86) CHECK(g_haveResp && g_resp.result == CR_NO_APTO && (g_resp.reasons & (1u << RZ_EN_VUELO)), "estado tierra tras BOOST: NO_APTO (EN_VUELO)");
+    if (t == 87) cmd((uint8_t)(OP_SET_STATE | OP_CONFIRM), ST_TIERRA, g_resp.reasons);
+    if (t == 89) CHECK(st().state == ST_TIERRA && !(st().flags & TF_BOOST_SIN_ARMAR), "estado tierra confirmado: TIERRA y borra TF_BOOST_SIN_ARMAR");
 }
 
 static void esc_armado(int t) {

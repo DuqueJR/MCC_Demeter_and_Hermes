@@ -1031,7 +1031,9 @@ class Handler(BaseHTTPRequestHandler):
                 t = telem.get(rid)
                 if t and time.time() - t['t'] < STALE_S and t['state'] in (2, 3):
                     return self.reply(409, {'error': f'{role} esta en {STATES[t["state"]]}: descargar detendria el registro'})
-                if self.path == '/api/calib/run' and not re.fullmatch(r'[\w]+\.BIN', a['name']):
+                if self.path == '/api/calib/run':      # sin extension o en minusculas tambien sirve: se usa el nombre de Listar
+                    a['name'] = re.sub(r'(?i)\.bin$', '', str(a.get('name', '')).strip()) + '.BIN'
+                if self.path == '/api/calib/run' and not re.fullmatch(r'\w+\.BIN', a['name']):
                     return self.reply(400, {'error': 'nombre de archivo invalido'})
                 port = links[role].port if role in links else ROLES[role]
                 if port not in list_ports():

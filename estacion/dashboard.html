@@ -125,7 +125,7 @@ window.calSet=o=>{Object.assign(cal,o);lastCal='';calRender()};
 window.calStartRec=()=>{cmd(calR()[1]+' estado fly');calSet({sent:true})};
 window.calEndRec=()=>{cmd(calR()[1]+' estado tierra');calSet({sent:true})};
 window.calRun=()=>post('/api/calib/run',{role:cal.role,name:cal.name}).then(r=>{if(r.ok){S.job.running=true;calSet({step:10})}});
-window.calExisting=()=>{const x=$('calname').value.trim();if(x){cal.name=x;calRun()}};
+window.calExisting=()=>{const x=$('calname').value.trim().replace(/\.bin$/i,'');if(x){cal.name=x+'.BIN';calRun()}};
 window.calAccept=()=>post('/api/calib/accept',{role:cal.role}).then(r=>{if(r.ok)calSet({step:11})});
 function calTick(){
  const v=calView(),l=v.log,now=Date.now()/1000;
