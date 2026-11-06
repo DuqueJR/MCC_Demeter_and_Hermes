@@ -65,6 +65,7 @@ DIAG_KEYS = {
     'amb': ['suelo', 'bmp', 'bme', 'pend', 'edad', 'arm'],   # temperatura del suelo (D-058)
     'pi': ['estado', 'motivo', 'latido', 'perdidas', 'crc_mal', 'pose', 'omitidas', 'banderas', 'meta', 'ult_cmd', 'cmds', 'agotados'],   # UART con la Pi (solo Demeter)
     'ring': ['malos', 'resync'], 'log': ['archivo', 'tiempo', 'lleno', 'restante', 'reserva'],
+    'ekf': ['fase', 'gui', 'cab', 'ala', 'sd', 'alt', 'gnss', 'baro', 'mag', 'rech', 'ciclo_prom', 'max', 'lentos', 'perdidas', 'arranque'],   # D-060
 }
 ALERT_KEYS = {'crc_mal', 'omitidas', 'agotados', 'err', 'tmo', 'sat', 'nack', 'fallos', 'ckerr', 'sobrescr', 'tag_malos', 'timeouts', 'llenos', 'malas', 'malos', 'saltadas'}
 KV = re.compile(r'([\w/|]+)=(\S+(?: (?:mV|ns|us|Hz|kHz|MB|KB|G|Pa|C|ppm|m/s|m|g|s)\b| %)?)')
@@ -107,6 +108,37 @@ def ekf_note(rid, t):
     ekf_n[rid] += 1
     ekf_hist[rid].append([ekf_n[rid], round(t['t'], 3), t['utc_ms'], *[x / 32767.0 for x in t['quat']], t['lat'], t['lon'], t['alt'], t['vn'], t['ve'], t['vd'],
                           *[x / 1000.0 for x in t['acc']], *[x / 10.0 for x in t['gyro']], t['fix'], t['nsv'], t['state'], t['moment'], t['flags'], t['rssi'], t['snr'], t['vbat']])
+
+
+ekf_usb = {}                  # rol -> ultima actitud por USB (@E): q, giro en cuerpo (dps), sd, instante de llegada
+ekf_usb_pedido = {}           # rol -> ultima vez que se le pidio al cohete ('E'; la deja de mandar a los 5 s)
+
+
+def ekf_usb_line(role, line):
+    p = line.split()
+    try:
+        v = [float(x) for x in p[1:9]]
+    except ValueError:
+        return
+    if len(v) == 8:
+        with lock:
+            ekf_usb[role] = dict(rx=time.time(), q=v[0:4], w=v[4:7], sd=v[7])
+
+
+def ekf_usb_view(rid):
+    """La ultima actitud por USB del cohete, y se la vuelve a pedir cada 2 s mientras alguien la mire."""
+    role = ROCKET_ROLE.get(rid)
+    now = time.time()
+    with lock:
+        l = links.get(role)
+        if type(l) is Link and now - ekf_usb_pedido.get(role, 0) > 2.0:     # solo a una placa real (no a la demo)
+            ekf_usb_pedido[role] = now
+            try:
+                l.write('E')
+            except Exception:
+                pass
+        u = ekf_usb.get(role)
+    return dict(age=round(now - u['rx'], 3), q=u['q'], w=u['w'], sd=u['sd']) if u else {}
 
 
 def ekf_walk():
@@ -441,6 +473,9 @@ class Link:
             pass
 
     def handle(self, line):
+        if line.startswith('@E '):            # actitud del EKF por USB a 25 Hz (la pide /api/ekf/usb): no va a la sesion ni al monitor
+            ekf_usb_line(self.role, line)
+            return
         self.rec.write(f'{time.time():.3f} {line}\n')
         if not line.startswith(('@T ', '@L ', '@G ')):
             raw_lines[self.role].append(time.strftime('%H:%M:%S ') + line)
@@ -896,6 +931,8 @@ class Handler(BaseHTTPRequestHandler):
                 with lock:
                     rows = [r for r in ekf_hist.get(rid, ()) if r[0] > desde]
                 return self.reply(200, dict(cols=EKF_COLS, rows=rows))
+            if path == '/api/ekf/usb':
+                return self.reply(200, ekf_usb_view(int(arg('r', '1'))))
             if path == '/api/ekf/archivo':
                 full = ekf_path(arg('f'), EKF_CSV)
                 if not full:

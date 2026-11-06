@@ -43,7 +43,7 @@ int64_t time_to_local_us(int64_t utc_us) {
 
 // ---------------- Anillos ----------------
 static ByteRing s_ring[RING_COUNT];
-static const uint32_t RING_BYTES[RING_COUNT] = { 64 * 1024, 128 * 1024, 32 * 1024, 16 * 1024, 256 * 1024 };    // RING_GNSS, RING_IMU, RING_I2C, RING_NET, RING_EXT
+static const uint32_t RING_BYTES[RING_COUNT] = { 64 * 1024, 128 * 1024, 32 * 1024, 16 * 1024, 256 * 1024, 32 * 1024 };    // RING_GNSS, RING_IMU, RING_I2C, RING_NET, RING_EXT, RING_EKF
 
 void bus_begin() {
     if (!s_tmMx) s_tmMx = xSemaphoreCreateMutex();

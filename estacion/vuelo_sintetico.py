@@ -259,6 +259,52 @@ def comparar(e, V, sg):
     return filas
 
 
+def correr_cpp(d, x, c, V, sg, args):
+    """El EKF a bordo (ekf_core.cpp, en firmware/cohete/test/host/build/prueba_ekf) con exactamente las mismas muestras (D-060)."""
+    import subprocess
+    host = os.path.join(AQUI, '..', 'firmware', 'cohete', 'test', 'host', 'build')
+    exe = os.path.join(host, 'prueba_ekf_d' if args.cpp == 'double' else 'prueba_ekf')
+    ent = os.path.join(AQUI, 'sinteticos', f'SINT_{args.cohete}_entradas.txt')
+    cal = os.path.join(AQUI, 'sinteticos', 'cal_identidad.txt')
+    sal = os.path.join(AQUI, 'sinteticos', f'SINT_{args.cohete}_ekf_cpp.csv')
+    I = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    with open(cal, 'w') as f:
+        mag = [1, 0, 0, 0] + I + I + [MAG_B]
+        f.write(' '.join(str(v) for v in I + [0, 0, 0, 1, 1, 1] + I + [0, 0, 0, 1, 1, 1] + [1, 1, 1, 0.0] + mag + mag))
+    filas = []
+    for k, tipo in (('lsm', 0), ('qmi', 1)):
+        for t, a, g in zip(d[k + '_t'], d[k + '_a'], d[k + '_g']):
+            filas.append((t, f'{int(t)} {tipo} {a[0]:.6f} {a[1]:.6f} {a[2]:.6f} {g[0]:.5f} {g[1]:.5f} {g[2]:.5f}'))
+    for t, p in x['bmp']:
+        filas.append((t, f'{int(t)} 2 {p:.3f} 20 0 0 0 0'))
+    for t, p in x['bme']:
+        filas.append((t, f'{int(t)} 3 {p:.3f} 0 0 0 0 0'))
+    for k, tipo in (('mmc', 4), ('qmc', 5)):
+        for r in d[k]:
+            filas.append((r[0], f'{int(r[0])} {tipo} {r[1]:.6f} {r[2]:.6f} {r[3]:.6f} 0 0 0'))
+    pps = x['pps']
+    fit = np.polyfit(pps[:, 0] - pps[0, 0], pps[:, 1], 1)
+    for r in x['pvt']:
+        tm = np.polyval(fit, r[1] - pps[0, 0])
+        filas.append((r[0], f'{int(r[0])} 6 {int(round(tm))} {int(r[2])} {r[3]:.9f} {r[4]:.9f} {r[5]:.3f} {r[6]:.3f} {r[11]:.3f} {r[8]:.4f} {r[9]:.4f} {r[10]:.4f}'))
+    for t, m in x['momentos']:
+        filas.append((t, f'{int(t)} 7 {m} 0 0 0 0 0'))
+    filas.sort(key=lambda f: f[0])
+    with open(ent, 'w') as f:
+        f.write('\n'.join(l for _, l in filas) + '\n')
+    r = subprocess.run([exe, ent, cal, sal] + ([str(args.t_suelo_usado)] if args.t_suelo_usado is not None else []), capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f'prueba_ekf fallo: {r.stdout} {r.stderr}')
+    print(f'C++ ({args.cpp}): {r.stdout.strip()}')
+    Cc = np.genfromtxt(sal, delimiter=',', names=True)
+    out = []
+    for row in Cc:
+        r56 = [row['t_us'], row['qw'], row['qx'], row['qy'], row['qz'], 0, 0, 0, row['pn_m'], row['pe_m'], row['pd_m'], row['vn_mps'], row['ve_mps'], row['vd_mps']]
+        r56 += [0.0] * (53 - len(r56)) + [row['sgx_pct'], row['sgy_pct'], row['sgz_pct']]
+        out.append(r56)
+    return comparar(types.SimpleNamespace(out=out), V, sg)
+
+
 def opciones(args, **extra):
     a = types.SimpleNamespace(sin_gnss=False, sin_mag=args.sin_mag, sin_baro=False, sin_gravedad=False, solo_lsm=False, solo_qmi=False,
                               sin_escala=args.sin_escala, con_bme=False, sin_fases=args.sin_fases, t_suelo=args.t_suelo_usado)
@@ -279,6 +325,7 @@ def main():
     ap.add_argument('--sin-mag', action='store_true')
     ap.add_argument('--atmosfera-estandar', action='store_true', help='el EKF usa 15 C en vez de la temperatura del sitio')
     ap.add_argument('--comparar', action='store_true', help='corre completo, --sin-fases y --sin-escala con los mismos datos')
+    ap.add_argument('--cpp', nargs='?', const='float', choices=['float', 'double'], help='corre tambien el EKF a bordo (ekf_core.cpp) con los mismos datos')
     args = ap.parse_args()
     s = leer_sim(args.cohete)
     print(f'{args.cohete}: {SIM[args.cohete]}; eventos {s["ev"]}')
@@ -295,6 +342,9 @@ def main():
         salida = os.path.join(AQUI, 'sinteticos', f'SINT_{args.cohete}' + ('' if nombre == 'completo' else '_' + nombre.replace(' ', '_')) + '_ekf.csv')
         e, _ = ekf.run(f'SINT_{args.cohete}', opciones(args, **extra), data=(d, x, c), salida=salida)
         res[nombre] = comparar(e, V, sg)
+    if args.cpp:
+        print(f'\n===== C++ a bordo (ekf_core, {args.cpp}) =====')
+        res['C++'] = correr_cpp(d, x, c, V, sg, args)
     if len(res) > 1:
         print('\nresumen, actitud mediana / maxima (grados) por fase:')
         for fase in res['completo']:

@@ -57,6 +57,9 @@ void loop() {
         testSdImuReport();
 #endif
     }
+#ifdef TEST_CORE
+    coreEkfStream();
+#endif
 #ifdef TEST_LORA_TX
     testLoraLoop();
 #endif

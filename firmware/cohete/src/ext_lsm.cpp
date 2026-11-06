@@ -5,6 +5,7 @@
 #include "ext_bmp.h"
 #include "imu_clock.h"
 #include "boost_detect.h"
+#include "ekf_task.h"
 #include "logger.h"
 #include <soc/gpio_reg.h>
 #include <esp_timer.h>
@@ -304,9 +305,11 @@ static void lsmTask(void *) {
             for (uint16_t i = off; i < off + c; i++) {
                 const uint8_t *w = s_fifo + i * WORD_B;
                 switch (wordTag(w)) {
-                    case TAG_ACC:  memcpy(s.a, w + 1, 6); haveA = true;
-                                   boostLsmSample((int64_t)llround(s_clk.timeOf(n)), s.a, ACC_LSB_PER_G);   // T-410: |a| de cada muestra
-                                   n++; break;
+                    case TAG_ACC: { memcpy(s.a, w + 1, 6); haveA = true;
+                                   const int64_t tn = (int64_t)llround(s_clk.timeOf(n));
+                                   boostLsmSample(tn, s.a, ACC_LSB_PER_G);   // T-410: |a| de cada muestra
+                                   ekfLsm(tn, s.a, s.g);                      // D-060: con el ultimo giro, como ekf.py
+                                   n++; break; }
                     case TAG_GYRO: memcpy(s.g, w + 1, 6); haveG = true; break;
                     case TAG_HUB0: extBmpOnWord(w + 1, (int64_t)llround(s_clk.timeOf(n))); break;
                     case TAG_HUB_NACK: extBmpOnNack(); break;

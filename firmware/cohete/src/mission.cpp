@@ -546,3 +546,8 @@ MissionStats missionStats() {
     s.lastResult = s_haveResp ? s_lastResp.result : 0;
     return s;
 }
+
+bool missionP0(float p0[2]) {
+    for (int i = 0; i < 2; i++) p0[i] = s_refOk[i] ? s_ref[i] : 0.0f;
+    return s_refOk[0] || s_refOk[1];
+}

@@ -61,7 +61,7 @@ inline int64_t time_local_now() { return esp_timer_get_time(); }
 extern SemaphoreHandle_t g_sdBusMx;
 
 // ---------- Anillos de registro (hacia la SD) ----------
-enum RingId : uint8_t { RING_GNSS = 0, RING_IMU, RING_I2C, RING_NET, RING_EXT, RING_COUNT };
+enum RingId : uint8_t { RING_GNSS = 0, RING_IMU, RING_I2C, RING_NET, RING_EXT, RING_EKF, RING_COUNT };   // RING_EKF: solo la tarea ekf (D-060)
 void     bus_begin();
 bool     bus_log(RingId r, uint8_t type, uint8_t src, int64_t t_us, const void *payload, uint16_t n);
 uint32_t bus_ring_used(RingId r);
