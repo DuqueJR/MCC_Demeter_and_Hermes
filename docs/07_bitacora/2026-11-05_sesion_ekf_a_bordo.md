@@ -224,6 +224,14 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
 
 ## Pendiente
 
+Lo que queda de hardware y firmware (Pablo, 6 nov):
+
+- **Integración con la Pi:** POSE con el EKF y la calibración activa, vista en `telemetryd`, con una actitud coherente con cómo está el cohete. Confirmar que la marca de la calibración es la misma que usa `camaras.json` para ubicar las cámaras.
+- **Extrínsecos de las cámaras** con el cohete ensamblado. Los intrínsecos ya están.
+- **Cableado del encendido de la Pi** (IO45 → J2, PWR_ON). Probarlo con "pi encender" y ver que llegue el latido.
+- Ver el arranque de Demeter desde TIERRA con el firmware de `703ec6f`: que no pase a BOOST sin armar.
+- Rumbo con el magnetómetro a cielo abierto.
+
 - La memoria real en la ESP32-S3.
 - Ver `arranque=foto_RTC` tras un reinicio en FLY forzado.
 - Decidir si BOOST exige |a| > 2 g sostenido unos 30-50 ms, para que un golpe en TIERRA no lo dispare (el motor da más de 1,8 s seguidos).
