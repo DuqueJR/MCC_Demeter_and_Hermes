@@ -68,16 +68,36 @@ def leer(b):
     return out
 
 
-def cargar_usb(puerto, blob, espera=6.0):
-    """Manda la clave TBCAL, el largo y el blob; devuelve la respuesta del cohete ('CAL OK ...' o 'CAL ERROR ...')."""
+def cargar_usb(puerto, blob, espera=8.0):
+    """Manda la clave TBCAL, el largo y el blob; devuelve la respuesta del cohete ('CAL OK ...' o 'CAL ERROR ...').
+    DTR y RTS se bajan antes de abrir, como en tbget: abrirlo con ellos arriba y bajarlos despues reinicia el S3 y el blob se pierde.
+    El blob va despues de una pausa y en trozos: el cohete atiende el USB una vez por segundo y su bufer de entrada es corto."""
     import serial
-    with serial.Serial(puerto, 115200, timeout=0.2, dsrdtr=False, rtscts=False) as s:
-        s.dtr = False
-        s.rts = False
+    s = serial.Serial()
+    s.port = puerto
+    s.baudrate = 115200
+    s.timeout = 0.2
+    s.dtr = False
+    s.rts = False
+    fin = time.time() + 6.0
+    while True:                                        # el dashboard acaba de soltar el puerto: Windows tarda en liberarlo
+        try:
+            s.open()
+            break
+        except serial.SerialException:
+            if time.time() > fin:
+                raise
+            time.sleep(0.3)
+    with s:
         time.sleep(0.3)
         s.reset_input_buffer()
-        s.write(b'TBCAL' + struct.pack('<H', len(blob)) + blob)
+        s.write(b'TBCAL' + struct.pack('<H', len(blob)))
         s.flush()
+        time.sleep(1.5)                                # el cohete ya esta esperando el blob (le da 5 s desde la clave)
+        for i in range(0, len(blob), 64):
+            s.write(blob[i:i + 64])
+            s.flush()
+            time.sleep(0.02)
         fin = time.time() + espera
         while time.time() < fin:
             linea = s.readline().decode(errors='replace').strip()

@@ -8,7 +8,7 @@
 namespace cal {
 
 // Umbrales de calib.py
-static const double STILL_WIN_US = 0.5e6, STILL_SD_G = 0.03, STILL_MIN_S = 4.0, WARM_MIN_S = 120.0, NEW_POSE_DEG = 30.0, ANGLE_WARN_DEG = 12.0;
+static const double STILL_WIN_US = 0.5e6, STILL_SD_G = 0.03, STILL_MIN_S = 4.0, WARM_MIN_S = 120.0, WARM_TAIL_S = 20.0, NEW_POSE_DEG = 30.0, ANGLE_WARN_DEG = 12.0;
 static const int64_t TX_MARGIN_US = 15000;
 static const int    BIN_KEEP = 300;
 static const double COVER_MIN = 0.8, RES_WARN_MG = 15.0, DIP_MIN_DEG = 10.0, DIP_RANGE_WARN_DEG = 25.0, DIP_POSE_DEG = 12.0;
@@ -217,18 +217,19 @@ void Analizador::posesDe(const std::vector<Ventana> &w, std::vector<Pose> &out, 
         else if (en) { segs.push_back(std::make_pair(a, b)); en = false; }
     }
     if (en) segs.push_back(std::make_pair(a, b));
-    // Calentamiento (D-058): un tramo quieto de 2 min o mas seguido de posiciones de la guia. La guia empieza al final del ultimo;
-    // lo anterior no son posiciones ni sirve para los magnetometros (su mediana quedaria en ese punto). El reposo final no cuenta: no lo siguen posiciones.
+    // Calentamiento (D-058): un tramo quieto de 2 min o mas seguido de posiciones de la guia. La guia empieza WARM_TAIL_S antes del final del ultimo:
+    // ese final es una posicion (la 1, nariz arriba, se suele hacer sin mover el cohete). Lo anterior no son posiciones ni sirve para los
+    // magnetometros (su mediana quedaria en ese punto). El reposo final no cuenta: no lo siguen posiciones.
     for (size_t s = 0; s < segs.size(); s++) {
         const double d = (segs[s].second - segs[s].first) / 1e6;
         if (d < WARM_MIN_S) continue;
         for (size_t q = s + 1; q < segs.size(); q++) {
             const double dq = (segs[q].second - segs[q].first) / 1e6;
-            if (dq >= STILL_MIN_S && dq < WARM_MIN_S) { tGuia = segs[s].second; break; }
+            if (dq >= STILL_MIN_S && dq < WARM_MIN_S) { tGuia = segs[s].second - (int64_t)(WARM_TAIL_S * 1e6); break; }
         }
     }
     for (size_t s = 0; s < segs.size(); s++) {
-        const int64_t t1 = segs[s].first, t2 = segs[s].second;
+        const int64_t t2 = segs[s].second, t1 = segs[s].first < tGuia ? tGuia : segs[s].first;
         if (t2 <= tGuia) continue;
         if ((t2 - t1) / 1e6 < STILL_MIN_S) continue;
         Pose p; p.t1 = t1; p.t2 = t2;
@@ -656,7 +657,7 @@ void Analizador::finPasada1() {
     const bool hayLsm = !wl_.empty();
     if (hayLsm) posesDe(wl_, poses_, tGuia_);
     if (poses_.empty() && !wq_.empty()) { posesDe(wq_, poses_, tGuia_); r_.avisos |= AV_SIN_LSM; }
-    if (tGuia_ != INT64_MIN && t0_ != INT64_MIN) r_.calentamiento_s = (tGuia_ - t0_) / 1e6;
+    if (tGuia_ != INT64_MIN && t0_ != INT64_MIN) r_.calentamiento_s = (tGuia_ - t0_) / 1e6 + WARM_TAIL_S;
     r_.n_pos = (int)poses_.size();
     // Nombrar las posiciones: con la calibracion anterior, con el montaje nominal o por geometria
     if (hayLsm && poses_.size() == NPOS) {

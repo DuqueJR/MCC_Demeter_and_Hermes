@@ -17,6 +17,7 @@ STILL_WIN_S = 0.5
 STILL_SD_G = 0.03          # incluye el pulso de la mano
 STILL_MIN_S = 4.0
 WARM_MIN_S = 120.0          # un tramo quieto asi de largo seguido de posiciones es la curva de calentamiento, no una posicion
+WARM_TAIL_S = 20.0          # pero su final si cuenta: la posicion 1 (nariz arriba) puede ser la misma del calentamiento, sin moverlo
 NEW_POSE_DEG = 30.0
 ANGLE_WARN_DEG = 12.0      # sostenido a mano: mas que esto ya no es la posicion pedida
 TX_MARGIN_US = 15000
@@ -94,8 +95,8 @@ def load(path):
 
 def find_poses(t, a, info=None):
     """Tramos quietos; devuelve las primeras direcciones distintas, en orden de aparicion, cada una con su tramo mas largo.
-    Calentamiento (D-058): un tramo quieto de WARM_MIN_S o mas seguido de posiciones; la guia empieza al final del ultimo y lo anterior
-    no cuenta (info['t_guia'], None si no hubo). El reposo largo del final no cuenta: no lo siguen posiciones. Igual que cal_core.posesDe."""
+    Calentamiento (D-058): un tramo quieto de WARM_MIN_S o mas seguido de posiciones; la guia empieza WARM_TAIL_S antes del final del ultimo
+    y lo anterior no cuenta (info['t_guia'], None si no hubo). Ese final es una posicion: la 1 suele hacerse sin mover el cohete. El reposo largo del final no cuenta: no lo siguen posiciones. Igual que cal_core.posesDe."""
     if info is not None:
         info['t_guia'] = None
     if len(t) < 100:
@@ -118,7 +119,7 @@ def find_poses(t, a, info=None):
     t_guia = None
     for s, (t1, t2) in enumerate(segs):
         if (t2 - t1) / 1e6 >= WARM_MIN_S and any(STILL_MIN_S <= (q2 - q1) / 1e6 < WARM_MIN_S for q1, q2 in segs[s + 1:]):
-            t_guia = t2
+            t_guia = t2 - WARM_TAIL_S * 1e6
     if info is not None:
         info['t_guia'] = t_guia
 
@@ -126,6 +127,8 @@ def find_poses(t, a, info=None):
     for t1, t2 in segs:
         if t_guia is not None and t2 <= t_guia:
             continue
+        if t_guia is not None and t1 < t_guia:
+            t1 = t_guia
         if (t2 - t1) / 1e6 < STILL_MIN_S:
             continue
         m = (t > t1 + 5e5) & (t < t2 - 5e5)
@@ -461,7 +464,7 @@ def run(path):
         out['avisos'].append('sin LSM: posiciones halladas con el QMI')
     if info.get('t_guia') is not None:
         t_ini = min(float(x[0]) for x in (d['lsm_t'], d['qmi_t']) if len(x))
-        out['calentamiento_s'] = round((info['t_guia'] - t_ini) / 1e6, 1)
+        out['calentamiento_s'] = round((info['t_guia'] - t_ini) / 1e6 + WARM_TAIL_S, 1)
         print(f'calentamiento: {out["calentamiento_s"]:.0f} s quieto al inicio; la guia (posiciones y magnetometros) empieza despues')
         for k in ('mmc', 'qmc'):
             if len(d[k]):
@@ -544,7 +547,7 @@ def run(path):
             else:
                 # El giro no distingue B de -B: el signo sale de la inclinacion. Vale donde el campo apunta hacia abajo, como en Colombia.
                 if ups is None:
-                    out['avisos'].append(f'{name}: sin posiciones quietas no se puede comprobar el signo del campo')
+                    out['avisos'].append(f'{name}: sin las 6 posiciones (acelerometro sin calibrar) no se puede comprobar el signo del campo')
                 else:
                     v = [None if x is None else Rm @ x for x in mag_at_poses(m, cal, poses)]
                     dp = np.array([np.nan if x is None else dips([x], [u])[0] for x, u in zip(v, ups)])
