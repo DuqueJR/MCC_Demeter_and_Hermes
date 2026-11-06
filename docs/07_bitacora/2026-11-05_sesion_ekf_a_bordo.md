@@ -155,6 +155,13 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
 - **Calibración:** "nombre de archivo invalido" al escribir `DEM_M00_20261105_143219_0101` sin `.BIN`. El dashboard ahora agrega la extensión y acepta `.bin` en minúsculas.
 - **Campo del archivo de calibración:** no se podía escribir. Con el resumen de la calibración a bordo llegando por radio, la sección se reescribía cada segundo ("hace N s") y el clic caía en un campo que ya no existía. Ahora el campo y el selector de cohete están fuera de lo que se reescribe. Probado en el modo demo del dashboard, reescribiendo cada 300 ms mientras se escribe.
 
+## Calibración DEM 0101-0104 (6 nov)
+
+- Primer análisis: 5 de 6 posiciones, acelerómetros sin calibrar y "CALIBRACION INCOMPLETA".
+- **Causa:** el calentamiento se hizo con la nariz arriba y la posición 1 también es nariz arriba. Sin mover el cohete, las dos quedaron en un mismo tramo quieto, que se tomó entero como calentamiento. Las otras 5 posiciones están completas (17-62 s cada una).
+- **Corregido** en `calib.py` y en `cal_core.cpp` (a bordo): la guía empieza 20 s antes del final del calentamiento (`WARM_TAIL_S`), y ese final cuenta como posición. El aviso de los magnetómetros ahora dice que falta calibrar el acelerómetro, en vez de "sin posiciones quietas".
+- Resultado: 6 de 6, peor error de posición 1,4° (LSM) y 1,5° (QMI); MMC residuo 4,4 mG e inclinación 35,2°; QMC 5,3 mG y 36,3°; MMC contra QMC 0,8-4,3°; giro del QMI con 42 ms de retraso y ganancia z 1,17. Sin avisos.
+
 ## Pendiente
 
 - La memoria real en la ESP32-S3.

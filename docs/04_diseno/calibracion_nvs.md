@@ -1,6 +1,6 @@
 ---
 id: calibracion_nvs
-estado: implementado (2026-11-05), sin compilar ni validar en hardware. Reemplaza la propuesta de subir la calibración por LoRa.
+estado: implementado (2026-11-05); la calibración a bordo falta validarla en hardware. Reemplaza la propuesta de subir la calibración por LoRa.
 actualizado: 2026-11-05
 depende_de: [protocolo_paquetes, formato_log, maquina_estados]
 decisiones: [D-057, D-059]
@@ -24,7 +24,7 @@ decisiones: [D-057, D-059]
    - Solo en TIERRA y sin registrar.
    - Una tarea en el núcleo 0, prioridad 1, lee de la SD el último registro de ese cohete, con `g_sdBusMx`, en dos pasadas.
    - **El registro puede ocupar varios archivos** (la guía con 30 min de calentamiento llena unos 4 de 32 MB). Se toma el archivo de índice más alto y, hacia atrás, los que este continúa: mismo arranque y la bandera `FH_CONTINUA` de la cabecera v3 ([formato_log](formato_log.md)); en archivos v1-v2 basta el mismo arranque. Hasta 16 archivos. La cola de ceros de la preasignación no se lee.
-   - **El calentamiento no es una posición:** un tramo quieto de 2 min o más seguido de posiciones de la guía. La guía empieza al final del último; lo anterior solo sirve para la curva de temperatura. Sin esto, los 30 min quietos ocupaban la PSRAM con el magnetómetro y llevaban su mediana a ese punto, y el filtro descartaba el giro (falla del 5 nov, DEM 0101-0104). Los magnetómetros se leen en la segunda pasada, ya con el inicio de la guía conocido.
+   - **El calentamiento no es una posición:** un tramo quieto de 2 min o más seguido de posiciones de la guía. La guía empieza 20 s antes del final del último (`WARM_TAIL_S`): ese final cuenta como posición, porque la 1 (nariz arriba) suele hacerse sin mover el cohete después del calentamiento. Lo anterior solo sirve para la curva de temperatura. Sin ese final, DEM 0101 se quedaba con 5 posiciones (6 nov). Sin esto, los 30 min quietos ocupaban la PSRAM con el magnetómetro y llevaban su mediana a ese punto, y el filtro descartaba el giro (falla del 5 nov, DEM 0101-0104). Los magnetómetros se leen en la segunda pasada, ya con el inicio de la guía conocido.
 3. **Resumen:** dos paquetes `CAL_RES`, en lugar de TELEM:
    - mientras analiza, el progreso, una página cada 4 s;
    - con el resultado listo, las dos páginas alternadas;
