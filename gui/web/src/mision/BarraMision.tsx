@@ -122,7 +122,7 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
       {pagina.simulacion && (
         <div class="banner banner-info" role="status">
           <Info aria-hidden="true" />
-          <span>Simulación: así será el vuelo</span>
+          <span>{contenido.simulacion.banner}</span>
           {simulacionLocal.value && <BotonSalirSimulacion />}
         </div>
       )}

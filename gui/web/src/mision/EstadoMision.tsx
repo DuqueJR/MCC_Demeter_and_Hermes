@@ -113,7 +113,7 @@ function ListaObjetivos({ objetivos }: { objetivos: Objetivo[] }) {
 
 interface Props {
   mision: Mision;
-  /** La simulación de la misión (T-635); sin ella (Hermes) no hay botón. */
+  /** La simulación de la misión (T-635, T-637); sin ella no hay botón. */
   simulacion?: Simulacion;
 }
 

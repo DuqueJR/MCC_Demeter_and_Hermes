@@ -26,6 +26,12 @@ export const hermes: Contenido = {
   frase:
     "Hermes sube con un CanSat que mide el vuelo y lo cuenta por radio, en vivo, mientras el cohete se eleva.",
   motor: "G80-7T",
+  // Su guion es SINTÉTICO (T-637): no hay simulación del G80-7T (PEN-07, PEN-W04), así que no se
+  // dice "OpenRocket" ni "así será el vuelo", y no se da ninguna altura ni tiempo de Hermes.
+  simulacion: {
+    nota: "Mira cómo se verá esta página durante el vuelo, con un vuelo de ejemplo hecho con datos de muestra (sintéticos). No es un cálculo del motor G80-7T y no son datos reales: las alturas y los tiempos que verás no son los de Hermes.",
+    banner: "Simulación: vuelo de ejemplo con datos de muestra",
+  },
   parcheChico,
   parcheGrande,
   fotos: [

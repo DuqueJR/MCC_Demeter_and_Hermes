@@ -15,10 +15,7 @@ export function BotonSimulacion({ simulacion }: { simulacion: Simulacion }) {
   const cargando = fase === "cargando";
   return (
     <div class="sim-invitacion" data-sim={fase}>
-      <p class="sim-nota">
-        Mira cómo se verá esta página durante el vuelo, con un vuelo simulado de OpenRocket. No son
-        datos reales.
-      </p>
+      <p class="sim-nota">{simulacion.nota}</p>
       <button
         type="button"
         class="boton boton-principal sim-boton"

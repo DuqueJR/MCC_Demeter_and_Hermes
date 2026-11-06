@@ -9,7 +9,8 @@ import { SIMULACION_SIEMPRE_VISIBLE } from "../src/datos/parametros";
 
 // T-635: la simulación para el público, en un navegador de verdad.
 //   - En el servidor de desarrollo (:5174), con `?ejemplo=sin_transmision` (sin cliente de datos): el
-//     botón aparece en Deméter y NO en Hermes; al pulsarlo salen el banner, SIM y "Salir"; el reloj del
+//     botón aparece en Deméter y en Hermes (T-637, con SU texto: el de Hermes es un vuelo de ejemplo
+//     con datos sintéticos, no OpenRocket); al pulsarlo salen el banner, SIM y "Salir"; el reloj del
 //     navegador se adelanta para ver el vuelo; "Salir" devuelve el estado "Sin transmisión".
 //   - Contra el dist/ (:4173) y un relay de verdad (el repetidor, con un JSONL propio: un relay que
 //     solo manda latidos vacíos y, a los 8 s, el primer dato real): el guion NO se pide al cargar, se
@@ -21,7 +22,9 @@ const PUERTO_RELAY = 8791;
 const CAPTURAS = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-635");
 const CAPTURAS_636 = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-636");
 mkdirSync(CAPTURAS, { recursive: true });
+const CAPTURAS_637 = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-637");
 mkdirSync(CAPTURAS_636, { recursive: true });
+mkdirSync(CAPTURAS_637, { recursive: true });
 
 const MEDIDAS = [
   { ancho: 390, alto: 844 },
@@ -30,9 +33,13 @@ const MEDIDAS = [
 
 const BOTON = "Ver la simulación del vuelo";
 const TEXTO_BANNER = "Simulación: así será el vuelo";
+/** Hermes (T-637): su guion es sintético; el banner no promete "así será el vuelo". */
+const TEXTO_BANNER_HERMES = "Simulación: vuelo de ejemplo con datos de muestra";
+const NOTA_HERMES = /vuelo de ejemplo hecho con datos de muestra \(sintéticos\)/;
 const MS = 1000;
 /** Instante (s del guion) del despegue del escenario `nominal`: ver su JSONL. */
 const T_DESPEGUE_S = 18;
+// El guion sintético de Hermes despega a los 18,09 s: se reutiliza el mismo margen (T_DESPEGUE_S + 6).
 
 function vigilarErrores(page: Page): string[] {
   const errores: string[] = [];
@@ -110,14 +117,63 @@ test.describe("desarrollo (?ejemplo=sin_transmision)", () => {
     });
   }
 
-  test("Hermes no tiene simulación (PEN-07): el botón no aparece", async ({ page }) => {
-    const errores = vigilarErrores(page);
-    await page.goto(`${DEV}/hermes/?ejemplo=sin_transmision`);
-    await expect(page.locator(".estado-aviso")).toContainText("La transmisión en vivo empieza");
-    await expect(botonVer(page)).toHaveCount(0);
-    await expect(page.getByText("simulación", { exact: false })).toHaveCount(0);
-    expect(errores).toEqual([]);
-  });
+  for (const m of MEDIDAS) {
+    test(`Hermes ${m.ancho}x${m.alto} (T-637): botón con su texto honesto, simulación sintética, banner fijo y salir`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize({ width: m.ancho, height: m.alto });
+      await page.clock.install();
+      const errores = vigilarErrores(page);
+      await page.goto(`${DEV}/hermes/?ejemplo=sin_transmision`);
+
+      await expect(page.locator(".estado-aviso")).toContainText("La transmisión en vivo empieza");
+      await expect(botonVer(page)).toBeVisible();
+      // La nota dice qué es: datos de muestra, no OpenRocket ni un cálculo del G80-7T.
+      await expect(page.locator(".sim-nota")).toContainText(NOTA_HERMES);
+      await expect(page.locator(".sim-nota")).toContainText("No es un cálculo del motor G80-7T");
+      await expect(page.locator(".sim-nota")).not.toContainText("OpenRocket");
+      await expect(banner(page)).toHaveCount(0);
+      await expect(page.locator(".marca-sim")).toHaveCount(0);
+      await botonVer(page).scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: join(CAPTURAS_637, `hermes-sin-transmision-boton-${m.ancho}.png`),
+      });
+
+      await botonVer(page).click();
+      await expect(banner(page)).toContainText(TEXTO_BANNER_HERMES);
+      await expect(banner(page)).not.toContainText("así será");
+      await expect(page.locator(".marca-sim")).toHaveText("SIM");
+      await expect(botonSalir(page)).toBeVisible();
+      await expect(page.locator(".barra-fase")).toContainText("En la rampa");
+      await expect(botonVer(page)).toHaveCount(0);
+
+      await page.clock.runFor(2 * MS);
+      await page.clock.fastForward((T_DESPEGUE_S + 6) * MS);
+      await expect(page.locator(".barra-fase")).toContainText("Subiendo por inercia");
+      await expect(page.locator(".barra-t")).toContainText("T+");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(banner(page)).toBeInViewport();
+      await expect(page.locator(".marca-sim")).toBeInViewport();
+      expect(await sinDesborde(page)).toBe(true);
+      await page.screenshot({ path: join(CAPTURAS_637, `hermes-simulacion-vuelo-${m.ancho}.png`) });
+
+      await page.clock.fastForward(120 * MS);
+      await page.clock.runFor(2 * MS);
+      await expect(page.locator(".barra-fase")).toContainText("En tierra");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await expect(banner(page)).toContainText(TEXTO_BANNER_HERMES);
+
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await botonSalir(page).click();
+      await expect(banner(page)).toHaveCount(0);
+      await expect(page.locator(".marca-sim")).toHaveCount(0);
+      await expect(page.locator(".estado-aviso")).toContainText("La transmisión en vivo empieza");
+      await expect(botonVer(page)).toBeVisible();
+      expect(errores).toEqual([]);
+    });
+  }
 });
 
 // ---- Contra el dist/ y un relay (el repetidor) ----
@@ -227,14 +283,68 @@ test.describe("contra el dist/ y un relay", () => {
     expect(errores).toEqual([]);
   });
 
-  test("Hermes, sin transmisión, no ofrece simulación y no pide el guion", async ({ page }) => {
+  test("Hermes (T-637): el guion no se pide al cargar, se pide al pulsar, y es el de Hermes", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const errores = vigilarErrores(page);
     const pedidos: string[] = [];
     page.on("request", (r) => pedidos.push(r.url()));
+    const respuestas: string[] = [];
+    page.on("response", async (r) => {
+      if (r.url().includes("simulacion_nominal")) respuestas.push(await r.text());
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/hermes/");
     await expect(page.locator(".indicador")).toContainText("Sin transmisión");
     await expect(page.locator(".estado-aviso")).toContainText("La transmisión en vivo empieza");
-    await expect(botonVer(page)).toHaveCount(0);
-    expect(pedidos.filter((u) => u.includes("simulacion"))).toEqual([]);
+    await expect(botonVer(page)).toBeVisible();
+    expect(pedidos.filter((u) => u.includes("simulacion_nominal"))).toEqual([]);
+
+    const pedidoGuion = page.waitForRequest((r) => r.url().includes("simulacion_nominal"));
+    await botonVer(page).click();
+    await pedidoGuion;
+    await expect(banner(page)).toContainText(TEXTO_BANNER_HERMES);
+    await expect(page.locator(".marca-sim")).toHaveText("SIM");
+    await expect(page.locator(".barra-fase")).toContainText("En la rampa");
+    await page.screenshot({ path: join(CAPTURAS_637, "hermes-dist-simulacion-390.png") });
+    // Nunca el guion de la otra misión (D-W01).
+    expect(respuestas).toHaveLength(1);
+    expect(respuestas[0]).toContain('"mision":"hermes"');
+    expect(respuestas[0]?.toLowerCase()).not.toContain("demeter");
+
+    // El primer dato real del relay (a los 8 s) corta la simulación y vuelve lo real.
+    await expect(banner(page)).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.locator(".marca-sim")).toHaveCount(0);
+    await expect(page.locator(".indicador")).toContainText("EN VIVO");
+    expect(errores).toEqual([]);
+  });
+
+  test("Hermes: salir con el botón vuelve al estado en vivo del relay", async ({ page }) => {
+    const errores = vigilarErrores(page);
+    await page.goto("/hermes/");
+    await botonVer(page).click();
+    await expect(banner(page)).toContainText(TEXTO_BANNER_HERMES);
+    await botonSalir(page).click();
+    await expect(banner(page)).toHaveCount(0);
+    await expect(page.locator(".indicador")).toContainText("Sin transmisión");
+    await expect(botonVer(page)).toBeVisible();
+    expect(errores).toEqual([]);
+  });
+
+  test("Deméter no baja el guion de Hermes (cada misión, el suyo)", async ({ page }) => {
+    const respuestas: string[] = [];
+    page.on("response", async (r) => {
+      if (r.url().includes("simulacion_nominal")) respuestas.push(await r.text());
+    });
+    await page.goto("/demeter/");
+    const pedidoGuion = page.waitForRequest((r) => r.url().includes("simulacion_nominal"));
+    await botonVer(page).click();
+    await pedidoGuion;
+    await expect(banner(page)).toContainText(TEXTO_BANNER);
+    expect(respuestas).toHaveLength(1);
+    expect(respuestas[0]).toContain('"mision":"demeter"');
+    expect(respuestas[0]?.toLowerCase()).not.toContain("hermes");
   });
 });
 
@@ -335,16 +445,67 @@ test.describe("sin relay (dist/ estático, T-636)", () => {
     await page.screenshot({ path: join(CAPTURAS_636, "cargando-boton-390.png") });
   });
 
-  test("Hermes, sin relay: nunca hay botón ni se pide el guion", async ({ page }) => {
-    const pedidos: string[] = [];
-    page.on("request", (r) => pedidos.push(r.url()));
-    await page.clock.install();
-    await page.goto("/hermes/");
-    await page.clock.runFor(3 * MS);
-    await expect.poll(() => principal(page)).toBe("sin_servidor");
-    await expect(botonVer(page)).toHaveCount(0);
-    expect(pedidos.filter((u) => u.includes("simulacion"))).toEqual([]);
-  });
+  for (const m of MEDIDAS) {
+    test(`Hermes ${m.ancho}x${m.alto} (T-637), sin /api: botón en 'Sin servidor', simula y vuelve`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize({ width: m.ancho, height: m.alto });
+      await page.clock.install();
+      const errores: string[] = [];
+      page.on("pageerror", (e) => errores.push(e.message));
+      const pedidos: string[] = [];
+      page.on("request", (r) => pedidos.push(r.url()));
+      await page.goto("/hermes/");
+      await page.clock.runFor(3 * MS);
+      await expect.poll(() => principal(page)).toBe("sin_servidor");
+      await expect(page.locator(".indicador")).toContainText("Sin servidor");
+
+      if (!SIMULACION_SIEMPRE_VISIBLE) {
+        await expect(botonVer(page)).toHaveCount(0); // T-635: solo en 'Sin transmisión'
+        expect(pedidos.filter((u) => u.includes("simulacion"))).toEqual([]);
+        return;
+      }
+      // Sin pulsar, el guion no se pide.
+      expect(pedidos.filter((u) => u.includes("simulacion_nominal"))).toEqual([]);
+      await expect(page.locator(".sim-nota")).toContainText(NOTA_HERMES);
+      await botonVer(page).scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: join(CAPTURAS_637, `hermes-sin-servidor-boton-${m.ancho}.png`),
+      });
+
+      const pedidoGuion = page.waitForRequest((r) => r.url().includes("simulacion_nominal"));
+      await botonVer(page).click();
+      await pedidoGuion;
+      await expect(banner(page)).toContainText(TEXTO_BANNER_HERMES);
+      await expect(page.locator(".marca-sim")).toHaveText("SIM");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await expect(page.locator(".indicador")).not.toContainText("EN VIVO");
+      await expect(page.locator(".barra-fase")).toContainText("En la rampa");
+      await expect(botonVer(page)).toHaveCount(0);
+
+      await page.clock.runFor(2 * MS);
+      await page.clock.fastForward((T_DESPEGUE_S + 6) * MS);
+      await expect(page.locator(".barra-fase")).toContainText("Subiendo por inercia");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await page.screenshot({
+        path: join(CAPTURAS_637, `hermes-sin-servidor-vuelo-${m.ancho}.png`),
+      });
+      await page.clock.fastForward(120 * MS);
+      await page.clock.runFor(2 * MS);
+      await expect(page.locator(".barra-fase")).toContainText("En tierra");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      expect(await sinDesborde(page)).toBe(true);
+
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await botonSalir(page).click();
+      await expect(banner(page)).toHaveCount(0);
+      await expect(page.locator(".marca-sim")).toHaveCount(0);
+      await expect(page.locator(".indicador")).not.toContainText("SIMULACIÓN");
+      await expect(botonVer(page)).toBeVisible();
+      expect(errores).toEqual([]);
+    });
+  }
 });
 
 // Con datos reales el botón no sale aunque el servidor se caiga (D-W18): se ve en el servidor de
