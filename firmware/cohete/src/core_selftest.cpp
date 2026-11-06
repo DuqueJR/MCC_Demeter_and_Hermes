@@ -20,6 +20,7 @@
 #include "ext_pi.h"
 #include "amb_temp.h"
 #include "cal_onboard.h"
+#include "ekf_task.h"
 #include "pi_plan.h"
 #include <fw_build.h>
 
@@ -42,6 +43,7 @@ void coreSelftestBegin() {
     ambBegin();                    // temperatura del suelo: antes de la mision, que la usa para la altura
     calBegin(ROCKET_ID);           // calibracion activa en NVS (D-059)
     missionBegin(ROCKET_ID);
+    ekfBegin();                    // EKF a bordo (D-060): usa la calibracion activa y la mision
     piBegin(ROCKET_ID);            // UART con la Pi (solo Demeter)
     netBegin(ROCKET_ID, MISSION_ID);
 }
@@ -154,6 +156,26 @@ void coreSelftestReport() {
         const calblob::Calibracion &ca = calActiva();
         Serial.printf("[cal ] activa=%08lX (%s) | analisis: %s %s archivo=%s\n", (unsigned long)(ca.lsm.ok ? ca.crc : 0),
                       ca.ok ? "completa" : (ca.lsm.ok ? "parcial" : "ninguna"), CE[calEstado() & 7], calAnalizando() ? "..." : "", calArchivo()[0] ? calArchivo() : "-");
+    }
+    {
+        static const char *const FASE[6] = {"reposo", "boost", "coast", "eyeccion", "paracaidas", "aterrizaje"};
+        const EkfStats es = ekfStats();
+        EkfOut e;
+        const bool hay = g_ekf.get(e);
+        if (!hay || !e.listo) Serial.printf("[ekf ] buscando reposo (1.5 s quieto) | calibrado=%d lsm=%lu qmi=%lu perdidas=%lu/%lu\n", es.calibrado,
+                                             (unsigned long)es.lsmIn, (unsigned long)es.qmiIn, (unsigned long)es.lsmDrop, (unsigned long)es.qmiDrop);
+        else {
+            // guinada, cabeceo y alabeo solo para leer en el monitor (con el cohete vertical la guinada no tiene sentido: ver el cuaternion)
+            const float w = e.q[0], x = e.q[1], y = e.q[2], z = e.q[3];
+            const float c00 = 1 - 2 * (y * y + z * z), c10 = 2 * (x * y + w * z), c20 = 2 * (x * z - w * y), c21 = 2 * (y * z + w * x), c22 = 1 - 2 * (x * x + y * y);
+            const float R2D = 57.29578f;
+            Serial.printf("[ekf ] %s fase=%s q=[%.3f %.3f %.3f %.3f] gui=%.1f cab=%.1f ala=%.1f sd=%.2f grados | alt=%.2f m v=[%.2f %.2f %.2f] %s | "
+                          "gnss=%lu baro=%lu mag=%lu grav=%lu rech=%lu | ciclo_max=%lu us perdidas=%lu/%lu reinicios=%lu\n",
+                          e.calibrado ? "calibrado" : "SIN CALIBRAR", FASE[e.fase % 6], w, x, y, z, atan2f(c10, c00) * R2D, asinf(-c20) * R2D, atan2f(c21, c22) * R2D,
+                          e.sd_att_deg, e.alt_agl, e.v[0], e.v[1], e.v[2], e.hayOrigen ? "con origen GNSS" : "sin origen GNSS",
+                          (unsigned long)es.gnss, (unsigned long)es.baro, (unsigned long)es.mag, (unsigned long)es.grav, (unsigned long)es.rech,
+                          (unsigned long)es.cicloMaxUs, (unsigned long)es.lsmDrop, (unsigned long)es.qmiDrop, (unsigned long)es.reinicios);
+        }
     }
     {
         const AmbInfo am = ambInfo();

@@ -139,8 +139,14 @@ def compilar_mision():
     cmd = ["g++", "-std=gnu++11", "-O1", "-Wall", "-Wextra"] + inc + ["-o", str(BUILD / "prueba_amb"), str(AQUI / "prueba_amb.cpp")]
     print("$", " ".join(cmd))
     subprocess.run(cmd, check=True)
+    # D-060: el EKF a bordo sobre logs (comparar_ekf.py, vuelo_sintetico.py --cpp), en float como en el cohete y en double
+    sin_stubs = ["-I" + str(src), "-I" + str(src.parent.parent / "common" / "net_proto")]
+    for nombre, extra in (("prueba_ekf", []), ("prueba_ekf_d", ["-DEKF_REAL=double"])):
+        cmd = ["g++", "-std=gnu++11", "-O2", "-Wall", "-Wextra"] + extra + sin_stubs + ["-o", str(BUILD / nombre), str(AQUI / "prueba_ekf.cpp"), str(src / "ekf_core.cpp")]
+        print("$", " ".join(cmd))
+        subprocess.run(cmd, check=True)
     sintaxis = []
-    for f in ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "ext_pi.cpp", "amb_temp.cpp", "cal_onboard.cpp", "cal_core.cpp"):
+    for f in ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "ext_pi.cpp", "amb_temp.cpp", "cal_onboard.cpp", "cal_core.cpp", "ekf_core.cpp", "ekf_task.cpp"):
         sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + [str(src / f)], capture_output=True, text=True))
     sintaxis.append(subprocess.run(["g++", "-std=gnu++11", "-fsyntax-only", "-Wall", "-Wextra"] + inc + ["-I" + str(tierra), str(tierra / "gnd_cmd.cpp")], capture_output=True, text=True))
     # Estos incluyen LoRaBoards.h (el de la placa, con Wire.h y XPowersLib): se revisan desde una copia en build/ para que gane el stub
@@ -333,7 +339,7 @@ def main():
         print(r.stdout)
     nr = (AQUI.parent.parent / "src" / "net_radio.cpp").read_text()
     anotar("net_radio.cpp: TELEM.actuators sale de extActBits() (revision de texto: la radio no corre en el PC)", "p.actuators = (uint16_t)(extActBits()" in nr and '#include "ext_act.h"' in nr, "buildTelem asigna p.actuators")
-    nombres = ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "ext_pi.cpp", "amb_temp.cpp", "cal_onboard.cpp", "cal_core.cpp", "tierra/gnd_cmd.cpp", "in_imu.cpp", "core_sleep.cpp", "net_radio.cpp", "core_selftest.cpp")
+    nombres = ("boost_detect.cpp", "mission.cpp", "ext_lsm.cpp", "ext_act.cpp", "ext_pi.cpp", "amb_temp.cpp", "cal_onboard.cpp", "cal_core.cpp", "ekf_core.cpp", "ekf_task.cpp", "tierra/gnd_cmd.cpp", "in_imu.cpp", "core_sleep.cpp", "net_radio.cpp", "core_selftest.cpp")
     for nombre, r in zip(nombres, sintaxis):
         anotar("g++ -std=gnu++11 -fsyntax-only %s (con stubs)" % nombre, r.returncode == 0 and "warning" not in r.stderr, r.stderr.strip()[:200] or "sin errores ni avisos")
 

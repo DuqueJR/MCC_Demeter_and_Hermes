@@ -16,7 +16,7 @@ static const uint16_t HDR_SIZE = 14;
 static const uint16_t CRC_SIZE = 2;
 static const uint16_t MAX_LEN  = 512;
 
-enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_PI = 13, T_AMB = 14, T_CAL = 15, T_EVENT = 250 };
+enum Type : uint8_t { T_PVT = 1, T_PPS = 2, T_LINK = 3, T_HEARTBEAT = 4, T_FILEHDR = 5, T_IMU = 6, T_MAG = 7, T_BAR = 8, T_BARCAL = 9, T_EXT_LSM = 10, T_EXT_MMC = 11, T_MISSION = 12, T_PI = 13, T_AMB = 14, T_CAL = 15, T_EKF = 16, T_EVENT = 250 };
 enum Src  : uint8_t { S_IN_IMU = 0, S_IN_MAG = 1, S_IN_BAR = 2, S_IN_GNSS = 3, S_IN_RTC = 4, S_IN_PMU = 5,
                       S_EX_IMU = 6, S_EX_BAR = 7, S_EX_MAG = 8, S_SYS = 15 };
 
@@ -60,6 +60,12 @@ struct AmbRec { float t_bmp; float t_bme; float t_usada; float pend_bmp; float p
 // payload de T_CAL: calibracion a bordo (cal_onboard, D-059). evento 1 resultado listo, 2 aplicada por radio, 3 aplicada por USB,
 //   4 vuelta a la anterior, 5 copia al empezar a registrar, 6 error del analisis. crc_activo = la calibracion en uso desde ese momento.
 struct CalRec { uint32_t crc_activo; uint32_t crc_resultado; uint32_t avisos; uint8_t evento; uint8_t estado; uint8_t n_pos; uint8_t ok; };
+// payload de T_EKF: estado del EKF a bordo (ekf_task, D-060) a 50 Hz; t_us de la cabecera = instante del estado (el filtro va ~300 ms
+//   atrasado: es su mejor estimacion). q cuerpo FRD -> NED (Hamilton); p NED (m) desde el origen; v NED (m/s); bg (dps), ba (g), sg (fraccion);
+//   b_bmp (m); sd_* 1 sigma (grados, m, m/s); origen (lat0, lon0 en grados, h0 MSL en m). flags: bit0 listo, bit1 hay origen, bit2 calibrado.
+struct EkfRec { float q[4], p[3], v[3], bg[3], ba[3], sg[3], b_bmp, alt_baro, sd_th[3], sd_p[3], sd_v[3];
+                double lat0, lon0; float h0; uint8_t fase, flags; uint16_t gnss_ok, baro_ok, mag_ok, grav_ok, rechazos; };
+static_assert(sizeof(EkfRec) == 152, "EkfRec mide 152 B: tblog.EKF_FMT");
 // payload de T_LINK: un evento de radio; t_us de la cabecera = fin de TX o RX. slot 0xFF = fuera de ranuras (baliza lenta).
 struct LinkRec { uint8_t dir; uint8_t slot; uint8_t len; uint8_t pad; int16_t rssi_x10; int16_t snr_x10; int32_t late_us; uint32_t air_us; };
 enum LinkDir : uint8_t { LD_TX = 0, LD_RX = 1 };
