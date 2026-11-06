@@ -143,15 +143,19 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
 - **Reinicio:** tras `reiniciar`, la placa vuelve a conectarse y el EKF retoma.
 - **Ciclo:** `ciclo_prom` de 1,6 ms, `max` de 7,3 ms y unos 230 ciclos lentos (>5 ms) en 40 min. `perdidas=0/0`.
 - **BOOST sin armar:** a las 21:48 (sesión de tierra `20261105_201037`) el cohete pasó solo de TIERRA a FLY/BOOST con `TF_BOOST_SIN_ARMAR`.
-  - En la TELEM de ese instante el cohete giraba a cientos de °/s y hubo un pico de unos 17 g, porque se manipulaba a mano.
-  - La detección hizo lo que debe (§6): sumó dv = 5 m/s.
+  - TELEM de ese instante (`@T` a 10 Hz): antes, |a| de 0,8 a 1,2 g y giros de hasta 124 °/s (manipulación a mano). Luego una sola muestra con |a| = 17,1 g y 781 °/s, unos 0,4 s girando a 290-720 °/s y el cohete quieto en otra orientación (unos 45° distinta).
+  - Es la firma de un golpe o una caída corta, no de un movimiento de la mano: la mano no llega a 17 g. Pablo duda de que la mano llegue a 17 g.
+  - La detección hizo lo que dice §6: integra |a| − 1 g mientras |a| > 2 g, y en un impacto la vibración del fuselaje queda por encima de 2 g en módulo, aunque cambie de signo. Unas decenas de milisegundos a ~15 g bastan para 5 m/s.
+  - No hay registro del instante: el cohete no registraba, y los `T_MISSION` guardados van al archivo siguiente, que no se bajó. Por eso no se sabe si lo dio el LSM o el QMI ni el dv exacto.
   - El EKF y los cambios de este PR no la tocan.
   - **Defecto:** la bandera no se borraba con "estado tierra". Un FLY forzado posterior la volvía a guardar en NVS, así que seguía después de cada reinicio. El dashboard mostraba "BOOST sin armar" aunque el cohete ya estuviera en TIERRA.
   - **Corregido** (rama `fix/boost-sin-armar-y-cal`): el paso a TIERRA borra `TF_BOOST_SIN_ARMAR`, como ya hacía con `TF_FORZADO` y `TF_REANUDADO`. Está en `maquina_estados.md` §6 y en `prueba_mision` (escenario `tierra`).
 - **Calibración:** "nombre de archivo invalido" al escribir `DEM_M00_20261105_143219_0101` sin `.BIN`. El dashboard ahora agrega la extensión y acepta `.bin` en minúsculas.
+- **Campo del archivo de calibración:** no se podía escribir. Con el resumen de la calibración a bordo llegando por radio, la sección se reescribía cada segundo ("hace N s") y el clic caía en un campo que ya no existía. Ahora el campo y el selector de cohete están fuera de lo que se reescribe. Probado en el modo demo del dashboard, reescribiendo cada 300 ms mientras se escribe.
 
 ## Pendiente
 
 - La memoria real en la ESP32-S3.
 - Ver `arranque=foto_RTC` tras un reinicio en FLY forzado.
+- Decidir si BOOST exige |a| > 2 g sostenido unos 30-50 ms, para que un golpe en TIERRA no lo dispare (el motor da más de 1,8 s seguidos).
 - Usar el EKF en la detección de momentos (apogeo, aterrizaje). Hoy la misión no lo lee: el EKF lee la misión, como en `ekf.py`.

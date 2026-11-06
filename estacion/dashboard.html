@@ -93,7 +93,7 @@ function build(){
    :`<div class="fill"><p class="note" style="margin:0 0 4px">Pagina de mision (la misma de la web publica), con los datos de este dashboard. <a href="/web/${r}/" target="_blank">Abrir en una pestana nueva</a></p><iframe class="web" src="/web/${r}/" title="Vuelo ${r}"></iframe></div>`}
  if(tab=='EKF') window.ekfBuild(m);
  if(tab=='Mision') buildMission();
- if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calm"></div><pre id="calo"></pre></div>';lastCal='';calRender()}
+ if(tab=='Calibracion'){m.innerHTML='<div class="box fill"><div id="calsel"></div><div id="calm"></div><p class="note" id="calx">Si ya hiciste la captura: conecta el USB, escribe el primer archivo de la captura (lo da Listar, en Descargas; los que siguen el mismo registro se bajan solos) <input id="calname" class="wide" placeholder="DEM_M00_..._0091.BIN"> <button onclick="calExisting()">Bajar y analizar</button></p><pre id="calo"></pre></div>';lastCal='';lastSel='';calRender()}   // calsel y calx no se reescriben cada segundo: asi se puede escribir y escoger
  $('dr')&&($('dr').value=dlArgs.role);
  render();
 }
@@ -118,7 +118,7 @@ async function buildMission(){
 // Guia de calibracion. El analisis reconoce las posiciones por orden de aparicion en el log.
 const POSE_TXT=['Nariz hacia ARRIBA, vertical','Nariz hacia ABAJO, vertical','Horizontal, con la MARCA hacia arriba','Horizontal, con la MARCA hacia abajo','Horizontal, con el costado DERECHO hacia arriba (derecho: mirando de la cola a la nariz con la marca arriba)','Horizontal, con el costado IZQUIERDO hacia arriba'];
 const HOLD_S=8,SPIN_S=120,STILL_MG=80,WARM_S=1800,WARM_PI_S=300;   // curva de calentamiento (D-058): 30 min en frio, la Pi a los 5 min
-let lastCal='',cal={role:'demeter',step:0,name:'',holdT:0,win:[],spinT:0,sent:false,moved:false,warm:true,warmT:0};
+let lastCal='',lastSel='',cal={role:'demeter',step:0,name:'',holdT:0,win:[],spinT:0,sent:false,moved:false,warm:true,warmT:0};
 const calR=()=>ROCKETS.find(r=>r[0]==cal.role);
 const calView=()=>S.rockets[ROCKETS.findIndex(r=>r[0]==cal.role)];
 window.calSet=o=>{Object.assign(cal,o);lastCal='';calRender()};
@@ -165,7 +165,7 @@ function calRender(){
  const [r,,n]=calR(),v=calView(),now=Date.now()/1000,c=S.calib[r];let h='';
  const bordo=calBordo(r,calR()[1],n,v.cal);
  const sel=`<p>Cohete <select ${cal.step?'disabled':''} onchange="calSet({role:this.value})">${ROCKETS.map(([x,,y])=>`<option value="${x}" ${x==r?'selected':''}>${y}</option>`).join('')}</select> &nbsp; Calibracion vigente: ${c.vigente?'si':'no'} &nbsp; Paso ${Math.min(cal.step,10)} de 10</p>`;
- if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion.</p><p><label><input type="checkbox" style="width:auto" ${cal.warm?'checked':''} onchange="cal.warm=this.checked"> Empezar con la <b>curva de calentamiento</b> (30 min quieto; la placa debe venir <b>en frio</b>: apagada o dormida al menos 30 min, y empezar el registro apenas encienda)</label></p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}<p class="note">Si ya hiciste la captura: conecta el USB, escribe el primer archivo de la captura (lo da Listar, en Descargas; los que siguen el mismo registro se bajan solos) <input id="calname" class="wide" placeholder="DEM_M00_..._0091.BIN" value="${esc(cal.typed||'')}" oninput="cal.typed=this.value"> <button onclick="calExisting()">Bajar y analizar</button></p>`;
+ if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion.</p><p><label><input type="checkbox" style="width:auto" ${cal.warm?'checked':''} onchange="cal.warm=this.checked"> Empezar con la <b>curva de calentamiento</b> (30 min quieto; la placa debe venir <b>en frio</b>: apagada o dormida al menos 30 min, y empezar el registro apenas encienda)</label></p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}`;
  else if(cal.step==0.5){const left=Math.max(0,Math.ceil(WARM_S-(now-cal.warmT))),pi=now-cal.warmT>=WARM_PI_S;
   h=`<p>Registrando en ${esc(cal.name)}</p><h3>Curva de calentamiento</h3><p style="font-size:20px">Deja ${n} quieto y cerrado: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')} min</p>`+(r=='demeter'?`<p>${pi?'<b>Enciende la Pi ahora</b> (Mando: pi encender), si no esta encendida.':'La Pi se enciende a los 5 min, para medir cuanto calienta.'}</p>`:'')+`<p>calib.py ajusta la curva del BMP581 y del BME280: con ella se fijan los umbrales de la temperatura del suelo.</p><button onclick="calSet({step:1})">Saltar al resto de la calibracion</button>`}
  else if(cal.step<=6){const left=cal.holdT?Math.max(0,Math.ceil(HOLD_S-(now-cal.holdT))):HOLD_S;
@@ -175,11 +175,10 @@ function calRender(){
  else if(cal.step==9)h=`<p>Conecta el <b>USB</b> de ${n} y espera a que Windows lo reconozca. El registro empieza en ${esc(cal.name)}; si siguio en otros archivos, se bajan todos.</p><button onclick="calRun()">Bajar y analizar</button>`;
  else if(cal.step==10)h=S.job.running?`<p>${jobPhase()}</p>`:S.job.rc?`<p class="alert">No se pudo bajar o analizar ${esc(cal.name)}. La captura sigue en la SD del cohete.</p><button onclick="calRun()">Reintentar</button> <button onclick="if(confirm('Descartar esta captura y empezar otra?'))calSet({step:0,name:''})">Hacer otra captura</button>`:`<p>Revisa el resultado abajo.</p><button ${c.nuevo?'':'disabled'} onclick="calAccept()">Aceptar</button> <button onclick="calSet({step:0,name:''})">Repetir</button>`;
  else h=`<p>Calibracion guardada en calib_${r}.json. Aun no viaja al cohete: la usara el EKF.</p><button onclick="calSet({step:0,name:''})">Otra calibracion</button>`;
- h=sel+bordo+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
- if(h!=lastCal){   // se reescribe cada segundo (la edad del resumen): el campo de texto conserva lo escrito, el foco y el cursor
-  const a=document.activeElement,f=a&&a.id=='calname'?[a.selectionStart,a.selectionEnd]:null;
-  lastCal=h;el.innerHTML=h;
-  if(f){const i=$('calname');if(i){i.focus();i.setSelectionRange(f[0],f[1])}}}
+ const se=$('calsel');if(se&&sel!=lastSel&&document.activeElement!=se.querySelector('select')){lastSel=sel;se.innerHTML=sel}
+ const cx=$('calx');if(cx)cx.style.display=cal.step==0?'':'none';
+ h=bordo+h+(cal.step&&cal.step<10?' <p><button onclick="if(confirm(\'Abandonar la guia? Si esta registrando, sigue hasta que fuerces tierra\'))calSet({step:0,name:\'\',holdT:0,spinT:0,sent:false})">Abandonar</button></p>':'');
+ if(h!=lastCal){lastCal=h;el.innerHTML=h}   // se reescribe cada segundo (la edad del resumen): por eso el campo de texto y el selector van fuera
  const o=$('calo');if(o&&cal.step<10&&o.textContent)o.textContent='';if(o&&cal.step>=10){const txt=S.job.lines.map(l=>l.replace(/^~/,'')).join('\n');if(o.textContent!=txt){o.textContent=txt;o.scrollTop=o.scrollHeight}}
 }
 
