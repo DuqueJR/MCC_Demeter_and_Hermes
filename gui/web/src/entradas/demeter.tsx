@@ -4,8 +4,8 @@ import "../tema/demeter.css";
 import "../mision/mision.css";
 import { render } from "preact";
 // La simulación de Deméter (T-635, `?url`): el archivo sale a `dist/assets/` y se descarga SOLO al
-// pulsar "Ver la simulación del vuelo"; no entra al paquete inicial de la página. Hermes no tiene
-// simulación del G80-7T (PEN-07), así que su entrada no la importa y no muestra el botón.
+// pulsar "Ver la simulación del vuelo"; no entra al paquete inicial de la página. Cada misión
+// importa solo el suyo (D-W01); el de Hermes es otro archivo y otra entrada (T-637).
 import guionDeSimulacion from "../assets/demeter/simulacion_nominal.json?url";
 import { demeter } from "../contenido/demeter";
 import { arrancarDatos } from "../mision/arranque";
@@ -13,7 +13,10 @@ import { Hueco } from "../mision/Hueco";
 import { Pagina } from "../mision/Pagina";
 import { descargarGuion } from "../simulacion/guion";
 
-const simulacion = { cargar: () => descargarGuion(guionDeSimulacion) };
+const simulacion = {
+  nota: demeter.simulacion.nota,
+  cargar: () => descargarGuion(guionDeSimulacion),
+};
 
 const raiz = document.getElementById("app");
 if (raiz) {

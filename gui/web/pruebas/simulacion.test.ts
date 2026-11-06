@@ -5,10 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   COLA_TRAS_ATERRIZAJE_MS,
   generarTexto,
+  MISIONES,
   PRESUPUESTO_BYTES,
   RUTA_DESTINO,
   RUTA_ORIGEN,
+  rutasDe,
 } from "../scripts/generar-simulacion.mjs";
+import { demeter } from "../src/contenido/demeter";
+import { hermes } from "../src/contenido/hermes";
 import {
   backfillEjemplo,
   estacionEjemplo,
@@ -106,6 +110,103 @@ describe("el guion versionado", () => {
       if (l.evento === "estado" && !primeros.has(l.datos.fase)) primeros.set(l.datos.fase, 1);
     }
     expect(primeros.size).toBe(7);
+  });
+});
+
+// T-637: Hermes tiene su propio guion, SINTÉTICO (no es un cálculo del G80-7T: PEN-07, PEN-W04).
+describe("el guion de Hermes (sintético, T-637)", () => {
+  const rutas = rutasDe("hermes");
+  const textoHermes = readFileSync(rutas.destino, "utf8");
+  const guionHermes = JSON.parse(textoHermes) as Guion;
+
+  it("las misiones con guion son Deméter y Hermes", () => {
+    expect([...MISIONES].sort()).toEqual(["demeter", "hermes"]);
+  });
+
+  it("coincide con lo que genera el script y es determinista (dos corridas, mismos bytes)", () => {
+    const origen = readFileSync(rutas.origen, "utf8");
+    expect(generarTexto(origen, "hermes")).toBe(generarTexto(origen, "hermes"));
+    expect(textoHermes).toBe(generarTexto(origen, "hermes"));
+  });
+
+  it("pesa unos cientos de KB como máximo", () => {
+    expect(Buffer.byteLength(textoHermes)).toBeLessThanOrEqual(PRESUPUESTO_BYTES);
+  });
+
+  it("es un guion válido, de Hermes, con TODOS sus meta en modo simulación (el origen es sintético)", () => {
+    expect(esGuion(guionHermes)).toBe(true);
+    expect(guionHermes.mision).toBe("hermes");
+    expect(readFileSync(rutas.origen, "utf8")).toContain('"modo":"sintetico"');
+    const metas = guionHermes.lineas.filter((l) => l.evento === "meta");
+    expect(metas.length).toBeGreaterThan(0);
+    for (const m of metas) {
+      if (m.evento === "meta") {
+        expect(m.datos.modo).toBe("simulacion");
+        expect(m.datos.mision).toBe("hermes");
+      }
+    }
+    expect(textoHermes).not.toContain('"sintetico"');
+    // El aislamiento (D-W01): nada de Deméter dentro del archivo de Hermes.
+    expect(textoHermes.toLowerCase()).not.toContain("demeter");
+  });
+
+  it("trae el vuelo completo, de la rampa al aterrizaje, y se queda en LANDED", () => {
+    const eventos = guionHermes.lineas.flatMap((l) => (l.evento === "evento" ? [l.datos] : []));
+    const tipos = eventos.map((e) => e.tipo);
+    for (const t of ["despegue", "fin_combustion", "eyeccion", "apogeo", "aterrizaje"]) {
+      expect(tipos).toContain(t);
+    }
+    const fases = guionHermes.lineas.flatMap((l) => (l.evento === "estado" ? [l.datos.fase] : []));
+    expect(new Set(fases)).toEqual(
+      new Set(["PREFLIGHT", "ARMED", "BOOST", "COAST", "APOGEE", "DESCENT", "LANDED"]),
+    );
+    const aterrizaje = guionHermes.lineas.find(
+      (l) => l.evento === "evento" && l.datos.tipo === "aterrizaje",
+    );
+    expect(guionHermes.duracion_ms).toBeLessThanOrEqual(
+      (aterrizaje?.t_rel_ms ?? Number.NaN) + COLA_TRAS_ATERRIZAJE_MS,
+    );
+  });
+
+  it("el script se niega a mezclar misiones: el JSONL de una no genera el guion de la otra", () => {
+    expect(() => generarTexto(readFileSync(rutas.origen, "utf8"), "demeter")).toThrow(
+      /no se mezclan/,
+    );
+    expect(() => generarTexto(readFileSync(RUTA_ORIGEN, "utf8"), "hermes")).toThrow(
+      /no se mezclan/,
+    );
+    expect(() => rutasDe("otra")).toThrow(/desconocida/);
+  });
+
+  it("el guion no cambia el de Deméter: sigue siendo de OpenRocket", () => {
+    expect(guionReal.mision).toBe("demeter");
+    expect(textoGuion).toBe(generarTexto(readFileSync(RUTA_ORIGEN, "utf8"), "demeter"));
+  });
+});
+
+describe("los textos de la simulación por misión (T-637)", () => {
+  it("Deméter sigue diciendo OpenRocket y 'así será el vuelo'", () => {
+    expect(demeter.simulacion.nota).toContain("OpenRocket");
+    expect(demeter.simulacion.banner).toBe("Simulación: así será el vuelo");
+  });
+
+  it("Hermes NO dice OpenRocket ni 'así será': dice que es un vuelo de ejemplo con datos de muestra", () => {
+    const { nota, banner } = hermes.simulacion;
+    expect(nota).not.toMatch(/openrocket/i);
+    expect(banner).not.toMatch(/así será/i);
+    expect(nota).toMatch(/ejemplo/i);
+    expect(nota).toMatch(/sintétic/i);
+    expect(nota).toContain("G80-7T");
+    expect(nota).toMatch(/no es un cálculo del motor/i);
+    expect(nota).toMatch(/no son datos reales/i);
+    expect(banner).toMatch(/^Simulación:/);
+    expect(banner).toMatch(/ejemplo/i);
+  });
+
+  it("los textos de Hermes no inventan cifras (altura, tiempos): ni un solo dígito aparte del motor", () => {
+    const sinMotor = (t: string) => t.replace("G80-7T", "");
+    expect(sinMotor(hermes.simulacion.nota)).not.toMatch(/\d/);
+    expect(sinMotor(hermes.simulacion.banner)).not.toMatch(/\d/);
   });
 });
 

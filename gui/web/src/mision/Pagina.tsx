@@ -22,7 +22,7 @@ interface Props {
   contenido: Contenido;
   /** Sección exclusiva de una misión (por ejemplo, Los ojos de Deméter). */
   extra?: ComponentChildren;
-  /** La simulación del vuelo de esta misión (T-635). Hermes no la tiene (PEN-07): sin ella no hay botón. */
+  /** La simulación del vuelo de esta misión (T-635, T-637); sin ella no hay botón. */
   simulacion?: Simulacion;
 }
 

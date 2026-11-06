@@ -1,7 +1,7 @@
 // El guion de la simulación para el público (T-635): los mensajes del contrato `web-1` de un vuelo
 // simulado, con el instante `t_rel_ms` en que los emitiría el relay. Lo genera
-// `scripts/generar-simulacion.mjs` desde el JSONL `nominal` de OpenRocket y se descarga SOLO al
-// pulsar "Ver la simulación del vuelo" (no está en el paquete inicial de la página).
+// `scripts/generar-simulacion.mjs` desde el JSONL `nominal` de la misión (el de Deméter es de
+// OpenRocket; el de Hermes es sintético, T-637) y se descarga SOLO al pulsar "Ver la simulación del vuelo" (no está en el paquete inicial de la página).
 import { type LineaJsonl, TIPOS_MENSAJE } from "../contrato/tipos";
 
 /** Debe decir lo mismo que `FORMATO_SIMULACION` de `scripts/generar-simulacion.mjs`. */
@@ -16,8 +16,10 @@ export interface Guion {
   lineas: LineaJsonl[];
 }
 
-/** Lo que una misión entrega a la página para ofrecer su simulación; sin él, no hay botón (Hermes). */
+/** Lo que una misión entrega a la página para ofrecer su simulación; sin él, no hay botón. */
 export interface Simulacion {
+  /** El aviso junto al botón: de dónde salen los datos (`contenido.simulacion.nota`). */
+  nota: string;
   /** Descarga y valida el guion. Se llama solo al pulsar el botón. */
   cargar: () => Promise<Guion>;
 }

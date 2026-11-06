@@ -28,6 +28,11 @@ export const demeter: Contenido = {
   frase:
     "Deméter sube con dos cámaras a bordo que graban el vuelo, mientras su CanSat cuenta por radio, en vivo, cómo va.",
   motor: "H135W-8",
+  // Su guion sale de la simulación de OpenRocket (perfiles_vuelo.md §1).
+  simulacion: {
+    nota: "Mira cómo se verá esta página durante el vuelo, con un vuelo simulado de OpenRocket. No son datos reales.",
+    banner: "Simulación: así será el vuelo",
+  },
   parcheChico,
   parcheGrande,
   fotos: [

@@ -29,6 +29,17 @@ export interface Integrante {
   rol: string | null;
 }
 
+/**
+ * Lo que la página dice de su simulación (T-635, T-637). Es texto de la misión porque NO es igual:
+ * la de Deméter sale de OpenRocket y la de Hermes es un vuelo de ejemplo con datos sintéticos.
+ */
+export interface TextoSimulacion {
+  /** Aviso junto al botón "Ver la simulación del vuelo": de dónde salen los datos y que no son reales. */
+  nota: string;
+  /** Texto del banner fijo mientras corre la simulación (siempre empieza con "Simulación:"). */
+  banner: string;
+}
+
 export interface Contenido {
   mision: Mision;
   nombre: string;
@@ -37,6 +48,8 @@ export interface Contenido {
   frase: string;
   /** Según `MOTORES` de constantes.md. */
   motor: string;
+  /** Los textos de la simulación para el público (botón y banner). */
+  simulacion: TextoSimulacion;
   /** Parche pequeño (barra de misión) y grande (Equipo). */
   parcheChico: string;
   parcheGrande: string;
