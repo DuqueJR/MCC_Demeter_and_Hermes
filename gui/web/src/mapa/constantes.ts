@@ -48,6 +48,18 @@ export const MAPA_RELLENO_PX = 72;
 export const MAPA_MARGEN_CARGA_PX = 200;
 /** Ruta del PMTiles propio, relativa a `BASE_URL`. Puede reemplazarse con `VITE_MAPA_PMTILES_URL`. */
 export const MAPA_PMTILES_RUTA = "mapas/santa_fe.pmtiles";
+/**
+ * Tamaño máximo del PMTiles que se descarga completo (T-638). La meta del archivo es < 30 MB
+ * (README del módulo): uno más grande no se baja entero en un celular; se descarta y el mapa usa
+ * la cuadrícula de respaldo.
+ */
+export const MAPA_PMTILES_MAX_BYTES = 30 * 1024 * 1024;
+/** Cuántas veces se reintenta la descarga del PMTiles si falla la red o el servidor (5xx). */
+export const MAPA_PMTILES_REINTENTOS = 2;
+/** Espera antes del primer reintento, en ms; se duplica en cada uno. */
+export const MAPA_PMTILES_ESPERA_MS = 500;
+/** Tiempo máximo de cada intento de descarga del PMTiles, en ms. */
+export const MAPA_PMTILES_TIMEOUT_MS = 60_000;
 /** Ancho máximo de la escala del mapa, en px. */
 export const MAPA_ESCALA_MAX_PX = 96;
 /** Cuadrícula de referencia (solo sin mapa base): separación entre líneas y radio, en grados. */
