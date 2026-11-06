@@ -88,6 +88,18 @@ export WEB_INGESTA_TOKEN=...        # el mismo del relay (o lo lee de gui/relay/
 # --velocidad 5 (cinco veces más rápido)   --vueltas 3 (repite el vuelo, corriendo los relojes)   --url http://host:puerto
 ```
 
+## Herramientas manuales (`herramientas/`)
+
+No son parte de `pytest`; son las corridas de punta a punta de T-640. Todas con el python del venv y desde la raíz del repo.
+
+| Archivo | Para qué |
+| --- | --- |
+| `sesion_dos_cohetes.py <salida.txt>` | Genera una sesión de tierra con Deméter y Hermes (con el generador de `estacion/pruebas/`) |
+| `corte_reenviador.py <repo> <sesion.txt> <carpeta de trabajo>` | `dashboard.py --reproducir --web-relay` contra el relay real; corta el relay a mitad de la sesión, lo reinicia con los mismos datos y revisa `serie`, repetidos y que el stream no lleve atrasados |
+| `humo_carga.py <repo> <carpeta> <clientes> <vueltas> <velocidad>` | N clientes SSE durante un vuelo repetido (`alimentar.py --vueltas`); imprime latencia p50/p95/p99 y el tamaño de un `estado`. **No es la prueba de T-643** |
+
+La spec de Playwright contra el relay es `gui/web/e2e/relay.spec.ts` (se activa con `RELAY_E2E=sin_datos|vivo`; ver su encabezado).
+
 ## Pruebas
 
 ```bash
