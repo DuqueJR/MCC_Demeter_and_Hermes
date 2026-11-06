@@ -200,6 +200,28 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
   - manda la clave y el largo, espera 1,5 s y manda el blob en trozos de 64 B.
 - **Probado con Demeter:** `CAL OK 29B2B23E`, el mismo CRC del blob. Por radio el cohete reporta esa calibración como activa.
 
+## Calibración a bordo de Hermes, primera en hardware (6 nov, HER 0027)
+
+- **Flujo:** guía (FLY forzado, 311 s), "estado tierra", "Analizar el último registro" (lectura 2 min, cálculo 2 min, LISTO a las 02:59), Aplicar y "si". Después, Bajar y analizar en el PC con el mismo archivo.
+- **A bordo y en el PC dan lo mismo** (resumen por radio contra `calib_hermes_nuevo.json`):
+
+| | A bordo | PC |
+| --- | --- | --- |
+| Sesgo LSM | 7 / 1 / 21 mg | 7,1 / 0,8 / 20,8 mg |
+| Escala LSM | −2640 / +3030 / +4960 ppm | −2632 / +3031 / +4952 ppm |
+| Peor posición LSM | 5,44° | 5,43° |
+| Peor posición QMI | 5,06° | 5,05° |
+| Retraso QMI | 42 ms | 42 ms |
+| Ganancia giro QMI | 0,979 / 0,994 / 1,127 | 0,978 / 0,994 / 1,126 |
+| MMC (residuo, descartadas) | 10,91 mG, 639 | 10,91 mG, 639 |
+| QMC (residuo, descartadas) | 10,73 mG, 4 | 10,73 mG, 4 |
+
+- **Aplicar funcionó:** la calibración activa pasó a `3D882C48`, el CRC del resultado. Pero tierra dijo "sin respuesta tras 4 intentos" después del "si": la confirmación se ejecutó y su respuesta no llegó (pendiente: probablemente la escritura en NVS demora la respuesta).
+- "Volver a la anterior" respondió "no hay una anterior": correcto, Hermes no tenía calibración a bordo antes.
+- **Calidad:** peor que la de Demeter (5,4° frente a 1,4° y 10,9 frente a 4,4 mG) y la inclinación sale de 4 de 6 posiciones. Pasa los umbrales; conviene repetirla al aire libre si sobra tiempo.
+- **Demeter** tras cargar la suya por USB (02:38): la fuerza específica en reposo pasó de (1000, −45, 27) a (997, −6, 6) mg y la nariz de 87,0° a 89,4° de elevación (estaba vertical). En TIERRA y sin reinicios hasta las 03:11. Bajo techo, el giro sobre la nariz deriva ~1,5°/min: falta ver el rumbo con el magnetómetro a cielo abierto.
+- El arranque de Demeter con el firmware de `703ec6f` (primer lote del QMI) no quedó en esta sesión: no hubo un arranque desde TIERRA.
+
 ## Pendiente
 
 - La memoria real en la ESP32-S3.
