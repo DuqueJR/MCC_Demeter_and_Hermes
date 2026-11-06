@@ -46,116 +46,31 @@
 
 using namespace net;
 
-// ---------- Reloj virtual y colas (igual que prueba_mision.cpp) ----------
-static int64_t g_nowUs = 1000000;
-int64_t esp_timer_get_time() { return g_nowUs; }
-uint32_t millis() { return (uint32_t)(g_nowUs / 1000); }
-void vTaskDelay(TickType_t) {}                                 // lo referencia extBmpConfigure (no se llama en el replay)
-
-struct Cola { size_t item; std::deque<std::vector<uint8_t> > d; };
-static Cola *g_cmdQ = nullptr, *g_logQ = nullptr;
-static void (*g_taskFn)(void *) = nullptr;
-struct Parar {};
+// ---------- Reloj virtual, colas y las dependencias de mission.cpp: stubs/arnes_mision.h (lo comparte prueba_mision.cpp) ----------
+#define ARNES_EXT_BAR_REAL                                     // g_ext_bar lo define el ext_bmp.cpp real
+#include "arnes_mision.h"
 static void tickDelReloj();                                    // definido mas abajo: lo que el banco hace en cada espera de la tarea de mision
 
-QueueHandle_t xQueueCreate(int, int item) {
-    Cola *c = new Cola; c->item = (size_t)item;
-    if (!g_cmdQ) g_cmdQ = c; else g_logQ = c;                  // missionBegin crea primero la de comandos y luego la del registro
-    return c;
-}
-BaseType_t xQueueSend(QueueHandle_t q, const void *p, TickType_t) {
-    Cola *c = (Cola *)q;
-    c->d.push_back(std::vector<uint8_t>((const uint8_t *)p, (const uint8_t *)p + c->item));
-    return pdTRUE;
-}
-BaseType_t xQueueReceive(QueueHandle_t q, void *p, TickType_t) {
-    Cola *c = (Cola *)q;
-    if (c == g_cmdQ) tickDelReloj();                           // la espera de la tarea de mision = un paso de 20 ms
-    if (c->d.empty()) return pdFALSE;
-    memcpy(p, c->d.front().data(), c->item);
-    c->d.pop_front();
-    return pdTRUE;
-}
-BaseType_t xTaskCreatePinnedToCore(void (*f)(void *), const char *, uint32_t, void *, int, TaskHandle_t *, int) { g_taskFn = f; return pdTRUE; }
-
-// ---------- NVS de mentira: solo en memoria (el replay no reinicia) ----------
-static std::map<std::string, std::vector<uint8_t> > g_nvs;
-static std::string clave(const Preferences *p, const char *k) { return std::string(p->ns_) + "/" + k; }
-bool Preferences::begin(const char *ns, bool) { ns_ = ns; return true; }
-void Preferences::end() {}
-size_t Preferences::putBytes(const char *k, const void *v, size_t n) { g_nvs[clave(this, k)] = std::vector<uint8_t>((const uint8_t *)v, (const uint8_t *)v + n); return n; }
-size_t Preferences::getBytes(const char *k, void *v, size_t max) {
-    std::map<std::string, std::vector<uint8_t> >::iterator it = g_nvs.find(clave(this, k));
-    if (it == g_nvs.end()) return 0;
-    const size_t n = std::min(max, it->second.size());
-    memcpy(v, it->second.data(), n);
-    return n;
-}
-bool Preferences::remove(const char *k) { return g_nvs.erase(clave(this, k)) > 0; }
-uint32_t Preferences::getUInt(const char *k, uint32_t d) { uint32_t v = d; getBytes(k, &v, sizeof(v)); return v; }
-uint32_t Preferences::getULong(const char *k, uint32_t d) { return getUInt(k, d); }
-void Preferences::putULong(const char *k, uint32_t v) { putBytes(k, &v, sizeof(v)); }
-static const int64_t UTC_OFFSET_US = 1700000000000000LL;       // el UTC es el reloj local + 1,7e15 us (como prueba_mision.cpp)
-int64_t time_to_utc_us(int64_t t) { return t + UTC_OFFSET_US; }
-
-// ---------- Resto de dependencias de mission.cpp (las mismas de prueba_mision.cpp) ----------
-Latest<ImuSample>    g_ext_imu, g_imu;                         // g_ext_bar lo define ext_bmp.cpp (el real)
-Latest<BarSample>    g_bar;
-Latest<GnssSample>   g_gnss;
-volatile uint16_t    g_vbat_mv = 4000;
-
-static int  g_prepare = 0;
-static CmdResp g_resp;
-static bool g_haveResp = false;
+// ---------- Lo propio del banco: cada efecto de la mision se anota como evento con la hora virtual ----------
 static std::vector<std::string> g_eventos;                     // JSON de cada evento, en orden
-static int g_registros = 0;
-LoggerStats loggerStats() { LoggerStats l; memset(&l, 0, sizeof(l)); l.state = 2; l.spareState = 2; l.sparePct = 100; return l; }
 static void evento(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 static void evento(const char *fmt, ...) {
     char b[512];
     va_list ap; va_start(ap, fmt); vsnprintf(b, sizeof(b), fmt, ap); va_end(ap);
     g_eventos.push_back(b);
 }
-void loggerRecord(bool on) { g_registros++; evento("{\"t_us\":%lld,\"tipo\":\"registro\",\"valor\":%d}", (long long)g_nowUs, on ? 1 : 0); }
-void loggerPrepare() { g_prepare++; }
-void loggerAllowPrealloc(bool) {}
-void netSetFlying(bool) {}
-static uint8_t g_piStatus = 0x02;                              // la Pi en READY: ARM apto en Demeter (D-055)
-uint8_t piStatus() { return g_piStatus; }
-float ambTempC() { return 15.0f; }                             // sin muestra de temperatura del suelo: 15 C, como el firmware sin sensor
-uint8_t ambArmBits() { return 0; }
-void ambStep(uint32_t) {}
-// calibracion a bordo (D-059): sin resultado ni anterior
-bool calAnalizando() { return false; }
-bool calListo() { return false; }
-bool calListoConAvisos() { return false; }
-uint8_t calEstado() { return 0; }
-bool calHayAnterior() { return false; }
-bool calAnalizar() { return true; }
-bool calAplicar() { return false; }
-void calDescartar() {}
-bool calAnterior() { return false; }
-void calStep(uint32_t) {}
-LoggerRecInfo loggerRecInfo() { LoggerRecInfo i; memset(&i, 0, sizeof(i)); return i; }
-void netQueueResp(const CmdResp &r) {
-    g_resp = r; g_haveResp = true;
+static void alRegistrar(bool on) { evento("{\"t_us\":%lld,\"tipo\":\"registro\",\"valor\":%d}", (long long)g_nowUs, on ? 1 : 0); }
+static void alResp(const CmdResp &r) {
     evento("{\"t_us\":%lld,\"tipo\":\"respuesta\",\"op\":%u,\"arg\":%u,\"resultado\":%u,\"motivos\":%u,\"contador\":%u}",
            (long long)g_nowUs, r.op, r.arg, r.result, (unsigned)r.reasons, (unsigned)r.counter);
 }
-DrvStats extDrvStats() { DrvStats d; d.magnet = false; d.detections = 0; return d; }
-
-// ---------- Pines de los actuadores: solo los flancos, con la hora virtual ----------
 static int g_nivelPin[64];
-void pinMode(int, int) {}
-void digitalWrite(int pin, int nivel) {
+static void alPin(int pin, int nivel) {                        // solo los flancos
     if (pin < 0 || pin >= 64 || g_nivelPin[pin] == nivel) return;
     g_nivelPin[pin] = nivel;
     evento("{\"t_us\":%lld,\"tipo\":\"pin\",\"pin\":%d,\"nivel\":%d}", (long long)g_nowUs, pin, nivel);
 }
-int  gpio_hold_en(gpio_num_t) { return 0; }
-int  gpio_hold_dis(gpio_num_t) { return 0; }
-void gpio_deep_sleep_hold_en(void) {}
-void gpio_deep_sleep_hold_dis(void) {}
+
 
 // ---------- Nombres (los de net_proto.h) ----------
 static const char *nEstado(uint8_t s) {
@@ -435,6 +350,7 @@ int main(int argc, char **argv) {
     g_nowUs = (g_tIni / 20000) * 20000;                        // el reloj virtual arranca en la rejilla de 20 ms, en el primer registro
     g_maxTicks = (int)((g_tFin - g_tIni) / 20000 + (int64_t)(g_colaS * 50.0) + 100);
     g_nvs["tbfw/boot"] = std::vector<uint8_t>(4, 0);
+    g_alTick = tickDelReloj; g_alRegistrar = alRegistrar; g_alResp = alResp; g_alPin = alPin;
     extActBegin();                                             // como el arranque: los pines salen en bajo antes de missionBegin
     missionBegin((uint8_t)rocket);
     try { g_taskFn(nullptr); } catch (const Parar &) {}
