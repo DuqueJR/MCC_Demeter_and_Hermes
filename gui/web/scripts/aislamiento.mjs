@@ -13,7 +13,9 @@ const EXT_TEXTO = new Set([".html", ".js", ".mjs", ".css"]);
 const EXT_IMAGEN = new Set([".avif", ".webp", ".png", ".jpg", ".jpeg", ".svg"]);
 // Imágenes de `src/assets/comun/` que las dos misiones pueden compartir (T-621). Salen con su nombre de archivo.
 const IMAGENES_COMUNES = [/(^|\/)eia_blanco-/];
-const EXT_RECURSO = "js|mjs|css|avif|webp|png|jpe?g|svg|woff2?|json|pmtiles";
+// OJO con el orden: `json` va antes que `js`, porque la alternación toma la primera que encaja y,
+// con `js` primero, una referencia a `x.json` se cortaba en `x.js` y el guion nunca se seguía (T-637).
+const EXT_RECURSO = "json|js|mjs|css|avif|webp|png|jpe?g|svg|woff2?|pmtiles";
 const RE_REFERENCIA = new RegExp(
   `["'(=\\s]([^"'()\\s<>]+\\.(?:${EXT_RECURSO}))(?:[?#][^"'()\\s<>]*)?`,
   "g",
@@ -216,6 +218,19 @@ export function revisarAislamiento(distRuta) {
             pagina,
             archivo: rel,
             motivo: `fuente de títulos de ${otra} (${familia}) alcanzable desde ${pagina}`,
+          });
+        }
+        continue;
+      }
+      if (extension(archivo) === ".json") {
+        // El guion de la simulación (T-635, T-637) lleva el nombre de la misión DENTRO: el nombre del
+        // archivo (`simulacion_nominal-<hash>.json`) es el mismo en las dos y no delata nada.
+        const texto = readFileSync(archivo, "utf8");
+        if (new RegExp(`"mision"\\s*:\\s*"${otra}"`, "i").test(texto)) {
+          violaciones.push({
+            pagina,
+            archivo: rel,
+            motivo: `datos de ${otra} (guion de simulación) alcanzables desde ${pagina}`,
           });
         }
         continue;

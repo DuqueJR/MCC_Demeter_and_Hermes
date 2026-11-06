@@ -181,6 +181,40 @@ describe("prueba de aislamiento (D-W01) con dist falso", () => {
     expect(v[0]?.motivo).toContain("Marcellus");
   });
 
+  it("pasa si cada misión trae su propio guion de simulación (T-637)", () => {
+    const dist = distFalso("guiones-propios", {
+      ...BASE_LIMPIA,
+      "assets/demeter-aaaa1111.js": 'console.log("/assets/simulacion_nominal-d1d1d1d1.json")',
+      "assets/hermes-bbbb2222.js": 'console.log("/assets/simulacion_nominal-b2b2b2b2.json")',
+      "assets/simulacion_nominal-d1d1d1d1.json": '{"formato":"simulacion-1","mision":"demeter"}',
+      "assets/simulacion_nominal-b2b2b2b2.json": '{"formato":"simulacion-1","mision":"hermes"}',
+    });
+    expect(revisar(dist)).toEqual([]);
+  });
+
+  it("FALLA si /demeter/ alcanza el guion de simulación de Hermes, aunque el nombre del archivo sea neutro", () => {
+    const dist = distFalso("guion-ajeno", {
+      ...BASE_LIMPIA,
+      "assets/demeter-aaaa1111.js": 'console.log("/assets/simulacion_nominal-b2b2b2b2.json")',
+      "assets/simulacion_nominal-b2b2b2b2.json": '{"formato":"simulacion-1","mision":"hermes"}',
+    });
+    const v = revisar(dist);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({
+      pagina: "demeter",
+      archivo: "assets/simulacion_nominal-b2b2b2b2.json",
+    });
+  });
+
+  it("FALLA al revés: /hermes/ alcanza el guion de simulación de Deméter", () => {
+    const dist = distFalso("guion-ajeno-2", {
+      ...BASE_LIMPIA,
+      "assets/hermes-bbbb2222.js": 'console.log("/assets/simulacion_nominal-d1d1d1d1.json")',
+      "assets/simulacion_nominal-d1d1d1d1.json": '{"formato":"simulacion-1","mision":"demeter"}',
+    });
+    expect(revisar(dist).some((x) => x.pagina === "hermes")).toBe(true);
+  });
+
   it("FALLA si las fuentes de una página pasan de 80 KB", () => {
     const dist = distFalso("falso-peso", {
       ...BASE_LIMPIA,
