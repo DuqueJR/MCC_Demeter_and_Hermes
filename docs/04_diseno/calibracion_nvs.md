@@ -19,7 +19,7 @@ decisiones: [D-057, D-059]
 
 ## Flujo
 
-1. **Captura:** la guía del dashboard de siempre, con el cohete cerrado y registrando en FLY forzado. Opcionalmente empieza con 30 min de curva de calentamiento en frío (D-058). Siguen las 6 posiciones quietas y luego 2 min girando.
+1. **Captura:** la guía del dashboard de siempre, con el cohete cerrado y registrando en FLY forzado. Desde el 6 nov la guía ya no hace la curva de calentamiento: el calentamiento por la Pi ya está caracterizado y la referencia de temperatura en tierra la da el otro cohete (Pablo). Son las 6 posiciones quietas y luego 2 min girando. Cada posición se compara en vivo con las ya capturadas, con la gravedad de TELEM y sin depender de los ejes: su pareja (1-2, 3-4, 5-6) debe quedar a más de 135° y las demás entre 45° y 135°. Si no cuadra, la guía no avanza y dice con cuál choca. Si cambian los ejes de TELEM (el EKF arranca o se reinicia), esa comparación se omite. El análisis sigue aceptando un registro con calentamiento.
 2. **Análisis:** orden `cal analizar` (dashboard, pestaña Calibración → "Analizar el último registro").
    - Solo en TIERRA y sin registrar.
    - Una tarea en el núcleo 0, prioridad 1, lee de la SD el último registro de ese cohete, con `g_sdBusMx`, en dos pasadas.

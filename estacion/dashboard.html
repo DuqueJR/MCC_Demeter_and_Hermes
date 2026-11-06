@@ -117,27 +117,40 @@ async function buildMission(){
 
 // Guia de calibracion. El analisis reconoce las posiciones por orden de aparicion en el log.
 const POSE_TXT=['Nariz hacia ARRIBA, vertical','Nariz hacia ABAJO, vertical','Horizontal, con la MARCA hacia arriba','Horizontal, con la MARCA hacia abajo','Horizontal, con el costado DERECHO hacia arriba (derecho: mirando de la cola a la nariz con la marca arriba)','Horizontal, con el costado IZQUIERDO hacia arriba'];
-const HOLD_S=8,SPIN_S=120,STILL_MG=80,WARM_S=1800,WARM_PI_S=300;   // curva de calentamiento (D-058): 30 min en frio, la Pi a los 5 min
-let lastCal='',lastSel='',cal={role:'demeter',step:0,name:'',holdT:0,win:[],spinT:0,sent:false,moved:false,warm:true,warmT:0};
+const HOLD_S=8,SPIN_S=120,STILL_MG=80;
+// Cada posicion se compara con las ya capturadas, sin depender de los ejes: la pareja (1-2, 3-4, 5-6) debe quedar opuesta y las demas a unos 90 grados
+const POSE_PAIR=[1,0,3,2,5,4],OPP_MIN_DEG=135,PERP_MIN_DEG=45,PERP_MAX_DEG=135;
+let lastCal='',lastSel='',cal={role:'demeter',step:0,name:'',holdT:0,win:[],spinT:0,sent:false,moved:false,dirs:[],bad:''};
 const calR=()=>ROCKETS.find(r=>r[0]==cal.role);
 const calView=()=>S.rockets[ROCKETS.findIndex(r=>r[0]==cal.role)];
 window.calSet=o=>{Object.assign(cal,o);lastCal='';calRender()};
-window.calStartRec=()=>{cmd(calR()[1]+' estado fly');calSet({sent:true})};
+window.calStartRec=()=>{cmd(calR()[1]+' estado fly');calSet({sent:true,dirs:[],bad:''})};
 window.calEndRec=()=>{cmd(calR()[1]+' estado tierra');calSet({sent:true})};
 window.calRun=()=>post('/api/calib/run',{role:cal.role,name:cal.name}).then(r=>{if(r.ok){S.job.running=true;calSet({step:10})}});
 window.calExisting=()=>{const x=$('calname').value.trim().replace(/\.bin$/i,'');if(x){cal.name=x+'.BIN';calRun()}};
 window.calAccept=()=>post('/api/calib/accept',{role:cal.role}).then(r=>{if(r.ok)calSet({step:11})});
+// Direccion de la gravedad en la ventana quieta. Con el EKF listo, TELEM va en ejes del cuerpo; sin el, en los del QMI (cuaternion identidad)
+function poseDir(t){const m=[0,1,2].map(i=>cal.win.reduce((s,a)=>s+a[i],0)/cal.win.length),n=Math.hypot(...m)||1;
+ const q=t.quat||[32767,0,0,0];return {u:m.map(x=>x/n),f:q[0]==32767&&!q[1]&&!q[2]&&!q[3]?'chip':'cuerpo'}}
+function poseCheck(k,d){
+ for(let j=0;j<6;j++){const p=cal.dirs[j];if(j==k||!p||p.f!=d.f)continue;   // si cambiaron los ejes (el EKF arranco o se reinicio) no se compara
+  const a=Math.acos(Math.max(-1,Math.min(1,p.u[0]*d.u[0]+p.u[1]*d.u[1]+p.u[2]*d.u[2])))*180/Math.PI;
+  if(j==POSE_PAIR[k]&&a<OPP_MIN_DEG)return `Debe quedar al reves de la posicion ${j+1} y esta a ${a.toFixed(0)} grados de ella: acomodalo.`;
+  if(j!=POSE_PAIR[k]&&a<PERP_MIN_DEG)return `Se parece a la posicion ${j+1} (${a.toFixed(0)} grados): giralo a la que se pide.`;
+  if(j!=POSE_PAIR[k]&&a>PERP_MAX_DEG)return `Esta al reves de la posicion ${j+1} (${a.toFixed(0)} grados), y deberia quedar a 90: giralo a la que se pide.`}
+ return ''}
 function calTick(){
  const v=calView(),l=v.log,now=Date.now()/1000;
- if(cal.step==0&&cal.sent&&l&&l.rec){cal.name=l.name;cal.sent=false;cal.step=cal.warm?0.5:1;cal.warmT=now}
- if(cal.step==0.5&&now-cal.warmT>=WARM_S)cal.step=1;
+ if(cal.step==0&&cal.sent&&l&&l.rec){cal.name=l.name;cal.sent=false;cal.step=1;cal.dirs=[];cal.bad=''}
  if(cal.step>=1&&cal.step<=6&&cal.holdT){
   const t=v.telem;
   if(!t||t.age>1.5){cal.holdT=now;cal.win=[];cal.moved=true}
   else{cal.win.push(t.acc);if(cal.win.length>6)cal.win.shift();
    const spread=[0,1,2].map(i=>Math.max(...cal.win.map(a=>a[i]))-Math.min(...cal.win.map(a=>a[i])));
-   if(Math.max(...spread)>STILL_MG){cal.holdT=now;cal.moved=true}
-   else if(now-cal.holdT>=HOLD_S){cal.step++;cal.holdT=0;cal.win=[];cal.moved=false}}
+   if(Math.max(...spread)>STILL_MG){cal.holdT=now;cal.moved=true;cal.bad=''}
+   else if(now-cal.holdT>=HOLD_S){const d=poseDir(t);cal.bad=poseCheck(cal.step-1,d);
+    if(cal.bad){cal.holdT=now;cal.win=[]}                 // no avanza: hay que acomodarlo
+    else{cal.dirs[cal.step-1]=d;cal.step++;cal.holdT=0;cal.win=[];cal.moved=false}}}
  }
  if(cal.step==7&&cal.spinT&&now-cal.spinT>=SPIN_S){cal.step=8;cal.spinT=0}
  if(cal.step==8&&cal.sent&&l&&!l.rec){cal.sent=false;cal.step=9}
@@ -165,11 +178,9 @@ function calRender(){
  const [r,,n]=calR(),v=calView(),now=Date.now()/1000,c=S.calib[r];let h='';
  const bordo=calBordo(r,calR()[1],n,v.cal);
  const sel=`<p>Cohete <select ${cal.step?'disabled':''} onchange="calSet({role:this.value})">${ROCKETS.map(([x,,y])=>`<option value="${x}" ${x==r?'selected':''}>${y}</option>`).join('')}</select> &nbsp; Calibracion vigente: ${c.vigente?'si':'no'} &nbsp; Paso ${Math.min(cal.step,10)} de 10</p>`;
- if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion.</p><p><label><input type="checkbox" style="width:auto" ${cal.warm?'checked':''} onchange="cal.warm=this.checked"> Empezar con la <b>curva de calentamiento</b> (30 min quieto; la placa debe venir <b>en frio</b>: apagada o dormida al menos 30 min, y empezar el registro apenas encienda)</label></p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}`;
- else if(cal.step==0.5){const left=Math.max(0,Math.ceil(WARM_S-(now-cal.warmT))),pi=now-cal.warmT>=WARM_PI_S;
-  h=`<p>Registrando en ${esc(cal.name)}</p><h3>Curva de calentamiento</h3><p style="font-size:20px">Deja ${n} quieto y cerrado: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')} min</p>`+(r=='demeter'?`<p>${pi?'<b>Enciende la Pi ahora</b> (Mando: pi encender), si no esta encendida.':'La Pi se enciende a los 5 min, para medir cuanto calienta.'}</p>`:'')+`<p>calib.py ajusta la curva del BMP581 y del BME280: con ella se fijan los umbrales de la temperatura del suelo.</p><button onclick="calSet({step:1})">Saltar al resto de la calibracion</button>`}
+ if(cal.step==0)h=`<p>Prepara ${n}: <b>cerrado, como vuela, con bateria y sin USB</b>; tierra conectada. Escoge una <b>marca</b> fija en el fuselaje y usa siempre la misma: define el lado de arriba del cohete. Lejos de metal e imanes.</p><p>Se fuerza FLY para registrar: es lo esperado que pida confirmacion. Cada posicion se compara con las anteriores: si no cuadra, la guia no avanza y dice por que.</p><button onclick="calStartRec()">Empezar registro</button> ${cal.sent?'esperando que empiece a registrar...':''}`;
  else if(cal.step<=6){const left=cal.holdT?Math.max(0,Math.ceil(HOLD_S-(now-cal.holdT))):HOLD_S;
-  h=`<p>Registrando en ${esc(cal.name)}</p><h3>Posicion ${cal.step} de 6</h3><p style="font-size:20px">${POSE_TXT[cal.step-1]}</p>`+(cal.holdT?`<p style="font-size:20px">Quieto: ${left} s ${cal.moved?'<span class="alert">(se movio, reinicia)</span>':''}</p>`:`<button onclick="calSet({holdT:Date.now()/1000,win:[],moved:false})">Ya esta, capturar</button>`)}
+  h=`<p>Registrando en ${esc(cal.name)}</p><h3>Posicion ${cal.step} de 6</h3><p style="font-size:20px">${POSE_TXT[cal.step-1]}</p>`+(cal.holdT?`<p style="font-size:20px">Quieto: ${left} s ${cal.moved?'<span class="alert">(se movio, reinicia)</span>':''}</p>`+(cal.bad?`<p class="alert" style="font-size:18px">${esc(cal.bad)}</p>`:''):`<button onclick="calSet({holdT:Date.now()/1000,win:[],moved:false})">Ya esta, capturar</button>`)}
  else if(cal.step==7)h=cal.spinT?`<h3>Gira el cohete despacio, en todas las direcciones</h3><p style="font-size:20px">${Math.max(0,Math.ceil(SPIN_S-(now-cal.spinT)))} s</p><p>Que la nariz apunte a todos lados, y gira tambien sobre su eje. Sin movimientos bruscos.</p><button onclick="calSet({step:8,spinT:0})">Ya cubri todo</button>`:`<h3>Magnetometros</h3><p>Durante ${SPIN_S} s, gira el cohete despacio en todas las direcciones.</p><button onclick="calSet({spinT:Date.now()/1000})">Empezar</button>`;
  else if(cal.step==8)h=`<p>Listo. Termina el registro.</p><button onclick="calEndRec()">Terminar registro</button> ${cal.sent?'esperando que cierre el archivo...':''}`;
  else if(cal.step==9)h=`<p>Conecta el <b>USB</b> de ${n} y espera a que Windows lo reconozca. El registro empieza en ${esc(cal.name)}; si siguio en otros archivos, se bajan todos.</p><button onclick="calRun()">Bajar y analizar</button>`;

@@ -162,6 +162,19 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
 - **Corregido** en `calib.py` y en `cal_core.cpp` (a bordo): la guía empieza 20 s antes del final del calentamiento (`WARM_TAIL_S`), y ese final cuenta como posición. El aviso de los magnetómetros ahora dice que falta calibrar el acelerómetro, en vez de "sin posiciones quietas".
 - Resultado: 6 de 6, peor error de posición 1,4° (LSM) y 1,5° (QMI); MMC residuo 4,4 mG e inclinación 35,2°; QMC 5,3 mG y 36,3°; MMC contra QMC 0,8-4,3°; giro del QMI con 42 ms de retraso y ganancia z 1,17. Sin avisos.
 
+- Comparación a bordo contra PC sobre la captura completa (los 4 archivos unidos): 0 magnitudes fuera de tolerancia; el blob de ida y vuelta da OK (CRC 8EE76914).
+
+## Guía de captura más firme (6 nov)
+
+- **Pedido de Pablo:** que la captura sea sólida. El calentamiento por la Pi ya está caracterizado y la referencia de temperatura en tierra la da el otro cohete, así que la guía ya no hace los 30 min de calentamiento.
+- **Cambios en la guía del dashboard:**
+  - se quitó el paso de calentamiento;
+  - cada posición se compara con las ya capturadas, usando la gravedad de TELEM: la pareja (1-2, 3-4, 5-6) debe quedar a más de 135° y las demás entre 45° y 135°;
+  - si no cuadra, la guía no avanza y dice con cuál posición choca;
+  - si cambian los ejes de TELEM (EKF listo o no, visto en el cuaternión), esa comparación se omite.
+  - Así no puede repetirse el caso de la 0101: una posición sin mover el cohete o repetida se detecta en el momento.
+- Probado en el modo demo con TELEM simulada: una posición 2 igual a la 1 se rechaza, y la secuencia correcta llega al giro.
+
 ## Pendiente
 
 - La memoria real en la ESP32-S3.
