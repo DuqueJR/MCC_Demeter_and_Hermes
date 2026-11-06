@@ -1,13 +1,19 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// T-639 y T-646: la foto del equipo vive en la sección Equipo, junto al parche (en escritorio, uno a
-// cada lado; en móvil y tableta, apilados), con las tarjetas de apellidos debajo y centradas. El
+// T-639, T-646 y T-647: la foto del equipo vive en la sección Equipo, junto al parche (en escritorio,
+// uno a cada lado de la banda y con un hueco claro entre ambos; en móvil y tableta, apilados), con
+// las tarjetas de apellidos debajo y centradas. El
 // carrusel de Inicio solo lleva la foto del cohete. (T-639: con `display: none` la foto del equipo
 // medía 0 × 0 y su `loading="lazy"` nunca la pedía; sigue valiendo que todas se vean cargadas.)
 const MISIONES = ["demeter", "hermes"] as const;
-const ESCRITORIO = [1280, 1470, 1920] as const;
+const ESCRITORIO = [1024, 1280, 1470, 1920] as const;
 const MOVIL = 390;
 const TABLETA = 800;
+// T-647: en escritorio el parche y la foto no quedan pegados, y la foto es más angosta que en T-646
+// (704 px, de 50 % a 56 % de la sección a 1280–1920 px).
+const HUECO_MIN = 64; // px, el espacio entre el borde derecho del parche y el izquierdo de la foto
+const HUECO_DESDE = 1280; // ancho desde el que se exige el hueco mínimo
+const FOTO_MAX_FRACCION = 0.45; // de la sección
 
 type Medida = { ancho: number; alto: number; naturalWidth: number; completa: boolean };
 
@@ -79,7 +85,8 @@ async function verificarInicio(page: Page) {
   expect(r.foto / r.alto, "la foto del cohete conserva su 4:3").toBeCloseTo(4 / 3, 1);
 }
 
-async function verificarEquipo(page: Page, escritorio: boolean) {
+async function verificarEquipo(page: Page, ancho: number) {
+  const escritorio = ancho >= 1024;
   const seccion = page.locator("#equipo");
   const parche = seccion.locator("img.parche-grande");
   const foto = seccion.locator("img.foto-equipo");
@@ -105,6 +112,21 @@ async function verificarEquipo(page: Page, escritorio: boolean) {
     // Lado a lado, en la misma banda: el parche a la izquierda de la foto.
     expect(p.right, "el parche queda a un lado de la foto").toBeLessThanOrEqual(f.left + 1);
     expect(Math.min(p.bottom, f.bottom) - Math.max(p.top, f.top), "misma banda").toBeGreaterThan(0);
+    // T-647: alineados al centro vertical (la figura incluye el pie de foto).
+    const fig = await caja(seccion.locator("figure.equipo-foto"));
+    const centroY = (c: Caja) => (c.top + c.bottom) / 2;
+    expect(
+      Math.abs(centroY(p) - centroY(fig)),
+      "parche y foto al centro vertical",
+    ).toBeLessThanOrEqual(TOLERANCIA);
+    // T-647: un hueco claro entre el parche y la foto, y la foto más angosta que antes.
+    if (ancho >= HUECO_DESDE) {
+      expect(f.left - p.right, "hueco entre el parche y la foto").toBeGreaterThanOrEqual(HUECO_MIN);
+      expect(f.right - f.left, "foto angosta").toBeLessThan((s.right - s.left) * FOTO_MAX_FRACCION);
+    }
+    // Ninguno queda pegado al borde de la tarjeta (más que su relleno).
+    expect(p.left - s.left, "parche dentro de la tarjeta").toBeGreaterThanOrEqual(0);
+    expect(s.right - f.right, "foto dentro de la tarjeta").toBeGreaterThanOrEqual(0);
   } else {
     // Apilados: parche, foto, apellidos; cada uno centrado.
     expect(p.bottom, "el parche va sobre la foto").toBeLessThanOrEqual(f.top + 1);
@@ -146,20 +168,20 @@ for (const mision of MISIONES) {
     }) => {
       await irAMision(page, mision, ancho);
       await verificarInicio(page);
-      await verificarEquipo(page, true);
+      await verificarEquipo(page, ancho);
     });
   }
 
   test(`móvil ${MOVIL}: ${mision} apila el parche, la foto y los apellidos`, async ({ page }) => {
     await irAMision(page, mision, MOVIL);
     await verificarInicio(page);
-    await verificarEquipo(page, false);
+    await verificarEquipo(page, MOVIL);
   });
 
   test(`tableta ${TABLETA}: ${mision} apila el parche, la foto y los apellidos`, async ({
     page,
   }) => {
     await irAMision(page, mision, TABLETA);
-    await verificarEquipo(page, false);
+    await verificarEquipo(page, TABLETA);
   });
 }
