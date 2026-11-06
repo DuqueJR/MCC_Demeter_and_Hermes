@@ -192,3 +192,40 @@ python estacion/dashboard.py --web-relay https://relay.ejemplo.org
 - **Estado en los eventos del dashboard:** `web: reenviador CONECTADO ...`, `... SIN CONEXION ...` y, mientras esté caído, una línea por minuto con los mensajes en cola y los perdidos.
 - Con `--demo` o `--reproducir` avisa que lo que sube no es del vuelo (el `meta.modo` seguirá diciendo `vivo`): no lo uses contra el relay real.
 - Pruebas: `python -m unittest discover -s estacion/pruebas` (`test_reenviador.py`, sin red real).
+
+## Fixture de integración reenviador → relay sin hardware (T-641)
+
+Para probar la cadena **estación → reenviador → relay** sin placas ni relay real, se versiona un JSONL de mensajes `web-1` en `estacion/fixtures/` (fuera de `estacion/sesiones/`, que está en `.gitignore` porque guarda sesiones reales):
+
+| Archivo | Qué es |
+| --- | --- |
+| `estacion/fixtures/web1.jsonl` | Vuelo completo de Demeter desde la simulación de OpenRocket, reprocesado por `web1.py`: 1347 mensajes `{"tipo","mision","datos"}` (`meta`, `estado`, `salud`, `estacion`, `evento`). |
+| `estacion/fixtures/web1_snapshot.json` | El `snapshot` final de `demeter` y `hermes` (Hermes no transmitió). |
+| `estacion/fixtures/regenerar.py` | Regenera los dos de arriba, **de forma determinista** (misma semilla: T-30 s → aterrizaje + 15 s de la sim. de Demeter). Solo biblioteca estándar. |
+
+**Regenerar el fixture (determinista):**
+
+```
+python estacion/fixtures/regenerar.py
+python estacion/fixtures/regenerar.py --sesion estacion/sesiones/T641_tierra.txt   # además deja la sesión cruda (ignorada por git)
+```
+
+**Probar reenviador → relay sin hardware** (el relay todavía no existe, T-640): el test valida el fixture contra el contrato `web-1` y lo publica con el `Reenviador` real contra un servidor HTTP falso en `127.0.0.1` (`RelayFalso` de `test_reenviador.py`; solo registra el `POST /api/v1/ingesta` y responde 200 — no es una reimplementación del relay):
+
+```
+python -m unittest discover -s estacion/pruebas -p 'test_fixture_web1.py' -v
+```
+
+**Publicarlo a mano apuntando a una URL local** (con una sesión cruda y un stub que responda 200):
+
+```
+python estacion/fixtures/regenerar.py --sesion estacion/sesiones/T641_tierra.txt
+WEB_INGESTA_TOKEN=token-de-prueba python estacion/dashboard.py --reproducir estacion/sesiones/T641_tierra.txt \
+  --velocidad 500 --web-relay http://127.0.0.1:8000 --web-cola /tmp/cola_web.db --no-abrir
+```
+
+El reenviador hará `POST http://127.0.0.1:8000/api/v1/ingesta` con `Authorization: Bearer <token>` y lotes `{"mensajes":[...]}`.
+
+**Huecos que dependen de otros (no se pueden cerrar aquí):**
+- **T-640 (el relay, en progreso):** la prueba de punta a punta contra el relay real no se puede hacer todavía. El stub local (`RelayFalso`) cubre el formato y el orden, pero no la deduplicación por `X-Lote-Id`, la bajada a 1 Hz en tierra ni los SSE públicos.
+- **PEN-W05 (hosting/dominio):** no hay URL pública con TLS a la que apuntar `--web-relay`; el flujo documentado usa `http://127.0.0.1`.
