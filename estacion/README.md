@@ -35,12 +35,43 @@ python estacion/dashboard.py --reproducir sesiones/AAAAMMDD_HHMMSS_tierra.txt --
 | `cal_blob.py` | La calibración en el formato binario del cohete (D-059) y su carga por USB, como respaldo de la calibración a bordo: `python estacion/cal_blob.py calib_demeter.json --puerto COM4`. También desde el dashboard (Calibración → Cargar por USB). |
 | `ekf.py` | EKF de prueba en PC (19 estados, D-057) sobre un log: `python estacion/ekf.py LOG.BIN` deja `NOMBRE_ekf.csv`. Opciones para comparar: `--sin-fases`, `--sin-escala`, `--con-bme`, `--t-suelo C`. |
 | `vuelo_sintetico.py` | Vuelo sintético a partir de la simulación de OpenRocket (`datos/simulaciones/openrocket/`): genera los sensores con sus ruidos, corre el EKF y lo compara contra la verdad por fase. `python estacion/vuelo_sintetico.py demeter --comparar`. Deja `sinteticos/SINT_<cohete>_ekf.csv` para la pestaña EKF. |
+| `vuelos_replay.py` | (T-304) Vuelos sintéticos para el banco de replay: escribe `.BIN` en el formato `rec` y su verdad en JSON, con la carga de eyección antes, en y después del apogeo. Ver [Vuelos sintéticos para el replay](#vuelos-sintéticos-para-el-replay-t-304). |
 
 Los `calib_*.json` y `dashboard.html` viven junto a los `.py` porque se buscan en la carpeta del propio script. Dependencias: `pyserial` para los puertos; `numpy` y `scipy` solo para `calib.py` y `ekf.py`.
 
 Pruebas de `web1.py` y de la API local (unittest, sin dependencias nuevas): `python -m unittest discover -s estacion/pruebas`.
 
 Salidas locales que no se versionan: `sesiones/`, `mision.json`, `*.BIN`, `*_csv/`, `*_ekf.csv`. Los resúmenes de `tblog.py` de los logs reales de Pablo están en `datos/logs_referencia/pablo/`.
+
+## Vuelos sintéticos para el replay (T-304)
+
+`vuelos_replay.py` convierte la exportación de OpenRocket de cada cohete en archivos `.BIN` que se leen como los logs reales (`tblog.py`, `calib.py`, `ekf.py`). Es la entrada del banco de replay (T-305) y de la validación de la detección de momentos (T-412). Reutiliza `vuelo_sintetico.py` (la verdad y los sensores con ruido) y no cambia su línea de comandos.
+
+```
+python estacion/vuelos_replay.py                 # las 24 variantes de P-03 en estacion/vuelos_replay/ (unos 10 s cada una)
+python estacion/vuelos_replay.py --lista         # solo las nombra
+python estacion/vuelos_replay.py --cohete demeter --eyeccion despues --ruido 3 --semillas 1 2
+python estacion/vuelos_replay.py --ruido 0 --semillas 0 --salida /tmp/ref      # sin ruido: la referencia de la aceptación
+python -m unittest estacion.pruebas.test_vuelos_replay -v                      # unos 2 min: aceptación de T-304
+```
+
+**Qué produce** (en `estacion/vuelos_replay/`, que no se versiona), por variante `<DEM|HER>_SINT_<motor>_<eyeccion>_r<ruido>_s<semilla>`:
+- `.BIN`: FILEHDR, EXT_LSM (giro, acelerómetro, marca del chip y BMP581 por el hub), IMU (QMI8658), BAR (BME280), MAG (QMC6309), EXT_MMC, PVT, PPS y HEARTBEAT, con `t_us` monótono y CRC válido. No escribe MISSION, LINK, PI, AMB ni CAL: eso lo produce el replay. Los ejes de los chips son los del cuerpo (calibración identidad).
+- `.verdad.json`: cohete, motor, variante, semilla, factor de ruido, `t_us` de IGNITION, LIFTOFF, BURNOUT, EJECTION, APOGEE (con su altura AGL), PARACAIDAS_ABRE y GROUND_HIT, los parámetros de la carga de eyección y el conteo de registros.
+- `calib_identidad.json`: para `python estacion/ekf.py archivo.BIN --calib estacion/vuelos_replay/calib_identidad.json`.
+
+**Variantes:** los dos cohetes × la carga de eyección `antes` (la nominal de cada sim.: 1,46 s antes del apogeo en Demeter, 0,45 s en Hermes), `en` el apogeo y `despues` (1,5 s) × ruido ×1 y ×3 × 2 semillas = 24. Con `--ruido 0` salen sin ruido aleatorio (los sesgos de los sensores se quedan).
+
+**Suposiciones** (los valores marcados **(P)** son parámetros de línea de comandos; los revisa el documentador):
+- Trayectoria: `antes` y `en` usan la de OpenRocket tal cual (la sim. abre el paracaídas en el apogeo) y solo mueven el instante del choque y del pulso. `despues`: hasta el apogeo, la sim.; luego caída balística con el arrastre ajustado a la propia sim. y el paracaídas desde la carga (**(P)** `--despues-s` 1,5 s, `--apertura-s` 0,3 s) hasta la velocidad de descenso de la sim. La actitud entre el apogeo y la carga queda fija.
+- Carga de eyección **(P)**: choque axial de 25 g y 15 ms (`--choque-g`, `--choque-ms`) y pulso de presión de +300 Pa con τ = 0,15 s (`--pulso-pa`, `--pulso-tau-s`): los de `vuelo_sintetico.py`.
+- Ruido: `--ruido R` multiplica el ruido aleatorio de todos los sensores y la vibración del motor (1 g de σ **(P)**, `--vibracion`). Los ruidos por sensor son los de `vuelo_sintetico.py` (logs de banco).
+- Presión: `p = p0 (1 − h/h_escala)^(1/0,190263)`, la inversa exacta de la altura de `ekf.py`, con la temperatura de la rampa de la sim. y `p0` **(P)** la estándar a 510 m (`--p-rampa-pa`). La presión absoluta de la sim. no se usa (perfiles_vuelo §3.4).
+- Reposo **(P)**: 10 s en la rampa antes del encendido y 20 s en el suelo después (`--reposo-antes`, `--reposo-despues`).
+- Tasas por sensor, las de `constantes.md` §5: LSM 1610 Hz (Demeter) y 1560 Hz (Hermes), QMI 445 Hz, BMP581 ≈ 100 Hz, BME280 ≈ 40 Hz, QMC 100 Hz, GNSS 10 Hz.
+- El BME280 va compensado; sus conteos crudos (`adc_*`) y el BARCAL quedan en cero.
+- `LIFTOFF` es el evento de OpenRocket, 0,03 s después de que empieza la fuerza (`IGNITION`, t = 0 de la sim.). El fin del empuje (`BURNOUT`) no es un escalón en la aceleración: la cola del empuje decae a cero, y se nota como el mínimo de la fuerza específica axial.
+- La posición horizontal de la sim. se suaviza antes de derivarla (la exportación tiene 1 mm de resolución y con nodos de 2 ms daba picos de hasta 31 g en la fuerza específica de Hermes).
 
 ## Pestaña EKF (dashboard de control)
 

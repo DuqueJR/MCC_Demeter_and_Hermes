@@ -14,6 +14,9 @@ De la simulacion salen: trayectoria, elevacion y rumbo de la nariz hasta la carg
 SUPUESTOS (la simulacion no los tiene; todos son parametros): el alabeo, la actitud bajo el paracaidas (nariz abajo con balanceo),
 la vibracion del motor, el choque y el pulso de presion de la carga de eyeccion, la perdida del GNSS por encima de 4 g y los ruidos
 y sesgos de los sensores (sacados de los logs reales de banco).
+
+T-304: vuelos_replay.py (los .BIN para el banco de replay) llama a verdad() y sensores() con atributos opcionales en `args` (ruido, pad_s, post_s,
+lsm_hz, choque_g, choque_s, pulso_pa, pulso_tau). Con los valores por defecto el resultado es bit a bit el de antes.
 """
 import argparse, os, sys, types
 import numpy as np
@@ -81,8 +84,11 @@ def nariz_C(elev, az, alabeo):
 def verdad(s, args):
     ev = s['ev']
     t_desp, t_burn, t_ej, t_apo, t_suelo = ev['LIFTOFF'], ev['BURNOUT'], ev['EJECTION_CHARGE'], ev['APOGEE'], ev['GROUND_HIT']
-    dt = 1.0 / LSM_HZ
-    t = np.arange(-PAD_S, t_suelo + POST_S, dt)
+    # Parametros opcionales (T-304, vuelos_replay.py): sin ellos, los valores de siempre
+    pad_s, post_s = getattr(args, 'pad_s', PAD_S), getattr(args, 'post_s', POST_S)
+    ruido = getattr(args, 'ruido', 1.0)
+    dt = 1.0 / getattr(args, 'lsm_hz', LSM_HZ)
+    t = np.arange(-pad_s, t_suelo + post_s, dt)
     tf = np.clip(t, 0.0, t_suelo)
     # Cinematica coherente: velocidad horizontal de la derivada de la posicion, vertical de la simulacion; luego aceleracion y posicion
     pe, pn = PchipInterpolator(s['t'], s['e']), PchipInterpolator(s['t'], s['n'])
@@ -137,47 +143,50 @@ def verdad(s, args):
     f = np.einsum('kji,kj->ki', C, a - np.array([0, 0, G0])) / G0
     vib = (np.interp(tf, s['t'], s['empuje']) > 2.0) & (t > 0)
     rng = np.random.default_rng(args.semilla)
-    f[vib] += rng.normal(0, args.vibracion, (vib.sum(), 3))
-    w[vib] += rng.normal(0, 3.0, (vib.sum(), 3))
-    ch = (t >= t_ej) & (t < t_ej + EJ_CHOQUE_S)
-    f[ch, 0] -= EJ_CHOQUE_G * np.sin(np.pi * (t[ch] - t_ej) / EJ_CHOQUE_S)
+    f[vib] += rng.normal(0, args.vibracion * ruido, (vib.sum(), 3))
+    w[vib] += rng.normal(0, 3.0 * ruido, (vib.sum(), 3))
+    choque_g, choque_s = getattr(args, 'choque_g', EJ_CHOQUE_G), getattr(args, 'choque_s', EJ_CHOQUE_S)
+    ch = (t >= t_ej) & (t < t_ej + choque_s)
+    f[ch, 0] -= choque_g * np.sin(np.pi * (t[ch] - t_ej) / choque_s)
     q_wxyz = np.column_stack([q[:, 3], q[:, 0], q[:, 1], q[:, 2]])
     q_wxyz[q_wxyz[:, 0] < 0] *= -1
-    t_us = (t + PAD_S) * 1e6 + T_LOCAL0_US
-    ev_us = {k: (v + PAD_S) * 1e6 + T_LOCAL0_US for k, v in dict(despegue=t_desp, burnout=t_burn, eyeccion=t_ej, apogeo=t_apo, suelo=t_suelo).items()}
+    t_us = (t + pad_s) * 1e6 + T_LOCAL0_US
+    ev_us = {k: (v + pad_s) * 1e6 + T_LOCAL0_US for k, v in dict(despegue=t_desp, burnout=t_burn, eyeccion=t_ej, apogeo=t_apo, suelo=t_suelo).items()}
     return dict(t=t, t_us=t_us, p=p, v=v, a=a, f=f, w=w, C=C, q=q_wxyz, p_pa=np.interp(tf, s['t'], s['p_mbar']) * 100.0, ev=ev_us, rng=rng)
 
 
 def sensores(s, V, args):
     rng = V['rng']
     t_us, t = V['t_us'], V['t']
+    r = getattr(args, 'ruido', 1.0)               # T-304: factor del ruido aleatorio (1 = el de siempre); los sesgos no cambian
+    pulso_pa, pulso_tau = getattr(args, 'pulso_pa', EJ_PULSO_PA), getattr(args, 'pulso_tau', EJ_PULSO_TAU)
     sg = np.array([float(x) for x in args.escala.split(',')]) / 100.0
     interp = lambda tq, y: np.column_stack([np.interp(tq, t_us, y[:, i]) for i in range(y.shape[1])])
     d = {}
     # LSM6DSO32: +-32 g, +-2000 dps
     d['lsm_t'] = t_us.copy()
-    d['lsm_a'] = np.clip(V['f'] + LSM_BA + rng.normal(0, LSM_ACC_SD, V['f'].shape), -32, 32)
-    d['lsm_g'] = np.clip((1 + sg) * V['w'] + LSM_BG + rng.normal(0, LSM_GYR_SD, V['w'].shape), -2000, 2000)
+    d['lsm_a'] = np.clip(V['f'] + LSM_BA + rng.normal(0, LSM_ACC_SD * r, V['f'].shape), -32, 32)
+    d['lsm_g'] = np.clip((1 + sg) * V['w'] + LSM_BG + rng.normal(0, LSM_GYR_SD * r, V['w'].shape), -2000, 2000)
     # QMI8658: +-16 g, +-1024 dps (satura en el empuje)
     tq = np.arange(t_us[0], t_us[-1], 1e6 / QMI_HZ)
     d['qmi_t'] = tq
-    d['qmi_a'] = np.clip(interp(tq, V['f']) + rng.normal(0, QMI_ACC_SD, (len(tq), 3)), -16, 16)
-    d['qmi_g'] = np.clip((1 + sg) * interp(tq, V['w']) + QMI_BG + rng.normal(0, QMI_GYR_SD, (len(tq), 3)), -1024, 1024)
+    d['qmi_a'] = np.clip(interp(tq, V['f']) + rng.normal(0, QMI_ACC_SD * r, (len(tq), 3)), -16, 16)
+    d['qmi_g'] = np.clip((1 + sg) * interp(tq, V['w']) + QMI_BG + rng.normal(0, QMI_GYR_SD * r, (len(tq), 3)), -1024, 1024)
     # Magnetometros: campo terrestre en NED, al cuerpo
     dip, dec = np.radians(MAG_DIP), np.radians(ekf.DECL_DEG)
     m_ned = MAG_B * np.array([np.cos(dip) * np.cos(dec), np.cos(dip) * np.sin(dec), np.sin(dip)])
     tm = np.arange(t_us[0], t_us[-1], 1e6 / MAG_HZ)
     km = np.searchsorted(t_us, tm)
     mb = np.einsum('kji,j->ki', V['C'][km], m_ned)
-    d['mmc'] = np.column_stack([tm, mb + rng.normal(0, MMC_SD, mb.shape)]) if not args.sin_mag else np.zeros((0, 4))
-    d['qmc'] = np.column_stack([tm, mb + rng.normal(0, QMC_SD, mb.shape)]) if not args.sin_mag else np.zeros((0, 4))
+    d['mmc'] = np.column_stack([tm, mb + rng.normal(0, MMC_SD * r, mb.shape)]) if not args.sin_mag else np.zeros((0, 4))
+    d['qmc'] = np.column_stack([tm, mb + rng.normal(0, QMC_SD * r, mb.shape)]) if not args.sin_mag else np.zeros((0, 4))
     x = {}
     # Barometros: presion de la simulacion, ruido y pulso de la carga de eyeccion (SUPUESTO)
     def baro(hz, sd, ofs):
         tb = np.arange(t_us[0], t_us[-1], 1e6 / hz)
-        pb = np.interp(tb, t_us, V['p_pa']) + ofs + rng.normal(0, sd, len(tb))
+        pb = np.interp(tb, t_us, V['p_pa']) + ofs + rng.normal(0, sd * r, len(tb))
         dt_ej = (tb - V['ev']['eyeccion']) / 1e6
-        pb += np.where(dt_ej >= 0, EJ_PULSO_PA * np.exp(-np.maximum(dt_ej, 0) / EJ_PULSO_TAU), 0.0)
+        pb += np.where(dt_ej >= 0, pulso_pa * np.exp(-np.maximum(dt_ej, 0) / pulso_tau), 0.0)
         return np.column_stack([tb, pb])
     x['bmp'], x['bme'] = baro(BMP_HZ, BMP_SD, 0.0), baro(BME_HZ, BME_SD, BME_OFS)
     # GNSS a 10 Hz en el segundo UTC, con error de posicion correlacionado y perdida por encima de 4 g (SUPUESTO)
@@ -190,13 +199,13 @@ def sensores(s, V, args):
     ar = np.exp(-0.1 / GNSS_POS_TAU)
     err = np.zeros((len(te), 2))
     for i in range(1, len(te)):
-        err[i] = ar * err[i - 1] + np.sqrt(1 - ar * ar) * rng.normal(0, GNSS_POS_SD, 2)
+        err[i] = ar * err[i - 1] + np.sqrt(1 - ar * ar) * rng.normal(0, GNSS_POS_SD * r, 2)
     pos = V['p'][ke]
     kd = np.pi / 180 * 6378137.0
     lat = s['lat0'] + (pos[:, 0] + err[:, 0]) / kd
     lon = s['lon0'] + (pos[:, 1] + err[:, 1]) / (kd * np.cos(np.radians(s['lat0'])))
-    h = s['h0'] - pos[:, 2] + rng.normal(0, GNSS_ALT_SD, len(te))
-    vel = V['v'][ke] + rng.normal(0, GNSS_VEL_SD, (len(te), 3))
+    h = s['h0'] - pos[:, 2] + rng.normal(0, GNSS_ALT_SD * r, len(te))
+    vel = V['v'][ke] + rng.normal(0, GNSS_VEL_SD * r, (len(te), 3))
     utc = UTC0 + (te - T_LOCAL0_US) / 1e6
     fix = np.where(sin_fix, 0, 3)
     x['pvt'] = np.column_stack([te + GNSS_LAT_S * 1e6, utc, fix, lat, lon, h, np.full(len(te), 1.2), np.full(len(te), 2.0), vel, np.full(len(te), 0.15)])
