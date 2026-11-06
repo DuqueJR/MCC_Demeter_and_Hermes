@@ -138,10 +138,15 @@ tools/web_datos/                      OpenRocket CSV → JSONL del contrato (D)
 - CORS: el relay solo acepta los orígenes de la web. Límite de conexiones SSE por IP (por ejemplo, 10).
 - **Fotos e integrantes:** antes de publicarlos se confirma que cada persona acepta salir en la web (va con PEN-W02).
 
-## 9. Hosting (PEN-W05, se decide en W3)
+## 9. Hosting (D-061, cierra PEN-W05)
 
-El diseño no depende del proveedor. Necesitamos:
-1. un **CDN estático**, por ejemplo Cloudflare Pages, Netlify o GitHub Pages;
-2. **una VM o un contenedor siempre encendido** para el relay, con TLS (por ejemplo, Caddy delante), en un subdominio `api.` **sin proxy que guarde en búfer el SSE**.
+Decidido el 2026-11-05 (dominio propio, presupuesto ≤ US$10/mes):
+
+1. **Frontend estático** (`gui/web/dist` + el PMTiles del mapa): **Cloudflare Pages**, gratis y con TLS automático, en un subdominio del dominio propio (p. ej. `web.<dominio>`).
+2. **Relay** (`gui/relay/`, FastAPI + SSE): **Fly.io**, una máquina compartida pequeña (shared-cpu-1x, ~1 GB de RAM), con TLS automático para `api.<dominio>` y un `Dockerfile` que arranca `uvicorn app:crear_app --factory --proxy-headers`. Un volumen pequeño guarda los JSONL de `WEB_RELAY_DATOS`.
+   - **Siempre un solo proceso** (`workers=1`, el estado está en memoria) y **sin auto-stop** (la máquina no duerme).
+   - Detrás del proxy de Fly, `--proxy-headers` hace que el límite por IP (`WEB_SSE_MAX_POR_IP`) use la IP real.
+3. **Secretos** (en cada plataforma, nunca en el repo): `WEB_INGESTA_TOKEN`, `WEB_RELAY_ORIGENES=https://web.<dominio>` y, si hace falta, `WEB_SSE_MAX_POR_IP`.
+4. **DNS:** `web.<dominio>` → Cloudflare Pages; `api.<dominio>` → Fly.io.
 
 Se prueba de punta a punta por Starlink antes del congelamiento (P-08).
