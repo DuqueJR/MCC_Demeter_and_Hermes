@@ -192,7 +192,8 @@ static void imuTask(void *) {
             if (!bus_log(RING_IMU, rec::T_IMU, rec::S_IN_IMU, tIsr, buf, (uint16_t)(sizeof(h) + SAMPLE_B * c))) s_st.logDrops++;
         }
 
-        for (uint16_t k = 0; k < cnt; k++) {                      // T-410: respaldo del LSM para BOOST, |a| de cada muestra
+        // El primer lote tras encender puede traer basura (6 nov: x = -32768 y el giro corrido en Demeter): se registra, pero no va a BOOST ni al EKF
+        for (uint16_t k = 0; k < cnt && n0 > 0; k++) {            // T-410: respaldo del LSM para BOOST, |a| de cada muestra
             int16_t a[3], g[3];
             memcpy(a, s_fifo + k * SAMPLE_B, 6);
             memcpy(g, s_fifo + k * SAMPLE_B + 6, 6);

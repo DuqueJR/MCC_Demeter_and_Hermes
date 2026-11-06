@@ -128,6 +128,8 @@ Los criterios son de Pablo (§1). Lo marcado con (P) lo fijó el documentador pa
    - Si `|a| ≤ BOOST_ACC_MIN_G` durante más de `BOOST_RESET_MS` (50 ms (P)) seguidos: `dv = 0`.
 3. **BOOST** cuando `dv ≥ boost_dv_mps` (5 m/s, `mission_config.h`).
 4. **Huecos entre muestras** (D-048): un `dt` mayor que `BOOST_DT_MAX_US` (5 ms) no se integra, y un hueco mayor que `BOOST_RESET_MS` reinicia `dv`. Sin esto, una muestra suelta de 20 g tras un hueco de 40 ms sumaría 7,5 m/s de golpe.
+5. **Muestras saturadas** (6 nov): una muestra con algún eje en el tope de la escala (±32767) no se integra ni reinicia nada: es el chip saturado o un dato basura. El motor no satura ninguno de los dos IMU (LSM ±32 g, QMI ±16 g).
+6. **Primer lote del QMI al encender** (6 nov): se registra, pero no va a BOOST ni al EKF. En Demeter traía x = −32768 durante 16 muestras, que solas sumaban 5,5 m/s; como el LSM aún no estaba listo, BOOST usaba el QMI y pasaba a BOOST sin armar en cada arranque.
 5. Después de disparar, el integrador vuelve a 0 y puede volver a disparar (la misión ignora los BOOST repetidos). Así no hay estado que sincronizar entre núcleos.
 6. **Respaldo del QMI:** su aviso vale solo si, cuando la misión lo lee, el LSM no tiene una muestra fresca (`FRESH_US`).
 7. Se evalúa **a la tasa del IMU**, sin submuestrear a 50 Hz. Lo recomendado:

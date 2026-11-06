@@ -175,6 +175,20 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
   - Así no puede repetirse el caso de la 0101: una posición sin mover el cohete o repetida se detecta en el momento.
 - Probado en el modo demo con TELEM simulada: una posición 2 igual a la 1 se rechaza, y la secuencia correcta llega al giro.
 
+## BOOST sin armar en cada arranque (6 nov)
+
+- **Síntoma (Pablo):** con el firmware nuevo, Demeter pasaba a FLY/BOOST sin armar y registraba cada vez que encendía (`flags=0x03`, sin la marca de reanudado: no era la persistencia).
+- **Causa, en la TELEM de cada arranque (00:45 y 02:18):** las primeras muestras del QMI traen x = −16 000 mg (−32768 cuentas, el tope de ±16 g) y un giro de 56 °/s. Luego el valor queda quieto ~1,7 s y pasa a lo normal. Ese primer lote del FIFO son 16 muestras a 445 Hz y ~16,5 g, que integran 5,5 m/s. El LSM todavía no está listo, así que BOOST usa el QMI.
+- Apareció desde el arranque de las 22:21 del 5 nov; a las 20:19 el primer dato era normal. El código del QMI no cambió entre esos firmwares; la causa en el chip queda sin aislar.
+- **Corregido:**
+  - `boost_detect.cpp` ignora toda muestra con un eje en el tope de la escala;
+  - `in_imu.cpp` no manda a BOOST ni al EKF el primer lote tras encender; ese lote sí se registra.
+  - Está en `maquina_estados.md` §6.
+- **Pruebas en el PC:**
+  - el lote real (16 muestras saturadas) da cero detecciones;
+  - un control con 24 muestras a −15,8 g sin saturar sí detecta;
+  - el resto de `correr_pruebas.py` pasa.
+
 ## Pendiente
 
 - La memoria real en la ESP32-S3.

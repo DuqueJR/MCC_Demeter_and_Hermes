@@ -264,6 +264,17 @@ def main():
         res = correr("inercial", escribir("neg_inercial_%d" % i, FS, r))
         anotar("negativa: " + nombre, res["hits"] == 0, "detecciones = %d, dv maximo = %.2f m/s (objetivo 5)" % (res["hits"], res["dv_max_mps"]))
 
+    # --- Primer lote basura del QMI al encender (6 nov, Demeter): 16 muestras a 445 Hz con x en el tope de la escala (-16 g a 2048 LSB/g).
+    #     Solas daban dv = 5,5 m/s y BOOST sin armar en cada arranque. Con el eje saturado no se integran. Control: el mismo lote 1 % por debajo
+    #     del tope si se integra (confirma que lo que lo evita es la saturacion) ---
+    for nombre, x, espera in (("saturado (x = -32768)", -16.5, 0), ("control sin saturar (x = -15,8 g), 24 muestras", -15.8, 1)):
+        n = 16 if espera == 0 else 24
+        r = np.zeros((445 + n + 445, 3), np.float32); r[:, 0] = 1.0
+        r[445:445 + n] = (x, 1.8, 3.9)
+        res = correr("inercial", escribir("qmi_arranque_%d" % espera, 445.0, r), 2048)
+        anotar("QMI al encender, " + nombre + ": " + ("cero detecciones" if espera == 0 else "detecta"),
+               (res["hits"] == 0) if espera == 0 else (res["hits"] >= 1), "detecciones = %d, dv maximo = %.2f m/s" % (res["hits"], res["dv_max_mps"]))
+
     # --- Barrido de la sacudida de +-3 g, 5 s, con el eje vertical (|a| = |1 + 3 sen|) y con uno horizontal (|a| = raiz(1 + 9 sen^2)).
     #     De 3 a 20 Hz: cero detecciones (criterio, D-048). A 1 y 2 Hz es movimiento real del cohete (mas de 1 m): solo se informa el dv maximo ---
     for vertical in (True, False):

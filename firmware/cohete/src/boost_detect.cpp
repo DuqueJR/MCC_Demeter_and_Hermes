@@ -64,15 +64,25 @@ static BoostFlag       s_flagLsm, s_flagQmi;
 
 void boostSetTarget(float dvMps) { s_lsm.setTarget(dvMps); s_qmi.setTarget(dvMps); }   // se escribe una vez, antes de que haya vuelo
 
+// Un eje en el tope de la escala no es una medida: es el chip saturado o un dato basura (el primer lote del QMI al encender traia x = -32768,
+// unas 16 muestras a 16,5 g, y eso solo daba los 5 m/s: BOOST sin armar en cada arranque, 6 nov). Esa muestra no se integra ni reinicia nada.
+// El motor no satura ninguno de los dos (LSM +-32 g, QMI +-16 g); un golpe si.
+static inline bool saturated(const int16_t a[3]) {
+    for (int i = 0; i < 3; i++) if (a[i] >= 32767 || a[i] <= -32767) return true;
+    return false;
+}
+
 static inline float norm(const int16_t a[3], float lsbPerG) {
     const float x = a[0], y = a[1], z = a[2];
     return sqrtf(x * x + y * y + z * z) / lsbPerG;
 }
 
 void boostLsmSample(int64_t t_us, const int16_t a[3], float lsbPerG) {
+    if (saturated(a)) return;
     if (s_lsm.feed(t_us, norm(a, lsbPerG))) s_flagLsm.post(BOOST_INERCIAL, (uint32_t)lroundf(s_lsm.hitDv() * 100.0f));
 }
 void boostQmiSample(int64_t t_us, const int16_t a[3], float lsbPerG) {
+    if (saturated(a)) return;
     if (s_qmi.feed(t_us, norm(a, lsbPerG))) s_flagQmi.post(BOOST_INERCIAL, (uint32_t)lroundf(s_qmi.hitDv() * 100.0f));
 }
 uint8_t boostTakeLsm(uint32_t &dvCms) { return s_flagLsm.take(dvCms); }
