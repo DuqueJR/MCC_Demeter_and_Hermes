@@ -18,6 +18,8 @@ import {
 import type { ComponentChildren } from "preact";
 import type { Mision } from "../contrato/tipos";
 import { estado, estadoPagina, eventos } from "../datos/api";
+import { BotonSimulacion } from "../simulacion/BotonSimulacion";
+import type { Simulacion } from "../simulacion/guion";
 import { tMasSegundos } from "./BarraMision";
 import { SUBTITULO_FASE, TITULO_FASE } from "./fases";
 import { numero, tMas } from "./formato";
@@ -108,7 +110,13 @@ function ListaObjetivos({ objetivos }: { objetivos: Objetivo[] }) {
   );
 }
 
-export function EstadoMision({ mision }: { mision: Mision }) {
+interface Props {
+  mision: Mision;
+  /** La simulación de la misión (T-635); sin ella (Hermes) no hay botón. */
+  simulacion?: Simulacion;
+}
+
+export function EstadoMision({ mision, simulacion }: Props) {
   const est = estado.value;
   const evs = eventos.value;
   const sinTransmision = principal.value === "sin_transmision";
@@ -122,6 +130,7 @@ export function EstadoMision({ mision }: { mision: Mision }) {
           La transmisión en vivo empieza el día del lanzamiento
         </p>
       )}
+      {sinTransmision && simulacion !== undefined && <BotonSimulacion simulacion={simulacion} />}
 
       <div class="estado-ahora">
         <div class="estado-t">

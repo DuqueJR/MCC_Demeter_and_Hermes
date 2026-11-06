@@ -1,0 +1,74 @@
+/*
+ * Simulación para el público (03 §4, T-635). SOLO tokens de src/tema/ (06 §6): nada de colores
+ * literales. Los botones reutilizan `.boton` y `.boton-principal` (recuperacion_salud.css), que se
+ * cargan con la sección de Recuperación; aquí solo se ajusta lo propio.
+ */
+
+.sim-invitacion {
+  display: grid;
+  justify-items: start;
+  gap: var(--e-3);
+  margin: 0 0 var(--e-3);
+}
+
+.sim-nota {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.sim-boton[disabled] {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.sim-boton[aria-busy="true"] svg {
+  animation: sim-girar 1.2s linear infinite;
+}
+
+@keyframes sim-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-boton[aria-busy="true"] svg {
+    animation: none;
+  }
+}
+
+.sim-error {
+  margin: 0;
+  color: var(--estado-alarma);
+  font-weight: 600;
+}
+
+/* "Salir de la simulación", dentro del banner fijo de la barra de misión. */
+.sim-salir {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-height: var(--e-6);
+  margin-left: auto;
+  padding: 0 var(--e-2);
+  background: transparent;
+  border: 1px solid var(--estado-info);
+  border-radius: var(--radio);
+  color: var(--estado-info);
+  font: inherit;
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sim-salir:hover {
+  background: var(--superficie-2);
+}
+
+.sim-salir svg {
+  flex: none;
+  width: var(--e-4);
+  height: var(--e-4);
+  stroke-width: 1.75;
+}

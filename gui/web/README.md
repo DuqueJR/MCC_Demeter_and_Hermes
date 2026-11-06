@@ -34,6 +34,14 @@ Variables: ver `.env.example` (`VITE_API_BASE`).
 Imágenes: `vite-imagetools` está activo. Ejemplo: `import src from "./foto.png?format=avif;webp&w=256;512&as=srcset"`.
 Íconos de las partes (T-621): `node scripts/iconos-transparentes.mjs [carpeta]` les quita el fondo plano y los deja a 512 px en `src/assets/<misión>/iconos/`; se vuelve a correr si el diseñador cambia las imágenes (cabecera del script: el método).
 
+## Simulación para el público (T-635)
+
+En `/demeter/`, el estado "Sin transmisión todavía" ofrece "Ver la simulación del vuelo": el navegador reproduce el escenario `nominal` (OpenRocket, apogeo ~670 m) con el banner fijo "Simulación: así será el vuelo" y la marca SIM. Todo es del cliente: sin servidor nuevo ni cambios al relay. En Hermes no hay botón (no hay simulación del G80-7T, PEN-07).
+
+- **El guion** (`src/assets/demeter/simulacion_nominal.json`, ~350 KB; ~30 KB con gzip) sale de `dev/datos/demeter_nominal.jsonl` con `npm run simulacion:generar` (`scripts/generar-simulacion.mjs`: estados de vuelo a ~3 Hz, salud decimada, cola de 10 s tras el aterrizaje). La salida es determinista y una prueba la compara con el archivo versionado: si cambias el JSONL o el script, vuelve a generar y sube el resultado. `--comprobar` solo verifica. Biome no lo formatea (`biome.json`).
+- **Carga diferida:** `entradas/demeter.tsx` lo importa con `?url`: sale como un archivo de `dist/assets/` y solo se descarga al pulsar. El paquete inicial y la página de Hermes no lo tocan (`aislamiento.mjs` sigue en verde).
+- **Código:** `src/simulacion/` (`guion.ts`, `reproductor.ts`, `control.ts`, `BotonSimulacion.tsx`) y `src/datos/compuerta.ts`. Mientras corre, la compuerta hace que el cliente real no escriba en las signals; el primer dato real del cohete (o "Salir de la simulación") la corta y el cliente rehace su sesión.
+
 ## Tema y tokens (T-613)
 
 Tokens en `src/tema/` (contrato, 02 §6): `comun.css` + el de la misión. Fuentes WOFF2 latinas en `src/tema/fuentes/` con sus licencias OFL.

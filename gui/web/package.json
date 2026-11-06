@@ -14,6 +14,7 @@
     "repetidor": "node dev/repetidor/main.ts",
     "aislamiento": "node scripts/aislamiento.mjs dist",
     "colores": "node scripts/colores.mjs",
+    "simulacion:generar": "node scripts/generar-simulacion.mjs",
     "test": "vitest run",
     "e2e": "npm run build && playwright test",
     "e2e:instalar": "playwright install chromium",

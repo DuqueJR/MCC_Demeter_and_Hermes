@@ -17,6 +17,10 @@
 // El `id` del SSE es opaco (D-W18): solo se guarda y se devuelve en `Last-Event-ID`. El `meta` de
 // bienvenida llega sin `id` y no mueve el cursor.
 //
+// Simulación para el público (T-635): mientras `compuerta.activa()`, el cliente sigue conectado pero NO
+// escribe en las signals (la simulación local es la dueña); solo vigila si llega el primer dato real del
+// cohete, y entonces avisa a la compuerta. Al cerrarse la compuerta, rehace la sesión (snapshot nuevo).
+//
 // Reloj: todo lo que dependa del tiempo usa `entorno.ahoraMs()` (local y monotónico, inyectable
 // para las pruebas), nunca el reloj UTC del celular (05 §0).
 import { batch } from "@preact/signals";
@@ -28,6 +32,7 @@ import {
   type TipoMensaje,
 } from "../contrato/tipos";
 import { alimentar, backfill, estacion, estado, meta, salud } from "./api";
+import { compuerta, esDatoRealDelCohete, snapshotTieneDatoReal } from "./compuerta";
 import { WEB_RECONEXION_MAX_S } from "./constantes";
 import { esPosterior, type MensajeSse } from "./costura";
 import { interpolador } from "./interpolacion";
@@ -258,6 +263,11 @@ export function iniciarCliente(opciones: OpcionesCliente): Cliente {
   }
 
   function aplicarVivo(m: MensajeSse): void {
+    if (compuerta.activa()) {
+      // Simulación local en curso: no se escribe nada; solo se vigila el primer dato real del cohete.
+      if (esDatoRealDelCohete(m)) compuerta.datoReal();
+      return;
+    }
     switch (m.tipo) {
       case "meta": {
         const actual = meta.value;
@@ -314,6 +324,14 @@ export function iniciarCliente(opciones: OpcionesCliente): Cliente {
 
   /** Aplica el snapshot y reproduce del búfer lo posterior a él (la costura). */
   function aplicarSnapshot(snap: Snapshot, llegadaMs: number): void {
+    if (compuerta.activa()) {
+      // Simulación local en curso: el snapshot no se aplica (pisaría la simulación). Se deja la sesión
+      // en "vivo" y sin búfer para que no crezca; al cerrarse la compuerta se pide uno nuevo.
+      buffer = [];
+      modo = "vivo";
+      if (snapshotTieneDatoReal(snap)) compuerta.datoReal();
+      return;
+    }
     const pendientes = buffer.filter((m) => esPosterior(snap, m));
     buffer = [];
     // Si el snapshot trae el MISMO latido que ya se mostraba (una resincronización), se conserva
@@ -516,8 +534,9 @@ export function iniciarCliente(opciones: OpcionesCliente): Cliente {
       }
       if (detenido) return;
       if (ultimaSesion?.motivo === "voluntario") continue; // a propósito: sin espera ni aviso
-      // Se cayó o el servidor cerró: los datos se mantienen y se avisa (03 §4).
-      alimentar.conexion("reconectando");
+      // Se cayó o el servidor cerró: los datos se mantienen y se avisa (03 §4). Con la simulación local
+      // en curso no se toca la conexión: la simulación no depende del servidor (T-635).
+      if (!compuerta.activa()) alimentar.conexion("reconectando");
       const duro = entorno.ahoraMs() - inicio < SESION_ESTABLE_S * MS_POR_S;
       fallos = duro ? fallos + 1 : 1;
       const espera = esperaReconexionMs(fallos, entorno.aleatorio(), retryAfterMs);
@@ -533,6 +552,7 @@ export function iniciarCliente(opciones: OpcionesCliente): Cliente {
       detenido = true;
       cancelarTick();
       quitarVisible();
+      quitarCompuerta();
       despertar?.();
       if (sesion !== null) {
         sesion.motivo = "detener";
@@ -554,6 +574,8 @@ export function iniciarCliente(opciones: OpcionesCliente): Cliente {
   };
 
   const quitarVisible = entorno.alVolverVisible(() => cliente.reiniciarSesion());
+  // Al terminar la simulación (por el botón o por un dato real), se rehace la sesión: snapshot nuevo.
+  const quitarCompuerta = compuerta.alCerrar(() => cliente.reiniciarSesion());
   clienteActivo = cliente;
   programarTick();
   void bucle();

@@ -202,7 +202,7 @@ test.describe("sin transmisión todavía", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   for (const mision of MISIONES) {
-    test(`${mision}: dice que la transmisión empieza el día del lanzamiento, sin botón muerto`, async ({
+    test(`${mision}: dice que la transmisión empieza el día del lanzamiento y ofrece la simulación solo si la hay`, async ({
       page,
     }) => {
       await abrir(page, mision);
@@ -211,8 +211,11 @@ test.describe("sin transmisión todavía", () => {
       await expect(page.locator("#estado .estado-aviso")).toHaveText(
         "La transmisión en vivo empieza el día del lanzamiento",
       );
-      // La simulación solo la decide el servidor (meta.modo): no hay un botón que no pueda funcionar.
-      await expect(page.getByRole("button", { name: /simulación/i })).toHaveCount(0);
+      // T-635: Deméter ofrece "Ver la simulación del vuelo"; Hermes no tiene perfil del G80-7T (PEN-07)
+      // y no muestra un botón que no pueda funcionar.
+      await expect(page.getByRole("button", { name: /simulación/i })).toHaveCount(
+        mision === "demeter" ? 1 : 0,
+      );
       await expect(page.locator("#telemetria [data-celda='altitud'] dd")).toHaveText("sin dato");
       await expect(page.locator("#telemetria [data-celda='aceleracion'] dd")).toHaveText(
         "sin dato",
