@@ -644,17 +644,25 @@ button:focus-visible,
     grid-column: 1 / -1;
   }
 
-  /* Banda baja de Inicio: la foto principal junto al texto. */
+  /*
+   * Banda de Inicio: las fotos junto al texto. En el portátil no hay gesto de deslizar, así que el
+   * carrusel pasa a una fila con todas las fotos a la vista (antes se ocultaban las demás con
+   * display:none y la foto del equipo nunca aparecía; T-639). Con `display: none` además el
+   * `loading="lazy"` nunca llega a pedir la imagen.
+   */
   .inicio-cuerpo {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     align-items: center;
   }
 
-  .diapositiva:not(:first-child) {
-    display: none;
+  .carrusel {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    overflow-x: visible;
   }
 
   .diapositiva {
-    flex-basis: 100%;
+    flex-basis: auto;
   }
 }
