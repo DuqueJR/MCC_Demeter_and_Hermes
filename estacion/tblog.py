@@ -6,11 +6,13 @@ Formato: [A5 5A][len u16][type u8][src u8][t_us i64] payload [crc16 ccitt-false]
 """
 import os, sys, struct, argparse, statistics, collections, time
 
-T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_AMB, T_CAL, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 250
+T_PVT, T_PPS, T_LINK, T_HB, T_FILEHDR, T_IMU, T_MAG, T_BAR, T_BARCAL, T_EXT_LSM, T_EXT_MMC, T_MISSION, T_PI, T_AMB, T_CAL, T_EKF, T_EVENT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 250
 PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # demeter_protocol.StatusCode
 PI_CMD = {0xA0: 'PREFLIGHT', 0xA1: 'ARM', 0xA2: 'START_ASCENT', 0xB1: 'START_REC', 0xC1: 'TOUCHDOWN', 0xF1: 'ABORT'}   # comandos LilyGo -> Pi (T_PI kind 3)
 PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # demeter_protocol.ErrorCode (T_PI kind 1, en pad; D-056)
 HDR, CRC = 14, 2
+# rec::EkfRec (D-060): q[4] p[3] v[3] bg[3] ba[3] sg[3] b_bmp alt_baro sd_th[3] sd_p[3] sd_v[3] lat0 lon0 h0 fase flags gnss_ok baro_ok mag_ok grav_ok rechazos
+EKF_FMT = '<4f3f3f3f3f3fff3f3f3fddfBB5H'
 
 def crc16(data, c=0xFFFF):
     for b in data:
@@ -156,10 +158,10 @@ def main():
     recs, skipped, resync, trunc = records(buf)
     print(f"archivo: {a.file}  tamano={len(buf)} B  registros={len(recs)}  bytes_saltados={skipped}  resync={resync}" + ("  (registro final cortado por el apagado, resto ceros)" if trunc else ""))
     tipos = collections.Counter(r[1] for r in recs)
-    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_PI: 'PI', T_AMB: 'AMB', T_CAL: 'CAL', T_EVENT: 'EVENT'}
+    names = {T_PVT: 'PVT', T_PPS: 'PPS', T_LINK: 'LINK', T_HB: 'HEARTBEAT', T_FILEHDR: 'FILEHDR', T_IMU: 'IMU', T_MAG: 'MAG', T_BAR: 'BAR', T_BARCAL: 'BARCAL', T_EXT_LSM: 'EXT_LSM', T_EXT_MMC: 'EXT_MMC', T_MISSION: 'MISSION', T_PI: 'PI', T_AMB: 'AMB', T_CAL: 'CAL', T_EKF: 'EKF', T_EVENT: 'EVENT'}
     print("por tipo: " + ", ".join(f"{names.get(k, k)}={v}" for k, v in sorted(tipos.items())))
     if recs:
-        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL)]     # lo guardado antes de registrar no cuenta
+        sens = [r[3] for r in recs if r[1] not in (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL, T_EKF)]     # lo guardado antes de registrar no cuenta
         if sens:
             print(f"duracion (reloj local): {(max(sens) - min(sens)) / 1e6:.1f} s")
 
@@ -513,8 +515,28 @@ def main():
         for t, act, res, av, e, est, npos, ok in cals:
             print(f"  t={t / 1e6:.2f} s  {ev.get(e, e)}: activa {act:08X}" + (f", resultado {res:08X} ({'ok' if ok else 'con avisos 0x%08X' % av}, {npos} posiciones)" if res else ''))
 
+    # ---- EKF a bordo (ekf_task, D-060) ----
+    ekfs = [(r[3],) + struct.unpack(EKF_FMT, r[4]) for r in recs if r[1] == T_EKF and len(r[4]) == struct.calcsize(EKF_FMT)]
+    if ekfs:
+        fases = ['reposo', 'boost', 'coast', 'eyeccion', 'paracaidas', 'aterrizaje']
+        u = ekfs[-1]
+        dur = (ekfs[-1][0] - ekfs[0][0]) / 1e6
+        print()
+        print(f"EKF A BORDO: {len(ekfs)} estados en {dur:.1f} s ({len(ekfs) / max(dur, 1e-3):.1f} Hz)"
+              f"{', calibrado' if u[-6] & 4 else ', SIN CALIBRAR'}{', con origen GNSS' if u[-6] & 2 else ', sin origen GNSS'}")
+        print(f"  final: q={[round(v, 4) for v in u[1:5]]} p={[round(v, 2) for v in u[5:8]]} m v={[round(v, 3) for v in u[8:11]]} m/s altura={u[21]:.2f} m fase={fases[u[-7] % 6]}")
+        print(f"  sesgo giro {[round(v, 3) for v in u[11:14]]} dps, acel {[round(1000 * v, 1) for v in u[14:17]]} mg, escala giro {[round(100 * v, 3) for v in u[17:20]]} %, BMP {u[20]:.2f} m")
+        print(f"  1 sigma: actitud {[round(v, 2) for v in u[22:25]]} grados (z = guinada), posicion {[round(v, 2) for v in u[25:28]]} m, velocidad {[round(v, 3) for v in u[28:31]]} m/s")
+        print(f"  medidas aceptadas: gnss {u[-5]}, baro {u[-4]}, mag {u[-3]}, gravedad {u[-2]}; rechazos {u[-1]} (contadores de 16 bits)")
+        if a.csv:
+            with open('ekf_abordo.csv', 'w') as f:
+                f.write('t_us,qw,qx,qy,qz,pn_m,pe_m,pd_m,vn_mps,ve_mps,vd_mps,bgx_dps,bgy_dps,bgz_dps,bax_g,bay_g,baz_g,sgx,sgy,sgz,b_bmp_m,alt_baro_m,'
+                        'sig_x_deg,sig_y_deg,sig_z_deg,sig_pn_m,sig_pe_m,sig_pd_m,sig_vn_mps,sig_ve_mps,sig_vd_mps,lat0,lon0,h0_m,fase,flags,gnss_ok,baro_ok,mag_ok,grav_ok,rechazos\n')
+                for r in ekfs:
+                    f.write(','.join(f'{v:.9g}' if isinstance(v, float) else str(v) for v in r) + '\n')
+
     # ---- Incidentes de SD y silencios ----
-    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL)
+    no_sensor = (T_EVENT, T_FILEHDR, T_MISSION, T_PI, T_AMB, T_CAL, T_EKF)
     ts = sorted(r[3] for r in recs if r[1] not in no_sensor)
     t0 = ts[0] if ts else 0
     evs = [struct.unpack('<qIIhBB', r[4]) for r in recs if r[1] == T_EVENT and len(r[4]) == 20]

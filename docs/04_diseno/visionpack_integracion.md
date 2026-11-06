@@ -18,7 +18,7 @@ Solo se activa con `MODULO_VISIONPACK = 1`. El código de la Pi está en `vision
 
 > **Actualización del 2026-11-04 (D-054, bloque 9a y 9b, escrito sin validar):**
 > - El cableado TX → 1k → RX de la Pi funciona: la Pi leyó el arranque de la ROM de la ESP32-S3 en `/dev/ttyAMA0` a 115200.
-> - `firmware/cohete/src/ext_pi.cpp` (solo Demeter): recibe el latido `PAYLOAD_STATUS` y envía la POSE 0x21 a 50 Hz (≈3 kB/s, 26 % de la UART). Sin EKF a bordo: GNSS, altura del barómetro sobre su p0, cuaternión identidad, `F_EKF` y `F_ATT` en 0. El suelo MSL se estima en tierra (GNSS menos barómetro) y queda fijo en FLY y RECOVERY.
+> - `firmware/cohete/src/ext_pi.cpp` (solo Demeter): recibe el latido `PAYLOAD_STATUS` y envía la POSE 0x21 a 50 Hz (≈3 kB/s, 26 % de la UART). Con el EKF a bordo (D-060), en cuanto arranca: cuaternión, giro, altura sobre el p0 y sus sigmas, con `F_EKF`, `F_ATT` y `F_ALT`; con origen GNSS además posición y velocidad del EKF (`F_POS`). Todo llevado al presente: el filtro va 300 ms atrasado y la salida integra el IMU guardado. Antes de arrancar: GNSS, altura del barómetro de la misión y cuaternión identidad. El suelo MSL se estima en tierra (GNSS menos barómetro) y queda fijo en FLY y RECOVERY.
 > - `demeter_missiond.py` publica su estado cada 1 s (latido). Sin latido en 3 s, la LilyGo lo da por desconocido (`0xFF`).
 > - El estado de la Pi va en el byte alto de `TELEM.actuators` y en el log (`T_PI`); el monitor muestra la línea `[pi  ]`.
 > - **D-056:** `PAYLOAD_STATUS` lleva además el motivo del error (`ErrorCode`), que llega a tierra en los bits 3-7 de `TELEM.actuators`.

@@ -24,3 +24,4 @@ bool         missionTakeLog(MissionLog &l);
 bool         missionTakeSleep();                    // true una vez, cuando la respuesta ya salio: el bucle principal (dueno de la PMU) duerme
 bool         missionTakeReset();                    // igual, para reiniciar
 MissionStats missionStats();
+bool         missionP0(float p0[2]);                // p0 del BMP581 y del BME280 (0 si no hay); el EKF los usa al reanudar en vuelo sin foto
