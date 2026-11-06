@@ -189,6 +189,17 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
   - un control con 24 muestras a −15,8 g sin saturar sí detecta;
   - el resto de `correr_pruebas.py` pasa.
 
+## Carga de la calibración de Demeter (6 nov)
+
+- **"Aplicar" respondía "no hay resultado listo":** es lo esperado. Aplicar usa el análisis que hace el propio cohete ("Analizar el último registro"), y no se había corrido. La calibración de la 0101 la analizó el PC, así que entra por USB.
+  - Analizar a bordo ahora no serviría: el último registro de la SD ya no es la captura, sino los registros de los BOOST sin armar.
+- **La carga por USB no respondía.** `cal_blob.py` abría el puerto con DTR y RTS arriba y los bajaba después; en el USB del S3 eso puede reiniciar la placa, y el blob se perdía. Además mandaba los 343 B de una vez, y el cohete atiende el USB una vez por segundo con un búfer de entrada corto.
+- **Corregido en `cal_blob.py`:**
+  - baja DTR y RTS antes de abrir el puerto, como `tbget.py`;
+  - reintenta abrir durante 6 s;
+  - manda la clave y el largo, espera 1,5 s y manda el blob en trozos de 64 B.
+- **Probado con Demeter:** `CAL OK 29B2B23E`, el mismo CRC del blob. Por radio el cohete reporta esa calibración como activa.
+
 ## Pendiente
 
 - La memoria real en la ESP32-S3.
