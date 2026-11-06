@@ -1,5 +1,7 @@
 export const FORMATO_SIMULACION: string;
+export const MISIONES: string[];
 export const MISION: string;
+export const MODO_SIMULACION: string;
 export const ESCENARIO: string;
 export const ESTADO_EN_VUELO_CADA: number;
 export const SALUD_CADA: number;
@@ -15,4 +17,5 @@ export interface LineaCruda {
 }
 
 export function compactar(lineas: LineaCruda[]): LineaCruda[];
-export function generarTexto(textoJsonl: string): string;
+export function rutasDe(mision: string): { origen: string; destino: string };
+export function generarTexto(textoJsonl: string, mision?: string): string;
