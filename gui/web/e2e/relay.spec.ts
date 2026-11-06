@@ -44,7 +44,9 @@ function vigilarErrores(page: Page): string[] {
 const barra = (page: Page) => page.locator(".barra");
 // Las gráficas se montan al acercarse a la sección (diferido): hay que llegar a ella.
 const irAGraficas = (page: Page) =>
-  page.locator("#graficas").evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+  page
+    .locator("#graficas")
+    .evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
 
 test.describe("relay vacío", () => {
   test.skip(MODO !== "sin_datos", "RELAY_E2E=sin_datos");
@@ -86,7 +88,9 @@ test.describe("relay alimentado con el vuelo nominal", () => {
       await expect(page.locator(".barra-alt .num")).toHaveText(/\d/, { timeout: 90_000 });
       // y las gráficas se dibujan con la serie
       await irAGraficas(page);
-      await expect(page.locator("#graficas")).toHaveAttribute("data-vista", "vivo", { timeout: 30_000 });
+      await expect(page.locator("#graficas")).toHaveAttribute("data-vista", "vivo", {
+        timeout: 30_000,
+      });
       await expect(page.locator("#graficas canvas")).toHaveCount(1);
       await expect(page.locator("#graficas .graficas-resumen")).toContainText("Altitud máxima");
 
@@ -95,12 +99,16 @@ test.describe("relay alimentado con el vuelo nominal", () => {
       await expect(barra(page)).toHaveAttribute("data-principal", "en_vivo", { timeout: 30_000 });
       await irAGraficas(page);
       await expect(page.locator("#graficas canvas")).toHaveCount(1);
-      await expect(page.locator('[data-paso="despegue"]:not([data-situacion="pendiente"])')).toHaveCount(1);
+      await expect(
+        page.locator('[data-paso="despegue"]:not([data-situacion="pendiente"])'),
+      ).toHaveCount(1);
 
       for (const m of MEDIDAS) {
         await page.setViewportSize({ width: m.ancho, height: m.alto });
         await expect(barra(page)).toHaveAttribute("data-principal", "en_vivo");
-        await page.screenshot({ path: resolve(CAPTURAS, `T-640-${mision}-en-vivo-${m.ancho}x${m.alto}.png`) });
+        await page.screenshot({
+          path: resolve(CAPTURAS, `T-640-${mision}-en-vivo-${m.ancho}x${m.alto}.png`),
+        });
       }
       expect(errores).toEqual([]);
     });
