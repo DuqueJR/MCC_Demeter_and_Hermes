@@ -53,7 +53,10 @@ export interface Contenido {
   /** Parche pequeño (barra de misión) y grande (Equipo). */
   parcheChico: string;
   parcheGrande: string;
+  /** Carrusel de Inicio: las fotos del cohete (la del equipo va aparte, en `fotoEquipo`; T-646). */
   fotos: Foto[];
+  /** La foto del equipo, en la sección Equipo junto al parche (T-646). */
+  fotoEquipo: Foto;
   partes: Parte[];
   integrantes: Integrante[];
   /** El enlace del pie: solo navega, no precarga nada de la otra misión (03 §3.11). */

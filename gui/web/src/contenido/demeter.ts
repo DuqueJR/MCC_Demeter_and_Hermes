@@ -35,10 +35,9 @@ export const demeter: Contenido = {
   },
   parcheChico,
   parcheGrande,
-  fotos: [
-    { src: cohete, alt: "El cohete Deméter", pie: "El cohete Deméter", contener: true },
-    { src: equipo, alt: "El equipo de Deméter", pie: "El equipo de Deméter" },
-  ],
+  // Carrusel de Inicio: solo el cohete. La foto del equipo va en la sección Equipo (T-646).
+  fotos: [{ src: cohete, alt: "El cohete Deméter", pie: "El cohete Deméter", contener: true }],
+  fotoEquipo: { src: equipo, alt: "El equipo de Deméter", pie: "El equipo de Deméter" },
   partes: [
     {
       id: "nariz",
