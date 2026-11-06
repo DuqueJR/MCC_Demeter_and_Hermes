@@ -87,8 +87,8 @@ static std::vector<std::vector<uint8_t> > g_bufs;              // el contenido d
 static std::vector<Reg> g_regs;
 static size_t g_sig = 0;                                       // el siguiente registro por consumir
 static int64_t g_tIni = 0, g_tFin = 0;
-static long g_resync = 0, g_recsPorTipo[256];
-struct ArchInfo { std::string ruta; size_t bytes; long registros, saltados; int rocket; uint32_t idx, boot, mision; uint8_t flags; bool tieneHdr; char env[17], git[13], fw[17]; };
+static long g_saltados = 0, g_resync = 0, g_truncado = 0, g_recsPorTipo[256];
+struct ArchInfo { std::string ruta; size_t bytes; long registros, saltados, resync, truncado; int rocket; uint32_t version, idx, boot, mision; uint8_t flags; bool tieneHdr; char env[17], git[13], fw[17]; };
 static std::vector<ArchInfo> g_archivos;
 static std::vector<std::string> g_avisos;                      // JSON de cada aviso (texto)
 
@@ -99,6 +99,18 @@ static std::string esc(const std::string &s) {
 }
 static void aviso(const std::string &t) { g_avisos.push_back("\"" + esc(t) + "\""); }
 
+// FILEHDR de cualquier version (formato_log.md): v1 = magic, version, cohete, mision, arranque, indice, UTC y fw (28 B); v2 agrega entorno, commit y potencia (73 B);
+// v3 agrega flags en el byte 73. Se leen los campos que el registro trae y el resto queda en cero (igual que tblog.cabecera).
+static void leerFileHdr(const Reg &r, ArchInfo &ai) {
+    if (r.n < 28 || memcmp(r.p, "TBLG", 4) != 0 || ai.tieneHdr) return;
+    rec::FileHdrRec fh; memset(&fh, 0, sizeof(fh));
+    memcpy(&fh, r.p, std::min<size_t>(r.n, sizeof(fh)));
+    ai.tieneHdr = true; ai.version = fh.version; ai.rocket = fh.rocket_id; ai.idx = fh.file_idx; ai.boot = fh.boot_count; ai.mision = fh.mission_id;
+    if (fh.version >= 2) { memcpy(ai.env, fh.env, 16); memcpy(ai.git, fh.git, 12); }
+    if (fh.version >= 3 && r.n > 73) ai.flags = fh.flags;
+}
+
+// Recorre los registros igual que tblog.records: cuenta bytes saltados y resincronizaciones, y no cuenta como corrupcion la cola de ceros ni el registro final cortado por el apagado
 static bool cargar(const char *ruta, bool primero) {
     FILE *f = fopen(ruta, "rb");
     if (!f) { fprintf(stderr, "no puedo abrir %s\n", ruta); return false; }
@@ -109,28 +121,46 @@ static bool cargar(const char *ruta, bool primero) {
     fclose(f);
     ArchInfo ai = ArchInfo();                                  // inicializacion por valor: todo en cero
     ai.ruta = ruta; ai.bytes = b.size();
+    const size_t n = b.size();
     size_t pos = 0;
-    while (pos + rec::HDR_SIZE + rec::CRC_SIZE <= b.size()) {
-        const uint16_t len = rec::check(b.data() + pos, (uint32_t)(b.size() - pos));
-        if (!len) { pos++; ai.saltados++; continue; }          // el flujo es autodelimitado: se busca el siguiente A5 5A con CRC valido
-        rec::Hdr h; memcpy(&h, b.data() + pos, sizeof(h));
-        Reg r; r.t = h.t_us; r.type = h.type; r.src = h.src; r.p = b.data() + pos + rec::HDR_SIZE; r.n = (uint16_t)(len - rec::HDR_SIZE - rec::CRC_SIZE); r.orden = g_regs.size();
-        if (h.type == rec::T_FILEHDR && r.n >= sizeof(rec::FileHdrRec)) {
-            rec::FileHdrRec fh; memcpy(&fh, r.p, sizeof(fh));
-            if (memcmp(fh.magic, "TBLG", 4) == 0 && !ai.tieneHdr) {
-                ai.tieneHdr = true; ai.rocket = fh.rocket_id; ai.idx = fh.file_idx; ai.boot = fh.boot_count; ai.mision = fh.mission_id; ai.flags = fh.flags;
-                memcpy(ai.env, fh.env, 16); memcpy(ai.git, fh.git, 12); memcpy(ai.fw, fh.fw, 16);
-            }
+    while (pos + rec::HDR_SIZE + rec::CRC_SIZE <= n) {
+        bool ceros = true;                                     // cola de ceros: fin de datos
+        for (size_t i = pos; i < std::min(n, pos + 64); i++) if (b[i]) { ceros = false; break; }
+        if (ceros) break;
+        const uint16_t len = rec::check(b.data() + pos, (uint32_t)(n - pos));
+        if (len) {
+            rec::Hdr h; memcpy(&h, b.data() + pos, sizeof(h));
+            Reg r; r.t = h.t_us; r.type = h.type; r.src = h.src; r.p = b.data() + pos + rec::HDR_SIZE; r.n = (uint16_t)(len - rec::HDR_SIZE - rec::CRC_SIZE); r.orden = g_regs.size();
+            if (h.type == rec::T_FILEHDR) leerFileHdr(r, ai);
+            g_regs.push_back(r);
+            g_recsPorTipo[h.type]++;
+            ai.registros++;
+            pos += len;
+            continue;
         }
-        g_regs.push_back(r);
-        g_recsPorTipo[h.type]++;
-        ai.registros++;
-        pos += len;
+        size_t nxt = n;                                        // el flujo es autodelimitado: el siguiente A5 5A (con CRC valido se comprueba al volver)
+        for (size_t i = pos + 1; i + 1 < n; i++) if (b[i] == 0xA5 && b[i + 1] == 0x5A) { nxt = i; break; }
+        if (nxt == n) {
+            size_t fin = n;
+            while (fin > pos && b[fin - 1] == 0) fin--;
+            if (fin - pos <= 512) ai.truncado = (long)(n - pos);   // registro final cortado (apagado) y luego solo ceros
+            else ai.saltados += (long)(n - pos);
+            break;
+        }
+        ai.saltados += (long)(nxt - pos);
+        ai.resync++;
+        pos = nxt;
     }
-    g_resync += ai.saltados;
-    if (!primero && ai.tieneHdr && !(ai.flags & rec::FH_CONTINUA)) {
-        fprintf(stderr, "%s: su FILEHDR no trae FH_CONTINUA: es otro registro, no sigue al anterior (el reloj local se reinicia en cada arranque). Pasalo por separado.\n", ruta);
-        return false;
+    g_saltados += ai.saltados; g_resync += ai.resync; g_truncado += ai.truncado;
+    // Un archivo posterior sigue al anterior si es del mismo arranque; desde v3, ademas con FH_CONTINUA (tblog.continua, formato_log.md). Sin FILEHDR no se puede saber: se acepta
+    if (!primero && ai.tieneHdr && !g_archivos.empty() && g_archivos.back().tieneHdr) {
+        const ArchInfo &prev = g_archivos.back();
+        const bool sigue = prev.boot == ai.boot && (ai.version < 3 || (ai.flags & rec::FH_CONTINUA));
+        if (!sigue) {
+            fprintf(stderr, "%s: no sigue al archivo anterior (arranque %u contra %u%s): es otro registro, el reloj local se reinicia en cada arranque. Pasalo por separado.\n", ruta,
+                    (unsigned)ai.boot, (unsigned)prev.boot, ai.version >= 3 ? ", o su FILEHDR no trae FH_CONTINUA" : "");
+            return false;
+        }
     }
     g_archivos.push_back(ai);
     return true;
@@ -282,12 +312,12 @@ static void tickDelReloj() {
 // ---------- Salida ----------
 static void imprimir(FILE *o, int rocket) {
     fprintf(o, "{\n \"version\":1,\"tarea\":\"T-305\",\"cohete_id\":%d,\"inicio\":\"%s\",\"arma_en_s\":%g,\"launch_en_s\":%g,\"cola_s\":%g,\n", rocket, g_inicio.c_str(), g_armaS, g_lanzaS, g_colaS);
-    fprintf(o, " \"t_ini_us\":%lld,\"t_fin_us\":%lld,\"ticks\":%d,\"resync_saltados\":%ld,\n", (long long)g_tIni, (long long)g_tFin, g_tick, g_resync);
+    fprintf(o, " \"t_ini_us\":%lld,\"t_fin_us\":%lld,\"ticks\":%d,\"bytes_saltados\":%ld,\"resync\":%ld,\"bytes_truncados\":%ld,\n", (long long)g_tIni, (long long)g_tFin, g_tick, g_saltados, g_resync, g_truncado);
     fprintf(o, " \"archivos\":[");
     for (size_t i = 0; i < g_archivos.size(); i++) {
         const ArchInfo &a = g_archivos[i];
-        fprintf(o, "%s\n  {\"ruta\":\"%s\",\"bytes\":%zu,\"registros\":%ld,\"saltados\":%ld,\"filehdr\":%s,\"rocket_id\":%d,\"file_idx\":%u,\"boot\":%u,\"continua\":%s,\"env\":\"%s\",\"git\":\"%s\"}",
-                i ? "," : "", esc(a.ruta).c_str(), a.bytes, a.registros, a.saltados, a.tieneHdr ? "true" : "false", a.rocket, (unsigned)a.idx, (unsigned)a.boot,
+        fprintf(o, "%s\n  {\"ruta\":\"%s\",\"bytes\":%zu,\"registros\":%ld,\"saltados\":%ld,\"resync\":%ld,\"truncado\":%ld,\"filehdr\":%s,\"version\":%u,\"rocket_id\":%d,\"file_idx\":%u,\"boot\":%u,\"continua\":%s,\"env\":\"%s\",\"git\":\"%s\"}",
+                i ? "," : "", esc(a.ruta).c_str(), a.bytes, a.registros, a.saltados, a.resync, a.truncado, a.tieneHdr ? "true" : "false", (unsigned)a.version, a.rocket, (unsigned)a.idx, (unsigned)a.boot,
                 (a.flags & rec::FH_CONTINUA) ? "true" : "false", esc(a.env).c_str(), esc(a.git).c_str());
     }
     fprintf(o, "\n ],\n \"registros_por_tipo\":{");
@@ -344,7 +374,7 @@ int main(int argc, char **argv) {
         rocket = g_archivos[0].rocket;
         if (rocket != 1 && rocket != 2) { aviso("el FILEHDR no dice el cohete: se usa Demeter (--cohete lo cambia)"); rocket = 1; }
     } else if (g_archivos[0].tieneHdr && g_archivos[0].rocket != rocket) aviso("--cohete no coincide con el rocket_id del FILEHDR");
-    if (g_resync) aviso("hubo bytes sin registro valido (se saltaron hasta el siguiente A5 5A con CRC bueno)");
+    if (g_saltados) aviso("hubo bytes sin registro valido (se saltaron hasta el siguiente A5 5A con CRC bueno)");
 
     g_t0 = g_tIni;
     g_nowUs = (g_tIni / 20000) * 20000;                        // el reloj virtual arranca en la rejilla de 20 ms, en el primer registro
