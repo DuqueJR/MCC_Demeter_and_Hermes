@@ -555,9 +555,9 @@ static_assert(sizeof(RegEspejo) == 32, "el registro mide 32 B");
 static const uint32_t MAGIC_ESP = 0x4D495331;                  // "MIS1"
 static const uint32_t BOOT_ESP = 7;                            // el contador de arranques del logger ("tbfw/boot") que pone el arnes
 static const float    P0_BMP = 95000.0f, P0_BME = 95070.0f;    // sano(): el BMP581 lee P, el BME280 P + 70 Pa
-extern "C" { extern char __start_rtc_noinit_host[]; extern char __stop_rtc_noinit_host[]; }
-static size_t rtcTam() { return (size_t)(__stop_rtc_noinit_host - __start_rtc_noinit_host); }
-static RegEspejo rtcReg() { RegEspejo r; memset(&r, 0, sizeof(r)); memcpy(&r, __start_rtc_noinit_host, std::min(sizeof(r), rtcTam())); return r; }
+#include "rtc_host.h"                                           // inicio y tamano de la seccion de RTC_NOINIT_ATTR, portable (Linux y macOS)
+static size_t rtcTam() { return rtcHostTam(); }
+static RegEspejo rtcReg() { RegEspejo r; memset(&r, 0, sizeof(r)); memcpy(&r, rtcHostInicio(), std::min(sizeof(r), rtcTam())); return r; }
 static bool nvsReg(RegEspejo &r) {
     memset(&r, 0, sizeof(r));
     std::map<std::string, std::vector<uint8_t> >::iterator it = g_nvs.find("tbmis/vuelo");
@@ -799,7 +799,7 @@ static void esc_b_limpia(int t) {                              // RTC = TIERRA v
 
 // ---------- Archivos entre "reinicios" ----------
 static void guardarArchivos(const char *rtc, const char *nvs) {
-    if (rtc) { FILE *f = fopen(rtc, "wb"); if (f) { fwrite(__start_rtc_noinit_host, 1, rtcTam(), f); fclose(f); } }
+    if (rtc) { FILE *f = fopen(rtc, "wb"); if (f) { fwrite(rtcHostInicio(), 1, rtcTam(), f); fclose(f); } }
     if (!nvs) return;
     FILE *f = fopen(nvs, "wb");
     if (!f) return;
@@ -811,7 +811,7 @@ static void guardarArchivos(const char *rtc, const char *nvs) {
     fclose(f);
 }
 static void cargarArchivos(const char *rtc, const char *nvs) {
-    if (rtc) { FILE *f = fopen(rtc, "rb"); if (f) { if (fread(__start_rtc_noinit_host, 1, rtcTam(), f) == 0) {} fclose(f); } }
+    if (rtc) { FILE *f = fopen(rtc, "rb"); if (f) { if (fread(rtcHostInicio(), 1, rtcTam(), f) == 0) {} fclose(f); } }
     if (!nvs) return;
     FILE *f = fopen(nvs, "rb");
     if (!f) return;
@@ -892,7 +892,7 @@ int main(int argc, char **argv) {
     // El "reinicio": lo que sobrevive es la RTC (si hay archivo y no se pide --sin-rtc) y la NVS (idem). Sin archivo, la RTC trae ceros y la NVS esta vacia
     cargarArchivos(sinRtc ? nullptr : rtcArch, sinNvs ? nullptr : nvsArch);
     if (!g_nvs.count("tbfw/boot")) { uint32_t b = BOOT_ESP; g_nvs["tbfw/boot"] = std::vector<uint8_t>((uint8_t *)&b, (uint8_t *)&b + 4); }
-    if (corromper == "rtc" || corromper == "ambas") __start_rtc_noinit_host[25] ^= (char)0xFF;                      // el byte del estado: el CRC ya no cuadra
+    if (corromper == "rtc" || corromper == "ambas") rtcHostInicio()[25] ^= (char)0xFF;                      // el byte del estado: el CRC ya no cuadra
     if ((corromper == "nvs" || corromper == "ambas") && g_nvs.count("tbmis/vuelo")) g_nvs["tbmis/vuelo"][25] ^= 0xFF;
     if (n.compare(0, 2, "b_") == 0) g_altM = 30.0;                            // tras el reinicio el cohete esta 30 m sobre el p0 de antes: solo se ve si p0 se restauro
     g_regInicio = rtcReg();                                    // el registro que se espera restaurar: el de la RTC si es valido y si no el de la NVS
