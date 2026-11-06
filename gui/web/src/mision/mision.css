@@ -152,6 +152,9 @@ button:focus-visible,
   gap: var(--e-1);
   justify-self: end;
   white-space: nowrap;
+  /* Reserva la altura del número (T-644): "sin dato" ocupa lo mismo que "1234 m" y la barra no crece
+     cuando llega el primer dato (CLS). */
+  min-height: calc(var(--t-num-sec) * 1.2);
 }
 
 .barra-alt svg {
