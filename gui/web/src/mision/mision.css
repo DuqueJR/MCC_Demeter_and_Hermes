@@ -121,6 +121,9 @@ button:focus-visible,
 .ind-sin-dato {
   color: var(--estado-sin-dato);
 }
+.ind-info {
+  color: var(--estado-info);
+}
 
 .marca-sim {
   flex: none;

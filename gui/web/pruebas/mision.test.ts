@@ -63,3 +63,26 @@ describe("barra de misión", () => {
     expect(indicadorDe("cargando")).toMatchObject({ texto: "Cargando" });
   });
 });
+
+describe("el indicador durante la simulación (T-636)", () => {
+  it("con simulación y datos al día dice SIMULACIÓN, con el color de información, no EN VIVO", () => {
+    expect(indicadorDe("en_vivo", true)).toMatchObject({ clase: "info", texto: "SIMULACIÓN" });
+    expect(indicadorDe("en_vivo", false)).toMatchObject({ clase: "ok", texto: "EN VIVO" });
+    expect(indicadorDe("en_vivo")).toMatchObject({ clase: "ok", texto: "EN VIVO" });
+  });
+
+  it("los demás estados no cambian con la simulación", () => {
+    for (const principal of [
+      "cargando",
+      "sin_transmision",
+      "senal_debil",
+      "sin_senal",
+      "sin_servidor",
+    ] as const) {
+      const con = indicadorDe(principal, true);
+      const sin = indicadorDe(principal, false);
+      expect(con.clase).toBe(sin.clase);
+      expect(con.texto).toBe(sin.texto);
+    }
+  });
+});

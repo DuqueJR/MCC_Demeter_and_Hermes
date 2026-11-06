@@ -26,10 +26,17 @@ interface Indicador {
   icono: ComponentChildren;
 }
 
-/** El indicador de conexión, con color de estado, ícono y palabra (02 §4: el color nunca va solo). */
-export function indicadorDe(principal: EstadoPrincipal): Indicador {
+/**
+ * El indicador de conexión, con color de estado, ícono y palabra (02 §4: el color nunca va solo).
+ * Con `simulacion` y datos al día (T-636) dice "SIMULACIÓN", con el color de información: un
+ * "EN VIVO" verde sobre datos simulados se leería como real. Los demás estados no cambian.
+ */
+export function indicadorDe(principal: EstadoPrincipal, simulacion = false): Indicador {
   switch (principal) {
     case "en_vivo":
+      if (simulacion) {
+        return { clase: "info", texto: "SIMULACIÓN", icono: <Info aria-hidden="true" /> };
+      }
       return { clase: "ok", texto: "EN VIVO", icono: <CircleCheck aria-hidden="true" /> };
     case "senal_debil":
       return { clase: "aviso", texto: "Señal débil", icono: <TriangleAlert aria-hidden="true" /> };
@@ -73,7 +80,7 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
   const pagina = estadoPagina.value;
   const est = estado.value;
   const principal = pagina.principal;
-  const ind = indicadorDe(principal);
+  const ind = indicadorDe(principal, pagina.simulacion);
   const edadMs = edad.value;
 
   // Sin posición válida (o sin señal) la altitud es la última conocida: roja, con 📍 y su antigüedad (GS-03).

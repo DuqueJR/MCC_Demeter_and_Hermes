@@ -128,7 +128,8 @@ for (const mision of ["demeter", "hermes"] as const) {
     });
     await page.goto(`/${mision}/`);
 
-    await expect(page.locator(".indicador")).toContainText("EN VIVO", { timeout: 15_000 });
+    // T-636: el escenario va en modo simulación, así que la barra no dice "EN VIVO" en verde.
+    await expect(page.locator(".indicador")).toContainText("SIMULACIÓN", { timeout: 15_000 });
     await expect(page.locator(".marca-sim")).toHaveText("SIM");
     await expect(page.locator('#estado .objetivo[data-objetivo="despegue"]')).toHaveAttribute(
       "data-encendido",

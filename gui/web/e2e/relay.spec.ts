@@ -80,8 +80,9 @@ test.describe("relay alimentado con el vuelo nominal", () => {
       await page.goto(`${DEV}/${mision}/`);
 
       await expect(barra(page)).toHaveAttribute("data-principal", "en_vivo", { timeout: 30_000 });
-      await expect(barra(page)).toContainText("EN VIVO");
-      // los datos del vuelo nominal vienen marcados como simulación (modo del meta)
+      // los datos del vuelo nominal vienen marcados como simulación (modo del meta), y desde T-636
+      // la barra lo dice con "SIMULACIÓN" en vez de "EN VIVO"
+      await expect(barra(page)).toContainText("SIMULACIÓN");
       await expect(barra(page)).toContainText("SIM");
       // la telemetría llega: el T+ y la altitud tienen número
       await expect(page.locator(".barra-t")).toHaveText(/T\+/, { timeout: 90_000 });

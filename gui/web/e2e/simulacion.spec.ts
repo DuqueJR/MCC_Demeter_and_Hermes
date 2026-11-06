@@ -91,7 +91,8 @@ test.describe("desarrollo (?ejemplo=sin_transmision)", () => {
       await page.clock.fastForward(120 * MS);
       await page.clock.runFor(2 * MS);
       await expect(page.locator(".barra-fase")).toContainText("En tierra");
-      await expect(page.locator(".indicador")).toContainText("EN VIVO");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await expect(page.locator(".indicador")).not.toContainText("EN VIVO");
       await expect(banner(page)).toContainText(TEXTO_BANNER);
       await page.screenshot({ path: join(CAPTURAS, `simulacion-aterrizada-${m.ancho}.png`) });
 
