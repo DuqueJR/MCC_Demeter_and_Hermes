@@ -29,7 +29,7 @@ rama: feature/calibracion-a-bordo
    - En los magnetómetros, la mediana queda en ese punto, y el filtro "lejos de la mediana" descarta el giro.
    - A bordo, 45 min de MMC y QMC (unos 9 MB) no caben en la PSRAM de 8 MB.
 
-## Corrección (sin compilar en la placa)
+## Corrección
 
 **Cabecera FILEHDR v3** (`logger.cpp`, `rec_format.h`): byte 73 con `FH_CONTINUA` cuando el archivo sigue al anterior por llenarse. `tblog` lo muestra.
 

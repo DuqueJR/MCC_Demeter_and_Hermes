@@ -12,7 +12,7 @@ rama: feature/temperatura-suelo
 - El vuelo sintético mostró que la altura barométrica con la atmósfera estándar (15 °C) sale un 5.5 % alta a 31 °C: 37 m en el apogeo de Demeter.
 - Pablo decidió que la temperatura salga del BMP581: no hay otra fuente mejor (tierra no tiene barómetro ni termómetro). Acepta ±2-3 m en el apogeo, el límite que pone la temperatura de la columna de aire.
 
-## Qué se hizo (escrito sin compilar; Pablo compila y carga)
+## Qué se hizo
 
 **Firmware:**
 - **`amb_calc.h`** (C++ puro, probado en PC):

@@ -303,7 +303,7 @@ static void setState(uint8_t to, bool save = true) {
     switch (to) {
     case ST_TIERRA:
         s_moment = M_NONE; s_boosted = false; s_boostUtcMs = -1;
-        s_flags = (uint8_t)(s_flags & ~(TF_FORZADO | TF_REANUDADO));     // salir de un estado reanudado en el banco: estado tierra (seccion 8)
+        s_flags = (uint8_t)(s_flags & ~(TF_FORZADO | TF_REANUDADO | TF_BOOST_SIN_ARMAR));   // estado tierra: sale de un estado reanudado o de un BOOST sin armar (seccion 8)
         persistClear();
         extActBuzzer(false, millis());                 // en TIERRA el buzzer calla (desarmar, estado tierra)
         loggerRecord(false);
@@ -341,7 +341,7 @@ static void setState(uint8_t to, bool save = true) {
 static void onBoost(uint8_t kind, uint32_t value) {
     const uint8_t from = s_state;
     if (from == ST_RECOVERY || (from == ST_FLY && s_moment >= M_BOOST)) return;      // ya en BOOST o despues: nada
-    if (from == ST_TIERRA) s_flags = (uint8_t)(s_flags | TF_BOOST_SIN_ARMAR);        // se mantiene hasta un reinicio
+    if (from == ST_TIERRA) s_flags = (uint8_t)(s_flags | TF_BOOST_SIN_ARMAR);        // hasta un reinicio o el paso a TIERRA
     if (from != ST_FLY) setState(ST_FLY, false);                                     // desde ARMED: el archivo ya esta preparado. Se guarda abajo, una sola vez, con el momento BOOST
     s_moment = M_BOOST; s_boosted = true; s_abortOn = false;
     s_flags = (uint8_t)(s_flags & ~TF_LAUNCH_VENCIDO);

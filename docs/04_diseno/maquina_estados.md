@@ -145,7 +145,7 @@ Los criterios son de Pablo (§1). Lo marcado con (P) lo fijó el documentador pa
 | --- | --- |
 | ARMED | → FLY con momento BOOST; `s_boosted = true`; registra (el archivo ya está preparado); 10 Hz |
 | FLY, momento LAUNCH | Momento BOOST; `s_boosted = true`; se apaga el aviso de `t_abort` |
-| TIERRA | `TF_BOOST_SIN_ARMAR` (se mantiene hasta un reinicio) + FLY + BOOST + registra (sin reserva). Un falso positivo en TIERRA cuesta SD y batería, pero no se pierde un vuelo real |
+| TIERRA | `TF_BOOST_SIN_ARMAR` (se mantiene hasta un reinicio o hasta pasar a TIERRA con "estado tierra") + FLY + BOOST + registra (sin reserva). Un falso positivo en TIERRA cuesta SD y batería, pero no se pierde un vuelo real |
 | FLY ya en BOOST o después, o RECOVERY | Nada |
 
 - **Siempre** queda un `T_MISSION` automático (`op = 0`) con el criterio que disparó (inercial o barométrico) y el `dv` o el salto.

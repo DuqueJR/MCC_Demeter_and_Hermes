@@ -12,7 +12,7 @@ rama: feature/pi-uart
 - Pablo cableó la LilyGO de Demeter a la Raspberry Pi: UART0 (TXD 43 → 1 kΩ → RX de la Pi, RXD 44 ← TX de la Pi) y GND. También instaló las cámaras y soldó los cables del encendido, que aún no conecta a IO45.
 - Prueba del cableado sin firmware nuevo: con `demeter-telemetry` detenido, `cat /dev/ttyAMA0` a 115200 en la Pi mostró el arranque de la ROM de la ESP32-S3 (`ESP-ROM:esp32s3-20210327`). La dirección LilyGO → Pi funciona.
 
-## Qué se hizo (escrito sin compilar ni validar: Pablo compila y carga)
+## Qué se hizo
 
 - **Firmware:** `ext_pi.cpp/.h`, una tarea en el núcleo 0 con prioridad 2, solo en Demeter.
   - Decodifica `PAYLOAD_STATUS` (0x30): el latido de la Pi. Sin latido en 3 s, el estado queda desconocido (`0xFF`).
@@ -38,7 +38,7 @@ rama: feature/pi-uart
 - Al detener `demeter-mission`: `estado=desconocido`, `perdidas=1`; al arrancarlo vuelve a BOOT.
 - Faltó: ver el estado de la Pi en TELEM por LoRa (fila Raspberry Pi en Mando, con tierra conectada) y el `T_PI` en el log con `tblog`. El dashboard de control muestra ahora la línea `[pi  ]` en Diagnóstico.
 
-## 9c: comandos de misión hacia la Pi (escrito sin compilar)
+## 9c: comandos de misión hacia la Pi
 
 - `pi_plan.h` (C++ puro): fase objetivo de la Pi según la misión y siguiente comando según su latido (D-055). Simulado en Python contra las transiciones de `missiond`: vuelo normal, BOOST sin armar, desarme, reinicio de la Pi en ASCENT y aterrizaje sin apogeo dan las cadenas correctas.
 - `ext_pi.cpp`: manda el comando cada 1 s mientras la Pi no cambie (3 intentos, 10 s de pausa; en ERROR, cada 30 s) y lo registra (`T_PI` kind 3). La línea `[pi  ]` agrega `meta`, `ult_cmd`, `cmds` y `agotados`.

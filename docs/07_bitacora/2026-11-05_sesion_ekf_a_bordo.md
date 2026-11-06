@@ -11,7 +11,7 @@ rama: feature/ekf-a-bordo
 
 "El EKF debe estar a bordo, no hay forma de no hacerlo así." Se porta `estacion/ekf.py` tal como está validado, sin rediseñarlo.
 
-## Qué se hizo (sin compilar en la placa; Pablo compila y carga)
+## Qué se hizo
 
 **Núcleo: `ekf_core.h/.cpp`, C++11 puro.** Es el mismo código para el cohete y para el PC.
 - Los mismos 19 errores, constantes, puertas y pesos por fase que `ekf.py`.
@@ -106,7 +106,7 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
   - `imuPaso` suma en `Real`: en la S3, double es por software.
 - **Campo de Calibración** que se borraba al escribir: la página se reescribe cada segundo (por la edad del resumen). Ahora conserva el texto, el foco y el cursor.
 
-## Reinicio en vuelo (resuelto, sin validar en la placa)
+## Reinicio en vuelo
 
 - **La foto.** En FLY y RECOVERY, la tarea guarda una foto del filtro en `RTC_NOINIT` a 10 Hz (`ekf::Foto`, con CRC):
   - actitud, velocidad, posición, sesgos, sesgo inicial del giro, origen, p0 y escala de altura;
@@ -137,8 +137,21 @@ El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". 
     - con foto, 2 s sin datos: menos de 3° desde los 2 s y |dv| < 0,2 m/s;
     - sin foto: 1-7° desde los 15 s, con el rumbo débil porque en el carro no hay magnetómetro.
 
+## Segunda prueba en la placa (Pablo, Demeter, 5 nov, firmware de `450ed0d`)
+
+- **Actitud:** la vista 3D gira en el sentido correcto y es fluida, tanto por USB como en vuelo (TELEM a 10 Hz).
+- **Reinicio:** tras `reiniciar`, la placa vuelve a conectarse y el EKF retoma.
+- **Ciclo:** `ciclo_prom` de 1,6 ms, `max` de 7,3 ms y unos 230 ciclos lentos (>5 ms) en 40 min. `perdidas=0/0`.
+- **BOOST sin armar:** a las 21:48 (sesión de tierra `20261105_201037`) el cohete pasó solo de TIERRA a FLY/BOOST con `TF_BOOST_SIN_ARMAR`.
+  - En la TELEM de ese instante el cohete giraba a cientos de °/s y hubo un pico de unos 17 g, porque se manipulaba a mano.
+  - La detección hizo lo que debe (§6): sumó dv = 5 m/s.
+  - El EKF y los cambios de este PR no la tocan.
+  - **Defecto:** la bandera no se borraba con "estado tierra". Un FLY forzado posterior la volvía a guardar en NVS, así que seguía después de cada reinicio. El dashboard mostraba "BOOST sin armar" aunque el cohete ya estuviera en TIERRA.
+  - **Corregido** (rama `fix/boost-sin-armar-y-cal`): el paso a TIERRA borra `TF_BOOST_SIN_ARMAR`, como ya hacía con `TF_FORZADO` y `TF_REANUDADO`. Está en `maquina_estados.md` §6 y en `prueba_mision` (escenario `tierra`).
+- **Calibración:** "nombre de archivo invalido" al escribir `DEM_M00_20261105_143219_0101` sin `.BIN`. El dashboard ahora agrega la extensión y acepta `.bin` en minúsculas.
+
 ## Pendiente
 
-- `ciclo_prom`, `lentos` y la memoria real en la ESP32-S3.
-- En la placa: un reinicio en FLY forzado (por ejemplo, `reiniciar` desde tierra) debe mostrar `arranque=foto_RTC`.
+- La memoria real en la ESP32-S3.
+- Ver `arranque=foto_RTC` tras un reinicio en FLY forzado.
 - Usar el EKF en la detección de momentos (apogeo, aterrizaje). Hoy la misión no lo lee: el EKF lee la misión, como en `ekf.py`.

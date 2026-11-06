@@ -13,7 +13,7 @@ rama: feature/calibracion-a-bordo
 - Por eso el cohete analiza su propio registro y solo baja un resumen por radio. Con USB disponible, la calibración se carga por USB.
 - Se descartan subir la calibración por LoRa y el modo de TDMA para calibrar. El diseño queda en [calibracion_nvs](../04_diseno/calibracion_nvs.md).
 
-## Qué se hizo (sin compilar en la placa; Pablo compila y carga)
+## Qué se hizo
 
 **Núcleo:**
 - `cal_core.h/.cpp`: `estacion/calib.py` en C++11 puro, sin Arduino. Dos pasadas sobre el registro, con resúmenes por ventana para que quepa en la ESP32.
