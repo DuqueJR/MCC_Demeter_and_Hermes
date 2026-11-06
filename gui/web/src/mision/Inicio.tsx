@@ -12,7 +12,12 @@ function Diapositiva({ foto, parche }: { foto: Foto; parche: string }) {
           <span>Foto pendiente</span>
         </div>
       ) : (
-        <img class="foto" src={foto.src} alt={foto.alt} loading="lazy" />
+        <img
+          class={foto.contener ? "foto foto-contener" : "foto"}
+          src={foto.src}
+          alt={foto.alt}
+          loading="lazy"
+        />
       )}
       <figcaption>{foto.pie}</figcaption>
     </figure>
@@ -84,7 +89,6 @@ export function Inicio({ contenido }: { contenido: Contenido }) {
           </>
         )}
       </div>
-      {contenido.provisional && <p class="nota-provisional">Textos provisionales.</p>}
     </section>
   );
 }

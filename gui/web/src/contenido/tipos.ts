@@ -17,6 +17,8 @@ export interface Foto {
   /** Texto alternativo (02 §10). */
   alt: string;
   pie: string;
+  /** `true` para fotos con fondo transparente (el cohete): se ven completas, sin recortar. */
+  contener?: boolean;
 }
 
 export interface Integrante {
@@ -28,8 +30,6 @@ export interface Integrante {
 }
 
 export interface Contenido {
-  /** `true` mientras los textos no los revise el usuario (T-623, PEN-W02 y PEN-W03). */
-  provisional: boolean;
   mision: Mision;
   nombre: string;
   lema: string;

@@ -1,5 +1,4 @@
-// Contenido de Hermes. PROVISIONAL: textos redactados en T-623 para que el usuario los revise
-// en el PR; siguen provisionales hasta que cierren PEN-W02 (nombres y roles) y PEN-W03 (textos).
+// Contenido de Hermes.
 // Dónde se apoya cada cifra:
 // - Motor G80-7T: `MOTORES` de docs/02_requisitos/constantes.md.
 // - CanSat de 250 a 300 g: `CANSAT_MASA_G` de constantes.md (es el rango del reglamento, no una medida).
@@ -8,6 +7,9 @@
 //   falta la simulación del G80-7T (PEN-07, PEN-W04). Cuando exista, se agrega la altura al texto
 //   del motor; hasta entonces no se inventa ninguna cifra.
 // El tono (se tutea, cercano, números exactos con su unidad) sale de 02_identidad_visual §9.
+
+import cohete from "../assets/hermes/cohete.png?w=1000&format=webp";
+import equipo from "../assets/hermes/equipo.jpg?w=1400&format=webp";
 import iconoAletas from "../assets/hermes/iconos/aletas.png?w=96&format=webp";
 import iconoCansat from "../assets/hermes/iconos/cansat.png?w=96&format=webp";
 import iconoMotor from "../assets/hermes/iconos/motor.png?w=96&format=webp";
@@ -18,7 +20,6 @@ import parcheGrande from "../assets/hermes/parche.png?w=512&format=webp";
 import type { Contenido } from "./tipos";
 
 export const hermes: Contenido = {
-  provisional: true,
   mision: "hermes",
   nombre: "Hermes",
   lema: "El mensajero",
@@ -28,9 +29,8 @@ export const hermes: Contenido = {
   parcheChico,
   parcheGrande,
   fotos: [
-    { src: null, alt: "El cohete Hermes", pie: "El cohete Hermes" },
-    { src: null, alt: "El equipo de Hermes", pie: "El equipo de Hermes" },
-    { src: null, alt: "El CanSat de Hermes", pie: "El CanSat, la carga útil" },
+    { src: cohete, alt: "El cohete Hermes", pie: "El cohete Hermes", contener: true },
+    { src: equipo, alt: "El equipo de Hermes", pie: "El equipo de Hermes" },
   ],
   partes: [
     {
