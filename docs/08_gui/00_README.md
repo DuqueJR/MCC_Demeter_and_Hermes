@@ -90,7 +90,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | PEN-W02 | Nombres completos y rol de cada integrante. Los parches solo traen apellidos. | Equipos | `provisional: false` del contenido (T-623 se cerró con `nombre` y `rol` en `null`) |
 | PEN-W03 | Textos de cada parte del cohete y de la misión (los escribimos nosotros y luego se ajustan). **Propuesta aprobada por el usuario en T-623 (PR #34, 2026-11-03)**; falta que Jerónimo confirme el VisionPack | Juan Pablo y Jerónimo | Nada (ajustes menores) |
 | PEN-W04 | Simulación de Hermes (PEN-07): mientras no exista, los datos de Hermes son sintéticos | Equipo de Hermes | Datos reales de Hermes en T-612 |
-| PEN-W05 | Hosting y dominio. Se decide en W3; el diseño no depende del proveedor. | Juan Pablo y Jerónimo | T-640 |
+| ~~PEN-W05~~ | ~~Hosting y dominio~~ **Cerrado (2026-11-05, D-061):** Cloudflare Pages (estático) + Fly.io (relay), dominio propio. | Juan Pablo y Jerónimo | T-642 |
 | ~~PEN-W06~~ | ~~Que se acepte D-W06~~ | Cerrado el 2026-10-25: aprobado por el usuario | — |
 | ~~PEN-W07~~ | ~~"Deméter" o "Demeter"~~ | Cerrado el 2026-10-25: **Deméter** (D-W11) | — |
 | ~~PEN-W08~~ | ~~Agregar los Spaces de generación en huggingface.co/settings/mcp~~ | Cerrado el 2026-10-25: hay cuatro agregados (`evalstate/flux1_schnell`, `mcp-tools/Z-Image-Turbo`, `black-forest-labs/FLUX.2-klein-9B` y `black-forest-labs/flux-3-image-klein`), con Dynamic Spaces. Están en `CLAUDE.md` | — |
