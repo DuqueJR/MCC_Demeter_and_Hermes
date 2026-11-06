@@ -34,10 +34,9 @@ export const hermes: Contenido = {
   },
   parcheChico,
   parcheGrande,
-  fotos: [
-    { src: cohete, alt: "El cohete Hermes", pie: "El cohete Hermes", contener: true },
-    { src: equipo, alt: "El equipo de Hermes", pie: "El equipo de Hermes" },
-  ],
+  // Carrusel de Inicio: solo el cohete. La foto del equipo va en la sección Equipo (T-646).
+  fotos: [{ src: cohete, alt: "El cohete Hermes", pie: "El cohete Hermes", contener: true }],
+  fotoEquipo: { src: equipo, alt: "El equipo de Hermes", pie: "El equipo de Hermes" },
   partes: [
     {
       id: "nariz",

@@ -338,6 +338,10 @@ button:focus-visible,
   scroll-snap-align: start;
 }
 
+.diapositiva:only-child {
+  flex-basis: 100%; /* una sola foto (el cohete): ocupa todo el ancho, sin hueco a la derecha */
+}
+
 .diapositiva figcaption {
   margin-top: var(--e-1);
   color: var(--texto-2);
@@ -442,18 +446,55 @@ button:focus-visible,
 
 /* ---------- Equipo y pie ---------- */
 
+.equipo-banda {
+  display: grid;
+  justify-items: center;
+  gap: var(--e-4);
+  margin-bottom: var(--e-4);
+}
+
 .parche-grande {
   display: block;
   width: min(100%, calc(var(--e-8) * 4));
   height: auto;
-  margin: 0 auto var(--e-4);
   border-radius: 50%; /* 02 §7: el parche siempre circular (el PNG aún trae fondo blanco) */
   filter: drop-shadow(0 0 var(--e-4) var(--acento));
 }
 
-.integrantes {
+.equipo-foto {
+  width: 100%;
+  max-width: calc(var(--e-8) * 11);
+  margin: 0;
+}
+
+.equipo-foto figcaption {
+  margin-top: var(--e-1);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-align: center;
+}
+
+.foto-equipo,
+.equipo-foto .foto-pendiente {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  background: var(--marca-1);
+  border-radius: var(--radio);
+}
+
+.equipo-foto .foto-pendiente {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--e-8) * 2), 1fr));
+  place-items: center;
+}
+
+/* Tarjetas de apellidos: filas centradas; la última, incompleta, queda en el centro y sin huecos. */
+.integrantes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--e-3);
   margin: 0;
   padding: 0;
@@ -462,6 +503,8 @@ button:focus-visible,
 
 .integrante {
   display: grid;
+  flex: 0 0 calc(var(--e-8) * 2);
+  min-width: 0;
   justify-items: center;
   gap: var(--e-1);
   padding: var(--e-3);
@@ -644,25 +687,31 @@ button:focus-visible,
     grid-column: 1 / -1;
   }
 
-  /*
-   * Banda de Inicio: las fotos junto al texto. En el portátil no hay gesto de deslizar, así que el
-   * carrusel pasa a una fila con todas las fotos a la vista (antes se ocultaban las demás con
-   * display:none y la foto del equipo nunca aparecía; T-639). Con `display: none` además el
-   * `loading="lazy"` nunca llega a pedir la imagen.
-   */
+  /* Banda de Inicio: la foto principal junto al texto. */
   .inicio-cuerpo {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
     align-items: center;
   }
 
-  .carrusel {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    overflow-x: visible;
+  .diapositiva {
+    flex-basis: 100%;
   }
 
-  .diapositiva {
-    flex-basis: auto;
+  /* Equipo (T-646): el parche a un lado y la foto al otro, en la misma banda y centrados. */
+  .equipo-banda {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--e-6);
+    margin-bottom: var(--e-5);
+  }
+
+  .parche-grande {
+    flex: 0 0 auto;
+  }
+
+  .equipo-foto {
+    flex: 0 1 calc(var(--e-8) * 11);
+    min-width: 0;
   }
 }
