@@ -98,3 +98,31 @@ No se cambió ningún contrato. Propuestas para el documentador:
 - Sin cambios: `src/`, contratos, `constantes.md`, `gui/`.
 - Para el documentador: `backlog.md` (T-305), `plan_pruebas.md` (P-03: ya hay banco y 24 sintéticos; falta T-412), `maquina_estados.md` §6 (propuesta 1).
 - Búsqueda: `graphify query` devolvió solo nodos de la web (la consulta no ubicó el firmware); se siguió con lectura directa de `ext_lsm.cpp`, `in_imu.cpp`, `in_bar.cpp` y `mission.cpp`.
+
+## Correcciones tras la revisión del PR #72 (2026-11-05)
+
+El coordinador corrió el banco sobre dos logs reales de banco (sesiones de calibración del 2026-11-03, firmware del 2026-11-02, sin vuelo; `FILEHDR` v1) y encontró dos fallos y pidió dos arreglos más. Los `.BIN` no se copian al repo: se leen de `/Users/juanpa/Downloads/Calibraciones fallidas/`. Antes se fusionó `origin/develop` en la rama (merge `322a803`, el PR #70 del EKF a bordo; sin conflictos).
+
+### Cifras de A y B, antes y después
+
+| | DEM_M00_20261103_131429_0092 (535 s) | HER_M00_20261103_132752_0024 (308 s) |
+| --- | --- | --- |
+| **Antes** | `filehdr:false`, `rocket_id:0`, se usó Demeter; **474** bytes saltados; aviso de corrupción | `filehdr:false`, `rocket_id:0`, **se repitió con la configuración de Demeter**; **1024** bytes saltados; aviso de corrupción |
+| **Después** | FILEHDR v1 reconocido, Demeter; **0** bytes saltados, 0 resync; 211 890 registros (igual que tblog); 0 BOOST, 0 transiciones falsas | FILEHDR v1 reconocido, **Hermes**; **0** bytes saltados, 0 resync; 121 316 registros (igual que tblog); 0 BOOST, 0 transiciones falsas |
+
+El único aviso que queda en los dos es `armado FORZADO con los motivos 0x38`: el banco armó con confirmación porque en esos logs el cohete no estaba listo para armar. Es informativo, no es corrupción.
+
+- **A, FILEHDR v1/v2.** `prueba_replay.cpp` exigía `sizeof(FileHdrRec)` (v3). Ahora copia `min(r.n, sizeof)` en una estructura en ceros y lee solo lo que cada versión trae: v1 (28 B) el cohete, el arranque y el índice; v2 agrega entorno y commit; v3 agrega `flags` (byte 73, `FH_CONTINUA`). Con varios archivos, uno sigue al anterior si es del mismo arranque y, desde v3, con `FH_CONTINUA` (la regla de `tblog.continua` y de `formato_log.md`); si no, se niega (código 3). Probado: DEM + HER juntos se rechazan ("arranque 39 contra 92"); el sintético partido en dos con v3 sigue funcionando.
+- **B, bytes saltados.** La causa era la **cola de ceros** del final del archivo (489 y 1039 bytes de relleno tras el último registro): el banco avanzaba byte a byte contando cada uno como saltado, mientras `tblog.records` corta en cuanto ve 64 bytes en cero. El FILEHDR corto no influía. Ahora el recorrido es el mismo de `tblog.records` (cola de ceros, registro final cortado por el apagado informado aparte como `bytes_truncados`, y resincronización por el siguiente `A5 5A`). El JSON trae `bytes_saltados`, `resync` y `version`. Los bytes basura del sintético de prueba siguen dando los mismos eventos y el aviso.
+- **C, `STILL_S` en `ekf_core.cpp`** (commit `1ad9969`; **para que Pablo lo revise**). Apple clang avisaba `unused variable 'STILL_S'` (`-Wunused-const-variable`) y la prueba de sintaxis cuenta cualquier aviso como FALLA. `STILL_S` (1,5 s) es la ventana quieta de `ekf.py`; en C++ esa ventana está fija como 6 bloques de `BLOQUE_US` (250 ms) dentro de `bloqueReposo` (`b >= 6`, `b - 6`, `% 7`), y ninguna expresión leía la constante. Se quitó y quedó un comentario con la equivalencia (6 × 0,25 s). No hay cambio de comportamiento y no se tocó nada más de `src/`. Se prefirió quitarla antes que derivar el 6 de `STILL_S / BLOQUE_US`, porque el 6 también dimensiona `bl6_[7]` y los índices del anillo, y derivarlo obligaba a tocar más código de Pablo.
+- **D, stubs unificados** (commit `769bc6b`). El bloque de dependencias de `mission.cpp` (reloj virtual, colas, NVS de mentira, logger, calibración, Pi, pines) vive ahora una sola vez en `test/host/stubs/arnes_mision.h`, incluido por `prueba_mision.cpp` y `replay/prueba_replay.cpp`. Lo que difiere entra por ganchos (`g_alTick`: el paso de 20 ms; `g_alRegistrar`, `g_alResp`, `g_alPin`). `ARNES_EXT_BAR_REAL` evita definir `g_ext_bar` donde se enlaza el `ext_bmp.cpp` real. Comportamiento idéntico: los 15 casos de persistencia y los escenarios de misión siguen en verde, y los eventos del banco sobre los 24 sintéticos son **idénticos uno por uno** a los de antes (comparados en JSON). El #70 no agregó nada a ese bloque: solo `missionP0()` en `mission.cpp`, que no usa los stubs.
+- **E, `--logs-banco DIR`** en `correr_pruebas.py`: corre el banco sobre cada `.BIN` de la carpeta y exige 0 BOOST, 0 `T_MISSION` automáticos, 0 transiciones falsas y 0 bytes saltados. Documentado en el README con estas dos sesiones como ejemplo.
+
+### Evidencia de la segunda vuelta
+- `correr_pruebas.py` completo en macOS, con develop fusionado: sin opciones 80 OK y 0 FALLA; con `--logs-banco "/Users/juanpa/Downloads/Calibraciones fallidas"` **82 OK, 0 FALLA, rc=0** ("Todos los criterios se cumplen"). Incluye las filas `-fsyntax-only` de `ekf_core.cpp` (antes FALLA) y `ekf_task.cpp`, los 15 casos de persistencia y las filas del banco.
+- PlatformIO tras la fusión: `pio run -e hermes -e demeter -e native`, **SUCCESS** los tres (hermes 70,1 s, demeter 66,2 s, native 2,2 s). RAM 17,2 % (56 400 B), flash 20,4 % (642 801 B en demeter y 642 785 B en hermes).
+- Commits nuevos: `322a803` (merge), `1ad9969` (C), `769bc6b` (D), `fa2573f` (A y B), `042e89d` (E) y `2f17384` (README).
+
+### Lo que sigue pendiente
+- `FH_CONTINUA` solo se probó con el sintético v3 partido; falta un registro real de v3 con varios archivos.
+- Los dos logs de banco son de calibración: el cohete casi no se mueve. Siguen faltando manipulación con golpes (P-04) y un vuelo real.
