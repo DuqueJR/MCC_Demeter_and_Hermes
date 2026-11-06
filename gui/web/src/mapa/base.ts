@@ -4,6 +4,7 @@ import { PMTiles, type Protocol } from "pmtiles";
 import { type Cobertura, coberturaDeCabecera } from "./area";
 import { MAPA_PMTILES_RUTA } from "./constantes";
 import type { BaseVectorial } from "./estilo";
+import { FuenteArchivoCompleto, type OpcionesFuente, PmtilesNoDisponible } from "./fuente_pmtiles";
 
 /** Atribución obligatoria de los datos de OpenStreetMap (ODbL) y de Protomaps. */
 const ATRIBUCION =
@@ -31,19 +32,33 @@ export interface BaseDetectada {
  * Comprueba que el archivo existe y es un PMTiles (la cabecera lleva su número mágico): un servidor
  * que responde `index.html` a una ruta que no existe no cuenta. De la misma cabecera salen los
  * límites y el zoom máximo con que se limita el mapa (`area.ts`): no se escriben en el código.
- * Devuelve `null` si no hay base.
+ *
+ * El archivo se baja entero, una sola vez (`FuenteArchivoCompleto`, T-638): no depende de que el
+ * servidor atienda `Range` (Cloudflare Pages no lo hace). Devuelve `null` si no hay base.
  */
-export async function detectarBase(protocolo: Protocol): Promise<BaseDetectada | null> {
-  const url = urlDelPmtiles();
+export async function detectarBase(
+  protocolo: Protocol,
+  opciones: OpcionesDeteccion = {},
+): Promise<BaseDetectada | null> {
+  const url = opciones.url ?? urlDelPmtiles();
   try {
-    const archivo = new PMTiles(url);
+    const archivo = new PMTiles(new FuenteArchivoCompleto(url, opciones));
     const cabecera = await archivo.getHeader();
     protocolo.add(archivo);
     return {
       base: { url: `pmtiles://${url}`, atribucion: ATRIBUCION },
       cobertura: coberturaDeCabecera(cabecera),
     };
-  } catch {
+  } catch (e) {
+    // No existe o no es un PMTiles: el caso normal sin mapa base, sin ruido. Un fallo de red que
+    // no se arregló con los reintentos sí se avisa, para no volver a perder la causa.
+    if (!(e instanceof PmtilesNoDisponible)) console.warn("No se pudo cargar el PMTiles:", e);
     return null;
   }
+}
+
+/** Dónde y cómo buscar el PMTiles. Solo las pruebas lo cambian. */
+export interface OpcionesDeteccion extends OpcionesFuente {
+  /** Por defecto, `urlDelPmtiles()`. */
+  url?: string;
 }

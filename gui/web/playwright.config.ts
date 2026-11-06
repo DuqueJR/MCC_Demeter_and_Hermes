@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-const PUERTO = 4173;
+// `E2E_PUERTO` permite correr las pruebas con otro puerto cuando el 4173 ya lo ocupa otro
+// `vite preview` (por ejemplo, el de otra carpeta de trabajo: se reutilizaría con otro `dist/`).
+const PUERTO = Number(process.env.E2E_PUERTO ?? 4173);
 const PUERTO_DEV = 5174;
 
 export default defineConfig({
