@@ -343,6 +343,16 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   // capturar el mapa ya dibujado, sin dormir un tiempo fijo.
   mapa.on("idle", () => {
     contenedor.dataset.mapaReposos = String(Number(contenedor.dataset.mapaReposos ?? 0) + 1);
+    // Para las pruebas (T-638): cuántas capas `base-*` tiene el estilo y cuántos elementos de ellas
+    // salieron dibujados (teselas del PMTiles ya leídas y decodificadas).
+    const capasBase = mapa
+      .getStyle()
+      .layers.map((l) => l.id)
+      .filter((id) => id.startsWith("base-"));
+    contenedor.dataset.mapaCapasBase = String(capasBase.length);
+    contenedor.dataset.mapaBaseDibujada = String(
+      capasBase.length > 0 ? mapa.queryRenderedFeatures({ layers: capasBase }).length : 0,
+    );
   });
 
   let detener: (() => void) | null = null;
