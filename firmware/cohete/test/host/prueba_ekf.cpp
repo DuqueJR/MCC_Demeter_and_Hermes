@@ -171,8 +171,25 @@ int main(int argc, char **argv) {
     const double G = 9.80665, DPS = M_PI / 180.0;
     int64_t ultAv = 0, ultOut = 0;
     double presMax = 0;
+    // Reinicio en vuelo simulado: EKF_REINICIO="t_s,modo,gap_s" (modo: foto o sinfoto). En t_s se toma la foto como la tarea, se crea
+    // un Navegador nuevo y se reanuda; las entradas de los gap_s siguientes se pierden, como en el reinicio de la placa.
+    double rT = -1, rGap = 1; bool rFoto = true; int64_t rHasta = INT64_MIN; uint8_t momUlt = 0;
+    if (const char *s = getenv("EKF_REINICIO")) { char m[16] = "foto"; sscanf(s, "%lf,%15[^,],%lf", &rT, m, &rGap); rFoto = strcmp(m, "sinfoto") != 0; }
+    const int64_t tPrimero = in.empty() ? 0 : in[0].t;
     for (size_t i = 0; i < in.size(); i++) {
         const In &x = in[i];
+        if (x.tipo == 7) momUlt = (uint8_t)x.a[0];
+        if (rT >= 0 && rHasta == INT64_MIN && x.t - tPrimero >= (int64_t)(rT * 1e6) && nav->filtro().listo) {
+            ekf::Estado pr; nav->presente(x.t, pr);
+            ekf::Foto f; nav->foto(pr, f);
+            delete nav; nav = new ekf::Navegador(); nav->configurar(cfg);
+            if (argc >= 5) nav->tSuelo((float)atof(argv[4]));
+            nav->reanudar(rFoto ? &f : nullptr, (float)rGap, (float)f.ref_bmp, (float)f.ref_bme);
+            rHasta = x.t + (int64_t)(rGap * 1e6);
+            nav->momento(x.t, momUlt);                  // el de ese instante; los que cambien en el hueco siguen llegando
+            fprintf(stderr, "reinicio en t=%.2f s (%s, %.2f s sin datos)\n", (x.t - tPrimero) / 1e6, rFoto ? "foto" : "sin foto", rGap);
+        }
+        if (rHasta != INT64_MIN && x.t < rHasta && x.tipo != 7) continue;   // la mision sigue: los momentos no se pierden
         switch (x.tipo) {
         case 0: nav->lsm(x.t, x.a, x.b); break;
         case 1: nav->qmi(x.t, x.a, x.b); break;
@@ -200,7 +217,8 @@ int main(int argc, char **argv) {
     }
     fclose(fo);
     const ekf::Estado &e = nav->filtro();
-    printf("{\"listo\": %s, \"pasos\": %u, \"h_escala\": %.3f, \"presente_max_ms\": %.1f, \"stats\": {", e.listo ? "true" : "false", nav->pasos(), nav->h_escala(), presMax);
+    printf("{\"listo\": %s, \"arranque\": %u, \"pasos\": %u, \"h_escala\": %.3f, \"presente_max_ms\": %.1f, \"stats\": {", e.listo ? "true" : "false",
+           (unsigned)nav->arranque(), nav->pasos(), nav->h_escala(), presMax);
     const char *nom[] = {"gnss_pN", "gnss_pE", "gnss_vN", "gnss_vE", "gnss_vD", "bmp", "bme", "mmc", "qmc", "gravedad"};
     for (int m = 0; m < ekf::M_COUNT; m++) { const ekf::Stat &s = nav->stat(m);
         printf("%s\"%s\": [%u, %u, %u, %u]", m ? ", " : "", nom[m], s.ok, s.rej, s.reabre, s.no_terrestre); }

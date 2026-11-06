@@ -119,7 +119,25 @@ async function poll(){
  if(E.follow)E.cur=d.t[d.t.length-1];
  E.dirty=true;layoutMsg();
 }
-setInterval(()=>{if(window.ekfActive())poll()},500);
+setInterval(()=>{if(window.ekfActive())poll()},200);
+// Actitud rapida por USB (@E a 25 Hz) cuando el cohete esta conectado al computador; el servidor se la pide al cohete mientras se mire
+async function pollUsb(){
+ if(!window.ekfActive()||!E.src.startsWith('vivo:')){E.usb=null;return}
+ let j;try{j=await (await fetch('/api/ekf/usb?r='+E.src.slice(5))).json()}catch(e){return}
+ E.usb=j&&j.q&&j.age<1?{q:j.q,w:j.w,sd:j.sd,rx:Date.now()/1000-j.age}:null;
+}
+setInterval(pollUsb,50);
+function qmul(a,b){return [a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]]}
+function qRot(q,w,dt){const th=w.map(x=>x*D2R*dt),n=Math.hypot(...th);if(!(n>1e-9))return q;const s=Math.sin(n/2)/n,r=qmul(q,[Math.cos(n/2),th[0]*s,th[1]*s,th[2]*s]),m=Math.hypot(...r);return r.map(x=>x/m)}
+// Cuaternion a mostrar en vivo: el del USB si llega; si no, el ultimo TELEM llevado al presente con su giro (cuerpo), hasta 0.7 s
+function liveQ(d){
+ const now=Date.now()/1000;
+ if(E.usb&&now-E.usb.rx<0.5)return {q:qRot(E.usb.q,E.usb.w,Math.min(0.1,now-E.usb.rx)),src:'USB 25 Hz'};
+ const i=d.t.length-1;if(i<0||E.noEkf)return null;
+ const q=[d.qw[i],d.qx[i],d.qy[i],d.qz[i]],age=now-(d.t[i]+E.t0);
+ if(!(age>=0&&age<0.7)||!isFinite(d.gx[i]))return {q,src:'TELEM'};
+ return {q:qRot(q,[d.gx[i],d.gy[i],d.gz[i]],age),src:'TELEM + giro'};
+}
 
 // ---------- interfaz ----------
 window.ekfActive=()=>!!$('ek_root');
@@ -192,6 +210,7 @@ function frame(now){
  const dt=Math.min(0.2,(now-E.lastFrame)/1000);E.lastFrame=now;
  if(E.playing&&E.d){const t=E.d.t;E.cur+=dt*E.speed;if(E.cur>=t[t.length-1]){E.cur=t[t.length-1];E.playing=false}E.dirty=true}
  if(E.dirty){E.dirty=false;draw()}
+ else if(E.follow&&E.src.startsWith('vivo:')&&E.d){const lq=liveQ(E.d);if(lq)draw3d(E.d,Math.max(0,E.d.t.length-1),lq)}   // en vivo, la actitud en cada cuadro (tambien solo con USB)
  E.raf=requestAnimationFrame(frame);
 }
 // Redibuja tambien si cambia el tamano de la ventana
@@ -205,7 +224,7 @@ function draw(){
  const i=lower(t,E.cur);
  $('ek_rng').value=T1>T0?Math.round((E.cur-T0)/(T1-T0)*10000):10000;
  $('ek_time').textContent=tfmt(E.cur)+' / '+tfmt(T1)+(E.follow?'  EN VIVO':'');
- draw3d(d,i);drawG(d,i);drawPlots(d,i);drawTrack(d,i);numbers(d,i);status(d,i);
+ draw3d(d,i,E.follow&&E.src.startsWith('vivo:')?liveQ(d):null);drawG(d,i);drawPlots(d,i);drawTrack(d,i);numbers(d,i);status(d,i);
 }
 
 // ---------- fuerzas G ----------
@@ -308,11 +327,14 @@ function numbers(d,i){
 }
 
 // Actitud 3D: proyeccion ortografica del cohete en ENU (este, norte, arriba), vista orbitable.
-function draw3d(d,i){
+function draw3d(d,i,lq){
  const c=canvas('ek_3d');if(!c)return;const {g,w,h}=c;
- const C=qC(d.qw[i],d.qx[i],d.qy[i],d.qz[i]);
+ const C=lq?qC(...lq.q):qC(d.qw[i],d.qx[i],d.qy[i],d.qz[i]);
+ if(lq){g.fillStyle='#888';g.fillText(lq.src,4,h-4)}
  const ca=Math.cos(E.az),sa=Math.sin(E.az),ce=Math.cos(E.el),se=Math.sin(E.el),S=Math.min(w,h)*0.42,cx=w/2,cy=h/2;
- const P=ned=>{const e=ned[1],n=ned[0],u=-ned[2];const x1=e*ca-n*sa,y1=e*sa+n*ca;return [cx+S*x1,cy-S*(u*ce-y1*se),y1*ce+u*se]};
+ // camara arriba (el>0) mirando hacia +y1 y hacia abajo: pantalla arriba = (0,se,ce), hacia el observador = (0,-ce,se). Antes iba
+ // u*ce-y1*se, que es una vista desde abajo leida como desde arriba: un espejo, con el alabeo y la guinada al reves.
+ const P=ned=>{const e=ned[1],n=ned[0],u=-ned[2];const x1=e*ca-n*sa,y1=e*sa+n*ca;return [cx+S*x1,cy-S*(u*ce+y1*se),u*se-y1*ce]};
  const B=b=>P(mv(C,b));
  const line=(a,b,col,wid=1,dash)=>{g.strokeStyle=col;g.lineWidth=wid;g.setLineDash(dash||[]);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();g.setLineDash([])};
  // suelo: rosa de los vientos en el plano horizontal

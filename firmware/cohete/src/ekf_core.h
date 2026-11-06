@@ -8,7 +8,8 @@
 //
 // Tiempo real: las muestras entran con su instante local (us). El filtro corre RETRASO_US atrasado para tener todas las medidas
 // (GNSS llega 100-250 ms tarde, el QMI va 42 ms atrasado); presente() lleva el estado al instante actual integrando el IMU guardado.
-// Arranca solo cuando encuentra 1.5 s quieto (actitud inicial con gravedad y campo, sesgos del giro, p0 de los barometros).
+// Arranca solo cuando encuentra 1.5 s quieto (actitud inicial con gravedad y campo, sesgos del giro, p0 de los barometros), salvo
+// tras un reinicio en vuelo: reanudar() sigue desde la foto guardada en RTC o arranca sin reposo.
 #pragma once
 #include <stdint.h>
 #include <string.h>
@@ -60,12 +61,30 @@ struct Estado {
     uint8_t fase;
 };
 
+// Lo necesario para seguir tras un reinicio en vuelo: la tarea lo guarda en RTC_NOINIT a 10 Hz (sobrevive a un reinicio por software,
+// por perro guardian o por panico; no a un corte de alimentacion).
+struct Foto {
+    float   q[4], v[3], p[3], bg[3], ba[3], sg[3], b_bmp, bl[3], bq[3];
+    float   f_g[3], w_dps[3];        // el ultimo giro y la ultima acel. en cuerpo: se proyectan sobre el tiempo sin datos
+    double  lat0, lon0, h0, ref_bmp, ref_bme, hEsc;
+    uint8_t hayOrigen;
+};
+
+// Como arranco el filtro (EkfStats y el monitor)
+enum Arranque : uint8_t { A_NINGUNO = 0, A_REPOSO, A_FOTO, A_VUELO_GRAVEDAD, A_VUELO_NARIZ };
+
 class Navegador {
 public:
     Navegador();
     void configurar(const Config &c);
     void tSuelo(float c);                       // temperatura del suelo (D-058) para la altura; NaN = la del BMP en el reposo inicial
     void reiniciar();                           // vuelve a buscar el reposo (al armar: sesgos, p0 y actitud de la rampa)
+    // Reinicio en vuelo, sin esperar el reposo. Con foto: sigue desde ella, con la incertidumbre de gap_s segundos sin datos.
+    // Sin foto (corte de alimentacion): arranca con 0.5 s de IMU: la gravedad si |a| ~ 1 g (paracaidas), si no la nariz arriba;
+    // el rumbo con el magnetometro si hay; los p0 de la mision (0 = el primero que llegue).
+    void reanudar(const Foto *f, float gap_s, float p0_bmp, float p0_bme);
+    void foto(const Estado &presente, Foto &f) const;
+    uint8_t arranque() const { return arranque_; }
 
     // Entradas, en orden de llegada (cada fuente en orden de tiempo). Unidades del chip: g, dps, G, Pa.
     void lsm(int64_t t, const float a_g[3], const float w_dps[3]);
@@ -93,7 +112,9 @@ private:
     void  aCuerpo(const ImuCal &c, const float a[3], const float w[3], float ab[3], float wb[3], bool qmi) const;
     void  magCuerpo(const MagCal &c, const float m[3], float mb[3]) const;
     void  bloqueReposo(int64_t t, const float ab[3], const float wb[3]);
-    void  arrancar(int64_t t0);
+    void  enVuelo(int64_t t, const float ab[3], const float wb[3]);
+    void  actitud(const double down[3], const double *m0);   // e_.q con la vertical y el campo (m0 null: guinada con la marca)
+    void  arrancar(int64_t t0, const double sd[NX], bool conservar);
     bool  imuPaso(int64_t ta, int64_t tb, int64_t &il, int64_t &iq, Real f[3], Real w[3], bool &okF) const;
     void  predecir(const Real w[3], const Real f[3], Real qd_a, Real qd_g);
     void  propagarMedia(Estado &s, const Real w[3], const Real f[3]) const;
@@ -129,5 +150,10 @@ private:
     struct Bloque { int64_t t1, t2; uint32_t n, nq, nm, nqm, nb, ne, nt; double sa[3], qa[3], sg[3], qg[3], sgq[3], sm[3], sqm[3], sb, se, st; };
     Bloque bl6_[7]; int nbl_; int64_t blIni_;
     bool   buscando_;
+    // reinicio en vuelo: 1 = con foto, al primer IMU; 2 = sin foto, acumulando 0.5 s
+    uint8_t modo_, arranque_; Foto foto_; float gap_;
+    double accA_[3], accW_[3]; uint32_t accN_; int64_t accT0_;
+    float  ultMb_[3]; uint8_t hayMb_;          // ultimo campo en cuerpo: 1 QMC, 2 MMC (se prefiere)
+    float  ultPa_;                             // ultima presion del BMP581: la altura al arrancar en vuelo sin foto
 };
 } // namespace ekf

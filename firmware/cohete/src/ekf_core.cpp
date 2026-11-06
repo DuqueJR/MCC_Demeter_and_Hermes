@@ -77,9 +77,10 @@ template <typename A> static inline double nrm3(const A *a) { return sqrt(dot3(a
 
 void configNominal(Config &c) {
     memset(&c, 0, sizeof(c));
-    const double R[3][3] = {{0, 1, 0}, {0, 0, -1}, {-1, 0, 0}};     // calib.LSM_NOMINAL: el QMI va con los mismos ejes
+    const double R[3][3] = {{0, 1, 0}, {0, 0, -1}, {-1, 0, 0}};     // calib.LSM_NOMINAL
+    const double Rq[3][3] = {{0, 1, 0}, {0, 0, 1}, {1, 0, 0}};      // el QMI: y y z del cuerpo al reves que el LSM (calibraciones de ambos cohetes)
     c.lsm.ok = c.qmi.ok = true;
-    memcpy(c.lsm.R, R, sizeof(R)); memcpy(c.qmi.R, R, sizeof(R));
+    memcpy(c.lsm.R, R, sizeof(R)); memcpy(c.qmi.R, Rq, sizeof(Rq));
     for (int i = 0; i < 3; i++) { c.lsm.escala[i] = c.qmi.escala[i] = 1.0; c.qmi_ganancia[i] = 1.0; }
     c.qmi_retraso_ms = 42.0;
 }
@@ -103,6 +104,8 @@ void Navegador::reiniciar() {
     stillN_ = 0; ultGrav_ = -1; hayLp_ = false;
     memset(bl_, 0, sizeof(bl_)); memset(bq_, 0, sizeof(bq_));
     ref_bmp_ = ref_bme_ = NAN; hEsc_ = (T_ESTANDAR_C + 273.15) / 0.0065;
+    modo_ = 0; arranque_ = A_NINGUNO; gap_ = 0; accN_ = 0; accT0_ = INT64_MIN; hayMb_ = 0; ultPa_ = 0;
+    memset(accA_, 0, sizeof(accA_)); memset(accW_, 0, sizeof(accW_));
 }
 
 void Navegador::aCuerpo(const ImuCal &c, const float a[3], const float w[3], float ab[3], float wb[3], bool qmi) const {   // to_body
@@ -136,6 +139,7 @@ void Navegador::lsm(int64_t t, const float a[3], const float w[3]) {
     aCuerpo(cfg_.lsm, a, w, s.a, s.w, false);
     l_[nl_ % NL] = s; nl_++;
     if (buscando_) bloqueReposo(t, s.a, s.w);
+    else if (modo_) enVuelo(t, s.a, s.w);
 }
 
 void Navegador::qmi(int64_t t, const float a[3], const float w[3]) {
@@ -156,6 +160,7 @@ void Navegador::qmi(int64_t t, const float a[3], const float w[3]) {
 
 void Navegador::bmp(int64_t t, float pa, float tc) {
     if (ref_bmp_ != ref_bmp_) ref_bmp_ = pa;                       // sin reposo: la primera
+    ultPa_ = pa;
     BLOQUE_DE(t, k); if (k) { k->sb += pa; k->nb++; k->st += tc; k->nt++; }
     grupo(bmpI_, bmpAc_, bmpN_, BMP_PASO, pa, t, EV_BMP);
 }
@@ -170,6 +175,7 @@ void Navegador::mmc(int64_t t, const float m[3]) {
     if (!cfg_.mmc.ok) return;
     float mb[3]; magCuerpo(cfg_.mmc, m, mb);
     BLOQUE_DE(t, k); if (k) { for (int i = 0; i < 3; i++) k->sm[i] += mb[i]; k->nm++; }
+    memcpy(ultMb_, mb, sizeof(mb)); hayMb_ = 2;
     if (mmcI_++ % MAG_PASO == 0) { Ev e; e.t = t; e.tipo = EV_MMC; memcpy(e.v, mb, sizeof(mb)); push(e); }
 }
 
@@ -177,6 +183,7 @@ void Navegador::qmc(int64_t t, const float m[3]) {
     if (!cfg_.qmc.ok) return;
     float mb[3]; magCuerpo(cfg_.qmc, m, mb);
     BLOQUE_DE(t, k); if (k) { for (int i = 0; i < 3; i++) k->sqm[i] += mb[i]; k->nqm++; }
+    if (hayMb_ != 2 || !cfg_.mmc.ok) { memcpy(ultMb_, mb, sizeof(mb)); hayMb_ = 1; }
     if (qmcI_++ % MAG_PASO == 0) { Ev e; e.t = t; e.tipo = EV_QMC; memcpy(e.v, mb, sizeof(mb)); push(e); }
 }
 
@@ -247,21 +254,12 @@ void Navegador::bloqueReposo(int64_t t, const float ab[3], const float wb[3]) {
                     double m0[3]; bool hayM = true;
                     if (nm) for (int i = 0; i < 3; i++) m0[i] = mm[i] / nm;
                     else if (nqm) for (int i = 0; i < 3; i++) m0[i] = mq[i] / nqm;
-                    else { hayM = false; m0[0] = 0; m0[1] = 0; m0[2] = -1; }      // -Z del cuerpo: la marca
-                    const double md = dot3(m0, down);
-                    double north[3]; for (int i = 0; i < 3; i++) north[i] = m0[i] - md * down[i];
-                    double nn = nrm3(north);
-                    if (nn < 1e-6) { const double x[3] = {1, 0, 0}; const double xd = dot3(x, down); for (int i = 0; i < 3; i++) north[i] = x[i] - xd * down[i]; nn = nrm3(north); }
-                    for (int i = 0; i < 3; i++) north[i] /= nn;
-                    double east[3] = {down[1] * north[2] - down[2] * north[1], down[2] * north[0] - down[0] * north[2], down[0] * north[1] - down[1] * north[0]};
-                    const double dc = hayM ? DECL_DEG * DPS : 0.0;
-                    double Cm[3][3], C0[3][3];
-                    for (int i = 0; i < 3; i++) { Cm[0][i] = north[i]; Cm[1][i] = east[i]; Cm[2][i] = down[i]; }
-                    const double Rz[3][3] = {{cos(dc), -sin(dc), 0}, {sin(dc), cos(dc), 0}, {0, 0, 1}};
-                    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) C0[i][j] = Rz[i][0] * Cm[0][j] + Rz[i][1] * Cm[1][j] + Rz[i][2] * Cm[2][j];
-                    CtoQ(C0, e_.q);
+                    else hayM = false;
+                    actitud(down, hayM ? m0 : nullptr);
                     (void)tini;
-                    arrancar(tfin);
+                    static const double SD_REPOSO[NX] = {2 * DPS, 2 * DPS, 10 * DPS, 5, 5, 5, 0.5, 0.5, 0.5, 0.2 * DPS, 0.2 * DPS, 0.2 * DPS, 0.2, 0.2, 0.2, SG0, SG0, SG0, 0.05};
+                    arrancar(tfin, SD_REPOSO, false);
+                    arranque_ = A_REPOSO;
                     return;
                 }
             }
@@ -273,14 +271,113 @@ void Navegador::bloqueReposo(int64_t t, const float ab[3], const float wb[3]) {
     for (int i = 0; i < 3; i++) { k.sa[i] += ab[i]; k.qa[i] += (double)ab[i] * ab[i]; k.sg[i] += wb[i]; k.qg[i] += (double)wb[i] * wb[i]; }
 }
 
-void Navegador::arrancar(int64_t t0) {
+// e_.q con la vertical (down, en cuerpo) y el campo (m0, en cuerpo; null: la guinada la da la marca, -Z del cuerpo)
+void Navegador::actitud(const double down[3], const double *m0in) {
+    const double marca[3] = {0, 0, -1};
+    const double *m0 = m0in ? m0in : marca;
+    const double md = dot3(m0, down);
+    double north[3]; for (int i = 0; i < 3; i++) north[i] = m0[i] - md * down[i];
+    double nn = nrm3(north);
+    if (nn < 1e-6) { const double x[3] = {1, 0, 0}; const double xd = dot3(x, down); for (int i = 0; i < 3; i++) north[i] = x[i] - xd * down[i]; nn = nrm3(north); }
+    if (nn < 1e-6) { const double y[3] = {0, 1, 0}; const double yd = dot3(y, down); for (int i = 0; i < 3; i++) north[i] = y[i] - yd * down[i]; nn = nrm3(north); }
+    for (int i = 0; i < 3; i++) north[i] /= nn;
+    double east[3] = {down[1] * north[2] - down[2] * north[1], down[2] * north[0] - down[0] * north[2], down[0] * north[1] - down[1] * north[0]};
+    const double dc = m0in ? DECL_DEG * DPS : 0.0;
+    double Cm[3][3], C0[3][3];
+    for (int i = 0; i < 3; i++) { Cm[0][i] = north[i]; Cm[1][i] = east[i]; Cm[2][i] = down[i]; }
+    const double Rz[3][3] = {{cos(dc), -sin(dc), 0}, {sin(dc), cos(dc), 0}, {0, 0, 1}};
+    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) C0[i][j] = Rz[i][0] * Cm[0][j] + Rz[i][1] * Cm[1][j] + Rz[i][2] * Cm[2][j];
+    CtoQ(C0, e_.q);
+}
+
+// ---------- reinicio en vuelo ----------
+void Navegador::foto(const Estado &s, Foto &f) const {
+    memset(&f, 0, sizeof(f));
+    for (int i = 0; i < 4; i++) f.q[i] = (float)s.q[i];
+    for (int i = 0; i < 3; i++) {
+        f.v[i] = (float)s.v[i]; f.p[i] = (float)s.p[i]; f.bg[i] = (float)s.bg[i]; f.ba[i] = (float)s.ba[i]; f.sg[i] = (float)s.sg[i];
+        f.bl[i] = (float)bl_[i]; f.bq[i] = (float)bq_[i];
+        f.f_g[i] = (float)s.f_g[i]; f.w_dps[i] = (float)s.w_dps[i];
+    }
+    f.b_bmp = (float)s.b_bmp;
+    f.lat0 = s.lat0; f.lon0 = s.lon0; f.h0 = s.h0; f.hayOrigen = s.hayOrigen ? 1 : 0;
+    f.ref_bmp = ref_bmp_; f.ref_bme = ref_bme_; f.hEsc = hEsc_;
+}
+
+void Navegador::reanudar(const Foto *f, float gap_s, float p0_bmp, float p0_bme) {
+    reiniciar();
     buscando_ = false;
+    gap_ = gap_s < 0 ? 0 : gap_s;
+    if (f) { foto_ = *f; modo_ = 1; return; }
+    modo_ = 2;
+    if (p0_bmp > 0) ref_bmp_ = p0_bmp;
+    if (p0_bme > 0) ref_bme_ = p0_bme;
+    hEsc_ = ((tSuelo_ == tSuelo_ ? tSuelo_ : T_ESTANDAR_C) + 273.15) / 0.0065;
+}
+
+void Navegador::enVuelo(int64_t t, const float ab[3], const float wb[3]) {
+    if (modo_ == 1) {                                     // con foto: sigue desde ella, ya
+        const Foto &f = foto_;
+        const double g = fmin((double)gap_, 10.0);
+        // el tiempo sin datos se proyecta con el ultimo giro (el alabeo de las aletas es casi constante) y la ultima aceleracion
+        // (a lo sumo 2 s: despues se mantiene la velocidad), y lo que no se sabe queda en la incertidumbre
+        for (int i = 0; i < 4; i++) e_.q[i] = (Real)f.q[i];
+        Real C[3][3]; qToC(e_.q, C);
+        const double ga = fmin(g, 2.0), gr = fmin(g, 3.0);
+        double a[3];
+        for (int i = 0; i < 3; i++) a[i] = (C[i][0] * f.f_g[0] + C[i][1] * f.f_g[1] + C[i][2] * f.f_g[2]) * G;
+        a[2] += G;
+        const Real th[3] = {(Real)(f.w_dps[0] * DPS * gr), (Real)(f.w_dps[1] * DPS * gr), (Real)(f.w_dps[2] * DPS * gr)};
+        qMulRot(e_.q, th);
+        for (int i = 0; i < 3; i++) {
+            e_.v[i] = (Real)(f.v[i] + a[i] * ga);
+            e_.p[i] = (Real)(f.p[i] + f.v[i] * g + 0.5 * a[i] * ga * ga + a[i] * ga * (g - ga));
+            e_.bg[i] = (Real)f.bg[i]; e_.ba[i] = (Real)f.ba[i]; e_.sg[i] = (Real)f.sg[i];
+            bl_[i] = (Real)f.bl[i]; bq_[i] = (Real)f.bq[i];
+        }
+        e_.b_bmp = (Real)f.b_bmp;
+        e_.lat0 = f.lat0; e_.lon0 = f.lon0; e_.h0 = f.h0; e_.hayOrigen = f.hayOrigen != 0;
+        ref_bmp_ = f.ref_bmp; ref_bme_ = f.ref_bme; hEsc_ = f.hEsc;
+        // la incertidumbre crece con el tiempo sin datos (el empuje puede cambiar la velocidad 100 m/s en 1 s)
+        const double wn = sqrt((double)f.w_dps[0] * f.w_dps[0] + (double)f.w_dps[1] * f.w_dps[1] + (double)f.w_dps[2] * f.w_dps[2]);
+        const double sth = fmin(2.0 + 20.0 * g + 0.1 * wn * gr, 45.0) * DPS, sv = fmin(3.0 + 30.0 * g, 150.0), sp = fmin(5.0 + 20.0 * g + 15.0 * g * g, 500.0);
+        const double sd[NX] = {sth, sth, sth, sp, sp, sp, sv, sv, sv, 0.5 * DPS, 0.5 * DPS, 0.5 * DPS, 0.3, 0.3, 0.3, SG0, SG0, SG0, 0.5};
+        arrancar(t, sd, true);
+        arranque_ = A_FOTO;
+        return;
+    }
+    // sin foto: 0.5 s de IMU
+    if (accT0_ == INT64_MIN) accT0_ = t;
+    for (int i = 0; i < 3; i++) { accA_[i] += ab[i]; accW_[i] += wb[i]; }
+    accN_++;
+    if (t - accT0_ < 500000 || accN_ < 50) return;
+    double f0[3], w0[3];
+    for (int i = 0; i < 3; i++) { f0[i] = accA_[i] / accN_; w0[i] = accW_[i] / accN_; }
+    const double nf = nrm3(f0);
+    const bool grav = fabs(nf - 1.0) < 0.25 && nrm3(w0) < 60.0;    // ~1 g sin girar rapido: la gravedad (paracaidas, suelo)
+    double down[3];
+    if (grav) for (int i = 0; i < 3; i++) down[i] = -f0[i] / nf;
+    else { down[0] = -1; down[1] = 0; down[2] = 0; }              // empuje o inercia: la nariz (X del cuerpo) hacia arriba
+    double m0[3];
+    if (hayMb_) for (int i = 0; i < 3; i++) m0[i] = ultMb_[i];
+    actitud(down, hayMb_ ? m0 : nullptr);
+    memset(bl_, 0, sizeof(bl_)); memset(bq_, 0, sizeof(bq_));     // el sesgo del giro no se conoce: lo estima el filtro
+    const double sti = (grav ? 15.0 : 30.0) * DPS, sru = (hayMb_ ? 20.0 : 90.0) * DPS, sv = grav ? 20.0 : 100.0;
+    const double sd[NX] = {sti, sti, sru, 100, 100, 300, sv, sv, sv, 3 * DPS, 3 * DPS, 3 * DPS, 0.5, 0.5, 0.5, SG0, SG0, SG0, 2.0};
+    arrancar(t, sd, false);
+    if (ultPa_ > 0 && ref_bmp_ == ref_bmp_) e_.p[2] = (Real)(-hEsc_ * (1.0 - pow(ultPa_ / ref_bmp_, 0.190263)));   // la altura del BMP, ya
+    arranque_ = grav ? A_VUELO_GRAVEDAD : A_VUELO_NARIZ;
+}
+
+void Navegador::arrancar(int64_t t0, const double s[NX], bool conservar) {
+    buscando_ = false; modo_ = 0;
     t0_ = tk_ = t0;
-    const double s[NX] = {2 * DPS, 2 * DPS, 10 * DPS, 5, 5, 5, 0.5, 0.5, 0.5, 0.2 * DPS, 0.2 * DPS, 0.2 * DPS, 0.2, 0.2, 0.2, SG0, SG0, SG0, 0.05};
     memset(Pm_, 0, sizeof(Pm_));
     for (int i = 0; i < NX; i++) Pm_[i][i] = (Real)(s[i] * s[i]);
-    memset(e_.p, 0, sizeof(e_.p)); memset(e_.v, 0, sizeof(e_.v)); memset(e_.bg, 0, sizeof(e_.bg)); memset(e_.ba, 0, sizeof(e_.ba));
-    memset(e_.sg, 0, sizeof(e_.sg)); e_.b_bmp = 0; e_.hayOrigen = false;
+    if (!conservar) {
+        memset(e_.p, 0, sizeof(e_.p)); memset(e_.v, 0, sizeof(e_.v)); memset(e_.bg, 0, sizeof(e_.bg)); memset(e_.ba, 0, sizeof(e_.ba));
+        memset(e_.sg, 0, sizeof(e_.sg)); e_.b_bmp = 0; e_.hayOrigen = false;
+    }
     e_.listo = true; e_.t_us = t0;
     // eventos de antes del arranque fuera (los momentos quedan)
     int k = 0; for (int i = 0; i < nev_; i++) if (ev_[i].tipo == EV_MOM || ev_[i].t > t0) ev_[k++] = ev_[i];
@@ -294,7 +391,7 @@ void Navegador::arrancar(int64_t t0) {
 
 // ---------- IMU virtual de un paso [ta, tb) (bin_steps y el bloque de navigate) ----------
 bool Navegador::imuPaso(int64_t ta, int64_t tb, int64_t &il, int64_t &iq, Real f[3], Real w[3], bool &okF) const {
-    double la[3] = {0, 0, 0}, lg[3] = {0, 0, 0}, qa[3] = {0, 0, 0}, qg[3] = {0, 0, 0};
+    Real la[3] = {0, 0, 0}, lg[3] = {0, 0, 0}, qa[3] = {0, 0, 0}, qg[3] = {0, 0, 0};   // Real: en la S3, double es por software
     int nl = 0, nq = 0;
     if (nl_ - il > NL) il = nl_ - NL;
     while (il < nl_ && l_[il % NL].t < tb) { const Imu &s = l_[il % NL]; if (s.t >= ta) { for (int i = 0; i < 3; i++) { la[i] += s.a[i]; lg[i] += s.w[i]; } nl++; } il++; }
@@ -306,14 +403,14 @@ bool Navegador::imuPaso(int64_t ta, int64_t tb, int64_t &il, int64_t &iq, Real f
     }
     bool useL = nl > 0, useQ = nq > 0;
     if (useL && useQ) {
-        double da = 0, dg = 0, amax = 0, gmax = 0;
+        Real da = 0, dg = 0, amax = 0, gmax = 0;
         for (int i = 0; i < 3; i++) { da += (la[i] - qa[i]) * (la[i] - qa[i]); dg += (lg[i] - qg[i]) * (lg[i] - qg[i]); amax = fmax(amax, fabs(qa[i])); gmax = fmax(gmax, fabs(qg[i])); }
-        if (amax > ACC_SAT_G || gmax > GYR_SAT_DPS || sqrt(da) > ACC_DISAGREE_G || sqrt(dg) > GYR_DISAGREE_DPS) useQ = false;
+        if (amax > (Real)ACC_SAT_G || gmax > (Real)GYR_SAT_DPS || da > (Real)(ACC_DISAGREE_G * ACC_DISAGREE_G) || dg > (Real)(GYR_DISAGREE_DPS * GYR_DISAGREE_DPS)) useQ = false;
     }
     okF = useL || useQ;
     if (!okF) return false;
     for (int i = 0; i < 3; i++) {
-        if (useL && useQ) { f[i] = (Real)(W_LSM * la[i] + (1 - W_LSM) * qa[i]); w[i] = (Real)(W_LSM * lg[i] + (1 - W_LSM) * qg[i]); }
+        if (useL && useQ) { f[i] = (Real)W_LSM * la[i] + (Real)(1 - W_LSM) * qa[i]; w[i] = (Real)W_LSM * lg[i] + (Real)(1 - W_LSM) * qg[i]; }
         else if (useL) { f[i] = (Real)la[i]; w[i] = (Real)lg[i]; }
         else { f[i] = (Real)qa[i]; w[i] = (Real)qg[i]; }
     }

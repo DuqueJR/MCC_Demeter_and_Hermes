@@ -1,8 +1,11 @@
 // ekf_task.cpp - Ver ekf_task.h y ekf_core.h.
 #include "ekf_task.h"
 #include <Arduino.h>
+#include <esp_attr.h>
 #include <esp_heap_caps.h>
 #include <math.h>
+#include <stddef.h>
+#include <sys/time.h>
 #include <new>
 #include <net_proto.h>
 #include "ekf_core.h"
@@ -49,6 +52,23 @@ static volatile int64_t s_txDesde = INT64_MIN, s_txHasta = INT64_MIN;
 static ekf::Navegador *s_nav = nullptr;
 static EkfStats s_st;
 static uint32_t s_crcCal = 0xFFFFFFFFu;
+
+// ---------- foto para un reinicio en vuelo (RTC_NOINIT: sobrevive a reinicios por software, perro guardian y panico) ----------
+struct EkfRtc { uint32_t magic, n; int64_t tv_us; ekf::Foto f; uint32_t crc; };
+static RTC_NOINIT_ATTR EkfRtc s_rtc;
+static const uint32_t RTC_MAGIC = 0xE4F07A11u;
+static const int64_t  FOTO_US = 100000;            // 10 Hz
+static uint32_t fnv(const void *p, size_t n) { const uint8_t *b = (const uint8_t *)p; uint32_t h = 2166136261u; for (size_t i = 0; i < n; i++) { h ^= b[i]; h *= 16777619u; } return h; }
+// El reloj del sistema sigue contando a traves de un reinicio por software (lo lleva el RTC): mide cuanto tiempo no hubo filtro
+static int64_t relojRtc() { struct timeval tv; gettimeofday(&tv, nullptr); return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec; }
+static bool rtcValida() { return s_rtc.magic == RTC_MAGIC && s_rtc.crc == fnv(&s_rtc, offsetof(EkfRtc, crc)); }
+static void rtcGuardar(const ekf::Estado &e) {
+    EkfRtc r; memset(&r, 0, sizeof(r));
+    r.magic = RTC_MAGIC; r.n = s_rtc.magic == RTC_MAGIC ? s_rtc.n + 1 : 1; r.tv_us = relojRtc();
+    s_nav->foto(e, r.f);
+    r.crc = fnv(&r, offsetof(EkfRtc, crc));
+    s_rtc = r;                                     // un reinicio a mitad de la copia deja el CRC mal: se toma como sin foto
+}
 
 void ekfLsm(int64_t t, const int16_t a[3], const int16_t g[3]) { s_lsm.push(t, a, g); }
 void ekfQmi(int64_t t, const int16_t a[3], const int16_t g[3], float accLsb, float gyrLsb) { s_qAccLsb = accLsb; s_qGyrLsb = gyrLsb; s_qmi.push(t, a, g); }
@@ -124,9 +144,22 @@ static void registrar(const ekf::Estado &e) {
 // ---------- tarea ----------
 static void ekfTask(void *) {
     configurar();
-    uint8_t estadoPrev = 0, momPrev = 0xFF;
+    // Reinicio en vuelo: la mision ya retomo FLY o RECOVERY (missionBegin va antes). No se espera el reposo.
+    const MissionStats ms0 = missionStats();
+    if ((ms0.state == net::ST_FLY || ms0.state == net::ST_RECOVERY) && (ms0.flags & net::TF_REANUDADO)) {
+        if (rtcValida()) {
+            double g = (relojRtc() - s_rtc.tv_us) / 1e6;
+            if (!(g >= 0 && g < 120)) g = 3.0;         // reloj sin sentido: lo tipico de un reinicio
+            s_st.gapS = (float)g;
+            s_nav->reanudar(&s_rtc.f, (float)g, 0, 0);
+        } else if (ms0.state == net::ST_FLY) {
+            float p0[2]; missionP0(p0);
+            s_nav->reanudar(nullptr, 0, p0[0], p0[1]);
+        }                                               // RECOVERY sin foto: en el suelo, busca el reposo como siempre
+    }
+    uint8_t estadoPrev = ms0.state, momPrev = 0xFF;
     uint32_t seqBar = 0, seqMmc = 0, seqMag = 0, seqGnss = 0; int64_t tBmp = 0;
-    int64_t ultSalida = 0, ultLog = 0;
+    int64_t ultSalida = 0, ultLog = 0, ultFoto = 0;
     TickType_t wake = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(CICLO_MS));
@@ -140,6 +173,8 @@ static void ekfTask(void *) {
             if ((c.ok ? c.crc : 0) != s_crcCal) { configurar(); s_st.reinicios++; }
         }
         estadoPrev = ms.state;
+        const bool vuelo = ms.state == net::ST_FLY || ms.state == net::ST_RECOVERY;
+        if (!vuelo && s_rtc.magic == RTC_MAGIC) s_rtc.magic = 0;   // en tierra o armado no hay nada que reanudar
         const uint8_t mom = ms.state == net::ST_FLY ? ms.moment : (ms.state == net::ST_RECOVERY ? (uint8_t)net::M_ATERRIZAJE : 0);
         if (mom != momPrev) { s_nav->momento(t0, mom); momPrev = mom; }
 
@@ -185,18 +220,21 @@ static void ekfTask(void *) {
 
         const int64_t ahora = time_local_now();
         s_st.pasos += (uint32_t)s_nav->avanzar(ahora);
-        s_st.listo = s_nav->filtro().listo;
+        s_st.listo = s_nav->filtro().listo; s_st.arranque = s_nav->arranque();
         if (ahora - ultSalida >= SALIDA_US) {
             ultSalida = ahora;
             ekf::Estado e;
             s_nav->presente(ahora, e);
             publicar(e);
+            if (vuelo && e.listo && ahora - ultFoto >= FOTO_US) { ultFoto = ahora; rtcGuardar(e); }
         }
         const ekf::Estado &f = s_nav->filtro();
         if (f.listo && f.t_us - ultLog >= SALIDA_US) { ultLog = f.t_us; registrar(f); }
         s_st.lsmIn = s_lsm.in; s_st.qmiIn = s_qmi.in; s_st.lsmDrop = s_lsm.drops; s_st.qmiDrop = s_qmi.drops;
         const uint32_t dt = (uint32_t)(time_local_now() - t0);
         if (dt > s_st.cicloMaxUs) s_st.cicloMaxUs = dt;
+        s_st.cicloPromUs = s_st.cicloPromUs ? s_st.cicloPromUs + ((int32_t)dt - (int32_t)s_st.cicloPromUs) / 64 : dt;
+        if (dt > CICLO_MS * 1000) s_st.lentos++;
     }
 }
 

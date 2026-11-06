@@ -84,8 +84,61 @@ Horizontal, altura y velocidad quedan iguales a la décima. El factor de escala 
 3. Con GNSS a cielo abierto debe salir "con origen GNSS", y el dashboard recibe la posición del EKF.
 4. Registrar con FLY forzado, bajar el log y comparar `ekf_abordo.csv` con `ekf.py` sobre el mismo archivo.
 
+## Primera prueba en la placa (Pablo, Demeter, sin calibracion activa)
+
+El EKF corre en vivo: `ciclo_max=14216 us`, `perdidas=0/0` y "con origen GNSS". Lo que salió mal y cómo se corrigió:
+
+- **Rotación invertida en el dashboard** (el cabeceo bien; el alabeo y la guiñada al revés).
+  - La vista 3D de la ventana EKF estaba espejada: proyectaba una vista desde abajo y la mostraba como si fuera desde arriba.
+  - Se corrigió en `dashboard_ekf.js`. Se comprobó en el papel: N→E queda en sentido horario visto desde arriba.
+  - El EKF no tenía la culpa: los ángulos de `[ekf ]` salen del mismo cuaternión.
+- **Montaje nominal del QMI** (sin calibración): tenía los mismos ejes que el LSM.
+  - Las calibraciones de ambos cohetes dan y y z del cuerpo al revés, porque el chip va girado 180° sobre x.
+  - Con la gravedad en contra, el QMI quedaba siempre descartado por discrepancia, así que el error no se veía en la actitud.
+  - `configNominal` ahora usa `{{0,1,0},{0,0,1},{1,0,0}}`.
+- **Fluidez y latencia.** En TIERRA, TELEM va a 2 Hz y el dashboard la consultaba cada 500 ms. Cambios:
+  - El dashboard consulta cada 200 ms.
+  - Entre dos TELEM, la vista 3D lleva el último cuaternión al presente con el giro en cuerpo de TELEM, hasta 0,7 s.
+  - Con el cohete conectado por USB, el dashboard le pide `E` cada 2 s y el cohete manda `@E q w sd` a 25 Hz. Deja de mandarlo a los 5 s sin pedido, así que un monitor serie normal no lo ve.
+  - La vista 3D dice qué fuente usa: USB a 25 Hz, TELEM + giro, o solo TELEM.
+- **Ciclo.**
+  - `[ekf ]` muestra ahora `ciclo_prom`, `max` y `lentos` (ciclos de más de 5 ms), para saber si los 14 ms son raros o frecuentes.
+  - `imuPaso` suma en `Real`: en la S3, double es por software.
+- **Campo de Calibración** que se borraba al escribir: la página se reescribe cada segundo (por la edad del resumen). Ahora conserva el texto, el foco y el cursor.
+
+## Reinicio en vuelo (resuelto, sin validar en la placa)
+
+- **La foto.** En FLY y RECOVERY, la tarea guarda una foto del filtro en `RTC_NOINIT` a 10 Hz (`ekf::Foto`, con CRC):
+  - actitud, velocidad, posición, sesgos, sesgo inicial del giro, origen, p0 y escala de altura;
+  - el último giro y la última aceleración.
+  - Sobrevive a un reinicio por software, por perro guardián o por pánico. En TIERRA y ARMED se invalida.
+- **Al arrancar,** si la misión se reanudó en FLY o RECOVERY (`TF_REANUDADO`):
+  - **Con foto:** sigue desde ella. El tiempo sin filtro (`gettimeofday`, que el RTC mantiene a través del reinicio) se proyecta con el último giro (hasta 3 s) y la última aceleración (hasta 2 s). La incertidumbre crece con ese tiempo.
+  - **Sin foto** (corte de alimentación), en FLY: arranca con 0,5 s de IMU.
+    - Actitud: la gravedad si |a| está cerca de 1 g; si no (empuje o inercia), la nariz arriba.
+    - Rumbo: el último campo del magnetómetro.
+    - Altura: el p0 de la misión (`missionP0`) y la última presión del BMP.
+    - Sesgos del giro: desconocidos.
+  - **Sin foto,** en RECOVERY: busca el reposo en el suelo, como siempre.
+- **Monitor:** `[ekf ] ... arranque=reposo|foto_RTC|vuelo_gravedad|vuelo_nariz_arriba (N s sin filtro)`.
+- **Prueba en el PC:** `EKF_REINICIO="t,foto|sinfoto,gap"` en `prueba_ekf` simula el reinicio. Ejemplo: `EKF_REINICIO=30.6,foto,1.5 python vuelo_sintetico.py demeter --cpp`.
+  - **Vuelo sintético de Demeter** (alabeo de 200 °/s): el hueco y el transitorio que le sigue dejan picos. En la mediana de actitud por fase:
+
+    | Reinicio | Resultado |
+    | --- | --- |
+    | Empuje, 1,5 s sin datos | inercia 0,86°, eyección 0,39° |
+    | Inercia, 4 s sin datos | inercia 5,4°, paracaídas 0,9° |
+    | Paracaídas, 1,5 s sin datos | paracaídas 0,26° |
+    | Sin foto, en empuje | inercia 1,0° |
+    | Sin foto, en inercia | inercia 1,8° |
+
+    Sin foto, la posición horizontal queda corrida 20-36 m frente a la verdad, porque el origen nuevo es el primer GNSS tras el reinicio; la latitud y longitud son las correctas.
+  - **DEM 0094**, reinicio a los 1000 s, contra la misma corrida sin reinicio:
+    - con foto, 2 s sin datos: menos de 3° desde los 2 s y |dv| < 0,2 m/s;
+    - sin foto: 1-7° desde los 15 s, con el rumbo débil porque en el carro no hay magnetómetro.
+
 ## Pendiente
 
-- **Reinicio en vuelo:** si la placa se reinicia en FLY, el EKF no arranca, porque no encuentra reposo. Hay que arrancarlo con la gravedad promediada o con la actitud guardada.
-- `ciclo_max` y la memoria real en la ESP32-S3.
+- `ciclo_prom`, `lentos` y la memoria real en la ESP32-S3.
+- En la placa: un reinicio en FLY forzado (por ejemplo, `reiniciar` desde tierra) debe mostrar `arranque=foto_RTC`.
 - Usar el EKF en la detección de momentos (apogeo, aterrizaje). Hoy la misión no lo lee: el EKF lee la misión, como en `ekf.py`.
