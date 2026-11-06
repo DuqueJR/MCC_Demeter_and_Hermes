@@ -9,6 +9,7 @@
 #include "ext_pi.h"
 #include "amb_temp.h"
 #include "cal_onboard.h"
+#include "ekf_task.h"
 #include "logger.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
@@ -132,18 +133,31 @@ static void buildTelem(net::Telem &p, int64_t utc_us, uint8_t timeFlags) {
     }
     BarSample b;
     if (g_bar.get(b)) p.temp_c[0] = (int8_t)lroundf(b.temp_c);
+    // D-060: con el EKF listo, actitud, acel. y giro en cuerpo, velocidad y posicion son las suyas (llevadas al presente)
+    EkfOut e;
+    if (g_ekf.get(e) && e.listo) {
+        for (int i = 0; i < 4; i++) p.quat[i] = clamp16(e.q[i] * 32767.0f);
+        for (int i = 0; i < 3; i++) { p.acc_mg[i] = clamp16(e.f_g[i] * 1000.0f); p.gyro_01dps[i] = clamp16(e.w_dps[i] * 10.0f); }
+        if (e.hayOrigen) {
+            p.lat_e7 = (int32_t)llround(e.lat * 1e7); p.lon_e7 = (int32_t)llround(e.lon * 1e7); p.alt_cm = (int32_t)lroundf(e.alt_msl * 100.0f);
+            p.vn_cms = clamp16(e.v[0] * 100.0f); p.ve_cms = clamp16(e.v[1] * 100.0f); p.vd_cms = clamp16(e.v[2] * 100.0f);
+        }
+    }
     p.crc = net::crc16((const uint8_t *)&p, sizeof(p) - 2);
 }
 
 // Devuelve true si la transmision termino. tStart = instante tras ordenar TX; tDone = interrupcion de fin.
 static bool sendPacket(const void *p, size_t n, int64_t &tStart, int64_t &tDone) {
     ulTaskNotifyTake(pdTRUE, 0);
+    const int64_t tPide = esp_timer_get_time();
+    ekfTx(tPide, INT64_MAX);                             // D-060: el campo del magnetometro cambia mientras transmite
     const int16_t st = s_radio.startTransmit((uint8_t *)p, n);
     tStart = esp_timer_get_time();
-    if (st != RADIOLIB_ERR_NONE) { s_st.txErr++; return false; }
+    if (st != RADIOLIB_ERR_NONE) { s_st.txErr++; ekfTx(tPide, tStart); return false; }
     const bool done = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(TX_DONE_MS)) > 0;
     tDone = s_tDone;
     s_radio.finishTransmit();
+    ekfTx(tPide, done ? tDone : esp_timer_get_time());
     if (!done) { s_st.txErr++; return false; }
     s_st.airUs = (uint32_t)(tDone - tStart);
     return true;

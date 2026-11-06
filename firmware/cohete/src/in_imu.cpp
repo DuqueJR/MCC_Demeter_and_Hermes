@@ -4,6 +4,7 @@
 #include "in_imu.h"
 #include "imu_clock.h"
 #include "boost_detect.h"
+#include "ekf_task.h"
 #include "logger.h"
 #include "LoRaBoards.h"          // SDCardSPI, IMU_CS, IMU_INT
 #include "SensorQMI8658.hpp"
@@ -192,9 +193,12 @@ static void imuTask(void *) {
         }
 
         for (uint16_t k = 0; k < cnt; k++) {                      // T-410: respaldo del LSM para BOOST, |a| de cada muestra
-            int16_t a[3];
+            int16_t a[3], g[3];
             memcpy(a, s_fifo + k * SAMPLE_B, 6);
-            boostQmiSample((int64_t)llround(s_clk.timeOf(n0 + k)), a, accLsb);
+            memcpy(g, s_fifo + k * SAMPLE_B + 6, 6);
+            const int64_t tk = (int64_t)llround(s_clk.timeOf(n0 + k));
+            boostQmiSample(tk, a, accLsb);
+            ekfQmi(tk, a, g, accLsb, gyrLsb);                      // D-060
         }
 
         ImuSample s; s.n = n0 + cnt - 1; s.t_us = (int64_t)llround(s_clk.timeOf(s.n));

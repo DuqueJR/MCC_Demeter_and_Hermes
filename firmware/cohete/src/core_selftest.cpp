@@ -20,6 +20,7 @@
 #include "ext_pi.h"
 #include "amb_temp.h"
 #include "cal_onboard.h"
+#include "ekf_task.h"
 #include "pi_plan.h"
 #include <fw_build.h>
 
@@ -42,8 +43,23 @@ void coreSelftestBegin() {
     ambBegin();                    // temperatura del suelo: antes de la mision, que la usa para la altura
     calBegin(ROCKET_ID);           // calibracion activa en NVS (D-059)
     missionBegin(ROCKET_ID);
+    ekfBegin();                    // EKF a bordo (D-060): usa la calibracion activa y la mision
     piBegin(ROCKET_ID);            // UART con la Pi (solo Demeter)
     netBegin(ROCKET_ID, MISSION_ID);
+}
+
+// Actitud del EKF por USB a 25 Hz, para verla fluida en el dashboard con el cohete conectado (TELEM va a 2 Hz en tierra).
+// Solo mientras el dashboard la pida: un monitor serie normal no la ve. Va en el mismo hilo que el monitor: las lineas no se mezclan.
+static uint32_t s_ekfHasta = 0;
+void coreEkfStream() {
+    static uint32_t ult = 0;
+    const uint32_t now = millis();
+    if (!s_ekfHasta || (int32_t)(now - s_ekfHasta) > 0) { s_ekfHasta = 0; return; }
+    if (now - ult < 40) return;
+    ult = now;
+    EkfOut e;
+    if (!g_ekf.get(e) || !e.listo) return;
+    Serial.printf("@E %.4f %.4f %.4f %.4f %.1f %.1f %.1f %.2f\n", e.q[0], e.q[1], e.q[2], e.q[3], e.w_dps[0], e.w_dps[1], e.w_dps[2], e.sd_att_deg);
 }
 
 void coreSelftestReport() {
@@ -54,7 +70,8 @@ void coreSelftestReport() {
     static uint8_t calMatch = 0;
     while (Serial.available()) {                         // prueba: 'f' alterna 2 Hz / 10 Hz hasta que exista la deteccion de vuelo
         const int c = Serial.read();                     // 'g' deja de anclar la hora al GNSS, para probar la hora por baliza
-        if (c == 'f') netSetFlying(!netFlying());
+        if (c == 'E') s_ekfHasta = millis() + 5000;      // el dashboard pide la actitud rapida por USB (lo repite cada 2 s)
+        else if (c == 'f') netSetFlying(!netFlying());
         else if (c == 'g') gnssSetAnchors(!gnssAnchors());
         else if (c == 's' && !coreSleepEnter()) Serial.println("[sleep] no duerme: hay un iman presente, retiralo");   // 's': prueba, luego sera un comando de tierra
         dlMatch = (c == DL_KEY[dlMatch]) ? (uint8_t)(dlMatch + 1) : (uint8_t)(c == DL_KEY[0] ? 1 : 0);
@@ -154,6 +171,30 @@ void coreSelftestReport() {
         const calblob::Calibracion &ca = calActiva();
         Serial.printf("[cal ] activa=%08lX (%s) | analisis: %s %s archivo=%s\n", (unsigned long)(ca.lsm.ok ? ca.crc : 0),
                       ca.ok ? "completa" : (ca.lsm.ok ? "parcial" : "ninguna"), CE[calEstado() & 7], calAnalizando() ? "..." : "", calArchivo()[0] ? calArchivo() : "-");
+    }
+    {
+        static const char *const FASE[6] = {"reposo", "boost", "coast", "eyeccion", "paracaidas", "aterrizaje"};
+        const EkfStats es = ekfStats();
+        EkfOut e;
+        const bool hay = g_ekf.get(e);
+        static const char *const ARR[5] = {"-", "reposo", "foto_RTC", "vuelo_gravedad", "vuelo_nariz_arriba"};   // los tres ultimos: reinicio en vuelo
+        if (!hay || !e.listo) Serial.printf("[ekf ] buscando reposo (1.5 s quieto) | calibrado=%d lsm=%lu qmi=%lu perdidas=%lu/%lu\n", es.calibrado,
+                                             (unsigned long)es.lsmIn, (unsigned long)es.qmiIn, (unsigned long)es.lsmDrop, (unsigned long)es.qmiDrop);
+        else {
+            // guinada, cabeceo y alabeo solo para leer en el monitor (con el cohete vertical la guinada no tiene sentido: ver el cuaternion)
+            const float w = e.q[0], x = e.q[1], y = e.q[2], z = e.q[3];
+            const float c00 = 1 - 2 * (y * y + z * z), c10 = 2 * (x * y + w * z), c20 = 2 * (x * z - w * y), c21 = 2 * (y * z + w * x), c22 = 1 - 2 * (x * x + y * y);
+            const float R2D = 57.29578f;
+            Serial.printf("[ekf ] %s fase=%s q=[%.3f %.3f %.3f %.3f] gui=%.1f cab=%.1f ala=%.1f sd=%.2f grados | alt=%.2f m v=[%.2f %.2f %.2f] %s | "
+                          "gnss=%lu baro=%lu mag=%lu grav=%lu rech=%lu | ciclo_prom=%lu max=%lu us lentos=%lu perdidas=%lu/%lu reinicios=%lu arranque=%s",
+                          e.calibrado ? "calibrado" : "SIN CALIBRAR", FASE[e.fase % 6], w, x, y, z, atan2f(c10, c00) * R2D, asinf(-c20) * R2D, atan2f(c21, c22) * R2D,
+                          e.sd_att_deg, e.alt_agl, e.v[0], e.v[1], e.v[2], e.hayOrigen ? "con origen GNSS" : "sin origen GNSS",
+                          (unsigned long)es.gnss, (unsigned long)es.baro, (unsigned long)es.mag, (unsigned long)es.grav, (unsigned long)es.rech,
+                          (unsigned long)es.cicloPromUs, (unsigned long)es.cicloMaxUs, (unsigned long)es.lentos, (unsigned long)es.lsmDrop, (unsigned long)es.qmiDrop,
+                          (unsigned long)es.reinicios, ARR[es.arranque % 5]);
+            if (es.arranque == 2) Serial.printf(" (%.1f s sin filtro)", es.gapS);
+            Serial.println();
+        }
     }
     {
         const AmbInfo am = ambInfo();

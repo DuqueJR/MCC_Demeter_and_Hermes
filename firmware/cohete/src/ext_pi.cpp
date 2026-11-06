@@ -2,8 +2,9 @@
 //   Tarea "ext_pi" en el nucleo 0, prioridad 2 (como el logger y la mision; debajo de GNSS, I2C y radio). Vuelta de PI_POSE_MS con
 //   vTaskDelayUntil: siempre cede CPU. Una POSE de 60 B tarda 5.2 ms a 115200 y cabe entera en la FIFO de TX (128 B), asi que write()
 //   no bloquea y el primer byte sale al copiarla: la hora se toma justo antes.
-//   Mientras no exista el EKF a bordo, la POSE lleva GNSS (posicion y velocidad), la altura del barometro de la mision (sobre su p0),
-//   cuaternion identidad y giro en 0, con F_EKF y F_ATT en 0 para que la Pi no use la actitud.
+//   Con el EKF a bordo listo (D-060), la POSE lleva su estado llevado al presente (F_EKF, F_ATT, F_ALT; F_POS con origen GNSS).
+//   Antes de que arranque: GNSS (posicion y velocidad), la altura del barometro de la mision (sobre su p0), cuaternion identidad y giro
+//   en 0, con F_EKF y F_ATT en 0 para que la Pi no use la actitud.
 #include "ext_pi.h"
 #include <Arduino.h>
 #include <math.h>
@@ -12,6 +13,7 @@
 #include "core_bus.h"
 #include "mission.h"
 #include "pi_plan.h"
+#include "ekf_task.h"
 
 #pragma pack(push, 1)
 struct PoseMsg {                       // demeter_pose.POSE_STRUCT "<QHHiiiihhh4h3hHHH"
@@ -156,6 +158,22 @@ static void sendPose() {
     }
     if (s_groundMsl == s_groundMsl) p.ground_msl_cm = (int32_t)lroundf(s_groundMsl * 100.0f);
 
+    // D-060: el EKF a bordo, llevado al presente: actitud, giro, altura sobre el p0 y, con origen GNSS, posicion y velocidad
+    EkfOut e;
+    if (g_ekf.get(e) && e.listo) {
+        fl |= PI_F_EKF | PI_F_ATT | PI_F_ALT;
+        for (int i = 0; i < 4; i++) p.q[i] = clamp16(e.q[i] * 32767.0f);
+        for (int i = 0; i < 3; i++) p.gyro_01dps[i] = clamp16(e.w_dps[i] * 10.0f);
+        p.sd_att_cdeg = e.sd_att_deg * 100.0f > 65534.0f ? 0xFFFE : (uint16_t)lroundf(e.sd_att_deg * 100.0f);
+        p.alt_agl_cm = (int32_t)lroundf(e.alt_agl * 100.0f);
+        p.sd_alt_cm = e.sd_alt_m * 100.0f > 65534.0f ? 0xFFFE : (uint16_t)lroundf(e.sd_alt_m * 100.0f);
+        if (e.hayOrigen) {
+            fl |= PI_F_POS;
+            p.lat_e7 = (int32_t)llround(e.lat * 1e7); p.lon_e7 = (int32_t)llround(e.lon * 1e7);
+            p.vn_cms = clamp16(e.v[0] * 100.0f); p.ve_cms = clamp16(e.v[1] * 100.0f); p.vd_cms = clamp16(e.v[2] * 100.0f);
+            p.sd_pos_cm = e.sd_pos_m * 100.0f > 65534.0f ? 0xFFFE : (uint16_t)lroundf(e.sd_pos_m * 100.0f);
+        }
+    }
     p.flags = fl;
     s_st.lastFlags = fl;
     sendFrame(PI_T_POSE, &p, sizeof(p), &p);         // pone utc_us en p antes de copiarla a la trama

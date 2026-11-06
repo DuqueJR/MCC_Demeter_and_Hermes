@@ -34,12 +34,12 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 1 | `rocket_id` | u8 | 1 = Demeter, 2 = Hermes |
 | 2 | `mission_id` | u16 | `-DMISSION_ID` al compilar (hoy 0) |
 | 4 | `utc_ms` | u64 | **El inicio de la ranura** en ms UTC; **0** si es la baliza lenta sin hora |
-| 12 | `lat_e7`, `lon_e7` | i32, i32 | Grados × 1e7 (GNSS crudo; el EKF todavía no existe) |
-| 20 | `alt_cm` | i32 | **hMSL del GNSS**, en cm (no es barométrica; ver PEN-23) |
-| 24 | `vn_cms`, `ve_cms`, `vd_cms` | i16 ×3 | NED, en cm/s (GNSS) |
-| 30 | `quat[4]` | i16 ×4 | Hamilton, escalar primero, × 32767. **Identidad (32767, 0, 0, 0) hasta que exista el EKF** |
-| 38 | `acc_mg[3]` | i16 ×3 | mg, **del QMI8658, en ejes del chip** (±16 g) |
-| 44 | `gyro_01dps[3]` | i16 ×3 | 0,1 °/s, del QMI8658, en ejes del chip |
+| 12 | `lat_e7`, `lon_e7` | i32, i32 | Grados × 1e7. **Del EKF a bordo (D-060)** cuando tiene origen GNSS; antes, GNSS crudo |
+| 20 | `alt_cm` | i32 | MSL en cm. Con el EKF: la hMSL del origen GNSS menos la bajada del EKF, que sale de los barómetros (D-060); antes, hMSL del GNSS |
+| 24 | `vn_cms`, `ve_cms`, `vd_cms` | i16 ×3 | NED, en cm/s. Del EKF con origen GNSS; antes, GNSS |
+| 30 | `quat[4]` | i16 ×4 | Hamilton, escalar primero, × 32767, cuerpo FRD → NED. **Del EKF a bordo** en cuanto arranca (1,5 s quieto); identidad (32767, 0, 0, 0) mientras tanto |
+| 38 | `acc_mg[3]` | i16 ×3 | mg. Con el EKF: aceleración específica **en cuerpo FRD**, del IMU virtual (0,8 LSM + 0,2 QMI) promediada a 400 Hz y sin el sesgo estimado. Antes: QMI8658 en ejes del chip |
+| 44 | `gyro_01dps[3]` | i16 ×3 | 0,1 °/s. Con el EKF: en cuerpo FRD, sin sesgo ni factor de escala. Antes: QMI8658 en ejes del chip |
 | 50 | `fix`, `nsv` | u8, u8 | Tipo de fix y satélites |
 | 52 | `vbat_mv` | u16 | mV (PMU) |
 | 54 | `temp_c[2]` | i8 ×2 | [0] = BME280; [1] reservado |
