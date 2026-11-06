@@ -8,14 +8,18 @@ Uso:  python tbget.py COM3 list                 lista archivos
 Opciones: --dir CARPETA  --completo (incluye los ceros finales)
           --reset (al terminar reinicia la placa)  --analizar (corre tblog y guarda NOMBRE.BIN.txt)
           --csv (ademas deja cada fuente en un CSV, en la carpeta NOMBRE_csv)
+          --registro (ademas de los pedidos, los archivos siguientes del mismo registro: una guia larga ocupa varios de 32 MB)
 Si los archivos pedidos por nombre ya estan en la carpeta, no se toca la placa. Al terminar de bajar se suelta el puerto
 (linea "PUERTO LIBRE") y el analisis sigue en el computador. Cierra antes el monitor serie de ese puerto. Desde el primer comando la placa queda en modo descarga, sin logger;
 sale con reset, o sola tras 2 minutos sin comandos.
 Requiere pyserial:  python -m pip install pyserial
 """
 import sys, os, re, time, struct, argparse, binascii, subprocess
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tblog
 
 CHUNK = 4096
+LLENO = 31 << 20                                       # un archivo con mas datos que esto se lleno (32 MB) y el registro siguio en otro
 RETRIES = 8
 RX_BUFFER = 1 << 20
 
@@ -224,12 +228,46 @@ def analyze(path, csv=False):
         f.write(r.stdout)
 
 
+def cabecera(dev, name, a):
+    """FILEHDR de un archivo: del computador si ya esta, si no los primeros 512 B de la placa."""
+    local = os.path.join(a.dir, name)
+    if os.path.exists(local):
+        with open(local, 'rb') as f:
+            return tblog.cabecera(f.read(512))
+    buf = bytearray()
+    dev.fetch(name, 0, 512, buf.extend)
+    return tblog.cabecera(bytes(buf))
+
+
+def con_registro(dev, files, pedidos, a):
+    """Agrega a cada pedido los archivos siguientes que lo continuan (mismo registro: cambio de archivo al llenarse)."""
+    logs = sorted((f for f in files if is_log(f[0])), key=lambda f: index_of(f[0]))
+    nombres = [f[0] for f in logs]
+    out = list(pedidos)
+    for n, _ in pedidos:
+        if n not in nombres:
+            continue
+        i = nombres.index(n)
+        prev = cabecera(dev, n, a)
+        while i + 1 < len(logs):
+            c = cabecera(dev, logs[i + 1][0], a)
+            if not tblog.continua(prev, c):
+                break
+            if logs[i + 1] not in out:
+                print(f'{logs[i + 1][0]}: sigue el registro de {n}')
+                out.append(logs[i + 1])
+            prev, i = c, i + 1
+    return sorted(out, key=lambda f: index_of(f[0]))
+
+
 def get(dev, files, a):
     os.makedirs(a.dir, exist_ok=True)
     t0 = time.time()
     bajados = 0
     elegidos = []
     pedidos = select(files, a)
+    if a.registro:
+        pedidos = con_registro(dev, files, pedidos, a)
     for i, (n, s) in enumerate(pedidos):
         final = os.path.join(a.dir, n)
         tag = f'[{i + 1}/{len(pedidos)}] ' if len(pedidos) > 1 else ''
@@ -305,9 +343,16 @@ def main():
     ap.add_argument('--reset', action='store_true')
     ap.add_argument('--analizar', action='store_true')
     ap.add_argument('--csv', action='store_true')
+    ap.add_argument('--registro', action='store_true')
     a = ap.parse_args()
-    # Pedidos por nombre y ya bajados: no hace falta la placa
-    if a.accion == 'get' and a.nombres and not a.completo and all(n.upper().endswith('.BIN') and os.path.exists(os.path.join(a.dir, n)) for n in a.nombres):
+    # Pedidos por nombre y ya bajados: no hace falta la placa. Con --registro, solo si lo bajado del registro termina en un archivo
+    # que no se lleno (si se lleno, puede seguir en otro que aun esta en la placa)
+    def completo(n):
+        if not a.registro:
+            return True
+        ultimo = tblog.registro(os.path.join(a.dir, n))[-1]
+        return os.path.getsize(ultimo) < LLENO
+    if a.accion == 'get' and a.nombres and not a.completo and all(n.upper().endswith('.BIN') and os.path.exists(os.path.join(a.dir, n)) and completo(n) for n in a.nombres):
         for n in a.nombres:
             print(f'{n}: ya esta en el computador; no hace falta la placa')
         print(f'{FREE}: no se uso la placa', flush=True)

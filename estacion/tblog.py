@@ -53,6 +53,52 @@ def records(buf):
             pos = nxt
     return out, skipped, resync, trunc
 
+FH_CONTINUA = 1          # FILEHDR v3, byte 73: el archivo sigue al anterior del mismo registro (cambio de archivo al llenarse)
+
+
+def cabecera(datos):
+    """FILEHDR del principio de un archivo (bastan sus primeros 512 B): dict(ver, rocket, boot, idx, continua) o None."""
+    for r in records(datos[:512])[0]:
+        if r[1] == T_FILEHDR and len(r[4]) >= 28:
+            _, ver, rid, _, boot, idx = struct.unpack_from('<4sHHIII', r[4])
+            return dict(ver=ver, rocket=rid, boot=boot, idx=idx, continua=bool(ver >= 3 and len(r[4]) > 73 and r[4][73] & FH_CONTINUA))
+    return None
+
+
+def continua(previa, cab):
+    """cab sigue a previa en el mismo registro: mismo arranque y, desde v3, la bandera; en v1-v2 basta el mismo arranque (como cal_onboard)."""
+    if not previa or not cab or previa['boot'] != cab['boot']:
+        return False
+    return cab['continua'] if cab['ver'] >= 3 else True
+
+
+def indice_log(name):
+    import re
+    m = re.search(r'_(\d+)\.BIN$', os.path.basename(name))
+    return int(m.group(1)) if m else -1
+
+
+def registro(path):
+    """Todos los archivos del registro al que pertenece path, en orden, buscando en su carpeta los vecinos que lo continuan."""
+    carpeta, base = os.path.split(os.path.abspath(path))
+    pre = base[:4]
+    vecinos = sorted((f for f in os.listdir(carpeta) if f.startswith(pre) and f.endswith('.BIN') and indice_log(f) >= 0), key=indice_log)
+    if base not in vecinos:
+        return [path]
+    cab = {}
+    def c(f):
+        if f not in cab:
+            with open(os.path.join(carpeta, f), 'rb') as fh:
+                cab[f] = cabecera(fh.read(512))
+        return cab[f]
+    i = j = vecinos.index(base)
+    while i > 0 and continua(c(vecinos[i - 1]), c(vecinos[i])):
+        i -= 1
+    while j + 1 < len(vecinos) and continua(c(vecinos[j]), c(vecinos[j + 1])):
+        j += 1
+    return [os.path.join(carpeta, f) for f in vecinos[i:j + 1]]
+
+
 def days_from_civil(y, m, d):
     y -= m <= 2
     era = (y if y >= 0 else y - 399) // 400
@@ -127,7 +173,8 @@ def main():
                 fw += f" entorno={r[4][44:60].split(bytes(1))[0].decode(errors='replace')} commit={r[4][60:72].split(bytes(1))[0].decode(errors='replace')} LoRa={struct.unpack_from('<b', r[4], 72)[0]} dBm"
             else:
                 fw += " (firmware anterior: sin entorno ni potencia)"
-            print(f"cabecera: {magic.decode()} v{ver} rocket_id={rid} mission_id={mid} arranque={boot} archivo={idx} fw={fw}")
+            cont = ' (continua el archivo anterior del mismo registro)' if ver >= 3 and len(r[4]) > 73 and r[4][73] & FH_CONTINUA else ''
+            print(f"cabecera: {magic.decode()} v{ver} rocket_id={rid} mission_id={mid} arranque={boot} archivo={idx} fw={fw}{cont}")
             break
 
     hbs = [r for r in recs if r[1] == T_HB]

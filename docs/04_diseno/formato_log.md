@@ -32,7 +32,7 @@ reemplaza: 05_plan/dos_sesiones/06_contratos/04_formato_log_y_replay.md (C-04), 
 | 2 | `PPS` | `PpsRec`: flanco local, segundo UTC, si se usó, fix y tAcc |
 | 3 | `LINK` | `LinkRec`: TX o RX, ranura, largo, RSSI, SNR, retraso y tiempo en el aire. **Sirve para excluir las muestras del MMC durante la TX** |
 | 4 | `HEARTBEAT` | `HbRec`, una vez por segundo: descartes por anillo, escritura y flush máximos, bytes, `time_flags` y reserva |
-| 5 | `FILEHDR` | El primero de cada archivo: `TBLG`, versión, cohete, misión, arranque, índice, UTC y `fw` (hoy la fecha de compilación; PEN-23 pide el hash) |
+| 5 | `FILEHDR` | El primero de cada archivo: `TBLG`, versión, cohete, misión, arranque, índice, UTC y `fw` (hoy la fecha de compilación; PEN-23 pide el hash). v2 agrega entorno, commit y potencia LoRa. **v3** (D-059): byte 73 `flags`, bit 0 `FH_CONTINUA` = el archivo sigue al anterior del mismo registro (el logger cambió de archivo al llenarse los 32 MB). Un registro son los archivos consecutivos del mismo arranque desde uno sin la bandera; en v1-v2 basta el mismo arranque (`tblog.registro`, `cal_onboard`) |
 | 6 | `IMU` | `ImuRec` + el lote del FIFO del QMI8658: `cnt × 6 × i16` (ax ay az gx gy gz), ejes del chip; `IF_GAP` si hubo pérdidas |
 | 7 | `MAG` | `MagRec`: QMC6309 crudo |
 | 8 / 9 | `BAR` / `BARCAL` | BME280 crudo y compensado / su calibración |

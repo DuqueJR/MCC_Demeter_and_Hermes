@@ -139,8 +139,13 @@ def compilar_mision():
     cmd = ["g++", "-std=gnu++11", "-O1", "-Wall", "-Wextra"] + inc + ["-o", str(BUILD / "prueba_amb"), str(AQUI / "prueba_amb.cpp")]
     print("$", " ".join(cmd))
     subprocess.run(cmd, check=True)
-    # D-060: el EKF a bordo sobre logs (comparar_ekf.py, vuelo_sintetico.py --cpp), en float como en el cohete y en double
+    # D-059: los arneses de la calibracion a bordo que usa comparar_cal.py (C++ puro, sin stubs); se recompilan siempre para no comparar uno viejo
     sin_stubs = ["-I" + str(src), "-I" + str(src.parent.parent / "common" / "net_proto")]
+    for nombre, fuentes in (("prueba_cal", [AQUI / "prueba_cal.cpp", src / "cal_core.cpp"]), ("prueba_cal_blob", [AQUI / "prueba_cal_blob.cpp"])):
+        cmd = ["g++", "-std=gnu++11", "-O2"] + sin_stubs + ["-o", str(BUILD / nombre)] + [str(f) for f in fuentes]
+        print("$", " ".join(cmd))
+        subprocess.run(cmd, check=True)
+    # D-060: el EKF a bordo sobre logs (comparar_ekf.py, vuelo_sintetico.py --cpp), en float como en el cohete y en double
     for nombre, extra in (("prueba_ekf", []), ("prueba_ekf_d", ["-DEKF_REAL=double"])):
         cmd = ["g++", "-std=gnu++11", "-O2", "-Wall", "-Wextra"] + extra + sin_stubs + ["-o", str(BUILD / nombre), str(AQUI / "prueba_ekf.cpp"), str(src / "ekf_core.cpp")]
         print("$", " ".join(cmd))

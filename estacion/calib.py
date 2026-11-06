@@ -16,6 +16,7 @@ POSES = ['nariz arriba', 'nariz abajo', 'marca arriba', 'marca abajo', 'derecha 
 STILL_WIN_S = 0.5
 STILL_SD_G = 0.03          # incluye el pulso de la mano
 STILL_MIN_S = 4.0
+WARM_MIN_S = 120.0          # un tramo quieto asi de largo seguido de posiciones es la curva de calentamiento, no una posicion
 NEW_POSE_DEG = 30.0
 ANGLE_WARN_DEG = 12.0      # sostenido a mano: mas que esto ya no es la posicion pedida
 TX_MARGIN_US = 15000
@@ -34,8 +35,15 @@ LSM_NOMINAL = dict(R=[[0, 1, 0], [0, 0, -1], [-1, 0, 0]], sesgo_g=[0, 0, 0], esc
 POSE_FIELD_TOL = 0.05       # una posicion quieta con el campo mas de 5 % fuera del radio estaba sobre algo magnetico
 
 
+def leer_registros(path):
+    """Registros de un archivo o de varios (los de un mismo registro, en orden: el reloj local sigue de uno a otro)."""
+    if isinstance(path, (list, tuple)):
+        return [r for p in path for r in tblog.records(open(p, 'rb').read())[0]]
+    return tblog.records(open(path, 'rb').read())[0]
+
+
 def load(path):
-    recs = tblog.records(open(path, 'rb').read())[0]
+    recs = leer_registros(path)
     lsm_t, lsm_a, lsm_g, qmi_t, qmi_a, qmi_g = [], [], [], [], [], []
     lsm_lsb = gyr_lsb = qmi_lsb = qmi_gsb = None
     for r in recs:
@@ -84,8 +92,12 @@ def load(path):
     return dict(lsm_t=arr(lsm_t), lsm_a=arr(lsm_a) / (lsm_lsb or 1), lsm_g=arr(lsm_g) / (gyr_lsb or 1), qmi_t=arr(qmi_t), qmi_a=arr(qmi_a) / (qmi_lsb or 1), qmi_g=arr(qmi_g) / (qmi_gsb or 1), mmc=arr(mmc), qmc=arr(qmc))
 
 
-def find_poses(t, a):
-    """Tramos quietos; devuelve las primeras direcciones distintas, en orden de aparicion, cada una con su tramo mas largo."""
+def find_poses(t, a, info=None):
+    """Tramos quietos; devuelve las primeras direcciones distintas, en orden de aparicion, cada una con su tramo mas largo.
+    Calentamiento (D-058): un tramo quieto de WARM_MIN_S o mas seguido de posiciones; la guia empieza al final del ultimo y lo anterior
+    no cuenta (info['t_guia'], None si no hubo). El reposo largo del final no cuenta: no lo siguen posiciones. Igual que cal_core.posesDe."""
+    if info is not None:
+        info['t_guia'] = None
     if len(t) < 100:
         return []
     t0 = t[0]
@@ -103,9 +115,17 @@ def find_poses(t, a):
             cur = None
     if cur is not None:
         segs.append(cur)
+    t_guia = None
+    for s, (t1, t2) in enumerate(segs):
+        if (t2 - t1) / 1e6 >= WARM_MIN_S and any(STILL_MIN_S <= (q2 - q1) / 1e6 < WARM_MIN_S for q1, q2 in segs[s + 1:]):
+            t_guia = t2
+    if info is not None:
+        info['t_guia'] = t_guia
 
     poses = []
     for t1, t2 in segs:
+        if t_guia is not None and t2 <= t_guia:
+            continue
         if (t2 - t1) / 1e6 < STILL_MIN_S:
             continue
         m = (t > t1 + 5e5) & (t < t2 - 5e5)
@@ -372,7 +392,7 @@ def curva_temperatura(path):
     """Curva de calentamiento del BMP581 (detras de la placa, por el hub del LSM) y del BME280 (en la placa) durante la calibracion (D-058).
     La guia empieza en frio: encender, forzar FLY y registrar 30 min con el cohete cerrado (y en Demeter, la Pi encendida a los 5 min).
     Ajusta T(t) = Tinf - (Tinf - T0) exp(-t / tau) a cada sensor; con eso se fijan los umbrales de la muestra en frio y del armado."""
-    recs = tblog.records(open(path, 'rb').read())[0]
+    recs = leer_registros(path)
     bme = np.array([(r[3], struct.unpack_from('<f', r[4], 24)[0]) for r in recs if r[1] == tblog.T_BAR and len(r[4]) == 32], dtype=float).reshape(-1, 2)
     bmp = []
     for r in recs:                                          # BMP581 por el hub del LSM: palabras con etiqueta 0x0E (como ekf.load_extra)
@@ -425,14 +445,27 @@ def curva_temperatura(path):
 
 
 def run(path):
+    """path: un archivo o la lista de archivos de un mismo registro (una guia con calentamiento ocupa varios de 32 MB)."""
     d = load(path)
-    out = dict(archivo=path.replace('\\', '/').split('/')[-1], avisos=[])
+    nombres = [p.replace('\\', '/').split('/')[-1] for p in (path if isinstance(path, (list, tuple)) else [path])]
+    out = dict(archivo=nombres[0], avisos=[])
+    if len(nombres) > 1:
+        out['archivos'] = nombres
+        print(f'registro en {len(nombres)} archivos: {", ".join(nombres)}')
     print(f'archivo {out["archivo"]}: LSM {len(d["lsm_t"])} muestras, QMI {len(d["qmi_t"])}, MMC {len(d["mmc"])}, QMC {len(d["qmc"])}')
 
-    poses = find_poses(d['lsm_t'], d['lsm_a']) if len(d['lsm_t']) else []
+    info = {}
+    poses = find_poses(d['lsm_t'], d['lsm_a'], info) if len(d['lsm_t']) else []
     if not poses and len(d['qmi_t']):
-        poses = find_poses(d['qmi_t'], d['qmi_a'])
+        poses = find_poses(d['qmi_t'], d['qmi_a'], info)
         out['avisos'].append('sin LSM: posiciones halladas con el QMI')
+    if info.get('t_guia') is not None:
+        t_ini = min(float(x[0]) for x in (d['lsm_t'], d['qmi_t']) if len(x))
+        out['calentamiento_s'] = round((info['t_guia'] - t_ini) / 1e6, 1)
+        print(f'calentamiento: {out["calentamiento_s"]:.0f} s quieto al inicio; la guia (posiciones y magnetometros) empieza despues')
+        for k in ('mmc', 'qmc'):
+            if len(d[k]):
+                d[k] = d[k][d[k][:, 0] >= info['t_guia']]
     # Para nombrar las posiciones: la calibracion vigente si es buena; si no, el montaje nominal, igual en ambos cohetes
     prev = LSM_NOMINAL
     role = {'DEM': 'demeter', 'HER': 'hermes'}.get(out['archivo'][:3])
@@ -552,7 +585,8 @@ def run(path):
             out['avisos'].append(f'MMC y QMC difieren hasta {max(par):.1f} grados: revisar ejes o signo')
 
     try:
-        out['temperatura'] = curva_temperatura(path) if os.path.isfile(path) else {}
+        hay = all(os.path.isfile(p) for p in path) if isinstance(path, (list, tuple)) else os.path.isfile(path)
+        out['temperatura'] = curva_temperatura(path) if hay else {}
         tc = out['temperatura']
         if tc:
             print()
@@ -577,10 +611,12 @@ def run(path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('log')
+    ap.add_argument('log', nargs='+', help='el log de la guia; si siguio en otros archivos (registro largo), se toman solos de la misma carpeta')
     ap.add_argument('--salida')
+    ap.add_argument('--solo', action='store_true', help='solo los archivos dados, sin buscar los que continuan el registro')
     a = ap.parse_args()
-    out = run(a.log)
+    logs = a.log if a.solo or len(a.log) > 1 else tblog.registro(a.log[0])
+    out = run(logs if len(logs) > 1 else logs[0])
     if a.salida:
         with open(a.salida, 'w', encoding='utf-8') as f:
             json.dump(out, f, indent=1, ensure_ascii=False)

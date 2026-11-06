@@ -30,7 +30,9 @@ struct HbRec { uint32_t uptime_ms; uint32_t drops[4]; uint32_t write_max_us; uin
 // payload de T_FILEHDR (primer registro de cada archivo)
 struct FileHdrRec { char magic[4]; uint16_t version; uint16_t rocket_id; uint32_t mission_id; uint32_t boot_count;
                     uint32_t file_idx; int64_t utc_us; char fw[16];          // fw = fecha de compilacion
-                    char env[16]; char git[12]; int8_t tx_dbm; uint8_t pad[3]; };   // v2: entorno de PlatformIO, commit (+ = con cambios), potencia LoRa
+                    char env[16]; char git[12]; int8_t tx_dbm; uint8_t flags; uint8_t pad[2]; };   // v2: entorno de PlatformIO, commit (+ = con cambios), potencia LoRa
+// v3: flags bit0 FH_CONTINUA = el archivo sigue al anterior del mismo registro (cambio de archivo al llenarse), no empieza uno nuevo
+enum FileHdrFlags : uint8_t { FH_CONTINUA = 1 };
 // payload de T_IMU: lote crudo del FIFO del QMI8658 (cnt muestras de 6 x int16: ax ay az gx gy gz, ejes del chip)
 //   n0 = indice absoluto de la primera muestra (salta si se perdieron muestras: IF_GAP); t_isr = instante local de la interrupcion del lote (tambien en la cabecera);
 //   t_first = instante local ESTIMADO de la primera muestra; period = periodo estimado (us); dev_ts = sin uso (el registro del chip lee 0 en modo FIFO).
