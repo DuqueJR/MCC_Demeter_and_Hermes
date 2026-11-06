@@ -12,18 +12,11 @@
 //   - el primer dato real del cohete corta la simulación y vuelve el estado en vivo.
 import { type ReadonlySignal, signal } from "@preact/signals";
 import type { Backfill, Estacion, Meta } from "../contrato/tipos";
-import {
-  alimentar,
-  backfill,
-  type ConexionServidor,
-  conexion,
-  estacion,
-  estadoPagina,
-  meta,
-} from "../datos/api";
+import { alimentar, backfill, type ConexionServidor, conexion, estacion, meta } from "../datos/api";
 import { compuerta } from "../datos/compuerta";
 import { interpolador } from "../datos/interpolacion";
 import { serieVacia } from "../datos/serie";
+import { simulacionOfrecida } from "./disponible";
 import type { Guion } from "./guion";
 import { type EntornoReproductor, Reproductor } from "./reproductor";
 
@@ -51,6 +44,8 @@ function restaurar(f: Foto | null): void {
   interpolador.reiniciar();
   if (f === null || f.meta === null) {
     alimentar.reiniciar();
+    // Sin meta (T-636: se simuló en "Cargando" o "Sin servidor") se conserva cómo estaba la conexión.
+    if (f !== null) alimentar.conexion(f.conexion);
     return;
   }
   alimentar.snapshot(
@@ -82,8 +77,8 @@ function terminar(): void {
 }
 
 /**
- * Descarga el guion y reproduce la simulación. Solo arranca si la página sigue en "sin transmisión":
- * si mientras tanto llegó algo del cohete, no se simula nada.
+ * Descarga el guion y reproduce la simulación. Solo arranca si la página sigue ofreciéndola
+ * (`disponible.ts`): si mientras tanto llegó algo del cohete, no se simula nada.
  */
 export async function iniciarSimulacion(
   cargar: () => Promise<Guion>,
@@ -100,8 +95,8 @@ export async function iniciarSimulacion(
     return;
   }
   if (mio !== pedido) return; // el pedido se canceló mientras se descargaba
-  if (estadoPagina.peek().principal !== "sin_transmision") {
-    _fase.value = "inactiva"; // llegó un dato real (o se cayó el servidor): lo real manda
+  if (!simulacionOfrecida.peek()) {
+    _fase.value = "inactiva"; // llegó un dato real: lo real manda (T-636: ver `disponible.ts`)
     return;
   }
   foto = {

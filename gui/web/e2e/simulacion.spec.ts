@@ -5,6 +5,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { crearRepetidor, type Repetidor } from "../dev/repetidor/servidor";
 import { estacionEjemplo, estadoEjemplo, metaEjemplo } from "../src/contrato/ejemplos";
 import type { LineaJsonl, Mision } from "../src/contrato/tipos";
+import { SIMULACION_SIEMPRE_VISIBLE } from "../src/datos/parametros";
 
 // T-635: la simulación para el público, en un navegador de verdad.
 //   - En el servidor de desarrollo (:5174), con `?ejemplo=sin_transmision` (sin cliente de datos): el
@@ -18,7 +19,9 @@ import type { LineaJsonl, Mision } from "../src/contrato/tipos";
 const DEV = "http://localhost:5174";
 const PUERTO_RELAY = 8791;
 const CAPTURAS = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-635");
+const CAPTURAS_636 = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-636");
 mkdirSync(CAPTURAS, { recursive: true });
+mkdirSync(CAPTURAS_636, { recursive: true });
 
 const MEDIDAS = [
   { ancho: 390, alto: 844 },
@@ -232,5 +235,139 @@ test.describe("contra el dist/ y un relay", () => {
     await expect(page.locator(".estado-aviso")).toContainText("La transmisión en vivo empieza");
     await expect(botonVer(page)).toHaveCount(0);
     expect(pedidos.filter((u) => u.includes("simulacion"))).toEqual([]);
+  });
+});
+
+// T-636: el relay (Fly.io, D-061) aún no está desplegado, así que el sitio publicado se queda en
+// "Cargando" o "Sin servidor". Con el interruptor TEMPORAL `SIMULACION_SIEMPRE_VISIBLE`, el botón
+// también sale ahí mientras nunca haya llegado un dato real. Aquí no hay relay: `/api/**` responde
+// 404, como en un hosting estático (Cloudflare Pages) sin el relay detrás. Se simula con `page.route`
+// y no con "lo que haya en :8787": el proxy de `vite preview` apunta a ese puerto, donde otras
+// pruebas (en_vivo.spec.ts) levantan un repetidor que ensuciaría esta.
+// Con el interruptor en `false` las pruebas comprueban que vale T-635 (el botón no sale).
+test.describe("sin relay (dist/ estático, T-636)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/**", (ruta) => ruta.fulfill({ status: 404, body: "no hay relay" }));
+  });
+  const principal = (page: Page) => page.locator(".barra").getAttribute("data-principal");
+
+  for (const m of MEDIDAS) {
+    test(`Deméter ${m.ancho}x${m.alto}, sin /api: botón en 'Sin servidor', simula y vuelve`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize({ width: m.ancho, height: m.alto });
+      await page.clock.install();
+      const errores: string[] = [];
+      page.on("pageerror", (e) => errores.push(e.message));
+      await page.goto("/demeter/");
+      await page.clock.runFor(3 * MS); // el cliente intenta y falla: "Sin servidor"
+      await expect.poll(() => principal(page)).toBe("sin_servidor");
+      await expect(page.locator(".indicador")).toContainText("Sin servidor");
+
+      if (!SIMULACION_SIEMPRE_VISIBLE) {
+        await expect(botonVer(page)).toHaveCount(0); // T-635: solo en 'Sin transmisión'
+        return;
+      }
+      await botonVer(page).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: join(CAPTURAS_636, `sin-servidor-boton-${m.ancho}.png`) });
+
+      const pedidoGuion = page.waitForRequest((r) => r.url().includes("simulacion_nominal"));
+      await botonVer(page).click();
+      await pedidoGuion;
+      await expect(banner(page)).toContainText(TEXTO_BANNER);
+      await expect(page.locator(".marca-sim")).toHaveText("SIM");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await expect(page.locator(".indicador")).not.toContainText("EN VIVO");
+      await expect(page.locator(".barra-fase")).toContainText("En la rampa");
+      await expect(botonVer(page)).toHaveCount(0);
+
+      // El reloj se adelanta: despegue, vuelo y aterrizaje. Los reintentos del cliente (sin /api)
+      // siguen ocurriendo por detrás y no la pisan (compuerta de T-635).
+      await page.clock.runFor(2 * MS);
+      await page.clock.fastForward((T_DESPEGUE_S + 6) * MS);
+      await expect(page.locator(".barra-fase")).toContainText("Subiendo por inercia");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      await page.screenshot({ path: join(CAPTURAS_636, `sin-servidor-vuelo-${m.ancho}.png`) });
+      await page.clock.fastForward(120 * MS);
+      await page.clock.runFor(2 * MS);
+      await expect(page.locator(".barra-fase")).toContainText("En tierra");
+      await expect(page.locator(".indicador")).toContainText("SIMULACIÓN");
+      expect(await sinDesborde(page)).toBe(true);
+
+      // Salir: vuelve el estado de antes (sin servidor) y el botón.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await botonSalir(page).click();
+      await expect(banner(page)).toHaveCount(0);
+      await expect(page.locator(".marca-sim")).toHaveCount(0);
+      await expect(page.locator(".indicador")).not.toContainText("SIMULACIÓN");
+      await expect(botonVer(page)).toBeVisible();
+      expect(errores).toEqual([]);
+    });
+  }
+
+  test("'Cargando' (el servidor no contesta): el botón sale sin tapar el spinner", async ({
+    page,
+  }) => {
+    test.skip(!SIMULACION_SIEMPRE_VISIBLE, "T-635: en 'Cargando' no hay botón");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("**/api/**", () => {}); // nunca responde: la página se queda cargando
+    await page.goto("/demeter/");
+    await expect.poll(() => principal(page)).toBe("cargando");
+    const indicador = page.locator(".indicador");
+    await expect(indicador).toContainText("Cargando");
+    await expect(botonVer(page)).toBeVisible();
+    // El spinner (ícono del indicador) y el botón no se superponen ni se tapan.
+    const icono = await indicador.locator("svg").boundingBox();
+    const boton = await botonVer(page).boundingBox();
+    expect(icono).not.toBeNull();
+    expect(boton).not.toBeNull();
+    if (icono && boton) {
+      const separados =
+        icono.y + icono.height <= boton.y ||
+        boton.y + boton.height <= icono.y ||
+        icono.x + icono.width <= boton.x ||
+        boton.x + boton.width <= icono.x;
+      expect(separados).toBe(true);
+    }
+    await expect(indicador.locator("svg")).toBeInViewport(); // la barra fija sigue a la vista
+    await botonVer(page).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(CAPTURAS_636, "cargando-boton-390.png") });
+  });
+
+  test("Hermes, sin relay: nunca hay botón ni se pide el guion", async ({ page }) => {
+    const pedidos: string[] = [];
+    page.on("request", (r) => pedidos.push(r.url()));
+    await page.clock.install();
+    await page.goto("/hermes/");
+    await page.clock.runFor(3 * MS);
+    await expect.poll(() => principal(page)).toBe("sin_servidor");
+    await expect(botonVer(page)).toHaveCount(0);
+    expect(pedidos.filter((u) => u.includes("simulacion"))).toEqual([]);
+  });
+});
+
+// Con datos reales el botón no sale aunque el servidor se caiga (D-W18): se ve en el servidor de
+// desarrollo con `?ejemplo=reconectando`, que trae el último estado del cohete.
+test.describe("con datos reales (desarrollo, T-636)", () => {
+  test("servidor caído pero con el último dato del cohete: no hay botón", async ({ page }) => {
+    await page.goto(`${DEV}/demeter/?ejemplo=reconectando`);
+    await expect(page.locator(".indicador")).toContainText("Sin servidor");
+    await expect(botonVer(page)).toHaveCount(0);
+  });
+
+  for (const v of ["en_vivo", "senal_debil", "sin_senal"]) {
+    test(`${v}: no hay botón`, async ({ page }) => {
+      await page.goto(`${DEV}/demeter/?ejemplo=${v}`);
+      await expect(page.locator(".barra")).toHaveAttribute("data-principal", v);
+      await expect(botonVer(page)).toHaveCount(0);
+    });
+  }
+
+  test("'Sin transmisión todavía' mantiene el botón con cualquier interruptor", async ({
+    page,
+  }) => {
+    await page.goto(`${DEV}/demeter/?ejemplo=sin_transmision`);
+    await expect(botonVer(page)).toBeVisible();
   });
 });
