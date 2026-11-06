@@ -163,7 +163,7 @@ actualizado: 2026-11-03
 | ID | Tarea | Pri | Resp. | Depende de | Leer | Criterio de aceptación | Estado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-901 | Checklists de campo: preparación, integración en 15 min, Go/No-Go, recuperación y volcado | M | Ambos | P-07 | maquina_estados §4, requisitos REG-02 | Probados en el ensayo final | pendiente; agregar el checklist de la [revisión](../06_revisiones/revision_firmware_pablo.md) §6 |
-| T-902 | Procedimiento de carga del firmware, versión visible y placas de repuesto | M | JP | T-002 | firmware_vuelo §9 | Las placas de repuesto arrancan con la versión etiquetada | pendiente; **compilar y cargar desde dos portátiles** (A7) |
+| T-902 | Procedimiento de carga del firmware, versión visible y placas de repuesto | M | JP | T-002 | firmware_vuelo §9, [verificacion_compilacion_firmware](verificacion_compilacion_firmware.md) | Las placas de repuesto arrancan con la versión etiquetada | pendiente; **compilar y cargar desde dos portátiles** (A7) |
 | T-903 | Kit de campo: mapas offline, cables, adaptador de antena de N a la placa, baterías y lector de SD | M | Ambos | PEN-12 | estacion_terrena | Inventario revisado | pendiente |
 
 ## E10. Web pública y dashboard de operación (F1–F3)
