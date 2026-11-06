@@ -19,6 +19,7 @@ import type { ComponentChildren } from "preact";
 import type { Mision } from "../contrato/tipos";
 import { estado, estadoPagina, eventos } from "../datos/api";
 import { BotonSimulacion } from "../simulacion/BotonSimulacion";
+import { simulacionOfrecida } from "../simulacion/disponible";
 import type { Simulacion } from "../simulacion/guion";
 import { tMasSegundos } from "./BarraMision";
 import { SUBTITULO_FASE, TITULO_FASE } from "./fases";
@@ -120,6 +121,8 @@ export function EstadoMision({ mision, simulacion }: Props) {
   const est = estado.value;
   const evs = eventos.value;
   const sinTransmision = principal.value === "sin_transmision";
+  // T-636: con el interruptor temporal, la simulación también se ofrece en "Cargando" y "Sin servidor".
+  const ofrecerSimulacion = simulacionOfrecida.value;
 
   return (
     <section id="estado" class="seccion" aria-labelledby="estado-titulo">
@@ -130,7 +133,7 @@ export function EstadoMision({ mision, simulacion }: Props) {
           La transmisión en vivo empieza el día del lanzamiento
         </p>
       )}
-      {sinTransmision && simulacion !== undefined && <BotonSimulacion simulacion={simulacion} />}
+      {ofrecerSimulacion && simulacion !== undefined && <BotonSimulacion simulacion={simulacion} />}
 
       <div class="estado-ahora">
         <div class="estado-t">

@@ -50,3 +50,17 @@ export const INTERP_HUECO_MAX_MS = (INTERP_HUECO_PERIODOS * MS_POR_S) / WEB_TASA
 export const INTERP_HISTORIAL = 8;
 /** (P) Por encima de este producto escalar de cuaterniones, *slerp* se cambia por *nlerp*. */
 export const SLERP_UMBRAL_LINEAL = 0.9995;
+
+// ---- Simulación para el público (T-635, T-636) ----
+/**
+ * TEMPORAL: quitar cuando el relay esté en Fly (gui/relay, D-061, T-642).
+ *
+ * Interruptor ÚNICO de T-636. Mientras el relay no esté desplegado, el sitio publicado se queda en
+ * "Cargando" o "Sin servidor" y el botón "Ver la simulación del vuelo" (que T-635 solo muestra en
+ * "Sin transmisión todavía") nunca aparecería.
+ *   - `true`: el botón también aparece en "Cargando" y "Sin servidor", mientras nunca haya llegado
+ *     un dato real del cohete (nunca en en_vivo, señal débil ni sin señal, ni desde ARMED: D-W18).
+ *   - `false`: exactamente el comportamiento de T-635 (solo en "Sin transmisión todavía").
+ * Revertirlo es cambiar este valor; nada más depende de él.
+ */
+export const SIMULACION_SIEMPRE_VISIBLE = true;

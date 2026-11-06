@@ -147,7 +147,7 @@ test.describe("la barra en cada estado (desarrollo, ?ejemplo=...)", () => {
     { v: "sin_senal", ind: "Sin señal", clase: "ind-alarma" },
     { v: "sin_transmision", ind: "Sin transmisión", clase: "ind-sin-dato" },
     { v: "reconectando", ind: "Sin servidor", clase: "ind-sin-dato" },
-    { v: "simulacion", ind: "EN VIVO", clase: "ind-ok" },
+    { v: "simulacion", ind: "SIMULACIÓN", clase: "ind-info" },
   ];
   for (const e of ESTADOS) {
     test(`${e.v}`, async ({ page }) => {
@@ -179,7 +179,7 @@ test.describe("el texto del estado no se recorta", () => {
     { v: "sin_senal", texto: "Sin señal" },
     { v: "reconectando", texto: "Sin servidor" },
     { v: "sin_transmision", texto: "Sin transmisión" },
-    { v: "simulacion", texto: "EN VIVO" },
+    { v: "simulacion", texto: "SIMULACIÓN" },
   ];
   for (const ancho of [360, 390]) {
     for (const mision of ["demeter", "hermes"]) {
