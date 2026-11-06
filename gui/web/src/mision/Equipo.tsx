@@ -20,7 +20,7 @@ export function Equipo({ contenido }: { contenido: Contenido }) {
               {i.apellido.charAt(0)}
             </span>
             <span class="apellido">{i.apellido}</span>
-            <span class="rol">{i.rol ?? "Nombre y rol por confirmar"}</span>
+            {i.rol && <span class="rol">{i.rol}</span>}
           </li>
         ))}
       </ul>

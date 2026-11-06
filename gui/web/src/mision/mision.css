@@ -351,6 +351,10 @@ button:focus-visible,
   border-radius: var(--radio);
 }
 
+.foto-contener {
+  object-fit: contain;
+}
+
 .foto-pendiente img {
   width: 40%;
   height: auto;
@@ -428,12 +432,6 @@ button:focus-visible,
 
 .tarjeta-parte p {
   margin: 0;
-}
-
-.nota-provisional {
-  margin: var(--e-3) 0 0;
-  color: var(--texto-2);
-  font-size: var(--t-etiqueta);
 }
 
 /* ---------- Equipo y pie ---------- */

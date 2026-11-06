@@ -1,5 +1,4 @@
-// Contenido de Deméter. PROVISIONAL: textos redactados en T-623 para que el usuario los revise
-// en el PR; siguen provisionales hasta que cierren PEN-W02 (nombres y roles) y PEN-W03 (textos).
+// Contenido de Deméter.
 // Dónde se apoya cada cifra:
 // - Motor H135W-8: `MOTORES` de docs/02_requisitos/constantes.md.
 // - CanSat de 250 a 300 g: `CANSAT_MASA_G` de constantes.md (es el rango del reglamento, no una medida).
@@ -9,6 +8,9 @@
 // - Recuperación solo por la carga de eyección del motor, sin despliegue electrónico: constantes.md.
 // - VisionPack (Raspberry Pi 5 y 2 cámaras): docs/04_diseno/visionpack_integracion.md y 03 §3.9.
 // El tono (se tutea, cercano, números exactos con su unidad) sale de 02_identidad_visual §9.
+
+import cohete from "../assets/demeter/cohete.png?w=1000&format=webp";
+import equipo from "../assets/demeter/equipo.jpg?w=1400&format=webp";
 import iconoAletas from "../assets/demeter/iconos/aletas.png?w=96&format=webp";
 import iconoCansat from "../assets/demeter/iconos/cansat.png?w=96&format=webp";
 import iconoMotor from "../assets/demeter/iconos/motor.png?w=96&format=webp";
@@ -20,7 +22,6 @@ import parcheGrande from "../assets/demeter/parche.png?w=512&format=webp";
 import type { Contenido } from "./tipos";
 
 export const demeter: Contenido = {
-  provisional: true,
   mision: "demeter",
   nombre: "Deméter",
   lema: "La tierra que mira",
@@ -30,10 +31,8 @@ export const demeter: Contenido = {
   parcheChico,
   parcheGrande,
   fotos: [
-    { src: null, alt: "El cohete Deméter", pie: "El cohete Deméter" },
-    { src: null, alt: "El equipo de Deméter", pie: "El equipo de Deméter" },
-    { src: null, alt: "El CanSat de Deméter", pie: "El CanSat, la carga útil" },
-    { src: null, alt: "El VisionPack de Deméter", pie: "El VisionPack y sus dos cámaras" },
+    { src: cohete, alt: "El cohete Deméter", pie: "El cohete Deméter", contener: true },
+    { src: equipo, alt: "El equipo de Deméter", pie: "El equipo de Deméter" },
   ],
   partes: [
     {
