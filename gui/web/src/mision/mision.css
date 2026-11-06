@@ -697,13 +697,17 @@ button:focus-visible,
     flex-basis: 100%;
   }
 
-  /* Equipo (T-646): el parche a un lado y la foto al otro, en la misma banda y centrados. */
+  /* Equipo (T-646, T-647): el parche a un lado y la foto al otro de la banda, alineados al centro
+     vertical. La banda tiene un ancho máximo (16 × e-8) y va centrada: en pantallas anchas cada uno
+     queda lejos del otro y del borde de la tarjeta; `gap` es el hueco mínimo si la banda se aprieta. */
   .equipo-banda {
+    --ancho-foto-equipo: calc(var(--e-8) * 8.5); /* ~20 % menos que los 11 × e-8 de T-646 */
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    gap: var(--e-6);
-    margin-bottom: var(--e-5);
+    gap: var(--e-7);
+    max-width: calc(var(--e-8) * 16);
+    margin: 0 auto var(--e-5);
   }
 
   .parche-grande {
@@ -711,7 +715,7 @@ button:focus-visible,
   }
 
   .equipo-foto {
-    flex: 0 1 calc(var(--e-8) * 11);
+    flex: 0 1 var(--ancho-foto-equipo);
     min-width: 0;
   }
 }
