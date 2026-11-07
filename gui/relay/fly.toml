@@ -1,0 +1,56 @@
+# Relay publico en Fly.io (T-642, D-061). Guia paso a paso: docs/08_gui/11_guia_despliegue.md
+#
+# Se despliega SIEMPRE desde la RAIZ del repo (el contexto de build es la raiz, ver gui/relay/Dockerfile):
+#   fly deploy --config gui/relay/fly.toml --dockerfile gui/relay/Dockerfile
+#
+# SIN SECRETOS en este archivo. El token va por `fly secrets set WEB_INGESTA_TOKEN=...`.
+# UNA SOLA maquina, sin autoscale y sin auto-stop: el estado esta en memoria (04 §4.5) y el vuelo no puede perder el SSE.
+
+app = "hermes-demeter-relay"      # el nombre es global en Fly: si esta tomado, cambialo aqui y en `fly launch --name`
+primary_region = "bog"            # (P) Bogota, la mas cercana a Santa Fe de Antioquia. Si no hay capacidad: "mia" (Miami)
+kill_signal = "SIGTERM"
+kill_timeout = 10                 # segundos; los JSONL ya estan en disco (fsync antes de responder cada lote)
+
+[build]
+  dockerfile = "Dockerfile"       # relativo a este fly.toml; el contexto sigue siendo la raiz del repo (se ejecuta desde ahi)
+
+[env]
+  # No son secretos. WEB_INGESTA_TOKEN NO va aqui.
+  WEB_RELAY_DATOS = "/datos"                              # el volumen de [[mounts]]
+  WEB_RELAY_ORIGENES = "https://eiaspice.space"           # CORS: solo el sitio. (El repo no usa www.eiaspice.space)
+  WEB_SSE_MAX_POR_IP = "600"                              # el publico del evento sale por pocas IP (NAT): ver la guia §1.2
+  FORWARDED_ALLOW_IPS = "*"                               # --forwarded-allow-ips: la IP real viene del proxy de Fly (guia §1.3)
+
+[http_service]
+  internal_port = 8080
+  force_https = true              # HTTP -> HTTPS (TLS lo termina el proxy de Fly; el certificado de api.eiaspice.space: `fly certs add`)
+  auto_stop_machines = "off"      # NUNCA se apaga sola
+  auto_start_machines = false
+  min_machines_running = 1
+
+  # SSE = una conexion larga por navegador. Sin esto, el limite por defecto del servicio recorta las conexiones.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 1500
+    hard_limit = 2000
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/v1/salud"
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "5s"
+
+[[mounts]]
+  source = "relay_datos"          # fly volumes create relay_datos --region <la misma de primary_region> --size 1
+  destination = "/datos"
+  initial_size = "1gb"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[restart]]
+  policy = "always"               # si el proceso muere, la maquina lo vuelve a levantar (el relay reconstruye desde el JSONL)
