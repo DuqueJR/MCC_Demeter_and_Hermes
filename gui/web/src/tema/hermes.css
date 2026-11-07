@@ -26,6 +26,11 @@
   --marca-1: #362b57;
   --marca-2: #c8955a;
   --marca-3: #c92d34;
+  /* Relieve del mapa (T-649, D-W22): discreto, para que la trayectoria (--acento) siga siendo lo más visible. */
+  --relieve-sombra: #060412;
+  --relieve-luz: #8c81c4;
+  --relieve-curva: #53488a;
+  --relieve-curva-indice: #8479bd;
   --fuente-display: "Montserrat";
   --radio: 4px;
   --radio-tarjeta: 6px;
