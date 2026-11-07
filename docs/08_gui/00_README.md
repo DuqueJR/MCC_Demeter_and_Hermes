@@ -26,6 +26,7 @@ Está **aparte de `05_plan/`** a propósito, para trabajarla sin chocar con quie
 | El cohete en 3D (congelado: es un *could*) | [08_modelo_3d_futuro.md](08_modelo_3d_futuro.md) |
 | **El dashboard de operación** (nuestra consola en la estación; borrador) | [09_dashboard_operacion.md](09_dashboard_operacion.md) |
 | Preparar la sincronización H0 (congelar `web-1`, PR #7) | [10_agenda_H0_web-1.md](10_agenda_H0_web-1.md) |
+| **Desplegar el relay (Fly.io) y conectar el sitio (Cloudflare Pages)**: DNS, TLS, secretos, limpieza antes del vuelo (T-642) | [11_guia_despliegue.md](11_guia_despliegue.md) |
 
 ## Relación con el plan del back ([dos_sesiones](../05_plan/dos_sesiones/00_LEEME.md))
 

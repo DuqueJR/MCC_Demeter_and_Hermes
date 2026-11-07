@@ -42,11 +42,28 @@ Sin `WEB_INGESTA_TOKEN` el relay **no arranca** (sale con código 2).
 | `WEB_RELAY_DATOS` | `gui/relay/datos/` (ignorada por git) | Carpeta de los JSONL, uno por misión |
 | `WEB_RELAY_ORIGENES` | localhost y 127.0.0.1 en 5173, 4173 y 5174 | Orígenes CORS, separados por comas |
 | `WEB_RELAY_ESQUEMA` | `gui/web/src/contrato/esquema.json` | Ruta de `esquema.json` (T-642 lo despliega aparte) |
-| `WEB_SSE_MAX_POR_IP` | `WEB_SSE_MAX_POR_IP` de `constantes.py` (10) | Streams abiertos por IP antes de 429. Detrás de un NAT compartido puede hacer falta subirlo (se decide en T-642) |
+| `WEB_SSE_MAX_POR_IP` | `WEB_SSE_MAX_POR_IP` de `constantes.py` (10) | Streams abiertos por IP antes de 429. Detrás de un NAT compartido hace falta subirlo: **en producción 600** (`fly.toml`; razón en la [guía de despliegue](../../docs/08_gui/11_guia_despliegue.md) §1.2) |
 | `WEB_RELAY_HOST` / `WEB_RELAY_PUERTO` | `127.0.0.1` / `8787` | Dónde escucha `servidor.py` |
 
 Detrás de un proxy (T-642), arrancar con `uvicorn app:crear_app --factory --proxy-headers --forwarded-allow-ips <ip del proxy>`
-para que el límite por IP use la IP real. **Siempre un solo proceso** (`workers=1`).
+para que el límite por IP use la IP real. **Siempre un solo proceso** (`workers=1`). En producción lo hace el contenedor (sección siguiente).
+
+## Despliegue en Fly.io (T-642, D-061)
+
+Archivos: `Dockerfile`, `entrypoint.sh` y `fly.toml` (aquí) y el `.dockerignore` de la **raíz del repo**. **El contexto del build es la
+raíz del repo**, porque la imagen copia `gui/web/src/contrato/esquema.json` (la única copia del contrato) a `/app/esquema.json` y fija
+`WEB_RELAY_ESQUEMA`. Paso a paso, con DNS, secretos y verificación: [`docs/08_gui/11_guia_despliegue.md`](../../docs/08_gui/11_guia_despliegue.md).
+
+```bash
+# desde la raíz del repo
+docker build -f gui/relay/Dockerfile -t relay .
+docker run --rm -p 8080:8080 -v relay_datos:/datos -e WEB_INGESTA_TOKEN=prueba relay     # un solo worker, usuario no root
+fly deploy --config gui/relay/fly.toml --dockerfile gui/relay/Dockerfile
+```
+
+El `entrypoint.sh` arranca como root solo para dejar `/datos` escribible (un volumen de Fly se monta con dueño root) y baja a un usuario
+sin privilegios (uid 10001) con `setpriv`; luego `uvicorn app:crear_app --factory --proxy-headers --forwarded-allow-ips "$FORWARDED_ALLOW_IPS"
+--host 0.0.0.0 --port 8080 --workers 1`. Variables propias de la imagen: `FORWARDED_ALLOW_IPS` (por defecto `*`) y `PUERTO` (8080).
 
 ## Qué hace con cada mensaje (resumen de 04 §4.3 a §4.5)
 
