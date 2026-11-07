@@ -140,6 +140,81 @@ describe("prueba de aislamiento (D-W01) con dist falso", () => {
     expect(revisar(dist).some((x) => x.pagina === "demeter")).toBe(true);
   });
 
+  describe("íconos y vista previa de public/<misión>/ (T-648)", () => {
+    /** Página de misión con su CSS de siempre (de él salen las fuentes) más las etiquetas de la prueba. */
+    const pagina = (mision: "hermes" | "demeter", etiquetas: string, hash: string) =>
+      html(
+        `/assets/${mision}-${hash}.js`,
+        `<link rel="stylesheet" href="/assets/${mision}-${hash}.css">${etiquetas}`,
+      );
+    const HERMES_PROPIO = [
+      '<link rel="icon" href="/hermes/favicon.ico">',
+      '<link rel="manifest" href="/hermes/site.webmanifest">',
+      '<meta property="og:image" content="https://eiaspice.space/hermes/og.jpg">',
+    ].join("");
+    const DEMETER_PROPIO = [
+      '<link rel="icon" href="/demeter/favicon.ico">',
+      '<meta property="og:image" content="https://eiaspice.space/demeter/og.jpg">',
+    ].join("");
+    const CON_PUBLIC = {
+      ...BASE_LIMPIA,
+      "hermes/index.html": pagina("hermes", HERMES_PROPIO, "bbbb2222"),
+      "hermes/favicon.ico": "x",
+      "hermes/og.jpg": "x",
+      "hermes/icon-192.png": "x",
+      "hermes/site.webmanifest": '{"icons":[{"src":"/hermes/icon-192.png"}]}',
+      "demeter/index.html": pagina("demeter", DEMETER_PROPIO, "aaaa1111"),
+      "demeter/favicon.ico": "x",
+      "demeter/og.jpg": "x",
+      // La portada tiene los suyos en la raíz: no entra en la revisión (solo /demeter/ y /hermes/).
+      "index.html": '<link rel="icon" href="/favicon.ico">',
+      "favicon.ico": "x",
+    };
+
+    it("pasa si cada misión referencia solo sus íconos, su manifiesto y su og", () => {
+      expect(revisar(distFalso("public-propio", CON_PUBLIC))).toEqual([]);
+    });
+
+    it("FALLA si el og:image de /hermes/ es una URL absoluta de /demeter/", () => {
+      const dist = distFalso("og-ajeno-absoluto", {
+        ...CON_PUBLIC,
+        "hermes/index.html": pagina(
+          "hermes",
+          '<meta property="og:image" content="https://eiaspice.space/demeter/og.jpg">',
+          "bbbb2222",
+        ),
+      });
+      const v = revisar(dist);
+      expect(v.length).toBeGreaterThan(0);
+      expect(v.every((x) => x.pagina === "hermes")).toBe(true);
+    });
+
+    it("FALLA si /demeter/ enlaza el ícono de /hermes/ por ruta de la raíz", () => {
+      const dist = distFalso("icono-ajeno-relativo", {
+        ...CON_PUBLIC,
+        "demeter/index.html": pagina(
+          "demeter",
+          '<link rel="icon" href="/hermes/favicon.ico">',
+          "aaaa1111",
+        ),
+      });
+      const v = revisar(dist);
+      expect(v.length).toBeGreaterThan(0);
+      // (el ícono ajeno queda alcanzable desde las dos páginas: se reporta también del lado de Hermes)
+      expect(v.some((x) => x.pagina === "demeter")).toBe(true);
+    });
+
+    it("FALLA si el manifiesto de /hermes/ trae un ícono de /demeter/", () => {
+      const dist = distFalso("manifiesto-ajeno", {
+        ...CON_PUBLIC,
+        "hermes/site.webmanifest": '{"icons":[{"src":"/demeter/icon-192.png"}]}',
+      });
+      const v = revisar(dist);
+      expect(v.length).toBeGreaterThan(0);
+      expect(v.every((x) => x.pagina === "hermes")).toBe(true);
+    });
+  });
+
   it("FALLA si /hermes/ importa, de forma transitiva, un chunk de Deméter", () => {
     const dist = distFalso("falso-chunk", {
       ...BASE_LIMPIA,
