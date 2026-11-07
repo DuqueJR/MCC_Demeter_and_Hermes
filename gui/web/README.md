@@ -34,6 +34,12 @@ Variables: ver `.env.example` (`VITE_API_BASE`).
 Imágenes: `vite-imagetools` está activo. Ejemplo: `import src from "./foto.png?format=avif;webp&w=256;512&as=srcset"`.
 Íconos de las partes (T-621): `node scripts/iconos-transparentes.mjs [carpeta]` les quita el fondo plano y los deja a 512 px en `src/assets/<misión>/iconos/`; se vuelve a correr si el diseñador cambia las imágenes (cabecera del script: el método).
 
+## Favicons y vista previa (T-648)
+
+- Cada página tiene sus íconos y su imagen de vista previa en `public/` (la portada en la raíz; `hermes/` y `demeter/` en su carpeta), con nombres fijos sin hash: `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `og.jpg` (1200×630, JPEG de ~80–130 KB) y `site.webmanifest`. Las páginas de misión enlazan **solo** los suyos (D-W01).
+- Se regeneran con `node scripts/generar-iconos.mjs <carpeta>` si el diseñador cambia las fuentes (`favicon_<página>_512.png` y `og_<página>.png`, tres páginas: portada, hermes, demeter). Falla si una medida no es la esperada o si un og pesa 300 KB o más.
+- El dominio base de las URL absolutas de og/twitter es `https://eiaspice.space`; se cambia al construir con `URL_SITIO=https://otro.dominio npm run build` (`scripts/sitio-html.mjs`). El `theme-color` sale de `src/tema/`, no del HTML.
+
 ## Simulación para el público (T-635, T-637)
 
 En `/demeter/`, el estado "Sin transmisión todavía" ofrece "Ver la simulación del vuelo": el navegador reproduce el escenario `nominal` (OpenRocket, apogeo ~670 m) con el banner fijo "Simulación: así será el vuelo" y la marca SIM. Todo es del cliente: sin servidor nuevo ni cambios al relay.

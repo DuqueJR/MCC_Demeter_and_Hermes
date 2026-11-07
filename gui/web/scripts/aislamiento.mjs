@@ -9,13 +9,13 @@ import { brotliDecompressSync } from "node:zlib";
 /** @typedef {{ pagina: string, archivo: string, motivo: string }} Violacion */
 
 const PAGINAS = ["demeter", "hermes"];
-const EXT_TEXTO = new Set([".html", ".js", ".mjs", ".css"]);
-const EXT_IMAGEN = new Set([".avif", ".webp", ".png", ".jpg", ".jpeg", ".svg"]);
+const EXT_TEXTO = new Set([".html", ".js", ".mjs", ".css", ".webmanifest"]);
+const EXT_IMAGEN = new Set([".avif", ".webp", ".png", ".jpg", ".jpeg", ".svg", ".ico"]);
 // Imágenes de `src/assets/comun/` que las dos misiones pueden compartir (T-621). Salen con su nombre de archivo.
 const IMAGENES_COMUNES = [/(^|\/)eia_blanco-/];
 // OJO con el orden: `json` va antes que `js`, porque la alternación toma la primera que encaja y,
 // con `js` primero, una referencia a `x.json` se cortaba en `x.js` y el guion nunca se seguía (T-637).
-const EXT_RECURSO = "json|js|mjs|css|avif|webp|png|jpe?g|svg|woff2?|pmtiles";
+const EXT_RECURSO = "json|js|mjs|css|avif|webp|png|jpe?g|svg|woff2?|pmtiles|webmanifest|ico";
 const RE_REFERENCIA = new RegExp(
   `["'(=\\s]([^"'()\\s<>]+\\.(?:${EXT_RECURSO}))(?:[?#][^"'()\\s<>]*)?`,
   "g",
@@ -123,6 +123,13 @@ function patronesDeContenido(otra) {
     new RegExp(`${otra}\\.css`, "i"),
     new RegExp(`entradas/${otra}`, "i"),
     new RegExp(`(?:^|[^\\w])${otra}-[\\w-]{4,}\\.(?:${EXT_RECURSO})`, "i"),
+    // Íconos, vista previa (og/twitter) y manifiesto de `public/<misión>/` (T-648). Las URL absolutas
+    // (`https://dominio/<misión>/og.jpg`) no las sigue `alcanzables`: se buscan aquí, en el texto.
+    new RegExp(
+      `(?:https?:)?//[^\\s"'<>()/]+/${otra}/[\\w.-]+\\.(?:png|jpe?g|ico|svg|webmanifest)`,
+      "i",
+    ),
+    new RegExp(`["'(=\\s]/${otra}/[\\w.-]+\\.(?:png|jpe?g|ico|svg|webmanifest)`, "i"),
   ];
 }
 
