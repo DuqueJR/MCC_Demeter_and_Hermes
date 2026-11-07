@@ -149,4 +149,6 @@ Decidido el 2026-11-05 (dominio propio, presupuesto ≤ US$10/mes):
 3. **Secretos** (en cada plataforma, nunca en el repo): `WEB_INGESTA_TOKEN`, `WEB_RELAY_ORIGENES=https://web.<dominio>` y, si hace falta, `WEB_SSE_MAX_POR_IP`.
 4. **DNS:** `web.<dominio>` → Cloudflare Pages; `api.<dominio>` → Fly.io.
 
+Paso a paso, con la configuración elegida y su razón (`WEB_SSE_MAX_POR_IP` en producción, `--forwarded-allow-ips`, DNS sin el proxy de Cloudflare): [11_guia_despliegue.md](11_guia_despliegue.md) (T-642).
+
 Se prueba de punta a punta por Starlink antes del congelamiento (P-08).

@@ -199,7 +199,7 @@ actualizado: 2026-11-03
 | T-639 | **Las fotos del equipo no aparecían en escritorio** (reporte del usuario). En >= 1024 px `mision.css` ocultaba con `display: none` todas las diapositivas del carrusel de Inicio menos la primera: la foto del equipo medía 0 × 0 y su `loading="lazy"` nunca la pedía. En escritorio el carrusel pasa a una fila con todas las fotos a la vista, junto al texto; en móvil sigue deslizando. Sin cambiar textos ni contratos. e2e `fotos_equipo.spec.ts` (1280, 1470 y 1920 px y móvil, en las dos misiones: tamaño > 0 y `naturalWidth` > 0 en el carrusel y en Equipo) ([entrada](../07_bitacora/2026-11-06_T-639_fotos-equipo-escritorio.md)) | S | D | T-622 | hecha (2026-11-06, con su PR a `develop`) |
 | T-640 | Relay público (FastAPI: ingesta con token, snapshot, SSE, 1 Hz en tierra) | S | D | T-611, T-630 | pendiente |
 | T-641 | Conectar con el back (log crudo reprocesado y luego una placa real) | S | Ambos | T-640, T-602, T-S06, T-605a | pendiente |
-| T-642 | Despliegue (CDN, relay con TLS, dominio) | S | Ambos | T-640 | pendiente |
+| T-642 | Despliegue (CDN, relay con TLS, dominio) | S | Ambos | T-640 | **preparada, falta el despliegue por el humano** (Dockerfile, `fly.toml` y [guía](../08_gui/11_guia_despliegue.md); [entrada](../07_bitacora/2026-11-07_T-642_despliegue-relay.md)) |
 | T-643 | Prueba de carga de 600 SSE | S | D | T-642 | pendiente |
 | T-644 | Pulido para el celular (Lighthouse ≥ 90, celulares reales) | S | E | T-624, T-625 | pendiente |
 | T-645 | Guía de operación de la web el día del vuelo | S | Ambos | T-642 | pendiente |
