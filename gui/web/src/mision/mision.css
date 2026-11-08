@@ -216,7 +216,9 @@ button:focus-visible,
   inset: auto 0 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* 3 enlaces en vuelo y 4 al aterrizar (T-674: aparece "Resumen"): todos del mismo ancho. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--superficie-2);
   border-top: 1px solid var(--linea);
@@ -574,6 +576,7 @@ button:focus-visible,
 
   #inicio,
   #mapa,
+  #resumen,
   #equipo,
   #graficas {
     grid-column: 1 / -1;
@@ -631,32 +634,31 @@ button:focus-visible,
   }
 
   /*
-   * Aterrizado (03 §4, T-625): Recuperación sube a la fila 1 a todo el ancho y el resto baja una fila
-   * (--fila-extra = 1). Salud toma el lugar que dejó Recuperación en la columna 3, así no queda un hueco.
+   * Aterrizado (03 §4, T-625, T-674): Recuperación sube a la fila 1 y el Resumen del vuelo a la 2, los dos
+   * a todo el ancho, y el resto baja dos filas (--fila-extra = 2). Salud toma el lugar que dejó
+   * Recuperación en la columna 3, así no queda un hueco.
+   * T-674: el estado va dentro de Inicio y la telemetría dentro del mapa, así que ya no hay una columna
+   * de Estado y Telemetría: el mapa ocupa sus dos columnas (y la de antes) y queda más grande.
    */
   .panel {
     --fila-extra: 0;
   }
   .panel[data-aterrizado="si"] {
-    --fila-extra: 1;
+    --fila-extra: 2;
   }
 
   #inicio {
     grid-column: 1 / -1;
     grid-row: calc(1 + var(--fila-extra));
   }
-  #estado {
-    grid-column: 1;
-    grid-row: calc(2 + var(--fila-extra));
-  }
-  #telemetria {
-    grid-column: 1;
-    grid-row: calc(3 + var(--fila-extra));
-  }
   #mapa {
-    grid-column: 2;
+    grid-column: 1 / span 2;
     grid-row: calc(2 + var(--fila-extra)) / span 2;
     min-height: 0;
+  }
+  #resumen {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   #recuperacion {
     grid-column: 3;
@@ -671,7 +673,7 @@ button:focus-visible,
     grid-row: 3;
   }
   .panel[data-aterrizado="si"] #salud {
-    grid-row: 3 / span 2;
+    grid-row: calc(2 + var(--fila-extra)) / span 2;
   }
   #graficas {
     grid-column: 1 / span 2;

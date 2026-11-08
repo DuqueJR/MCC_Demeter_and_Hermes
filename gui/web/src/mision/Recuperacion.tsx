@@ -10,7 +10,9 @@
 import { Check, Copy, ExternalLink, MapPin, QrCode, Target, TriangleAlert } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { estado } from "../datos/api";
+import { ActitudEstacion } from "./ActitudEstacion";
 import { copiarTexto, type ResultadoCopia } from "./copiar";
+import { FuerzasG } from "./FuerzasG";
 import { hace, numero } from "./formato";
 import { Qr } from "./Qr";
 import "./recuperacion_salud.css";
@@ -231,6 +233,10 @@ export function Recuperacion() {
               </dd>
             </div>
           </dl>
+        </div>
+        <div class="estacion-instrumentos" data-recup="instrumentos">
+          <ActitudEstacion />
+          <FuerzasG />
         </div>
       </div>
     </section>

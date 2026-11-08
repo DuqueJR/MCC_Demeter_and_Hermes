@@ -162,6 +162,8 @@ export class Capa3d implements CustomLayerInterface {
   private readonly alFotograma: (f: Fotograma) => void;
   /** ¿Se suaviza el giro de la imagen? (no, con `prefers-reduced-motion`). */
   private readonly suavizado: () => boolean;
+  /** Se llama si la capa no puede arrancar (el shader no compila): el mapa vuelve a 2D. */
+  private readonly alFallar: (causa: unknown) => void;
   /** El último ángulo válido (con rumbo fiable) y el que se muestra ahora, con su instante. */
   private anguloUltimo: number | null = null;
   private anguloMostrado: number | null = null;
@@ -189,6 +191,7 @@ export class Capa3d implements CustomLayerInterface {
     exageracion: number;
     alFotograma: (f: Fotograma) => void;
     suavizado?: () => boolean;
+    alFallar?: (causa: unknown) => void;
   }) {
     const componentes = (css: string): number[] => colorARgb(css) ?? [1, 1, 1];
     this.colores = {
@@ -199,6 +202,7 @@ export class Capa3d implements CustomLayerInterface {
     this.exageracion = opciones.exageracion;
     this.alFotograma = opciones.alFotograma;
     this.suavizado = opciones.suavizado ?? (() => true);
+    this.alFallar = opciones.alFallar ?? (() => {});
   }
 
   /** Segmentos de la línea armados (para las pruebas). */
@@ -223,6 +227,17 @@ export class Capa3d implements CustomLayerInterface {
   }
 
   onAdd(mapa: MapaGL, gl: WebGL2RenderingContext): void {
+    try {
+      this.armar(mapa, gl);
+    } catch (e) {
+      // Un shader que no compila no rompe el mapa: la capa queda inerte y se avisa para volver a 2D.
+      this.programa = null;
+      this.linea = this.plomada = null;
+      this.alFallar(e);
+    }
+  }
+
+  private armar(mapa: MapaGL, gl: WebGL2RenderingContext): void {
     this.mapa = mapa;
     const programa = gl.createProgram();
     if (!programa) throw new Error("No se pudo crear el programa de la capa 3D");

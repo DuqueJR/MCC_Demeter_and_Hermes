@@ -10,13 +10,13 @@ import { aterrizado } from "./aterrizado";
 import { BannerAlarma } from "./BannerAlarma";
 import { BarraMision } from "./BarraMision";
 import { Equipo } from "./Equipo";
-import { EstadoMision } from "./EstadoMision";
+import { EstadoInicio } from "./EstadoInicio";
 import { Inicio } from "./Inicio";
 import { Navegacion } from "./Navegacion";
 import { Pie } from "./Pie";
 import { Recuperacion } from "./Recuperacion";
+import { Resumen } from "./Resumen";
 import { Salud } from "./Salud";
-import { Telemetria } from "./Telemetria";
 
 interface Props {
   contenido: Contenido;
@@ -28,7 +28,9 @@ interface Props {
 
 export function Pagina({ contenido, extra, simulacion }: Props) {
   // Aterrizado (03 §4): Recuperación sube al inicio del <main>, en el DOM y no solo a la vista,
-  // para que el orden de lectura y del teclado coincida con lo que se ve.
+  // para que el orden de lectura y del teclado coincida con lo que se ve. Debajo va el Resumen del
+  // vuelo (T-674). El estado y la telemetría ya no son secciones: el estado va en Inicio y la
+  // telemetría, dentro del mapa.
   const enTierra = aterrizado.value;
   return (
     <>
@@ -39,9 +41,11 @@ export function Pagina({ contenido, extra, simulacion }: Props) {
       </header>
       <main class="panel" data-aterrizado={enTierra ? "si" : "no"}>
         {enTierra && <Recuperacion />}
-        <Inicio contenido={contenido} />
-        <EstadoMision mision={contenido.mision} simulacion={simulacion} />
-        <Telemetria />
+        {enTierra && <Resumen mision={contenido.mision} />}
+        <Inicio
+          contenido={contenido}
+          estado={<EstadoInicio mision={contenido.mision} simulacion={simulacion} />}
+        />
         <SeccionMapa coheteMapa={contenido.coheteMapa} />
         {!enTierra && <Recuperacion />}
         <Actitud />

@@ -69,11 +69,20 @@ const atributo = (page: Page, nombre: string) => lienzo(page).getAttribute(nombr
 const numeroDe = async (page: Page, nombre: string) => Number(await atributo(page, nombre));
 
 /** Abre la misión en desarrollo, llega al mapa y espera a que el relieve esté cargado. */
-async function abrir(page: Page, mision: (typeof MISIONES)[number]) {
+async function abrir(page: Page, mision: (typeof MISIONES)[number], volverA2d = true) {
   await page.goto(`${DEV}/${mision}/?sin_cliente`);
   await page.locator("#mapa").scrollIntoViewIfNeeded();
   await expect(lienzo(page)).toHaveAttribute("data-mapa-listo", "1");
   await expect(lienzo(page)).toHaveAttribute("data-mapa-relieve", "activo");
+  // Desde T-673 el mapa arranca en 3D. Casi todas las pruebas de este archivo parten del plano (entran en
+  // 3D con el botón, o necesitan 2D): aquí lo aplanan con "Vista 2D". `volverA2d = false` deja el arranque.
+  if (volverA2d) {
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "true");
+    await boton3d(page).click();
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 30_000 });
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "false");
+    await expect.poll(() => numeroDe(page, "data-mapa-pitch"), { timeout: 15_000 }).toBe(0);
+  }
 }
 
 /** Inyecta un tramo del escenario nominal y espera a que se dibuje. */
@@ -163,16 +172,27 @@ test.describe("el botón de la vista 3D", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   for (const mision of MISIONES) {
-    test(`${mision}: con relieve aparece y el mapa arranca en 2D`, async ({ page }) => {
+    test(`${mision}: con relieve aparece, y el mapa arranca en 3D con el botón en "Vista 2D"`, async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
       const errores = vigilarErrores(page);
-      await abrir(page, mision);
+      await abrir(page, mision, false);
       const boton = boton3d(page);
       await expect(boton).toBeVisible();
-      await expect(boton).toHaveAccessibleName("Vista 3D");
-      await expect(boton).toHaveAttribute("aria-pressed", "false");
+      await expect(boton).toHaveAccessibleName("Vista 2D");
+      await expect(boton).toHaveAttribute("aria-pressed", "true");
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "true");
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "activo");
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-capa3d", "custom");
+      await expect
+        .poll(() => numeroDe(page, "data-mapa-pitch"), { timeout: 20_000 })
+        .toBeGreaterThan(MAPA_3D_PITCH - EPS_GRADOS);
+      // "Vista 2D" lleva al plano, y de ahí otra vez a 3D.
+      await boton.click();
       await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "false");
-      await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no");
-      await expect.poll(() => numeroDe(page, "data-mapa-pitch")).toBe(0);
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 30_000 });
+      await expect(boton).toHaveAttribute("aria-pressed", "false");
       expect(errores).toEqual([]);
     });
 
@@ -661,10 +681,93 @@ test.describe("la línea, el cohete con su imagen y el pin del impacto en 3D (ro
   });
 });
 
+// ---- T-673: el mapa arranca siempre en 3D (con relieve), en PC y en celular ----
+
+const CAPTURAS_T673 = resolve(import.meta.dirname, "capturas/T-673");
+mkdirSync(CAPTURAS_T673, { recursive: true });
+
+test.describe("el mapa arranca en 3D (T-673)", () => {
+  for (const medida of MEDIDAS) {
+    test.describe(medida.nombre, () => {
+      test.use({
+        viewport: { width: medida.ancho, height: medida.alto },
+        ...(medida.nombre === "celular" ? { hasTouch: true, isMobile: true } : {}),
+      });
+
+      for (const mision of MISIONES) {
+        test(`${mision}: con relieve, al cargar, data-mapa-3d="true"; sin relieve, "false" y sin botón`, async ({
+          page,
+        }) => {
+          test.setTimeout(180_000);
+          const errores = vigilarErrores(page);
+          await abrir(page, mision, false);
+          await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "true");
+          await expect(boton3d(page)).toHaveAccessibleName("Vista 2D");
+          await expect(boton3d(page)).toHaveAttribute("aria-pressed", "true");
+          await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "activo");
+          await expect
+            .poll(() => numeroDe(page, "data-mapa-pitch"), { timeout: 20_000 })
+            .toBeGreaterThan(MAPA_3D_PITCH - EPS_GRADOS);
+          expect(errores).toEqual([]);
+          if (mision === "demeter") {
+            await page.waitForTimeout(2000);
+            await capturarEn(page, resolve(CAPTURAS_T673, `arranque-${medida.nombre}.png`));
+          }
+
+          // Sin relieve (los archivos no llegan): arranca en 2D y sin botón.
+          await page.route("**/mapas/relieve/**", (r) => r.abort());
+          await page.goto(`${DEV}/${mision}/?sin_cliente`);
+          await page.locator("#mapa").scrollIntoViewIfNeeded();
+          await expect(lienzo(page)).toHaveAttribute("data-mapa-listo", "1");
+          await expect(lienzo(page)).toHaveAttribute("data-mapa-relieve", "sin-relieve");
+          await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "false");
+          await expect(boton3d(page)).toHaveCount(0);
+          await expect.poll(() => numeroDe(page, "data-mapa-pitch")).toBe(0);
+        });
+      }
+    });
+  }
+
+  test.describe("si el 3D falla, arranca en 2D sin errores", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test("la capa WebGL no compila: 2D, botón en 'Vista 3D', solo un aviso en consola", async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
+      // Se finge que el shader de la capa personalizada (el único que usa `u_pantalla`) no compila.
+      await page.addInitScript(() => {
+        const original = WebGL2RenderingContext.prototype.getShaderParameter;
+        WebGL2RenderingContext.prototype.getShaderParameter = function (sombreador, parametro) {
+          if (
+            parametro === this.COMPILE_STATUS &&
+            this.getShaderSource(sombreador)?.includes("u_pantalla")
+          ) {
+            return false;
+          }
+          return original.call(this, sombreador, parametro);
+        };
+      });
+      const errores = vigilarErrores(page);
+      const avisos: string[] = [];
+      page.on("console", (m) => m.type() === "warning" && avisos.push(m.text()));
+      await abrir(page, "demeter", false);
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "false", { timeout: 20_000 });
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 20_000 });
+      await expect(boton3d(page)).toHaveAccessibleName("Vista 3D");
+      await expect(boton3d(page)).toHaveAttribute("aria-pressed", "false");
+      await expect.poll(() => numeroDe(page, "data-mapa-pitch")).toBe(0);
+      await expect(imagenCohete(page)).toHaveCount(0);
+      expect(avisos.some((a) => a.includes("Sin vista 3D"))).toBe(true);
+      expect(errores).toEqual([]);
+    });
+  });
+});
+
 test.describe("la imagen del cohete en la producción (dist/)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("cada misión carga su miniatura webp, y no se pide hasta activar el 3D", async ({
+  test("cada misión carga su miniatura webp, que se pide al arrancar el mapa en 3D", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -681,16 +784,14 @@ test.describe("la imagen del cohete en la producción (dist/)", () => {
       await expect(lienzo(page)).toHaveAttribute("data-mapa-relieve-cargado", "1", {
         timeout: 45_000,
       });
-      const antes = new Set(pedidos);
-      await boton3d(page).click();
+      // Desde T-673 el mapa arranca en 3D: la imagen del cohete ya está, sin pulsar nada.
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-3d", "true");
       const imagen = imagenCohete(page);
       await expect(imagen).toHaveCount(1);
       const src = (await imagen.getAttribute("src")) as string;
       expect(src).toMatch(/\/assets\/cohete-[\w-]+\.webp$/);
       const ruta = new URL(src, "http://x").pathname;
-      // La miniatura no se había pedido (el archivo se descarga solo al activar el 3D)...
-      expect(antes.has(ruta)).toBe(false);
-      // ...y después sí.
+      // Y se pide (un archivo de 3 kB, solo cuando el mapa llega a pantalla).
       await expect.poll(() => pedidos.includes(ruta), { timeout: 20_000 }).toBe(true);
       srcs.push(ruta);
       page.off("request", alPedir);

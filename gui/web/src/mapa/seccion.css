@@ -2,6 +2,8 @@
  * La sección Mapa (03 §3.4) [T-632]: lo que va en el CSS inicial. El resto (marcadores, controles y
  * el CSS de MapLibre) está en mapa.css y se carga junto con el mapa. SOLO tokens de src/tema/ (06 §6).
  * Alto: 60 % de la pantalla en el celular y, en el portátil, lo que ocupe el centro del panel.
+ * T-674: el mapa ocupa el lugar del Estado y la Telemetría, así que es más alto (y más ancho en el
+ * portátil, ver mision.css); la telemetría va encima, en `.mapa-telemetria`.
  */
 
 .mapa-seccion {
@@ -12,7 +14,7 @@
 .mapa-marco {
   position: relative;
   flex: 1 1 auto;
-  min-height: 60svh;
+  min-height: 70svh;
   background: var(--fondo);
   border: 1px solid var(--linea);
   border-radius: var(--radio);
@@ -78,7 +80,8 @@ html.mapa-completa-abierta {
 
 @media (min-width: 1024px) {
   .mapa-marco {
-    min-height: calc(var(--e-8) * 7);
+    /* Casi una pantalla entera menos la cabecera: nunca menos de 9 × e-8. */
+    min-height: max(calc(var(--e-8) * 9), calc(100svh - var(--alto-cabecera) - var(--e-8) * 2));
   }
 }
 
@@ -164,4 +167,129 @@ html.mapa-completa-abierta {
 
 .mapa-coordenadas-datos dd {
   margin: 0;
+}
+
+/*
+ * Panel de telemetría sobre el mapa [T-674]. Franja inferior, compacta y pegada al borde: el fondo
+ * semitransparente va en un `::before` (así el texto no pierde contraste, y los colores salen solo de
+ * los tokens del tema). No captura gestos: el dedo la atraviesa hacia el mapa. `--alto-telemetria` es
+ * lo que sube la franja (sin contar su margen); la escala y la atribución de MapLibre (que es larga y no
+ * puede quedar tapada) se suben sobre ella en `mapa.css`, igual que el aviso del mapa. En el celular son
+ * dos filas de tres columnas; desde 600 px, una sola fila que no sube más de 60 px (dentro del relleno
+ * de 72 px con que el mapa encuadra la trayectoria).
+ */
+.mapa-marco {
+  --alto-telemetria: calc(var(--e-8) + var(--e-7) - var(--e-2));
+}
+
+.mapa-telemetria {
+  position: absolute;
+  z-index: 2;
+  right: var(--e-2);
+  bottom: var(--e-2);
+  left: var(--e-2);
+  isolation: isolate;
+  padding: var(--e-1) var(--e-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  pointer-events: none;
+}
+
+.mapa-telemetria::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--superficie-2);
+  border-radius: inherit;
+  opacity: 0.88;
+}
+
+/* Las celdas de la rejilla, sin tarjeta y con números más chicos que en el Resumen. */
+.mapa-telemetria .rejilla {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-1) var(--e-2);
+}
+
+.mapa-telemetria .celda {
+  padding: 0;
+  background: none;
+}
+
+.mapa-telemetria .celda dt {
+  margin-bottom: 0;
+  font-size: calc(var(--t-etiqueta) * 0.85);
+  line-height: 1.2;
+}
+
+.mapa-telemetria .celda dt svg {
+  width: var(--e-3);
+  height: var(--e-3);
+}
+
+.mapa-telemetria .celda .num,
+.mapa-telemetria .celda-altitud .num {
+  font-size: calc(var(--t-titulo) * 0.9);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.mapa-telemetria .celda dd svg {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+/* En 3 columnas: altitud, vertical y total arriba; el apogeo y la aceleración (2 columnas), abajo. */
+.mapa-telemetria .celda-altitud {
+  grid-column: auto;
+}
+
+.mapa-telemetria .celda-aceleracion {
+  grid-column: span 2;
+}
+
+.mapa-telemetria .celda-aceleracion dd {
+  gap: 0 var(--e-2);
+}
+
+/* El T+ del apogeo no cabe en la columna del celular; queda en el Resumen del vuelo. */
+.mapa-telemetria .apogeo-t {
+  display: none;
+}
+
+.mapa-telemetria .telemetria-edad {
+  margin: 0 0 var(--e-1);
+  font-size: var(--t-etiqueta);
+  line-height: 1.3;
+}
+
+@media (min-width: 600px) {
+  .mapa-marco {
+    --alto-telemetria: calc(var(--e-8) - var(--e-2));
+  }
+
+  /* Una sola fila: cada celda con el ancho de su contenido. */
+  .mapa-telemetria .rejilla {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--e-1) var(--e-5);
+  }
+
+  .mapa-telemetria .celda-aceleracion {
+    grid-column: auto;
+  }
+
+  .mapa-telemetria .celda dt {
+    line-height: 1.3;
+  }
+
+  .mapa-telemetria .celda .num,
+  .mapa-telemetria .celda-altitud .num {
+    font-size: var(--t-num-sec);
+  }
+
+  .mapa-telemetria .apogeo-t {
+    display: inline;
+  }
 }

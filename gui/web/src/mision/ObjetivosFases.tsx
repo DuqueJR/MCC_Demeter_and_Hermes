@@ -1,9 +1,9 @@
-// Sección "Estado de la misión" (03 §3.2, T-624): T+ transcurrido, la línea de fases pública y los
-// objetivos que se encienden solos. Consume SOLO las signals de lectura de `datos/api.ts`.
+// Piezas del estado de la misión que se reutilizan (03 §3.2, T-624; reubicadas en T-674): la línea de
+// fases y la lista de objetivos con su hora y dato (van en el Resumen del vuelo), los íconos de los
+// objetivos y el texto de la hora de un paso. Consumen la lógica de `linea_fases.ts` y `objetivos.ts`.
 //
 // Fuera de T-624 (propuestas en la bitácora): el tiempo estimado a la siguiente fase y el tiempo de
 // vuelo restante (GS-13, prioridad S), y el objetivo "motor caracterizado" (no hay fuente de datos).
-import { computed } from "@preact/signals";
 import {
   Circle,
   CircleCheck,
@@ -16,22 +16,12 @@ import {
   Video,
 } from "lucide-preact";
 import type { ComponentChildren } from "preact";
-import type { Mision } from "../contrato/tipos";
-import { estado, estadoPagina, eventos } from "../datos/api";
-import { BotonSimulacion } from "../simulacion/BotonSimulacion";
-import { simulacionOfrecida } from "../simulacion/disponible";
-import type { Simulacion } from "../simulacion/guion";
-import { tMasSegundos } from "./BarraMision";
-import { SUBTITULO_FASE, TITULO_FASE } from "./fases";
 import { numero, tMas } from "./formato";
 import "./estado.css";
-import { construirPasos, type Paso } from "./linea_fases";
-import { calcularObjetivos, type Objetivo, type ObjetivoId } from "./objetivos";
+import type { Paso } from "./linea_fases";
+import type { Objetivo, ObjetivoId } from "./objetivos";
 
-/** Solo cambia cuando cambia el estado principal: no repinta la sección con cada tic del reloj. */
-const principal = computed(() => estadoPagina.value.principal);
-
-const ICONO_OBJETIVO: Record<ObjetivoId, ComponentChildren> = {
+export const ICONO_OBJETIVO: Record<ObjetivoId, ComponentChildren> = {
   despegue: <Rocket aria-hidden="true" />,
   fin_combustion: <Flame aria-hidden="true" />,
   eyeccion: <PackageOpen aria-hidden="true" />,
@@ -53,7 +43,7 @@ function MarcaPaso({ situacion }: { situacion: Paso["situacion"] }) {
   return <Circle aria-hidden="true" />;
 }
 
-function LineaFases({ pasos }: { pasos: Paso[] }) {
+export function LineaFases({ pasos }: { pasos: Paso[] }) {
   return (
     <ol class="fases" aria-label="Fases del vuelo">
       {pasos.map((p) => (
@@ -74,7 +64,7 @@ function LineaFases({ pasos }: { pasos: Paso[] }) {
   );
 }
 
-function ListaObjetivos({ objetivos }: { objetivos: Objetivo[] }) {
+export function ListaObjetivos({ objetivos }: { objetivos: Objetivo[] }) {
   return (
     <ul class="objetivos" aria-label="Objetivos de la misión">
       {objetivos.map((o) => (
@@ -108,49 +98,5 @@ function ListaObjetivos({ objetivos }: { objetivos: Objetivo[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-interface Props {
-  mision: Mision;
-  /** La simulación de la misión (T-635, T-637); sin ella no hay botón. */
-  simulacion?: Simulacion;
-}
-
-export function EstadoMision({ mision, simulacion }: Props) {
-  const est = estado.value;
-  const evs = eventos.value;
-  const sinTransmision = principal.value === "sin_transmision";
-  // T-636: con el interruptor temporal, la simulación también se ofrece en "Cargando" y "Sin servidor".
-  const ofrecerSimulacion = simulacionOfrecida.value;
-
-  return (
-    <section id="estado" class="seccion" aria-labelledby="estado-titulo">
-      <h2 id="estado-titulo">Estado de la misión</h2>
-
-      {sinTransmision && (
-        <p class="estado-aviso" data-aviso="sin-transmision">
-          La transmisión en vivo empieza el día del lanzamiento
-        </p>
-      )}
-      {ofrecerSimulacion && simulacion !== undefined && <BotonSimulacion simulacion={simulacion} />}
-
-      <div class="estado-ahora">
-        <div class="estado-t">
-          <span class="etiqueta">T+ transcurrido</span>
-          <span class="estado-t-valor">{tMas(tMasSegundos(est, evs))}</span>
-        </div>
-        {est !== null && (
-          <div class="estado-fase">
-            <span class="estado-fase-titulo">{TITULO_FASE[est.fase]}</span>
-            <span class="estado-fase-sub">{SUBTITULO_FASE[est.fase]}</span>
-          </div>
-        )}
-      </div>
-
-      <LineaFases pasos={construirPasos(est, evs)} />
-      <h3 class="subtitulo">Objetivos de la misión</h3>
-      <ListaObjetivos objetivos={calcularObjetivos(est, evs, mision)} />
-    </section>
   );
 }

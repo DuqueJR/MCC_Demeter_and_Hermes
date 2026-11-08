@@ -83,3 +83,8 @@ export function vistaTelemetria(
 export function textoONulo(valor: number | null, decimales: number): string {
   return valor === null ? "—" : numero(valor, decimales);
 }
+
+/** La magnitud de la aceleración, |g| = √(x² + y² + z²) (T-674). */
+export function magnitudG(a: { x: number; y: number; z: number }): number {
+  return Math.hypot(a.x, a.y, a.z);
+}

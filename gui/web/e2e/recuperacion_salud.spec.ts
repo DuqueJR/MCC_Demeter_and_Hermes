@@ -253,8 +253,6 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
         await page.locator("main.panel > section").evaluateAll((s) => s.map((e) => e.id)),
       ).toEqual([
         "inicio",
-        "estado",
-        "telemetria",
         "mapa",
         "recuperacion",
         "actitud",
@@ -269,12 +267,14 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
       await alimentar(page, aterrizado("demeter"));
       await expect(page.locator("main.panel")).toHaveAttribute("data-aterrizado", "si");
       const ids = await page.locator("main.panel > section").evaluateAll((s) => s.map((e) => e.id));
-      expect(ids[0]).toBe("recuperacion");
-      expect(ids).toHaveLength(11);
+      // T-674: debajo de Recuperación va el Resumen del vuelo; el estado y la telemetría ya no son secciones.
+      expect(ids.slice(0, 3)).toEqual(["recuperacion", "resumen", "inicio"]);
+      expect(ids).toHaveLength(10);
       const y = (id: string) =>
         page.locator(`#${id}`).evaluate((e) => e.getBoundingClientRect().top + window.scrollY);
       expect(await y("recuperacion")).toBeLessThan(await y("inicio"));
-      expect(await y("inicio")).toBeLessThan(await y("estado"));
+      expect(await y("recuperacion")).toBeLessThan(await y("resumen"));
+      expect(await y("resumen")).toBeLessThan(await y("inicio"));
       // Después de la cabecera: nada la tapa ni se superpone con Inicio.
       const caja = async (id: string) => page.locator(`#${id}`).boundingBox();
       const rec = await caja("recuperacion");
@@ -299,15 +299,18 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
       if (!c) throw new Error(`sin caja: ${id}`);
       return c;
     };
-    const [rec, ini, est, map, sal, act] = await Promise.all(
-      ["recuperacion", "inicio", "estado", "mapa", "salud", "actitud"].map(caja),
+    const [rec, res, ini, map, sal, act] = await Promise.all(
+      ["recuperacion", "resumen", "inicio", "mapa", "salud", "actitud"].map(caja),
     );
-    if (!rec || !ini || !est || !map || !sal || !act) throw new Error("faltan cajas");
-    // Recuperación es el ancho de Inicio.
+    if (!rec || !res || !ini || !map || !sal || !act) throw new Error("faltan cajas");
+    // Recuperación y el Resumen (debajo) son del ancho de Inicio.
     expect(Math.abs(rec.width - ini.width)).toBeLessThan(2);
-    // Las tres columnas de la fila de datos empiezan bajo Inicio y no se superponen.
-    for (const c of [est, map, sal]) expect(c.y).toBeGreaterThanOrEqual(ini.y + ini.height - 1);
-    expect(est.x + est.width).toBeLessThanOrEqual(map.x + 1);
+    expect(Math.abs(res.width - ini.width)).toBeLessThan(2);
+    expect(res.y).toBeGreaterThanOrEqual(rec.y + rec.height - 1);
+    expect(ini.y).toBeGreaterThanOrEqual(res.y + res.height - 1);
+    // T-674: el mapa ocupa las dos columnas de la izquierda y Salud la tercera; empiezan bajo Inicio
+    // y no se superponen.
+    for (const c of [map, sal]) expect(c.y).toBeGreaterThanOrEqual(ini.y + ini.height - 1);
     expect(map.x + map.width).toBeLessThanOrEqual(sal.x + 1);
     // Actitud sigue en la columna 3, bajo Salud.
     expect(act.y).toBeGreaterThanOrEqual(sal.y + sal.height - 1);
@@ -318,9 +321,10 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
     await abrir(page, "demeter");
     await alimentar(page, aterrizado("demeter"));
     const nav = page.getByRole("navigation", { name: "Secciones de la página" });
+    // T-674: ya no hay "Datos" (la telemetría está en el mapa) y al aterrizar aparece "Resumen".
     for (const [texto, id] of [
       ["Mapa", "mapa"],
-      ["Datos", "telemetria"],
+      ["Resumen", "resumen"],
       ["Equipo", "equipo"],
       ["Estado", "estado"],
     ] as const) {

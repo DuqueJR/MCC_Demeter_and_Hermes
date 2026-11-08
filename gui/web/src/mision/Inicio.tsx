@@ -1,5 +1,8 @@
 // Inicio (03 §3.1): carrusel de fotos, datos fijos y chips de las partes del cohete.
+// T-674: en el espacio libre junto al motor va el estado de la misión (`estado`, un hueco que llena
+// la página: así Inicio no sabe nada de datos en vivo ni de la misión).
 import { useSignal } from "@preact/signals";
+import type { ComponentChildren } from "preact";
 import type { Contenido, Foto } from "../contenido/tipos";
 
 function Diapositiva({ foto, parche }: { foto: Foto; parche: string }) {
@@ -24,7 +27,14 @@ function Diapositiva({ foto, parche }: { foto: Foto; parche: string }) {
   );
 }
 
-export function Inicio({ contenido }: { contenido: Contenido }) {
+export function Inicio({
+  contenido,
+  estado,
+}: {
+  contenido: Contenido;
+  /** El estado de la misión (fase, T+ y objetivos), en el espacio libre del texto. */
+  estado?: ComponentChildren;
+}) {
   const abierta = useSignal<string | null>(null);
   const parte = contenido.partes.find((p) => p.id === abierta.value);
 
@@ -46,6 +56,7 @@ export function Inicio({ contenido }: { contenido: Contenido }) {
               <dd>{contenido.motor}</dd>
             </div>
           </dl>
+          {estado}
         </div>
       </div>
       <h2 class="subtitulo">Partes del cohete</h2>
