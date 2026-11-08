@@ -245,7 +245,8 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
       const errores = vigilarErrores(page);
       await abrir(page, "demeter");
 
-      // Antes de aterrizar, Recuperación está donde dice 03 §2 (después del mapa).
+      // Antes de aterrizar, Recuperación está donde dice 03 §2 (después del mapa). Deméter trae además la
+      // sección de la Pi (T-659).
       await alimentar(page, nominalEn("demeter", T_DESCENSO));
       await expect(page.locator("main.panel")).toHaveAttribute("data-aterrizado", "no");
       expect(
@@ -259,6 +260,7 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
         "actitud",
         "graficas",
         "salud",
+        "pi",
         "ojos",
         "equipo",
       ]);
@@ -268,7 +270,7 @@ test.describe("Aterrizado: Recuperación sube al inicio de la página", () => {
       await expect(page.locator("main.panel")).toHaveAttribute("data-aterrizado", "si");
       const ids = await page.locator("main.panel > section").evaluateAll((s) => s.map((e) => e.id));
       expect(ids[0]).toBe("recuperacion");
-      expect(ids).toHaveLength(10);
+      expect(ids).toHaveLength(11);
       const y = (id: string) =>
         page.locator(`#${id}`).evaluate((e) => e.getBoundingClientRect().top + window.scrollY);
       expect(await y("recuperacion")).toBeLessThan(await y("inicio"));
