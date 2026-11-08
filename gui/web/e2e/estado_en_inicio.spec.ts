@@ -81,6 +81,8 @@ async function capturarHastaResumen(page: Page, ruta: string) {
     const nav = document.querySelector<HTMLElement>(".navegacion");
     if (nav && getComputedStyle(nav).position === "fixed") nav.style.visibility = "hidden";
   });
+  // El desplazamiento es suave (html { scroll-behavior: smooth }): hay que esperar a llegar arriba.
+  await page.waitForFunction(() => window.scrollY === 0);
   const resumen = await caja(page, "#resumen");
   await page.screenshot({
     path: ruta,
@@ -295,6 +297,82 @@ for (const mision of MISIONES) {
     });
   });
 }
+
+/** Escenario nominal en BOOST: la aceleración pasa de 8 g, para ver las barras de fuerzas g. */
+const T_BOOST_MS = 19_200;
+
+test.describe("fuerzas g en 'Desde la estación' (ajuste de T-674)", () => {
+  const g = (page: Page) => page.locator("#recuperacion .fuerzas-g");
+
+  test("portátil: tres barras con su valor, la magnitud y la escala", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const errores = vigilarErrores(page);
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
+    // Sin datos: "sin dato" en cada eje y en la magnitud, y ninguna barra rellena.
+    await expect(g(page).locator("[data-g='x']")).toContainText("sin dato");
+    await expect(g(page).locator("[data-g='total']")).toContainText("sin dato");
+    await expect(g(page).locator(".g-relleno")).toHaveCount(0);
+
+    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS));
+    await expect(g(page).locator("[data-g='x'] .g-num")).toHaveText(/^\d,\d\d$/);
+    await expect(g(page).locator("[data-g='y'] .g-num")).toHaveText("0,00");
+    await expect(g(page).locator("[data-g='total'] .g-num")).toHaveText(/^\d,\d\d$/);
+    await expect(g(page).locator(".g-escala")).toContainText("Escala ±32 g");
+    await expect(g(page)).toHaveAttribute("data-satura", "no");
+    // La barra de X (positiva) arranca en el centro y llega a la derecha; sin pisar el lado negativo.
+    const pista = await caja(page, "[data-g='x'] .g-pista");
+    const relleno = await caja(page, "[data-g='x'] .g-relleno");
+    expect(relleno.x).toBeGreaterThanOrEqual(pista.x + pista.width / 2 - 2);
+    expect(relleno.x + relleno.width).toBeLessThanOrEqual(pista.x + pista.width);
+    expect(await sinDesborde(page)).toBe(true);
+    expect(errores).toEqual([]);
+
+    // Dato viejo: el mismo gris y la antigüedad que la telemetría.
+    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS), "conectado", 3000);
+    await expect(g(page)).toHaveAttribute("data-viejo", "si");
+    await expect(g(page).locator(".telemetria-edad")).toContainText("Último dato hace 3 s");
+    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS));
+
+    // La captura deja "Desde la estación" entero: la brújula y las fuerzas g.
+    await page.evaluate((cabecera) => {
+      const r = document.querySelector("#recuperacion .recup-vector")?.getBoundingClientRect();
+      if (r) window.scrollBy(0, r.top - cabecera - 80);
+    }, ALTO_CABECERA_PX);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${CAPTURAS}/demeter-portatil-estacion-g.png` });
+  });
+
+  test("celular: cabe sin desborde", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const errores = vigilarErrores(page);
+    await abrir(page, "demeter", T_BOOST_MS);
+    await expect(g(page).locator("[data-g='x'] .g-num")).toHaveText(/^\d,\d\d$/);
+    expect(await sinDesborde(page)).toBe(true);
+    const caja390 = await caja(page, "#recuperacion .fuerzas-g");
+    expect(caja390.x + caja390.width).toBeLessThanOrEqual(391);
+    await page.evaluate((cabecera) => {
+      const r = document.querySelector("#recuperacion .fuerzas-g")?.getBoundingClientRect();
+      if (r) window.scrollBy(0, r.top - cabecera - 170);
+    }, ALTO_CABECERA_PX);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${CAPTURAS}/demeter-celular-estacion-g.png` });
+    expect(errores).toEqual([]);
+  });
+
+  test("fuera de escala: la barra queda en el borde y lo dice", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${DEV}/demeter/?sin_cliente`);
+    const snap = snapshotDe("demeter", "nominal", T_BOOST_MS);
+    if (!snap.estado) throw new Error("el escenario no trae estado");
+    snap.estado = { ...snap.estado, acc_g: { x: -40, y: 0, z: 0 } };
+    await alimentar(page, snap);
+    await expect(g(page)).toHaveAttribute("data-satura", "si");
+    await expect(g(page).locator(".g-satura")).toHaveText(/fuera de escala/);
+    const pista = await caja(page, "[data-g='x'] .g-pista");
+    const relleno = await caja(page, "[data-g='x'] .g-relleno");
+    expect(Math.abs(relleno.x - (pista.x + 1))).toBeLessThan(3);
+  });
+});
 
 test("si el mapa no carga, la telemetría sigue visible dentro del marco", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
