@@ -57,6 +57,7 @@ graphify-out/
 firmware/common/net_proto/secrets.h
 estacion/sesiones/
 estacion/mision.json
+estacion/web1_referencia.json*
 estacion/vuelos_replay/
 *.BIN
 *.BIN.part
