@@ -10,7 +10,7 @@
 #   SITIO_URL        URL del sitio publico (https://eiaspice.space), solo para imprimirla
 #   SIN_FLY=1        salta todos los pasos de Fly (para un relay local)
 #   RELAY_DATOS_LOCAL  con SIN_FLY=1: carpeta de la que se copian los *.jsonl del relay local
-#   SESIONES_RELAY_DIR  donde se crean las carpetas de sesion y de reinicio (estacion/sesiones_relay); T-673, para las pruebas
+#   SESIONES_RELAY_DIR  donde se crean las carpetas de sesion y de reinicio (estacion/sesiones_relay); T-676, para las pruebas
 #   PYTHON_ESTACION  el python del dashboard (estacion/.venv/bin/python)
 #   ESPERA_SALUD_S   segundos maximos esperando la salud tras prender (90)
 #   NO_COLOR         si existe, sin colores

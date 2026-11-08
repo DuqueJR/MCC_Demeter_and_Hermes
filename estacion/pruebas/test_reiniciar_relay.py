@@ -1,4 +1,4 @@
-"""Pruebas de `estacion/reiniciar_relay.sh` (T-673). Solo unittest y la biblioteca estandar. NUNCA toca Fly ni el relay real.
+"""Pruebas de `estacion/reiniciar_relay.sh` (T-676). Solo unittest y la biblioteca estandar. NUNCA toca Fly ni el relay real.
 
 Cada prueba levanta un relay LOCAL de verdad (`gui/relay/servidor.py` en 127.0.0.1 y un puerto libre, con un token de prueba y
 `WEB_RELAY_DATOS` en una carpeta temporal), lo llena con `gui/relay/alimentar.py` y corre el script con `SIN_FLY=1`. La rama de

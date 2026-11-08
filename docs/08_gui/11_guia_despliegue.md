@@ -150,7 +150,7 @@ Todo **desde la raíz del repo**. Reemplaza `hermes-demeter-relay` si el nombre 
 
 El snapshot y la `serie` conservan lo ya recibido, y un `mission_id` de ensayo ya cerrado **no se vuelve a abrir** (relay README, "Limpiar después de un ensayo"). Hay que **borrar los datos de ensayo del volumen**.
 
-**Forma recomendada (T-673): `estacion/reiniciar_relay.sh`.** Hace los pasos de abajo en un comando y con red de seguridad:
+**Forma recomendada (T-676): `estacion/reiniciar_relay.sh`.** Hace los pasos de abajo en un comando y con red de seguridad:
 
 ```bash
 estacion/reiniciar_relay.sh          # pide escribir la palabra BORRAR; --ayuda lo explica todo

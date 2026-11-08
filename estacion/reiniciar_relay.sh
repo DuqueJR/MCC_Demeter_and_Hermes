@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# estacion/reiniciar_relay.sh -- deja el relay en ceros antes del vuelo, con respaldo de todo lo que borra (T-673).
+# estacion/reiniciar_relay.sh -- deja el relay en ceros antes del vuelo, con respaldo de todo lo que borra (T-676).
 # Uso:  estacion/reiniciar_relay.sh [--si-borrar] [--ayuda]
 # Es la UNICA excepcion a "nunca borra datos del relay" de los scripts de T-672 (iniciar_sesion.sh y detener_sesion.sh).
 set -euo pipefail

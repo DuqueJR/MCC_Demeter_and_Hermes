@@ -1,16 +1,16 @@
 ---
 fecha: 2026-11-08
 tipo: tarea
-ids: [T-673]
+ids: [T-676]
 autor: agente desarrollador (Claude Sonnet 5.5)
 rama: feature/T-673-reiniciar-relay
 ---
-# T-673: `estacion/reiniciar_relay.sh` (dejar el relay en ceros antes del vuelo)
+# T-676: `estacion/reiniciar_relay.sh` (dejar el relay en ceros antes del vuelo)
 
 ## Contexto
-La guía de despliegue §4 pide, antes del vuelo real, borrar los `/datos/*.jsonl` del relay y reiniciarlo (un `mission_id` de ensayo cerrado no se vuelve a abrir). Hacerlo a mano la víspera es propenso a errores (y borra sin respaldo). T-673 lo automatiza **con respaldo previo, confirmación escrita y verificación**. Reutiliza `sesion_comun.sh` de T-672.
+La guía de despliegue §4 pide, antes del vuelo real, borrar los `/datos/*.jsonl` del relay y reiniciarlo (un `mission_id` de ensayo cerrado no se vuelve a abrir). Hacerlo a mano la víspera es propenso a errores (y borra sin respaldo). T-676 lo automatiza **con respaldo previo, confirmación escrita y verificación**. Reutiliza `sesion_comun.sh` de T-672.
 
-**Colisión de IDs (ver Problemas):** en `origin/develop` ya existe otro `T-673` ("El mapa arranca siempre en la vista 3D", PR hacia `develop`, rama `feature/T-673-mapa-3d-por-defecto`). Este trabajo es el `T-673` "Reiniciar el relay a cero" que está en el `develop` **local** (commit `687d356`), que `origin/develop` todavía no tiene.
+**Renumeración:** esta tarea se dio de alta como `T-673` en el `develop` local (commit `687d356`), pero `origin/develop` ya tenía otro `T-673` ("El mapa arranca siempre en la vista 3D"). Por orden del coordinador se renumeró a **T-676** (la fila del backlog se conservó tal cual, con estado «en revisión»). La rama conserva su nombre `feature/T-673-reiniciar-relay` y los commits anteriores llevan `[T-673]` en su mensaje: son de esta tarea.
 
 ## Qué se hizo
 - `estacion/reiniciar_relay.sh` (nuevo, ejecutable; bash 3.2 de macOS; mismos mensajes, carteles y estilo que `iniciar_sesion.sh`/`detener_sesion.sh`). En orden:
@@ -57,10 +57,9 @@ No se cambia ningún contrato. Decisiones de diseño, todas dentro del encargo:
 - Código de salida **1** también al cancelar (no se escribió BORRAR): un script que encadene este paso no debe seguir como si se hubiera borrado.
 - El borrado en Fly lleva `--machine <id>` (el encargo no lo traía): evita ambigüedad si hubiera más de una máquina, igual que `detener_sesion.sh`.
 - Propuesta (no aplicada): que `iniciar_sesion.sh`, en su cartel rojo "EL RELAY TIENE DATOS DE UNA SESION ANTERIOR", mencione `estacion/reiniciar_relay.sh` en vez de "Este script NO limpia nada". No se tocó para no mezclar tareas.
-- Propuesta (no aplicada): que el documentador actualice la fila de T-673 del backlog a "en revisión" y reconcilie el ID duplicado.
 
 ## Problemas y cómo se resolvieron
-- **ID duplicado.** `origin/develop` ya trae otro `T-673` (mapa 3D por defecto, rama `feature/T-673-mapa-3d-por-defecto`) y T-674 depende de él. La fila de este T-673 solo está en el `develop` local (`687d356`), así que cuando se integren las dos habrá un choque en `backlog.md` (línea ~218) y dos tareas con el mismo número. **El documentador debe renumerar una** (por ejemplo, esta a T-675 o la siguiente libre). Esta rama sale del `develop` **local** (que trae `687d356`) y no de `origin/develop`, como pedía el encargo: el PR llevará también ese commit del backlog y tendrá un conflicto de texto en `backlog.md` con la rama de origen, que se resuelve en la consolidación.
+- **ID duplicado (resuelto).** `origin/develop` ya traía otro `T-673` (mapa 3D por defecto, rama `feature/T-673-mapa-3d-por-defecto`; T-674 depende de él). Se renumeró esta tarea a T-676, se hizo `merge` de `origin/develop` en la rama y se resolvió el conflicto de `backlog.md` conservando las filas T-673 a T-675 de origen y dejando esta como T-676 «en revisión (2026-11-08)». Los mensajes de los commits anteriores no se reescribieron (decir `[T-673]` en ellos se refiere a esta tarea).
 - Sin `graphify` en esta máquina: se usó grep.
 - La herramienta de la sesión impedía llamar `bash` suelto: las pruebas y el análisis se corrieron a través de `python -m unittest` y de comandos separados; no afecta al resultado.
 - Primera corrida: una afirmación de la prueba del respaldo fallido buscaba un texto con otra capitalización ("NO se borro nada" vs. "No se borro NADA"); se corrigió la prueba, no el script.
@@ -68,8 +67,7 @@ No se cambia ningún contrato. Decisiones de diseño, todas dentro del encargo:
 ## Pendiente / siguiente paso
 - **Lo corre el usuario contra Fly real** (no se pudo probar aquí): con el reenviador cerrado, `estacion/reiniciar_relay.sh`. Cosas que solo se verán ahí: el formato exacto de `fly ssh console -C "ls -la /datos"` (el script usa `awk '$NF ~ /\.jsonl$/ && $5 ~ /^[0-9]+$/'`, igual que `detener_sesion.sh`), que `fly apps restart` termine y que la salud quede en ceros dentro de `ESPERA_SALUD_S` (90 s por defecto; con `ESPERA_SALUD_S=180` si hace falta).
 - Si hay dudas, correr primero `estacion/reiniciar_relay.sh --ayuda` y, para ensayar sin riesgo, el relay local (`SIN_FLY=1 RELAY_URL=http://127.0.0.1:8787 RELAY_DATOS_LOCAL=<carpeta>`).
-- Renumerar el ID duplicado y actualizar el backlog (documentador).
 
 ## Documentos afectados
 - `estacion/README.md`, `docs/08_gui/11_guia_despliegue.md` §4 (editados en este PR).
-- Por consolidar: `docs/05_plan/backlog.md` (estado de T-673 y el ID duplicado).
+- Por consolidar: `docs/05_plan/backlog.md` (la fila de T-676 ya quedó «en revisión» en este PR).

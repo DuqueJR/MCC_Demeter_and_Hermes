@@ -175,7 +175,7 @@ Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
 
 ## Sesión en un comando (T-672)
 
-Dos scripts para macOS (`bash`) que hacen el proceso de [`11_guia_despliegue`](../docs/08_gui/11_guia_despliegue.md) §8 sin pasos manuales (y un tercero, `reiniciar_relay.sh`, para dejar el relay en ceros: T-673, más abajo). Funcionan desde cualquier carpeta; `--ayuda` explica cada uno.
+Dos scripts para macOS (`bash`) que hacen el proceso de [`11_guia_despliegue`](../docs/08_gui/11_guia_despliegue.md) §8 sin pasos manuales (y un tercero, `reiniciar_relay.sh`, para dejar el relay en ceros: T-676, más abajo). Funcionan desde cualquier carpeta; `--ayuda` explica cada uno.
 
 ```
 estacion/iniciar_sesion.sh [--permitir-ensayo] [opciones del dashboard]    # ej.: --no-abrir  --puerto 8799
@@ -201,7 +201,7 @@ Variables: `RELAY_APP` (`hermes-demeter-relay`), `RELAY_URL` (`https://api.eiasp
 
 Probar sin tocar Fly ni el relay real: arrancar `gui/relay/servidor.py` (127.0.0.1:8787) con un token de prueba de 64 caracteres y correr los dos scripts con `RELAY_URL=http://127.0.0.1:8787 SIN_FLY=1 RELAY_DATOS_LOCAL=<WEB_RELAY_DATOS del relay>`.
 
-### Dejar el relay en ceros antes del vuelo: `reiniciar_relay.sh` (T-673)
+### Dejar el relay en ceros antes del vuelo: `reiniciar_relay.sh` (T-676)
 
 ```
 estacion/reiniciar_relay.sh [--si-borrar]
