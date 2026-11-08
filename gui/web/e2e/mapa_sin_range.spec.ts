@@ -20,6 +20,14 @@ test.skip(
 );
 
 const MISIONES = ["demeter", "hermes"] as const;
+
+// T-673: el mapa arranca en 3D cuando hay relieve. Estas pruebas son del mapa en 2D (capas, LKP, controles,
+// gestos y capturas del plano), así que, como `mapa_limites.spec.ts`, bloquean los archivos del relieve:
+// sin ellos el mapa es el de siempre. El 3D se prueba en `mapa_3d.spec.ts` y `mapa_relieve.spec.ts`.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/mapas/relieve/**", (ruta) => ruta.abort());
+});
+
 const CAPAS_BASE = 7; // base-tierra, uso, agua, rios, vias-menores, vias y lugares (estilo.ts)
 
 /** Errores de consola, salvo el 404 esperado del PMTiles cuando se finge que no está. */

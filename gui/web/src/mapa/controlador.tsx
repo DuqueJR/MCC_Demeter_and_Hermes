@@ -118,7 +118,7 @@ export interface ControlMapa {
   conBase: boolean;
   /** Hay relieve: se puede ofrecer la vista 3D (T-656). Sin él, el botón no aparece. */
   con3d: boolean;
-  /** La vista 3D está activa (arranca siempre en 2D). */
+  /** La vista 3D está activa (arranca en 3D si hay relieve, desde T-673; si no, en 2D). */
   modo3d: ReadonlySignal<boolean>;
   alternar3d(): void;
   centrarEnCohete(): void;
@@ -332,7 +332,7 @@ export async function crearMapa(
   let ajustado = false; // ya se encuadró alguna vez lo que hay
   let sitioAplicado = meta.peek() !== null;
   let estiloListo = false;
-  /** La vista 3D está activa (T-656). Arranca siempre en 2D. */
+  /** La vista 3D está activa (T-656). Desde T-673 arranca en 3D si hay relieve y el 3D no falla. */
   const modo3d = signal(false);
   /** La cámara de 2D al entrar en 3D, para dejarla igual al volver si nadie la movió en 3D. */
   let camara2d: { center: Coord; zoom: number } | null = null;
@@ -607,12 +607,17 @@ export async function crearMapa(
   /** Un gesto del usuario con el mapa inclinado o girado también detiene el encuadre automático. */
   const eventos3d = ["rotatestart", "pitchstart"] as const;
 
-  const activar3d = () => {
+  /**
+   * Entra en 3D. `inicial` es el arranque del mapa (T-673): sin animación (el 3D es la primera vista, no
+   * un cambio) y sin recordar la cámara de 2D, porque no hubo una vista 2D que restaurar: al pulsar "Vista
+   * 2D" el mapa solo se aplana donde está.
+   */
+  const activar3d = (inicial = false) => {
     if (!relieve || !estiloListo || modo3d.value) return;
     modo3d.value = true;
     generacion3d++;
     const c = mapa.getCenter();
-    camara2d = { center: [c.lng, c.lat], zoom: mapa.getZoom() };
+    camara2d = inicial ? null : { center: [c.lng, c.lat], zoom: mapa.getZoom() };
     movidaEn3d = false;
     mapa.addSource(ID_3D.fuenteTerreno, fuenteTerreno(relieve.relieve));
     // La línea de la trayectoria y la plomada, en una capa personalizada; y la imagen del cohete encima.
@@ -621,6 +626,7 @@ export async function crearMapa(
       exageracion: MAPA_3D_EXAGERACION,
       alFotograma,
       suavizado: () => !sinMovimiento(),
+      alFallar: alFallar3d,
     });
     mapa.addLayer(capa3d);
     imagenCohete = crearImagenCohete();
@@ -637,13 +643,30 @@ export async function crearMapa(
     for (const e of eventos3d) mapa.on(e, alMoverUsuario);
     publicar3d();
     aplicarLimites(); // el área incluye la parte alta de la trayectoria
-    if (!interactuo && capas?.limites && destinoDe(capas))
+    if (inicial) mapa.jumpTo({ pitch: MAPA_3D_PITCH });
+    else if (!interactuo && capas?.limites && destinoDe(capas))
       ajustarA3d(cajaDibujada() ?? capas.limites);
     else mapa.easeTo({ pitch: MAPA_3D_PITCH, duration: duracion() });
     publicarModo3d();
   };
 
-  const desactivar3d = () => {
+  /**
+   * Si algo del 3D falla (la capa WebGL no compila, o una excepción al entrar), se vuelve a 2D sin
+   * ruido: un aviso en consola y nada más. Lo avisa la capa (`alFallar`) o el `try` del arranque.
+   */
+  const alFallar3d = (causa: unknown) => {
+    console.warn("Sin vista 3D en el mapa:", causa instanceof Error ? causa.message : causa);
+    // Después de lo que esté en curso (la capa avisa desde dentro de `addLayer`).
+    setTimeout(() => {
+      try {
+        desactivar3d(true);
+      } catch {
+        // El mapa ya se destruyó: no hay nada que deshacer.
+      }
+    }, 0);
+  };
+
+  const desactivar3d = (inmediato = false) => {
     if (!modo3d.value) return;
     modo3d.value = false;
     const generacion = ++generacion3d;
@@ -670,7 +693,7 @@ export async function crearMapa(
       aplicarLimites();
       publicarModo3d();
     };
-    const ms = duracion();
+    const ms = inmediato ? 0 : duracion();
     // Si nadie movió la cámara en 3D (ni con gestos ni con los botones), 2D queda como estaba al entrar.
     const vuelta = camara2d && !movidaEn3d ? camara2d : null;
     mapa.easeTo({
@@ -734,6 +757,15 @@ export async function crearMapa(
   // teselas visibles y, con mala red, retrasaría el LKP y el cohete, que no dependen de ellas.
   mapa.once("style.load", () => {
     estiloListo = true;
+    // El mapa arranca en 3D si hay relieve (T-673), antes de conectar los datos, para que el primer
+    // encuadre ya sea el de 3D. Si algo falla, se queda en 2D como antes.
+    if (relieve) {
+      try {
+        activar3d(true);
+      } catch (e) {
+        alFallar3d(e);
+      }
+    }
     detener = effect(() => {
       actualizar({
         sitio: meta.value?.sitio ?? null,
