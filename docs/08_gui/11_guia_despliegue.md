@@ -148,7 +148,20 @@ Todo **desde la raíz del repo**. Reemplaza `hermes-demeter-relay` si el nombre 
 
 ## 4. Antes del vuelo real (obligatorio)
 
-El snapshot y la `serie` conservan lo ya recibido, y un `mission_id` de ensayo ya cerrado **no se vuelve a abrir** (relay README, "Limpiar después de un ensayo"). Hay que **borrar los datos de ensayo del volumen**:
+El snapshot y la `serie` conservan lo ya recibido, y un `mission_id` de ensayo ya cerrado **no se vuelve a abrir** (relay README, "Limpiar después de un ensayo"). Hay que **borrar los datos de ensayo del volumen**.
+
+**Forma recomendada (T-673): `estacion/reiniciar_relay.sh`.** Hace los pasos de abajo en un comando y con red de seguridad:
+
+```bash
+estacion/reiniciar_relay.sh          # pide escribir la palabra BORRAR; --ayuda lo explica todo
+estacion/iniciar_sesion.sh           # después, para la sesión del vuelo
+```
+
+Rechaza si hay un `dashboard.py` corriendo (no lo cierra: ciérralo tú), prende la máquina si está parada, muestra `seq_relay` y `mission_id` de cada misión, **respalda en `estacion/sesiones_relay/reinicio_AAAAMMDD_HHMMSS/`** la salud, los snapshots y los `/datos/*.jsonl` (si el respaldo falla, no borra nada), mueve la cola local `estacion/cola_web.db*` a `cola_vieja/` de esa carpeta, borra los JSONL, reinicia la máquina y **verifica** `seq_relay` 0, `mission_id` null, `ingesta.lotes` 0 y los snapshots sin `estado` (si no, falla con un mensaje claro). Al final: cartel verde «RELAY EN CEROS»; **refresca (`Cmd+Shift+R`) las pestañas abiertas de la web**.
+
+> **Es la única excepción** a que los scripts de T-672 (`iniciar_sesion.sh`, `detener_sesion.sh`) **nunca borran datos del relay**. Los demás siguen sin borrar nada.
+
+Lo de abajo es lo mismo **a mano** (para cuando el script no se pueda usar, o para entender qué hace):
 
 1. **Apagar el reenviador** (cerrar el dashboard o quitar el token de `estacion/.env`). Que nada esté subiendo.
 2. Borrar los JSONL y **reiniciar enseguida** (el proceso aún tiene el estado en memoria):

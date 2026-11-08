@@ -175,7 +175,7 @@ Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
 
 ## Sesión en un comando (T-672)
 
-Dos scripts para macOS (`bash`) que hacen el proceso de [`11_guia_despliegue`](../docs/08_gui/11_guia_despliegue.md) §8 sin pasos manuales. Funcionan desde cualquier carpeta; `--ayuda` explica cada uno.
+Dos scripts para macOS (`bash`) que hacen el proceso de [`11_guia_despliegue`](../docs/08_gui/11_guia_despliegue.md) §8 sin pasos manuales (y un tercero, `reiniciar_relay.sh`, para dejar el relay en ceros: T-673, más abajo). Funcionan desde cualquier carpeta; `--ayuda` explica cada uno.
 
 ```
 estacion/iniciar_sesion.sh [--permitir-ensayo] [opciones del dashboard]    # ej.: --no-abrir  --puerto 8799
@@ -197,9 +197,34 @@ Después: en el dashboard, "tierra" → elegir el puerto → Conectar; la web es
 3. Pregunta si apagar la máquina (por defecto **no**; `--apagar` la apaga sin preguntar). **Nunca borra datos del relay**: la limpieza antes del vuelo es aparte (guía §4).
 4. Sale con código 1 si algo no se pudo guardar (el `resumen.txt` dice qué).
 
-Variables: `RELAY_APP` (`hermes-demeter-relay`), `RELAY_URL` (`https://api.eiaspice.space`), `RELAY_MAQUINA`, `SIN_FLY=1` (salta Fly: para un relay local; con `RELAY_DATOS_LOCAL=<carpeta>` copia ahí los `*.jsonl`), `PYTHON_ESTACION`, `ESPERA_SALUD_S`. El token se toma de `WEB_INGESTA_TOKEN` si ya está en el entorno, y si no, del Llavero. `sesion_comun.sh` es la parte compartida (se carga con `source`, no se corre sola).
+Variables: `RELAY_APP` (`hermes-demeter-relay`), `RELAY_URL` (`https://api.eiaspice.space`), `RELAY_MAQUINA`, `SIN_FLY=1` (salta Fly: para un relay local; con `RELAY_DATOS_LOCAL=<carpeta>` copia ahí los `*.jsonl`), `PYTHON_ESTACION`, `ESPERA_SALUD_S`, `SESIONES_RELAY_DIR` (dónde se crean las carpetas; solo para las pruebas). El token se toma de `WEB_INGESTA_TOKEN` si ya está en el entorno, y si no, del Llavero. `sesion_comun.sh` es la parte compartida (se carga con `source`, no se corre sola).
 
 Probar sin tocar Fly ni el relay real: arrancar `gui/relay/servidor.py` (127.0.0.1:8787) con un token de prueba de 64 caracteres y correr los dos scripts con `RELAY_URL=http://127.0.0.1:8787 SIN_FLY=1 RELAY_DATOS_LOCAL=<WEB_RELAY_DATOS del relay>`.
+
+### Dejar el relay en ceros antes del vuelo: `reiniciar_relay.sh` (T-673)
+
+```
+estacion/reiniciar_relay.sh [--si-borrar]
+```
+
+Hace en un comando el procedimiento de la [guía de despliegue §4](../docs/08_gui/11_guia_despliegue.md) y es la forma recomendada de hacerlo. Úsalo **una vez**, después de los ensayos y **antes** de `iniciar_sesion.sh` del vuelo.
+
+> **Es la única excepción** a que los scripts de sesión (`iniciar_sesion.sh` y `detener_sesion.sh`, T-672) **nunca borran datos del relay**: este SÍ borra los `/datos/*.jsonl` del volumen. Por eso respalda todo antes, pide una confirmación que no se pueda dar por costumbre y se detiene si algo falla.
+
+En este orden:
+1. **Rechaza si hay un `dashboard.py` corriendo** (un `python` que ejecuta un `dashboard.py`, en cualquier puerto, o lo que escuche en el 8765): su reenviador volvería a subir lo borrado desde su cola. **No lo cierra por su cuenta**: ciérralo tú (`Ctrl+C` en su ventana o `detener_sesion.sh`) y repite.
+2. Revisa `fly` con sesión (salvo `SIN_FLY=1`) y `estacion/.venv`. No necesita el token: no sube nada.
+3. Prende la máquina si está `stopped`/`suspended` y espera la salud.
+4. Muestra `seq_relay` y `mission_id` de cada misión y pide **escribir la palabra `BORRAR`** (no un s/n). Cualquier otra respuesta cancela sin tocar nada (sale con 1). **Sin terminal interactiva no borra** y sale con error, salvo con `--si-borrar`.
+5. Crea `estacion/sesiones_relay/reinicio_AAAAMMDD_HHMMSS/` y guarda ahí `salud_antes.json`, `snapshot_demeter.json`, `snapshot_hermes.json` y todos los `/datos/*.jsonl` del relay (`fly ssh sftp get` con la copia verificada por tamaño y, si falla, `base64` por `fly ssh console -C`; igual que `detener_sesion.sh`). **Si el respaldo falla, no borra nada** y aborta.
+6. **Archiva** la cola local del reenviador: mueve `estacion/cola_web.db` (y `-wal`, `-shm`, los que existan) a `reinicio_.../cola_vieja/`. Se mueve, no se borra.
+7. Borra: `fly ssh console -C "sh -c 'rm -f /datos/*.jsonl'"` y `fly apps restart`.
+8. Espera y **verifica**: `seq_relay` 0 y `mission_id` null en `demeter` y `hermes`, `ingesta.lotes` 0 y el snapshot de cada misión sin `estado`. Si no queda así, falla con un mensaje claro (y dice que los datos viejos están respaldados). Si queda bien: cartel verde «RELAY EN CEROS».
+9. Escribe `resumen.txt` en la carpeta del reinicio (qué había, qué se archivó, resultado; también si se aborta). Al final recuerda **refrescar (`Cmd+Shift+R`) las pestañas abiertas de la web** y correr `estacion/iniciar_sesion.sh`.
+
+Variables: las de arriba y `COLA_WEB_DB=<ruta>` (la cola del reenviador; por defecto `estacion/cola_web.db`). Con `SIN_FLY=1` (solo con un `RELAY_URL` de bucle local) hace falta `RELAY_DATOS_LOCAL=<carpeta de datos del relay local>`: respalda y borra los `*.jsonl` de ahí y **el relay local lo reinicias tú a mano** (el script lo avisa y espera hasta `ESPERA_SALUD_S` a que quede en ceros).
+
+Pruebas (sin tocar Fly ni el relay real; levantan un relay local de verdad y, para la rama de Fly, un `fly` falso): `python -m unittest test_reiniciar_relay -v` desde `estacion/pruebas/`, con un python que tenga las dependencias del relay (`gui/relay/requirements.txt`; si no es el de `gui/relay/.venv`, fíjalo con `RELAY_PYTHON`). Se salta solo si no encuentra ninguno. No se puede correr con un `dashboard.py` real abierto.
 
 ## Reenviador al relay público (T-605a)
 
