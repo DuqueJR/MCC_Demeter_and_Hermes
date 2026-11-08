@@ -203,7 +203,7 @@ Para la temperatura del suelo y para usar un cohete en tierra (por ejemplo Herme
 | `pos.alt_agl_m` | `alt_msl_m − SITIO_ALT_MSL` (o la barométrica cuando exista, PEN-23) | `fuente = "gnss"` |
 | `vel.n/e/u_ms` | `vn`, `ve`, `−vd` (cm/s → m/s) | `null` si `fix < 3` |
 | `acc_g` | `acc_mg / 1000` | Ejes del chip QMI8658 |
-| `q` | `quat / 32767` | `flags.ekf_ok = false` mientras sea la identidad |
+| `q` | `quat / 32767`, **cambiado de marco** (T-675): `q_web = q_M ⊗ quat ⊗ q_F`, con `q_M = (0, 1/√2, 1/√2, 0)` (NED → ENU) y `q_F = (0, 1, 0, 0)` (FLU → FRD); luego unitario y `w ≥ 0` | `quat` es cuerpo FRD → NED y `web-1` pide cuerpo FLU → ENU (X nariz, Y izquierda, Z arriba). `flags.ekf_ok = false` mientras `quat` sea la identidad (se calcula con el `quat` crudo); entonces `q` es la identidad ya convertida (nariz al norte, nivelado) y la web no la usa |
 | `flags.gnss_fix` | `fix ≥ 3` | |
 | `flags.apogeo` / `eyeccion` | momento ≥ APOGEO / momento ≥ PARACAIDAS | |
 | `flags.log_activo` | El último `LogInfo.recording == 1` | |
