@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import type { CondicionGoNogo, Estado, Salud, Snapshot } from "../src/contrato/tipos";
 import { alimentar, DEV, snapshotDe } from "./mapa_ayudas";
 
@@ -85,6 +85,9 @@ const enPreflight = (m: Mision) => {
   return conFlags(base, { gnss_fix: true, ekf_ok: true });
 };
 
+/** Todo el texto de un elemento, también el que solo lee un lector de pantalla. */
+const textoDe = async (el: Locator) => (await el.textContent()) ?? "";
+
 const salud = (page: Page) => page.locator("section#salud");
 const resumen = (page: Page) => salud(page).locator('[data-salud="resumen"]');
 const chipGo = (page: Page) => salud(page).locator('[data-salud="go-nogo"]');
@@ -119,7 +122,7 @@ test.describe("Salud del cohete simplificada", () => {
     await expect(detalle.locator('[data-fila="hacc"]')).toContainText("m");
     await expect(detalle.locator('[data-fila="temp-pi"]')).toHaveCount(0);
     await expect(detalle.locator('[data-fila="temp-placa"]')).toBeVisible();
-    const texto = (await salud(page).innerText()).toLowerCase();
+    const texto = (await textoDe(salud(page))).toLowerCase();
     expect(texto).not.toMatch(MODELOS);
     expect(texto).not.toContain("raspberry");
     expect(texto).not.toContain("calibra");
@@ -151,7 +154,7 @@ test.describe("Salud del cohete simplificada", () => {
     const lista = salud(page).locator('[data-salud="fallas"] li');
     await expect(lista).toHaveCount(3);
     await expect(lista.first()).toContainText("Barómetro");
-    expect((await salud(page).innerText()).toLowerCase()).not.toMatch(MODELOS);
+    expect((await textoDe(salud(page))).toLowerCase()).not.toMatch(MODELOS);
 
     await alimentar(page, base);
     await expect(resumen(page)).toContainText("Sin fallas reportadas");
@@ -227,7 +230,7 @@ test.describe("Salud del cohete simplificada", () => {
     await expect(chipGo(page).locator('li[data-condicion="bmp"]')).toContainText(
       "Barómetro con datos",
     );
-    expect((await salud(page).innerText()).toLowerCase()).not.toMatch(MODELOS);
+    expect((await textoDe(salud(page))).toLowerCase()).not.toMatch(MODELOS);
   });
 
   test("el cohete respondió APTO: 'GO'; y en descenso el chip desaparece", async ({ page }) => {
@@ -253,7 +256,7 @@ test.describe("Salud del cohete simplificada", () => {
     await salud(page).locator("summary").click();
     await expect(salud(page).locator('[data-fila="temp-placa"]')).toBeVisible();
     await expect(salud(page).locator('[data-fila="temp-pi"]')).toHaveCount(0);
-    expect((await salud(page).innerText()).toLowerCase()).not.toMatch(MODELOS);
+    expect((await textoDe(salud(page))).toLowerCase()).not.toMatch(MODELOS);
   });
 
   test("el detalle se maneja con el teclado (summary enfocable)", async ({ page }) => {
@@ -286,7 +289,7 @@ test.describe("la web pública no muestra ningún modelo de chip", () => {
           }),
         );
         await salud(page).locator("summary").click();
-        expect(await page.locator("main").innerText()).not.toMatch(MODELOS);
+        expect(await textoDe(page.locator("main"))).not.toMatch(MODELOS);
         expect(await page.locator("main").innerHTML()).not.toMatch(MODELOS);
       }
     });
