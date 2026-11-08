@@ -191,6 +191,34 @@ def fase_de(state, moment):
     return "ERROR"                      # estado desconocido: ERROR (9) no lo usa el firmware
 
 
+_RAIZ_MEDIO = math.sqrt(0.5)
+# Cambio de marco del cuaternion del firmware (T-675). El TELEM manda Hamilton cuerpo FRD -> NED; web-1 (`estado.q`)
+# es cuerpo FLU (X nariz, Y izquierda, Z arriba) -> ENU. Con C = R(q_firmware) (cuerpo FRD -> NED):
+#   R_web = M . C . F,  M = NED -> ENU = [[0,1,0],[1,0,0],[0,0,-1]]  (180 grados sobre (1,1,0)/raiz(2)),
+#                       F = FLU -> FRD = diag(1,-1,-1)                (180 grados sobre X)
+# y en cuaterniones q_web = q_M (x) q_firmware (x) q_F.
+_Q_NED_A_ENU = (0.0, _RAIZ_MEDIO, _RAIZ_MEDIO, 0.0)
+_Q_FLU_A_FRD = (0.0, 1.0, 0.0, 0.0)
+
+
+def _mul_q(a, b):
+    """Producto de Hamilton (w, x, y, z)."""
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+    return (aw * bw - ax * bx - ay * by - az * bz,
+            aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw)
+
+
+def quat_firmware_a_web(q):
+    """Cuaternion unitario cuerpo FRD -> NED (firmware) -> cuerpo FLU -> ENU (web-1), unitario y con w >= 0."""
+    r = _mul_q(_mul_q(_Q_NED_A_ENU, q), _Q_FLU_A_FRD)
+    n = math.sqrt(sum(x * x for x in r))
+    r = tuple(x / n + 0.0 for x in r)                  # + 0.0: sin ceros negativos (-0.0) en el JSON
+    return tuple(-x + 0.0 for x in r) if r[0] < 0 else r
+
+
 def _ecef(lat, lon, h):
     e2 = WGS84_F * (2.0 - WGS84_F)
     la, lo = math.radians(lat), math.radians(lon)
@@ -615,12 +643,13 @@ class Traductor:
         seq, t_ms, utc_ms = self._tiempos(c, t, t_local)
         fase = fase_de(t['state'], t['moment'])
         en_ctx = t['state'] in (S_FLY, S_RECOVERY)
-        # cuaternion: unitario y con w >= 0 (q y -q son la misma rotacion)
+        # cuaternion: unitario y con w >= 0 (q y -q son la misma rotacion). El firmware lo manda cuerpo FRD -> NED y
+        # web-1 lo pide cuerpo FLU -> ENU: se convierte aqui (T-675). Sin EKF (identidad del firmware o nulo) se
+        # convierte la identidad, o sea nariz al norte y nivelado; la web no lo usa mientras `ekf_ok` sea false.
         q = [x / 32767.0 for x in t['quat']]
         norma = math.sqrt(sum(x * x for x in q))
-        q = [1.0, 0.0, 0.0, 0.0] if norma < 1e-6 else [x / norma for x in q]
-        if q[0] < 0:
-            q = [-x for x in q]
+        q = (1.0, 0.0, 0.0, 0.0) if norma < 1e-6 else tuple(x / norma for x in q)
+        q = quat_firmware_a_web(q)
         ekf_ok = norma >= 1e-6 and tuple(t['quat']) != (32767, 0, 0, 0)
         pos = vel = None
         alt_msl = t['alt_cm'] / 100.0

@@ -125,7 +125,7 @@ class VueloCompleto(Contrato):
         self.assertEqual(slot['pos']['fuente'], 'gnss')
         self.assertGreater(slot['vel']['u_ms'], 0)           # sube
         self.assertAlmostEqual(slot['vel']['total_ms'], math.sqrt(slot['vel']['n_ms'] ** 2 + slot['vel']['e_ms'] ** 2 + slot['vel']['u_ms'] ** 2), delta=0.02)
-        self.assertEqual(slot['q'], {'w': 1.0, 'x': 0.0, 'y': 0.0, 'z': 0.0})
+        self.assertEqual(slot['q'], {'w': 0.70711, 'x': 0.0, 'y': 0.0, 'z': 0.70711})   # identidad del firmware (FRD->NED) ya convertida a FLU->ENU (T-675)
         self.assertFalse(slot['flags']['ekf_ok'])            # cuaternion identidad: no hay EKF
         self.assertTrue(slot['flags']['gnss_fix'])
         self.assertEqual(slot['bat_pct'], 78)                # (4000 - 3300) / 900
@@ -1301,6 +1301,146 @@ class SaludPi(Contrato):
         self.assertEqual({k: v for k, v in dashboard.PI_STATUS.items() if k != 0xFF}, web1.PI_ESTADOS)
         self.assertEqual({k: v for k, v in dashboard.PI_MOTIVO.items() if k}, web1.PI_MOTIVOS)
         self.assertEqual((dashboard.ACT_BUZZER, dashboard.ACT_PI_EN_CURSO), (web1.ACT_BUZZER, web1.ACT_PI_PULSO))
+
+
+
+# --- T-675: el marco del cuaternion (FRD -> NED del firmware  =>  FLU -> ENU de web-1) --------------------------------
+
+def _qc(w, x, y, z):
+    """`qC` de `estacion/dashboard_ekf.js` (Pablo): matriz cuerpo FRD -> NED del cuaternion."""
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]]
+
+
+def _nose_pablo(c):
+    """`nose` de dashboard_ekf.js: (inclinacion de la nariz desde arriba, rumbo de la nariz), en grados."""
+    return (math.degrees(math.acos(max(-1.0, min(1.0, -c[2][0])))), math.degrees(math.atan2(c[1][0], c[0][0])))
+
+
+def _euler_pablo(c):
+    """`euler` de dashboard_ekf.js: (guinada, cabeceo, alabeo) en grados."""
+    return (math.degrees(math.atan2(c[1][0], c[0][0])), math.degrees(math.asin(max(-1.0, min(1.0, -c[2][0])))),
+            math.degrees(math.atan2(c[2][1], c[2][2])))
+
+
+def _angulos_web(q):
+    """`angulosDeCuaternion` de gui/web/src/actitud/angulos.ts (cuerpo FLU -> ENU): (cabeceo, alabeo, rumbo) en grados."""
+    w, x, y, z = q
+    n_e, n_n, n_u = 1 - 2 * (y * y + z * z), 2 * (x * y + w * z), 2 * (x * z - w * y)
+    y_e, y_n, y_u = 2 * (x * y - w * z), 1 - 2 * (x * x + z * z), 2 * (y * z + w * x)
+    horiz = math.hypot(n_e, n_n)
+    if horiz < 1e-6:                  # vertical exacta (ACTITUD_HORIZ_MIN): sin rumbo de la nariz; alabeo 0
+        return (math.degrees(math.asin(max(-1.0, min(1.0, n_u)))), 0.0, math.degrees(math.atan2(y_n, -y_e)) % 360.0)
+    l0 =(-n_n / horiz, n_e / horiz)
+    u0 = (-n_u * n_e / horiz, -n_u * n_n / horiz, horiz)
+    return (math.degrees(math.asin(max(-1.0, min(1.0, n_u)))),
+            math.degrees(math.atan2(y_e * u0[0] + y_n * u0[1] + y_u * u0[2], y_e * l0[0] + y_n * l0[1])),
+            math.degrees(math.atan2(n_e, n_n)) % 360.0)
+
+
+def _q_zyx(yaw, pitch, roll):
+    """Cuaternion FRD -> NED con guinada, cabeceo (+ = nariz arriba) y alabeo (+ = ala derecha abajo), en grados."""
+    h = [math.radians(a) / 2 for a in (yaw, pitch, roll)]
+    cy, cp, cr = (math.cos(a) for a in h)
+    sy, sp, sr = (math.sin(a) for a in h)
+    return (cr * cp * cy + sr * sp * sy, sr * cp * cy - cr * sp * sy, cr * sp * cy + sr * cp * sy, cr * cp * sy - sr * sp * cy)
+
+
+def _dif_ang(a, b):
+    """Diferencia angular a - b llevada a [-180, 180)."""
+    return (a - b + 180.0) % 360.0 - 180.0
+
+
+class MarcoCuaternion(unittest.TestCase):
+    """El firmware manda el cuaternion cuerpo FRD -> NED; web-1 (`estado.q`) lo pide cuerpo FLU -> ENU (T-675)."""
+    M = ((0, 1, 0), (1, 0, 0), (0, 0, -1))            # NED -> ENU
+    F = ((1, 0, 0), (0, -1, 0), (0, 0, -1))           # FLU -> FRD
+
+    @staticmethod
+    def _mm(a, b):
+        return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+    def _ang(self, yaw, pitch, roll):
+        q = web1.quat_firmware_a_web(_q_zyx(yaw, pitch, roll))
+        return _angulos_web(q), q
+
+    def test_la_matriz_es_M_C_F(self):
+        for yaw, pitch, roll in ((0, 0, 0), (30, 20, 10), (-120, 45, -70), (200, -60, 150), (75, 89, 5)):
+            with self.subTest(yaw=yaw, pitch=pitch, roll=roll):
+                q0 = _q_zyx(yaw, pitch, roll)
+                esperada = self._mm(self._mm(self.M, _qc(*q0)), self.F)
+                obtenida = _qc(*web1.quat_firmware_a_web(q0))
+                for i in range(3):
+                    for j in range(3):
+                        self.assertAlmostEqual(obtenida[i][j], esperada[i][j], places=9)
+
+    def test_nariz_arriba_es_cabeceo_mas_90(self):
+        (cab, _, _), q = self._ang(0, 90, 0)
+        self.assertAlmostEqual(cab, 90.0, places=6)
+        self.assertGreaterEqual(q[0], 0)
+
+    def test_nariz_abajo_es_cabeceo_menos_90(self):
+        (cab, _, _), _ = self._ang(0, -90, 0)
+        self.assertAlmostEqual(cab, -90.0, places=6)
+
+    def test_nariz_horizontal_al_norte_y_al_este(self):
+        (cab, ala, rumbo), _ = self._ang(0, 0, 0)
+        self.assertAlmostEqual(cab, 0.0, places=6)
+        self.assertAlmostEqual(ala, 0.0, places=6)
+        self.assertAlmostEqual(_dif_ang(rumbo, 0.0), 0.0, places=6)
+        (cab, _, rumbo), _ = self._ang(90, 0, 0)
+        self.assertAlmostEqual(cab, 0.0, places=6)
+        self.assertAlmostEqual(rumbo, 90.0, places=6)
+
+    def test_nariz_inclinada_30_grados_hacia_el_este(self):
+        # nariz en NED = (0, sen 30, -cos 30): 30 grados desde la vertical, hacia el este
+        q0 = _q_zyx(90, 60, 0)
+        incl, rumbo_pablo = _nose_pablo(_qc(*q0))
+        self.assertAlmostEqual(incl, 30.0, places=6)
+        self.assertAlmostEqual(rumbo_pablo, 90.0, places=6)
+        cab, _, rumbo = _angulos_web(web1.quat_firmware_a_web(q0))
+        self.assertAlmostEqual(90.0 - cab, incl, places=6)       # la inclinacion desde arriba de Pablo = 90 - cabeceo de la web
+        self.assertAlmostEqual(_dif_ang(rumbo, rumbo_pablo), 0.0, places=6)
+
+    def test_coincide_con_la_convencion_de_pablo(self):
+        """Nariz (inclinacion y rumbo) y euler de `dashboard_ekf.js` frente a lo que calcula la web, en una malla."""
+        for yaw in range(-180, 181, 45):
+            for pitch in range(-85, 86, 17):
+                for roll in range(-170, 171, 40):
+                    with self.subTest(yaw=yaw, pitch=pitch, roll=roll):
+                        q0 = _q_zyx(yaw, pitch, roll)
+                        c = _qc(*q0)
+                        incl, rumbo_nariz = _nose_pablo(c)
+                        _, p_p, r_p = _euler_pablo(c)
+                        cab, ala, rumbo = _angulos_web(web1.quat_firmware_a_web(q0))
+                        self.assertAlmostEqual(90.0 - cab, incl, places=5)
+                        self.assertAlmostEqual(cab, p_p, places=5)                       # cabeceo: el mismo
+                        self.assertAlmostEqual(_dif_ang(rumbo, rumbo_nariz), 0.0, places=5)
+                        self.assertAlmostEqual(_dif_ang(ala, r_p), 0.0, places=5)        # alabeo: el mismo sentido
+
+    def test_de_punta_a_punta_por_el_traductor(self):
+        """Un TELEM con la nariz arriba / abajo en FRD -> NED sale de `web1` con cabeceo +90 / -90 y ekf_ok."""
+        for pitch in (90, -90):
+            with self.subTest(pitch=pitch):
+                quat = tuple(round(32767 * x) for x in _q_zyx(0, pitch, 0))
+                _, msgs = correr([paquete(quat=quat)])
+                e = de_tipo(msgs, 'estado')[0]
+                self.assertTrue(e['flags']['ekf_ok'])
+                cab, _, _ = _angulos_web(tuple(e['q'][k] for k in 'wxyz'))
+                self.assertAlmostEqual(cab, float(pitch), delta=0.1)
+                self.assertGreaterEqual(e['q']['w'], 0)
+
+    def test_sin_ekf_publica_la_identidad_convertida(self):
+        """Sin EKF (identidad o nulo) `q` es la identidad del firmware ya convertida: nariz al norte y nivelado."""
+        s = math.sqrt(0.5)
+        for quat in ((32767, 0, 0, 0), (0, 0, 0, 0)):
+            with self.subTest(quat=quat):
+                _, msgs = correr([paquete(quat=quat)])
+                e = de_tipo(msgs, 'estado')[0]
+                self.assertFalse(e['flags']['ekf_ok'])
+                for k, v in zip('wxyz', (s, 0.0, 0.0, s)):
+                    self.assertAlmostEqual(e['q'][k], v, places=4)
 
 
 if __name__ == '__main__':
