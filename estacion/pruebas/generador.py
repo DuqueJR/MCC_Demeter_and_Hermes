@@ -101,11 +101,13 @@ def actuators_demeter(estado, momento):
 
 
 def vuelo(perfil=None, rid=1, t_ini=-30.0, t_fin=None, perdidas=(), fix_perdido=(None, None), mission=0, rssi=-80.0, vbat=4000,
-          fix_desde=-30.0, alt_base_m=web1.SITIO_ALT_MSL_M, actuators=0):
+          fix_desde=-30.0, alt_base_m=web1.SITIO_ALT_MSL_M, actuators=0, salto_armado_m=0.0):
     """Lista de (t_local, linea) de la estacion, ordenada, del vuelo del perfil.
 
     - `alt_base_m`: la altitud sobre el nivel del mar de la rampa (por defecto la del SITIO); la altura del TELEM es
       `alt_base_m + alt` del perfil.
+    - `salto_armado_m`: suma esta altura a la altitud del TELEM desde que el cohete arma (el EKF rehace su reposo al armar
+      y su altitud puede saltar unos metros; D-064).
     - `actuators`: el valor de `TELEM.actuators` de todos los paquetes, o una funcion `(estado, momento) -> valor`
       (por ejemplo `actuators_demeter`).
     - `perdidas`: tiempos de simulacion `(desde, hasta)` en los que no llega ningun paquete del cohete.
@@ -130,7 +132,7 @@ def vuelo(perfil=None, rid=1, t_ini=-30.0, t_fin=None, perdidas=(), fix_perdido=
             lat, lon = web1.desplazar_latlon(web1.SITIO_LAT, web1.SITIO_LON, x['e'], x['n'])
             fix = 0 if (fix_perdido[0] is not None and fix_perdido[0] <= t < fix_perdido[1]) else (3 if t >= fix_desde else 0)
             out.append((UTC0_MS / 1000 + (a - abs0) * 0.04 + AIRE_S,
-                        linea_t(rid, rssi=rssi, utc_ms=a * 40, lat=lat, lon=lon, alt_msl_m=alt_base_m + x['alt'],
+                        linea_t(rid, rssi=rssi, utc_ms=a * 40, lat=lat, lon=lon, alt_msl_m=alt_base_m + x['alt'] + (salto_armado_m if st != web1.S_TIERRA else 0.0),
                                 vn=x['vn'], ve=x['ve'], vu=x['vz'], state=st, moment=mo, fix=fix, vbat=vbat,
                                 actuators=actuators(st, mo) if callable(actuators) else actuators,
                                 flags=web1.TF_FLYING if vuela else 0, mission=mission,

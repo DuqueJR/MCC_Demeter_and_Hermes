@@ -13,7 +13,8 @@ Contratos que cumple (no se cambian desde aqui):
 
 Altura (T-657, D-064): `pos.alt_agl_m` = `alt_msl - referencia`, con la regla de `p0` de firmware/cohete/src/mission.cpp
 (`REF_TAU_S` = 60 s): mientras el cohete esta en TIERRA la referencia sigue a la altitud del TELEM (solo muestras con EKF;
-sin EKF, GNSS con fix 3D) y al pasar a ARMED o FLY se congela. No hay altitud del sitio en el calculo. `ruta_referencia`
+sin EKF, GNSS con fix 3D); en ARMED sigue con un tau corto (`REF_TAU_ARMADO_S` = 5 s, porque el EKF rehace su reposo al
+armar y su altitud puede saltar unos metros); en FLY y RECOVERY queda congelada con el ultimo valor de ARMED. No hay altitud del sitio en el calculo. `ruta_referencia`
 (el dashboard en vivo) la persiste por cohete y mision. `act.*`, `flags.reanudado` y `salud.pi` salen de TELEM.actuators
 y TELEM.flags (D-065).
 
@@ -82,6 +83,7 @@ SERIE_MAX_RETENIDOS = 200_000     # (P) puntos que se guardan en memoria por mis
 
 # Altura de mision (D-064): la regla de `p0` del firmware (mission.cpp: REF_TAU_S) aplicada a la altura del TELEM.
 REF_TAU_S = 60.0                  # igual que mission.cpp: en TIERRA la referencia sigue al clima con tau = 60 s
+REF_TAU_ARMADO_S = 5.0            # (P) en ARMED sigue con este tau corto: absorbe el salto del EKF al rehacer su reposo
 REF_GUARDAR_S = 10.0              # (P) cada cuanto se persiste la referencia mientras sigue (y siempre al congelarse)
 REF_VIGENCIA_S = 12 * 3600.0      # (P) una referencia guardada mas vieja que esto no se usa (otro dia de pruebas)
 RUTA_REFERENCIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web1_referencia.json')   # ignorado por el repo
@@ -300,7 +302,7 @@ class _Cohete:
         self.enlace = collections.deque()   # (t_local, esperados, perdidos)
         # Referencia de altura (D-064): la altitud sobre el nivel del mar que vale como 0 m
         self.ref = None
-        self.ref_fuente = None        # 'ekf' | 'gnss' (muestras reales) | 'archivo' | 'respaldo'
+        self.ref_fuente = None        # 'ekf' | 'gnss' (muestras reales, tambien la recuperada del archivo) | 'respaldo'
         self.ref_t = None             # hora local de la ultima muestra que la movio (None = congelada o sin empezar)
         self.ref_congelada = False
         self.ref_escrita_t = None
@@ -547,50 +549,67 @@ class Traductor:
             pass
 
     def _cargar_ref(self, c, t_local):
-        """La referencia guardada de este cohete y esta mision, si es reciente; si no, None."""
+        """La referencia guardada de este cohete y esta mision, si es reciente: (altitud, fuente); si no, None."""
         if self.ruta_referencia is None:
             return None
         r = self._leer_refs().get(self._clave_ref(c))
         try:
-            if r is not None and 0.0 <= t_local - float(r["t"]) <= REF_VIGENCIA_S and math.isfinite(float(r["alt_msl_m"])):
-                return float(r["alt_msl_m"])
+            if (r is not None and 0.0 <= t_local - float(r["t"]) <= REF_VIGENCIA_S and math.isfinite(float(r["alt_msl_m"]))
+                    and r["fuente"] in ('ekf', 'gnss')):
+                return float(r["alt_msl_m"]), r["fuente"]
         except (KeyError, TypeError, ValueError):
             pass
         return None
 
+    def _seguir(self, c, alt_msl, ekf_ok, fix, t_local, tau):
+        """Mueve la referencia hacia `alt_msl` con un filtro exponencial de constante `tau`, si la muestra vale.
+        La primera muestra valida la inicializa (como `s_ref` en el firmware); un respaldo tambien se reemplaza por ella."""
+        fuente = 'ekf' if ekf_ok else ('gnss' if fix >= 3 else None)
+        if fuente is None:
+            return
+        if c.ref is None or c.ref_fuente == 'respaldo' or (fuente == 'ekf' and c.ref_fuente == 'gnss'):
+            c.ref, c.ref_fuente = alt_msl, fuente
+        elif fuente == c.ref_fuente:
+            dt = 0.0 if c.ref_t is None else max(0.0, t_local - c.ref_t)   # tras estar congelada no cuenta ese tiempo
+            c.ref += (alt_msl - c.ref) * (1.0 - math.exp(-dt / tau))
+        else:
+            return
+        c.ref_t = t_local
+        self._guardar_ref(c, t_local, forzar=False)
+
     def _referencia(self, c, t, alt_msl, ekf_ok, t_local):
-        """La altitud (sobre el nivel del mar) que vale como 0 m, con la regla de `p0` de mission.cpp: mientras el cohete
-        esta en TIERRA sigue a `alt_msl` con un filtro exponencial de tau = REF_TAU_S, y al salir de TIERRA se congela.
+        """La altitud (sobre el nivel del mar) que vale como 0 m, con la regla de `p0` de mission.cpp:
+        - TIERRA: sigue a `alt_msl` con un filtro exponencial de tau = REF_TAU_S (60 s), como el clima.
+        - ARMED (el cohete sigue quieto en la rampa): sigue con tau = REF_TAU_ARMADO_S (5 s) desde el valor que traia, para
+          absorber el salto que puede dar la altitud del EKF cuando el firmware rehace su reposo al armar.
+        - FLY y RECOVERY: congelada con el ultimo valor de ARMED (el primer paquete de FLY ya puede venir subiendo).
         Solo mueven la referencia las muestras con EKF; sin EKF, las del GNSS con fix 3D. No se mezclan las fuentes: una
         referencia nacida del EKF ignora las muestras solo-GNSS (la altura de cada una se mide distinto).
         Devuelve None si aun no hay referencia (ni muestra valida en TIERRA)."""
         state = t['state']
-        if state == S_TIERRA:
+        if state in (S_TIERRA, S_ARMED):
+            if c.ref is None and state == S_ARMED:
+                self._recuperar_ref(c, alt_msl, t_local)
             c.ref_congelada = False
-            fuente = 'ekf' if ekf_ok else ('gnss' if t['fix'] >= 3 else None)
-            if fuente is None:
-                return c.ref
-            if c.ref is None or c.ref_fuente in ('archivo', 'respaldo') or (fuente == 'ekf' and c.ref_fuente == 'gnss'):
-                c.ref, c.ref_fuente = alt_msl, fuente                  # la primera muestra valida (como `s_ref` en el firmware)
-            elif fuente == c.ref_fuente:
-                dt = 0.0 if c.ref_t is None else max(0.0, t_local - c.ref_t)   # tras un desarme no cuenta el tiempo congelada
-                c.ref += (alt_msl - c.ref) * (1.0 - math.exp(-dt / REF_TAU_S))
-            else:
-                return c.ref
-            c.ref_t = t_local
-            self._guardar_ref(c, t_local, forzar=False)
-        elif state != 0:                                               # ARMED, FLY o RECOVERY: congelada
+            self._seguir(c, alt_msl, ekf_ok, t['fix'], t_local, REF_TAU_S if state == S_TIERRA else REF_TAU_ARMADO_S)
+        elif state != 0:                                               # FLY o RECOVERY: congelada
             if not c.ref_congelada:
                 c.ref_congelada, c.ref_t = True, None
                 self._guardar_ref(c, t_local, forzar=True)
-            if c.ref is None:                                          # el dashboard arranco con el cohete ya fuera de TIERRA
-                guardada = self._cargar_ref(c, t_local)
-                if guardada is not None:
-                    c.ref, c.ref_fuente = guardada, 'archivo'
-                else:                                                  # respaldo (P): la altitud de la estacion, o la primera muestra
-                    c.ref = self.pos_estacion[2] if self.pos_estacion is not None else alt_msl
-                    c.ref_fuente = 'respaldo'
+            if c.ref is None:                                          # el dashboard arranco con el cohete ya en vuelo
+                self._recuperar_ref(c, alt_msl, t_local)
         return c.ref
+
+    def _recuperar_ref(self, c, alt_msl, t_local):
+        """El dashboard arranco con el cohete ya fuera de TIERRA: la referencia guardada; si no hay, el respaldo (P):
+        la altitud de la estacion, o la primera muestra. Un respaldo no se persiste y lo reemplaza la primera muestra
+        valida mientras el cohete siga en ARMED."""
+        guardada = self._cargar_ref(c, t_local)
+        if guardada is not None:
+            c.ref, c.ref_fuente = guardada
+        else:
+            c.ref = self.pos_estacion[2] if self.pos_estacion is not None else alt_msl
+            c.ref_fuente = 'respaldo'
 
     def _estado(self, c, t, t_local):
         seq, t_ms, utc_ms = self._tiempos(c, t, t_local)

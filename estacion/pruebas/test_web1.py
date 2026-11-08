@@ -922,32 +922,66 @@ class AlturaDeMision(Contrato):
             self.assertAlmostEqual(est[i]['pos']['alt_agl_m'], esperado, delta=0.15, msg=f'paquete {i}')
         self.assertEqual(web1.REF_TAU_S, 60.0)
 
-    def test_se_congela_al_armar_y_en_vuelo(self):
+    def test_sigue_en_armed_y_se_congela_en_vuelo(self):
+        """TIERRA tau = 60 s; ARMED tau = 5 s (absorbe el salto del EKF); FLY y RECOVERY congelada con el ultimo valor de ARMED."""
         tr, msgs = correr(serie_paquetes(100, lambda i: 600.0))
-        n = len(de_tipo(msgs, 'estado'))
         # ARMED: la altitud sube 3 m (el EKF rehace el reposo al armar) y se queda ahi 5 minutos
         tr, m2 = correr(serie_paquetes(600, lambda i: 603.0, i0=100, state=web1.S_ARMED), tr)
         armado = de_tipo(m2, 'estado')
-        self.assertEqual({e['pos']['alt_agl_m'] for e in armado}, {3.0})          # no se arrastra: congelada
-        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 600.0)
-        # FLY: 100 m mas arriba
+        self.assertAlmostEqual(armado[0]['pos']['alt_agl_m'], 3.0, delta=0.3)     # no reinicializa de golpe
+        for k in (10, 33, 599):
+            esperado = 3.0 * math.exp(-(k + 1) * 0.48 / web1.REF_TAU_ARMADO_S)
+            self.assertAlmostEqual(armado[k]['pos']['alt_agl_m'], esperado, delta=0.15, msg=f'paquete ARMED {k}')
+        self.assertLessEqual(abs(armado[33]['pos']['alt_agl_m']), 0.5)            # tras ~15 s en ARMED
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref, 603.0, delta=0.05)
+        # FLY: 100 m mas arriba; el primer paquete de FLY no mueve la referencia
         tr, m3 = correr(serie_paquetes(5, lambda i: 703.0, i0=700, state=web1.S_FLY, moment=web1.M_BOOST), tr)
-        self.assertEqual(alt_agl_ultimo(m3), 103.0)
-        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 600.0)
+        self.assertAlmostEqual(alt_agl_ultimo(m3), 703.0 - ref, delta=0.06)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
         # RECOVERY: sigue congelada
         tr, m4 = correr(serie_paquetes(5, lambda i: 590.0, i0=710, state=web1.S_RECOVERY, moment=web1.M_ATERRIZAJE), tr)
-        self.assertEqual(alt_agl_ultimo(m4), -10.0)
+        self.assertAlmostEqual(alt_agl_ultimo(m4), 590.0 - ref, delta=0.06)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
 
-    def test_si_se_desarma_vuelve_a_seguir(self):
+    def test_salto_de_4_m_al_armar_se_absorbe_en_15_s(self):
+        tr, _ = correr(serie_paquetes(150, lambda i: 600.0))                         # 72 s en TIERRA
+        tr, m = correr(serie_paquetes(35, lambda i: 604.0, i0=150, state=web1.S_ARMED), tr)   # +4 m al armar, 16,8 s
+        est = de_tipo(m, 'estado')
+        self.assertGreater(est[0]['pos']['alt_agl_m'], 3.5)                           # al principio se ve el salto
+        self.assertLessEqual(abs(est[-1]['pos']['alt_agl_m']), 0.5)                   # y a los ~15 s ya no
+
+    def test_el_despegue_no_mueve_la_referencia(self):
+        tr, _ = correr(serie_paquetes(150, lambda i: 600.0))
+        tr, _ = correr(serie_paquetes(60, lambda i: 600.0, i0=150, state=web1.S_ARMED), tr)
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        # el primer paquete FLY ya viene subiendo (LAUNCH) y luego BOOST: la referencia es la de ARMED, siempre
+        alturas = [601.5, 604.0, 612.0, 640.0, 700.0, 800.0]
+        tr, m = correr(serie_paquetes(len(alturas), lambda i: alturas[i - 210], i0=210, state=web1.S_FLY, moment=web1.M_LAUNCH), tr)
+        est = de_tipo(m, 'estado')
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+        for e, h in zip(est, alturas):
+            self.assertAlmostEqual(e['pos']['alt_agl_m'], h - ref, delta=0.06)
+        tr, m = correr(serie_paquetes(3, lambda i: 900.0, i0=216, state=web1.S_FLY, moment=web1.M_BOOST), tr)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+
+    def test_si_se_desarma_vuelve_a_tau_60(self):
         tr, _ = correr(serie_paquetes(50, lambda i: 600.0))
         tr, _ = correr(serie_paquetes(50, lambda i: 603.0, i0=50, state=web1.S_ARMED), tr)
-        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 600.0)
-        # desarme: TIERRA otra vez. El tiempo que estuvo congelada no cuenta: no salta, sigue con tau = 60 s desde ahi
-        tr, m = correr(serie_paquetes(2, lambda i: 603.0, i0=100), tr)
-        self.assertAlmostEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 600.0, delta=0.03)
-        tr, m = correr(serie_paquetes(200, lambda i: 603.0, i0=102), tr)
+        ref0 = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref0, 603.0, delta=0.1)                                # ARMED siguio la altitud con tau = 5 s
+        # desarme: TIERRA otra vez, con tau = 60 s desde ahi (la altitud ahora es 610)
+        tr, _ = correr(serie_paquetes(200, lambda i: 610.0, i0=100), tr)
         ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
-        self.assertAlmostEqual(ref, 603.0 - 3.0 * math.exp(-200 * 0.48 / web1.REF_TAU_S), delta=0.1)
+        self.assertAlmostEqual(ref, 610.0 - (610.0 - ref0) * math.exp(-200 * 0.48 / web1.REF_TAU_S), delta=0.05)
+        self.assertGreater(610.0 - ref, 0.5)                                          # con tau = 5 s ya estaria en 610
+
+    def test_tras_estar_congelada_no_cuenta_ese_tiempo(self):
+        tr, _ = correr(serie_paquetes(50, lambda i: 600.0))
+        tr, _ = correr(serie_paquetes(5, lambda i: 600.0, i0=50, state=web1.S_FLY, moment=web1.M_COAST), tr)
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        tr, _ = correr(serie_paquetes(1, lambda i: 650.0, i0=5000), tr)               # una hora despues, de nuevo en TIERRA
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)    # no salta a la muestra
 
     def test_las_referencias_son_por_cohete(self):
         lin = serie_paquetes(40, lambda i: 700.0, rid=1) + serie_paquetes(40, lambda i: 1500.0, rid=2)
@@ -990,6 +1024,23 @@ class AlturaDeMision(Contrato):
         self.assertLess(abs(aterrizado['pos']['alt_agl_m']), 1.0)                  # vuelve a la rampa
         self.assertValidos(msgs)
 
+    def test_apogeo_con_un_salto_de_4_m_al_armar(self):
+        """El EKF salta +4 m al armar y se queda ahi: la referencia lo absorbe en ARMED y el apogeo sigue en 669,3 +- 3 m
+        (si se congelara en el primer paquete ARMED, el error fijo seria de 4 m)."""
+        tr, msgs = correr(tuple(g.vuelo(g.perfil_demeter(), alt_base_m=1500.0, salto_armado_m=4.0)))
+        apogeo = [e for e in de_tipo(msgs, 'evento') if e['tipo'] == 'apogeo'][0]
+        self.assertAlmostEqual(apogeo['valor'], 669.3, delta=3.0)
+        snap = tr.snapshot('demeter')
+        self.assertAlmostEqual(snap['salud']['apogeo_m'], 669.3, delta=3.0)
+        self.assertAlmostEqual(snap['salud']['alt_origen_msl_m'], 1504.0, delta=0.5)      # la referencia absorbio el salto
+        est = de_tipo(msgs, 'estado')
+        antes = [e for e in est if e['fase'] == 'ARMED'][0]
+        self.assertGreater(antes['pos']['alt_agl_m'], 2.0)                                # el salto se ve al armar...
+        despegue = [e for e in est if e['fase'] == 'BOOST'][0]
+        self.assertLess(abs(est[est.index(despegue) - 1]['pos']['alt_agl_m']), 0.5)       # ...y ya no al despegar
+        self.assertLess(abs(est[-1]['pos']['alt_agl_m']), 1.0)
+        self.assertValidos(msgs)
+
     def test_tiempo_restante_usa_la_altura_sobre_la_rampa(self):
         """En DESCENT, a 1000 m de altitud con la rampa a 700: 300 m sobre la rampa a 10 m/s = 30 s."""
         lin = serie_paquetes(40, lambda i: 700.0)
@@ -1025,22 +1076,43 @@ class ReferenciaPersistida(Contrato):
         self.assertEqual(list(d), ['1:0'])                     # por cohete (1 = Demeter) y mision (0 = sin MISSION_ID)
         self.assertEqual(d['1:0']['alt_msl_m'], 600.0)
         self.assertFalse(d['1:0']['congelada'])
-        correr(serie_paquetes(3, lambda i: 600.0, i0=60, state=web1.S_ARMED), tr)
+        # ARMED: sigue y tambien guarda (cada 10 s); 40 paquetes son 19 s
+        correr(serie_paquetes(40, lambda i: 603.0, i0=60, state=web1.S_ARMED), tr)
         with open(self.ruta, encoding='utf-8') as f:
-            self.assertTrue(json.load(f)['1:0']['congelada'])
+            d = json.load(f)
+        self.assertFalse(d['1:0']['congelada'])
+        self.assertGreater(d['1:0']['alt_msl_m'], 602.0)
+        # FLY: se congela y guarda siempre
+        correr(serie_paquetes(1, lambda i: 640.0, i0=100, state=web1.S_FLY, moment=web1.M_BOOST), tr)
+        with open(self.ruta, encoding='utf-8') as f:
+            d2 = json.load(f)
+        self.assertTrue(d2['1:0']['congelada'])
+        self.assertAlmostEqual(d2['1:0']['alt_msl_m'], tr.snapshot('demeter')['salud']['alt_origen_msl_m'], delta=0.06)   # el snapshot redondea a 0,1 m
 
     def test_un_reinicio_con_el_cohete_armado_recupera_la_referencia(self):
         tr = Traductor(ruta_referencia=self.ruta)
         correr(serie_paquetes(100, lambda i: 600.0), tr)
-        correr(serie_paquetes(10, lambda i: 603.0, i0=100, state=web1.S_ARMED), tr)
-        # el dashboard se reinicia: otro Traductor; su primer paquete es de un cohete ya armado y luego en vuelo
+        correr(serie_paquetes(60, lambda i: 603.0, i0=100, state=web1.S_ARMED), tr)
+        correr(serie_paquetes(2, lambda i: 640.0, i0=160, state=web1.S_FLY, moment=web1.M_BOOST), tr)   # se congela y guarda
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref, 603.0, delta=0.05)
+        # el dashboard se reinicia con el cohete en vuelo: otro Traductor recupera la referencia congelada
         nuevo = Traductor(ruta_referencia=self.ruta)
-        _, m = correr(serie_paquetes(3, lambda i: 603.0, i0=110, state=web1.S_ARMED), nuevo)
-        self.assertEqual(alt_agl_ultimo(m), 3.0)
-        _, m = correr(serie_paquetes(3, lambda i: 750.0, i0=113, state=web1.S_FLY, moment=web1.M_COAST), nuevo)
-        self.assertEqual(alt_agl_ultimo(m), 150.0)
-        self.assertEqual(nuevo.snapshot('demeter')['salud']['alt_origen_msl_m'], 600.0)
+        _, m = correr(serie_paquetes(3, lambda i: 750.0, i0=162, state=web1.S_FLY, moment=web1.M_COAST), nuevo)
+        self.assertAlmostEqual(alt_agl_ultimo(m), 750.0 - ref, delta=0.01)
+        self.assertEqual(nuevo.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
         self.assertValidos(m)
+
+    def test_un_reinicio_con_el_cohete_en_armed_sigue_desde_la_guardada(self):
+        tr = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(100, lambda i: 600.0), tr)
+        correr(serie_paquetes(30, lambda i: 600.0, i0=100, state=web1.S_ARMED), tr)
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        # la altitud salto 4 m mientras el dashboard estaba apagado: parte de la guardada (600) y sigue con tau = 5 s
+        _, m = correr(serie_paquetes(40, lambda i: 604.0, i0=130, state=web1.S_ARMED), nuevo)
+        est = de_tipo(m, 'estado')
+        self.assertGreater(est[0]['pos']['alt_agl_m'], 3.0)
+        self.assertLessEqual(abs(est[-1]['pos']['alt_agl_m']), 0.5)
 
     def test_otra_mision_u_otro_cohete_no_la_usan(self):
         tr = Traductor(ruta_referencia=self.ruta)
@@ -1068,6 +1140,11 @@ class ReferenciaPersistida(Contrato):
         sin = Traductor(ruta_referencia=self.ruta)
         _, m = correr(serie_paquetes(3, lambda i: 603.0, i0=1, state=web1.S_FLY, moment=web1.M_BOOST), sin)
         self.assertEqual(alt_agl_ultimo(m), 0.0)
+        # en ARMED (el cohete sigue en la rampa) el respaldo lo reemplaza la primera muestra valida
+        armado = Traductor(ruta_referencia=self.ruta)
+        armado.procesar(g.linea_time(6.579, -75.815, 505.0), T0)
+        correr(serie_paquetes(3, lambda i: 603.0, i0=1, state=web1.S_ARMED), armado)
+        self.assertEqual(armado.snapshot('demeter')['salud']['alt_origen_msl_m'], 603.0)
 
     def test_un_archivo_roto_o_ilegible_no_tumba_nada(self):
         with open(self.ruta, 'w', encoding='utf-8') as f:
