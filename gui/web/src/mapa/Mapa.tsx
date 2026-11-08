@@ -2,7 +2,7 @@
 // de forma diferida (`SeccionMapa.tsx` lo pide con `import()` al acercarse la sección).
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./mapa.css";
-import { Expand, LocateFixed, Scan, Shrink } from "lucide-preact";
+import { Box, Expand, LocateFixed, Scan, Shrink, Square } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { estado } from "../datos/api";
 import { numero } from "../mision/formato";
@@ -92,6 +92,19 @@ export default function Mapa({ completa, alAlternarCompleta }: PropsMapa) {
           >
             <Scan aria-hidden="true" />
           </button>
+          {control.con3d && (
+            <button
+              type="button"
+              class="mapa-boton"
+              data-mapa-boton="3d"
+              aria-label={control.modo3d.value ? "Vista 2D" : "Vista 3D"}
+              title={control.modo3d.value ? "Vista 2D" : "Vista 3D"}
+              aria-pressed={control.modo3d.value}
+              onClick={() => control.alternar3d()}
+            >
+              {control.modo3d.value ? <Square aria-hidden="true" /> : <Box aria-hidden="true" />}
+            </button>
+          )}
           <button
             type="button"
             class="mapa-boton"

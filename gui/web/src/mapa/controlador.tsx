@@ -11,6 +11,7 @@ import {
   type PositionAnchor,
   removeProtocol,
   ScaleControl,
+  type SkySpecification,
   setWorkerUrl,
 } from "maplibre-gl";
 import urlTrabajador from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
@@ -28,8 +29,13 @@ import {
 } from "./area";
 import { detectarBase } from "./base";
 import {
+  MAPA_3D_EXAGERACION,
+  MAPA_3D_PITCH,
+  MAPA_3D_PITCH_MAX,
+  MAPA_3D_ZOOM_VER_TODO_MENOS,
   MAPA_CENTRO_POR_DEFECTO,
   MAPA_ESCALA_MAX_PX,
+  MAPA_MARCADOR_OPACIDAD_TAPADO,
   MAPA_RELLENO_PX,
   MAPA_ZOOM_AJUSTE_MAX,
   MAPA_ZOOM_CENTRAR,
@@ -38,8 +44,13 @@ import {
 import { relieveActivo } from "./estado_relieve";
 import {
   CAPAS_RELIEVE,
+  capaCortina,
+  cielo3d,
   construirEstilo,
   FUENTE,
+  fuenteCortina,
+  fuenteTerreno,
+  ID_3D,
   leerTokensDelDocumento,
   leerTokensRelieveDelDocumento,
   type RelieveEstilo,
@@ -47,15 +58,21 @@ import {
 } from "./estilo";
 import {
   agregarPunto,
+  agregarPuntoAlt,
   type Capas,
   type Coord,
   construirCapas,
+  cortinaTrayectoria,
   type DecisionLkp,
   decidirLkp,
   type EntradaMapa,
   fueraDeLimites,
   type Limites,
+  limitesConAltura,
+  type PuntoAlt,
+  puntosAltDeSerie,
   puntosDeSerie,
+  unirLimites,
 } from "./geo";
 import {
   ChipDistancia,
@@ -96,6 +113,11 @@ export interface ControlMapa {
   tokens: Tokens;
   /** Si el mapa tiene base vectorial (el PMTiles existe) o solo las capas de la misión. */
   conBase: boolean;
+  /** Hay relieve: se puede ofrecer la vista 3D (T-656). Sin él, el botón no aparece. */
+  con3d: boolean;
+  /** La vista 3D está activa (arranca siempre en 2D). */
+  modo3d: ReadonlySignal<boolean>;
+  alternar3d(): void;
   centrarEnCohete(): void;
   verTodo(): void;
   /** Gestos cooperativos: activos en la página; se apagan en pantalla completa. */
@@ -133,7 +155,12 @@ class Marca {
       const elemento = document.createElement("div");
       elemento.className = `mapa-marcador ${this.clase}`;
       render(this.contenido(), elemento);
-      this.marcador = new Marker({ element: elemento, anchor: this.anclaje })
+      // Con el terreno en 3D, un marcador detrás de un cerro se atenúa por defecto: aquí nunca (GS-03).
+      this.marcador = new Marker({
+        element: elemento,
+        anchor: this.anclaje,
+        opacityWhenCovered: MAPA_MARCADOR_OPACIDAD_TAPADO,
+      })
         .setLngLat(coord)
         .addTo(this.mapa);
     }
@@ -194,12 +221,16 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     // En el celular el mapa no captura el desplazamiento de la página: un dedo desplaza la página y
     // dos dedos mueven el mapa (03 §3.4). En el portátil, Ctrl + rueda acerca.
     cooperativeGestures: true,
+    // En 2D no se rota con el ratón. `pitchWithRotate` solo decide si, al activar `dragRotate` en 3D
+    // (T-656), el arrastre también inclina; mientras `dragRotate` esté apagado no hace nada.
     dragRotate: false,
-    pitchWithRotate: false,
+    pitchWithRotate: true,
     locale: TEXTOS_MAPA,
     attributionControl: { compact: true },
   });
   mapa.touchZoomRotate.disableRotation();
+  // Para volver a 2D con los mismos gestos (el máximo de inclinación sube mientras dura el 3D).
+  const maxPitch2d = mapa.getMaxPitch();
   mapa.addControl(new NavigationControl({ showCompass: false }), "top-left");
   mapa.addControl(
     new ScaleControl({ maxWidth: MAPA_ESCALA_MAX_PX, unit: "metric" }),
@@ -227,16 +258,33 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   const hayCohete = signal(false);
   let decision: DecisionLkp | null = null;
   let rastro: Coord[] = [];
+  /** Los mismos puntos del rastro, con su altura (solo se usan en la vista 3D, T-656). */
+  let rastroAlt: PuntoAlt[] = [];
   let serieAnterior: EntradaMapa["serie"] | null = null;
   let rastroPublicado: Coord[] | null = null;
+  let cortinaPublicada: PuntoAlt[] | null = null;
   let capas: Capas | null = null;
   let interactuo = false; // el usuario movió el mapa: no se le quita la vista
   let ajustado = false; // ya se encuadró alguna vez lo que hay
   let sitioAplicado = meta.peek() !== null;
+  let estiloListo = false;
+  /** La vista 3D está activa (T-656). Arranca siempre en 2D. */
+  const modo3d = signal(false);
+  /** La cámara de 2D al entrar en 3D, para dejarla igual al volver si nadie la movió en 3D. */
+  let camara2d: { center: Coord; zoom: number } | null = null;
+  let movidaEn3d = false;
+  /** Cuenta los cambios de modo: un cierre que llega tarde (fin de la animación) no pisa un 3D nuevo. */
+  let generacion3d = 0;
 
   const duracion = () => (sinMovimiento() ? 0 : tokens.duracionMs);
-  const ponerDatos = (id: string, datos: Capas["trayectoria"] | Capas["elipse"] | Capas["linea"]) =>
-    (mapa.getSource(id) as GeoJSONSource | undefined)?.setData(datos);
+  const ponerDatos = (
+    id: string,
+    datos:
+      | Capas["trayectoria"]
+      | Capas["elipse"]
+      | Capas["linea"]
+      | ReturnType<typeof cortinaTrayectoria>,
+  ) => (mapa.getSource(id) as GeoJSONSource | undefined)?.setData(datos);
 
   const ajustarA = (l: Limites) =>
     mapa.fitBounds(
@@ -246,6 +294,31 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
       ],
       { padding: MAPA_RELLENO_PX, maxZoom: MAPA_ZOOM_AJUSTE_MAX, duration: duracion() },
     );
+  /**
+   * Lo dibujado, incluida la parte alta de la cortina en 3D (T-656): con la cámara inclinada asoma
+   * por arriba, así que "Ver todo" y el área navegable deben abarcarla. En 2D es solo `dibujado`.
+   */
+  const cajaDibujada = (): Limites | null =>
+    modo3d.value ? unirLimites(dibujado, limitesConAltura(rastroAlt, MAPA_3D_PITCH)) : dibujado;
+  /** "Ver todo" en 3D: el mismo encuadre con la inclinación y el norte arriba, algo más alejado. */
+  const ajustarA3d = (l: Limites) => {
+    const camara = mapa.cameraForBounds(
+      [
+        [l[0], l[1]],
+        [l[2], l[3]],
+      ],
+      { padding: MAPA_RELLENO_PX, maxZoom: MAPA_ZOOM_AJUSTE_MAX },
+    );
+    if (!camara) return;
+    mapa.easeTo({
+      center: camara.center,
+      zoom: (camara.zoom ?? mapa.getZoom()) - MAPA_3D_ZOOM_VER_TODO_MENOS,
+      pitch: MAPA_3D_PITCH,
+      bearing: 0,
+      duration: duracion(),
+    });
+  };
+  const encuadrar = (l: Limites) => (modo3d.value ? ajustarA3d(cajaDibujada() ?? l) : ajustarA(l));
   const visibles = (): Limites => {
     const b = mapa.getBounds();
     return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
@@ -254,8 +327,16 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     c.marcadores.lkp?.pos ?? c.marcadores.cohete?.pos ?? null;
 
   // ---- Límites del mapa (T-634)
+  /** La pose de la cámara y el modo (T-656), para las pruebas: se republica al terminar cada movimiento. */
+  const publicarPose = () => {
+    contenedor.setAttribute("data-mapa-3d", String(modo3d.value));
+    contenedor.dataset.mapaPitch = mapa.getPitch().toFixed(1);
+    contenedor.dataset.mapaBearing = mapa.getBearing().toFixed(1);
+    contenedor.dataset.mapaTerreno = mapa.getTerrain() ? "activo" : "no";
+  };
   /** Anota en el lienzo lo que las pruebas necesitan leer (como `data-mapa-reposos`). */
   const publicarVista = () => {
+    publicarPose();
     const v = visibles();
     contenedor.dataset.mapaLimites = limitesAplicados.join(",");
     contenedor.dataset.mapaVista = v.join(",");
@@ -270,10 +351,11 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
    * "Ver todo" pueda mostrarlo entero en este contenedor. Depende del tamaño del contenedor.
    */
   const calcularArea = (): Limites => {
-    const incluida = ampliarParaIncluir(areaBase(), dibujado);
+    const caja = cajaDibujada();
+    const incluida = ampliarParaIncluir(areaBase(), caja);
     return ampliarParaVista(
       incluida,
-      dibujado,
+      caja,
       contenedor.clientWidth,
       contenedor.clientHeight,
       MAPA_RELLENO_PX,
@@ -303,11 +385,19 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     if (entrada.serie !== serieAnterior) {
       serieAnterior = entrada.serie;
       rastro = puntosDeSerie(entrada.serie);
+      rastroAlt = puntosAltDeSerie(entrada.serie);
     }
     decision = decidirLkp(entrada, decision);
     // Lo que llega por el stream entre dos snapshots también alarga la trayectoria.
     const pos = entrada.estado?.pos;
-    if (!decision.activo && pos) rastro = agregarPunto(rastro, [pos.lon, pos.lat]);
+    if (!decision.activo && pos) {
+      rastro = agregarPunto(rastro, [pos.lon, pos.lat]);
+      rastroAlt = agregarPuntoAlt(rastroAlt, {
+        lon: pos.lon,
+        lat: pos.lat,
+        alt_agl_m: pos.alt_agl_m,
+      });
+    }
 
     capas = construirCapas(entrada, decision, rastro);
     // Sin PMTiles el área sigue a la rampa, que puede llegar después del mapa.
@@ -318,6 +408,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     if (rastro !== rastroPublicado) {
       rastroPublicado = rastro;
       ponerDatos(FUENTE.trayectoria, capas.trayectoria);
+      publicarCortina(); // la cortina de la vista 3D, con los mismos datos y en el mismo momento
     }
     ponerDatos(FUENTE.elipse, capas.elipse);
     ponerDatos(FUENTE.linea, capas.linea);
@@ -343,19 +434,118 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     if (!interactuo && capas.limites && destino) {
       if (!ajustado || fueraDeLimites(visibles(), destino)) {
         ajustado = true;
-        ajustarA(capas.limites);
+        encuadrar(capas.limites);
       }
     }
   };
 
   // Un gesto del usuario (no un movimiento hecho por nosotros) detiene el encuadre automático.
   const alMoverUsuario = (e: { originalEvent?: unknown }) => {
-    if (e.originalEvent) interactuo = true;
+    if (!e.originalEvent) return;
+    interactuo = true;
+    if (modo3d.value) movidaEn3d = true;
   };
   mapa.on("dragstart", alMoverUsuario);
   mapa.on("zoomstart", alMoverUsuario);
   mapa.on("resize", aplicarLimites);
   mapa.on("moveend", publicarVista);
+
+  // ---- Vista 3D opcional (T-656, D-W23)
+  // Solo existe si hay relieve (las teselas del DEM). Todo lo del 3D se agrega al entrar y se quita al
+  // salir: con el 3D apagado el estilo, los gestos y las capas son exactamente los de antes.
+
+  /** Los diagnósticos del dibujo en 3D para las pruebas (qué salió dibujado); solo existen en 3D. */
+  const publicarModo3d = () => {
+    publicarPose();
+    if (modo3d.value && mapa.getLayer(ID_3D.capaCortina)) {
+      contenedor.dataset.mapaCortinaDibujada = String(
+        mapa.queryRenderedFeatures({ layers: [ID_3D.capaCortina] }).length,
+      );
+      // La caída estimada (GS-10) apoyada en el terreno: lo que salió dibujado de la elipse.
+      contenedor.dataset.mapaElipseDibujada = String(
+        mapa.queryRenderedFeatures({ layers: ["elipse-relleno", "elipse-borde"] }).length,
+      );
+    } else {
+      delete contenedor.dataset.mapaCortinaDibujada;
+      delete contenedor.dataset.mapaElipseDibujada;
+    }
+  };
+
+  /** Actualiza la cortina con el rastro con altura; solo en 3D y solo si cambió desde la última vez. */
+  function publicarCortina(): void {
+    if (!modo3d.value || rastroAlt === cortinaPublicada) return;
+    cortinaPublicada = rastroAlt;
+    ponerDatos(
+      ID_3D.fuenteCortina,
+      cortinaTrayectoria(rastroAlt, undefined, undefined, MAPA_3D_EXAGERACION),
+    );
+  }
+
+  /** Un gesto del usuario con el mapa inclinado o girado también detiene el encuadre automático. */
+  const eventos3d = ["rotatestart", "pitchstart"] as const;
+
+  const activar3d = () => {
+    if (!relieve || !estiloListo || modo3d.value) return;
+    modo3d.value = true;
+    generacion3d++;
+    const c = mapa.getCenter();
+    camara2d = { center: [c.lng, c.lat], zoom: mapa.getZoom() };
+    movidaEn3d = false;
+    mapa.addSource(ID_3D.fuenteTerreno, fuenteTerreno(relieve.relieve));
+    mapa.addSource(ID_3D.fuenteCortina, fuenteCortina());
+    mapa.addLayer(capaCortina(tokens));
+    mapa.setTerrain({ source: ID_3D.fuenteTerreno, exaggeration: MAPA_3D_EXAGERACION });
+    mapa.setSky(cielo3d(tokens));
+    mapa.setMaxPitch(MAPA_3D_PITCH_MAX);
+    mapa.dragRotate.enable();
+    mapa.touchZoomRotate.enableRotation();
+    for (const e of eventos3d) mapa.on(e, alMoverUsuario);
+    cortinaPublicada = null;
+    publicarCortina();
+    aplicarLimites(); // el área incluye la parte alta de la cortina
+    if (!interactuo && capas?.limites && destinoDe(capas))
+      ajustarA3d(cajaDibujada() ?? capas.limites);
+    else mapa.easeTo({ pitch: MAPA_3D_PITCH, duration: duracion() });
+    publicarModo3d();
+  };
+
+  const desactivar3d = () => {
+    if (!modo3d.value) return;
+    modo3d.value = false;
+    const generacion = ++generacion3d;
+    // Los gestos vuelven a ser los de 2D de inmediato (sin rotar con el ratón ni con los dedos).
+    mapa.dragRotate.disable();
+    mapa.touchZoomRotate.disableRotation();
+    for (const e of eventos3d) mapa.off(e, alMoverUsuario);
+    // El terreno, el cielo y la cortina se quitan cuando la cámara ya está plana: así no hay un salto.
+    const limpiar = () => {
+      if (generacion !== generacion3d || modo3d.value) return;
+      mapa.setTerrain(null);
+      // Sin argumento, MapLibre quita el cielo (en runtime acepta `undefined`; el tipo no lo dice).
+      mapa.setSky(undefined as unknown as SkySpecification);
+      if (mapa.getLayer(ID_3D.capaCortina)) mapa.removeLayer(ID_3D.capaCortina);
+      if (mapa.getSource(ID_3D.fuenteCortina)) mapa.removeSource(ID_3D.fuenteCortina);
+      if (mapa.getSource(ID_3D.fuenteTerreno)) mapa.removeSource(ID_3D.fuenteTerreno);
+      mapa.setMaxPitch(maxPitch2d);
+      cortinaPublicada = null;
+      aplicarLimites();
+      publicarModo3d();
+    };
+    const ms = duracion();
+    // Si nadie movió la cámara en 3D (ni con gestos ni con los botones), 2D queda como estaba al entrar.
+    const vuelta = camara2d && !movidaEn3d ? camara2d : null;
+    mapa.easeTo({
+      pitch: 0,
+      bearing: 0,
+      ...(vuelta ? { center: vuelta.center, zoom: vuelta.zoom } : {}),
+      duration: ms,
+    });
+    // Sin animación (movimiento reducido) no hay un `moveend` posterior que esperar: se limpia ya.
+    if (ms === 0) limpiar();
+    else mapa.once("moveend", limpiar);
+    aplicarLimites();
+    publicarModo3d();
+  };
 
   // Contador de "reposos" (MapLibre terminó de dibujar): las pruebas esperan a que suba para
   // capturar el mapa ya dibujado, sin dormir un tiempo fijo.
@@ -384,6 +574,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     contenedor.dataset.mapaCurvasDibujadas = String(
       capasCurvas.length > 0 ? mapa.queryRenderedFeatures({ layers: capasCurvas }).length : 0,
     );
+    publicarModo3d();
   });
   if (relieve) {
     // Que una tesela del relieve no llegue es un aviso, no un error del mapa: el resto sigue igual.
@@ -403,6 +594,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   // Se conecta en cuanto el estilo está listo, NO al evento `load`: ese espera a que lleguen las
   // teselas visibles y, con mala red, retrasaría el LKP y el cohete, que no dependen de ellas.
   mapa.once("style.load", () => {
+    estiloListo = true;
     detener = effect(() => {
       actualizar({
         sitio: meta.value?.sitio ?? null,
@@ -417,16 +609,21 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   });
   contenedor.dataset.mapaBase = base ? "vectorial" : "sin-base";
   contenedor.dataset.mapaRelieve = relieve ? "activo" : "sin-relieve";
+  contenedor.setAttribute("data-mapa-3d", "false");
   relieveActivo.value = relieve !== null;
 
   return {
     hayCohete,
     tokens,
     conBase: base !== null,
+    con3d: relieve !== null,
+    modo3d,
+    alternar3d: () => (modo3d.value ? desactivar3d() : activar3d()),
     centrarEnCohete() {
       const destino = capas && destinoDe(capas);
       if (!destino) return;
       interactuo = true;
+      if (modo3d.value) movidaEn3d = true;
       mapa.easeTo({
         center: destino,
         zoom: Math.min(mapa.getMaxZoom(), Math.max(mapa.getZoom(), MAPA_ZOOM_CENTRAR)),
@@ -435,7 +632,8 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     },
     verTodo() {
       interactuo = false;
-      if (capas?.limites) ajustarA(capas.limites);
+      if (modo3d.value) movidaEn3d = true;
+      if (capas?.limites) encuadrar(capas.limites);
     },
     cooperativo(activo) {
       if (activo) mapa.cooperativeGestures.enable();

@@ -7,10 +7,13 @@ import type {
   FilterSpecification,
   GeoJSONSourceSpecification,
   LayerSpecification,
+  SkySpecification,
+  SourceSpecification,
   StyleSpecification,
 } from "maplibre-gl";
 import {
   ESTILO_MAPA as E,
+  ESTILO_3D as E3,
   MAPA_CENTRO_POR_DEFECTO,
   MAPA_DUR_RESPALDO_MS,
   ESTILO_RELIEVE as R,
@@ -283,6 +286,73 @@ function capasRelieve(t: TokensRelieve, conCurvas: boolean): LayerSpecification[
 export interface RelieveEstilo {
   relieve: Relieve;
   tokens: TokensRelieve;
+}
+
+// ---- Vista 3D (T-656, D-W23). Nada de esto está en el estilo inicial: el controlador lo agrega al
+// entrar en 3D y lo quita al salir, así que con el 3D apagado el estilo es idéntico al de antes.
+
+/** Ids de lo que se agrega solo en 3D. */
+export const ID_3D = {
+  /** Fuente `raster-dem` del terreno, aparte de la del sombreado (MapLibre lo recomienda). */
+  fuenteTerreno: "relieve-terreno",
+  fuenteCortina: "trayectoria-cortina",
+  capaCortina: "trayectoria-cortina",
+} as const;
+
+/**
+ * La fuente del terreno: las mismas teselas del sombreado (`relieve`), pero como fuente propia. El
+ * ejemplo de MapLibre de terreno en 3D usa dos fuentes `raster-dem` con la misma URL, una para el
+ * terreno y otra para el sombreado, "para mejorar la calidad del dibujo". Sin `attribution`: la
+ * atribución del relieve ya está en la fuente del sombreado.
+ */
+export function fuenteTerreno(relieve: Relieve): SourceSpecification {
+  return {
+    type: "raster-dem",
+    tiles: [relieve.urlTeselas],
+    encoding: "terrarium",
+    tileSize: relieve.meta.tamanoTesela,
+    minzoom: relieve.meta.minzoom,
+    maxzoom: relieve.meta.maxzoom,
+    bounds: [...relieve.meta.bounds],
+  };
+}
+
+/** La fuente de la cortina de la trayectoria, vacía hasta que llegan los puntos. */
+export function fuenteCortina(): GeoJSONSourceSpecification {
+  return { type: "geojson", data: vacia };
+}
+
+/** La cortina: `fill-extrusion` con el color del rastro (`--acento`), apoyada sobre el terreno. */
+export function capaCortina(t: Tokens): LayerSpecification {
+  return {
+    id: ID_3D.capaCortina,
+    type: "fill-extrusion",
+    source: ID_3D.fuenteCortina,
+    paint: {
+      "fill-extrusion-color": t.acento,
+      "fill-extrusion-opacity": E3.opacidadCortina,
+      "fill-extrusion-height": ["get", "height"],
+      "fill-extrusion-base": ["get", "base"],
+      "fill-extrusion-vertical-gradient": false,
+    },
+  };
+}
+
+/**
+ * El cielo y la neblina del horizonte, con tokens del tema: con la cámara inclinada se ve más allá
+ * del área navegable (y de las teselas del relieve), y el horizonte debe fundirse con el fondo en
+ * lugar de mostrar un borde vacío.
+ */
+export function cielo3d(t: Tokens): SkySpecification {
+  return {
+    "sky-color": t.fondo,
+    "horizon-color": t.superficie2,
+    "fog-color": t.fondo,
+    "sky-horizon-blend": E3.cieloHorizonte,
+    "horizon-fog-blend": E3.neblinaHorizonte,
+    "fog-ground-blend": E3.neblinaSuelo,
+    "atmosphere-blend": E3.atmosfera,
+  };
 }
 
 /** La cuadrícula de referencia, que reemplaza al mapa base cuando no hay PMTiles. */
