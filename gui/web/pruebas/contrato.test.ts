@@ -162,6 +162,24 @@ describe("el esquema rechaza casos falsos", () => {
     expect(validar("salud", y)).not.toEqual([]);
   });
 
+  it("salud.pi es opcional (D-065): puede faltar, ser null (Hermes) o un objeto completo", () => {
+    const sin = copia(saludEjemplo) as { pi?: unknown };
+    delete sin.pi;
+    expect(validar("salud", sin)).toEqual([]);
+    expect(validar("salud", { ...copia(saludEjemplo), pi: null })).toEqual([]);
+    expect(validar("salud", { ...copia(saludEjemplo), pi: { estado: "SD_FULL", motivo: "SD_ESPACIO", bat_pct: 80 } })).toEqual([]);
+    expect(validar("salud", { ...copia(saludEjemplo), pi: { estado: "DESCONOCIDO", motivo: null, bat_pct: null } })).toEqual([]);
+    for (const malo of [
+      { estado: "ARMED" },
+      { estado: 3, motivo: null, bat_pct: null },
+      { estado: "ARMED", motivo: null, bat_pct: 101 },
+      { estado: "ARMED", motivo: null, bat_pct: null, extra: 1 },
+      "ARMED",
+    ]) {
+      expect(validar("salud", { ...copia(saludEjemplo), pi: malo }), `pi=${JSON.stringify(malo)}`).not.toEqual([]);
+    }
+  });
+
   it("estado.vel como texto, número o incompleto se rechaza", () => {
     for (const v of ["0,4", 0.4, [], { n_ms: 1 }, { ...estadoEjemplo.vel, extra: 1 }]) {
       const e = { ...copia(estadoEjemplo), vel: v };

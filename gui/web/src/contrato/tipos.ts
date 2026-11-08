@@ -145,6 +145,13 @@ export interface Salud {
   temp_esp_c: number | null;
   /** null en Hermes. */
   temp_pi_c: number | null;
+  /**
+   * Opcional (D-065): la Raspberry Pi de Demeter. Si no llega, es "sin dato"; en Hermes es `null`.
+   * `estado` es el nombre del `StatusCode` de `demeter_protocol.py` ("DESCONOCIDO" sin latido en 3 s);
+   * `motivo` es el nombre del `ErrorCode` (`SD_ESPACIO`, …) o `null` si no hay error;
+   * `bat_pct` es `null` por ahora: la UART no la trae.
+   */
+  pi?: { estado: string; motivo: string | null; bat_pct: number | null } | null;
   /** Nombres de los bits activos (protocolo §3). */
   fallas: string[];
   fallas_bits: number;

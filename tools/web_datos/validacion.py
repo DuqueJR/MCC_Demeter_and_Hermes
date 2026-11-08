@@ -44,6 +44,7 @@ class Campo:
     decimales: int | None = None
     opciones: tuple | None = None
     interno: Any = None  # para "obj": dict de campos; para "lista": un Campo
+    opcional: bool = False  # el campo puede faltar (el esquema no lo exige): `salud.pi` (D-065)
 
 
 def I(nulo=False, minimo=None, maximo=None, opciones=None):  # noqa: E743
@@ -62,8 +63,8 @@ def B(nulo=False):
     return Campo("bool", nulo)
 
 
-def O(interno, nulo=False):  # noqa: E741
-    return Campo("obj", nulo, interno=interno)
+def O(interno, nulo=False, opcional=False):  # noqa: E741
+    return Campo("obj", nulo, interno=interno, opcional=opcional)
 
 
 def L(interno):
@@ -184,6 +185,11 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         "bat_mv": I(nulo=True, minimo=0, maximo=65535),
         "temp_esp_c": I(nulo=True, minimo=-127, maximo=127),
         "temp_pi_c": I(nulo=True, minimo=-127, maximo=127),
+        "pi": O(  # D-065: opcional; null en Hermes
+            {"estado": S(), "motivo": S(nulo=True), "bat_pct": I(nulo=True, minimo=0, maximo=100)},
+            nulo=True,
+            opcional=True,
+        ),
         "fallas": L(S()),
         "fallas_bits": I(minimo=0, maximo=0xFFFF),
         "calib": O({c: B(nulo=True) for c in _BOOL5}),  # D-050: cada una puede ser null
@@ -279,7 +285,7 @@ def _validar_valor(v, c: Campo, ruta: str, errores: list[str]) -> None:
 
 
 def _validar_objeto(obj: dict, spec: dict[str, Campo], ruta: str, errores: list[str]) -> None:
-    faltan = [k for k in spec if k not in obj]
+    faltan = [k for k, c in spec.items() if k not in obj and not c.opcional]
     sobran = [k for k in obj if k not in spec]
     if faltan:
         errores.append(f"{ruta}: faltan campos {faltan}")
