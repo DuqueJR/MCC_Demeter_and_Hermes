@@ -472,7 +472,7 @@ test.describe("la línea, el cohete con su imagen y el pin del impacto en 3D (ro
     expect(new Set(srcs).size).toBe(2);
   });
 
-  test("la imagen se mueve al cambiar el dato y se gira hacia donde va; en el descenso queda vertical", async ({
+  test("la imagen se mueve al cambiar el dato y se gira hacia donde va; en el descenso va boca abajo", async ({
     page,
   }) => {
     test.setTimeout(240_000);
@@ -498,11 +498,12 @@ test.describe("la línea, el cohete con su imagen y el pin del impacto en 3D (ro
       )
       .toBeGreaterThan(3);
 
-    // Descenso con paracaídas: vertical, con la nariz arriba (decisión de T-656: no cae de nariz).
+    // Descenso con paracaídas: la nariz sigue el movimiento, es decir, hacia abajo (boca abajo), y se
+    // inclina con la deriva: cerca de 135° (180° de "abajo" menos los 45° que trae el dibujo), no -45°.
     await volar(page, "demeter", TIEMPOS.demeter.descenso);
     await expect
-      .poll(async () => (await lecturaDeLaImagen(page)).angulo, { timeout: 20_000 })
-      .toBe(-45);
+      .poll(async () => dif((await lecturaDeLaImagen(page)).angulo, 135), { timeout: 20_000 })
+      .toBeLessThan(45);
     await expect(imagenCohete(page)).toBeVisible();
 
     // Aterriza: la imagen se oculta (queda el marcador del suelo) y no hay plomada de un cohete en el aire.
@@ -978,5 +979,41 @@ test.describe("capturas de la ronda 3", () => {
         }
       });
     }
+  }
+});
+
+// ---- Capturas de la ronda 4: el descenso, con el cohete boca abajo ----
+
+const CAPTURAS_R4 = resolve(CAPTURAS, "ronda4");
+mkdirSync(CAPTURAS_R4, { recursive: true });
+
+test.describe("capturas de la ronda 4", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  for (const mision of MISIONES) {
+    test(`${mision} escritorio: la subida y el descenso boca abajo`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await abrir(page, mision);
+      await volar(page, mision, TIEMPOS[mision].ascenso);
+      await entrar3d(page);
+      await expect.poll(async () => (await lecturaDeLaImagen(page)).oculta).toBe(false);
+      const subida = await lecturaDeLaImagen(page);
+      await page.getByRole("button", { name: "Ver todo" }).click();
+      await page.waitForTimeout(2500);
+      await capturarEn(page, resolve(CAPTURAS_R4, `${mision}-escritorio-1-subida.png`));
+
+      await volar(page, mision, TIEMPOS[mision].descenso);
+      await page.getByRole("button", { name: "Ver todo" }).click();
+      await page.waitForTimeout(3000);
+      // Boca abajo: el ángulo está cerca de 135° y es otro que el de la subida.
+      await expect
+        .poll(async () => dif((await lecturaDeLaImagen(page)).angulo, 135), { timeout: 20_000 })
+        .toBeLessThan(60);
+      expect(dif((await lecturaDeLaImagen(page)).angulo, subida.angulo)).toBeGreaterThan(90);
+      await capturarEn(
+        page,
+        resolve(CAPTURAS_R4, `${mision}-escritorio-2-descenso-boca-abajo.png`),
+      );
+    });
   }
 });
