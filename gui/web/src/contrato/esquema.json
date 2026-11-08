@@ -632,6 +632,45 @@
             }
           ]
         },
+        "pi": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "estado": {
+                  "type": "string"
+                },
+                "motivo": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bat_pct": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["estado", "motivo", "bat_pct"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "fallas": {
           "type": "array",
           "items": {

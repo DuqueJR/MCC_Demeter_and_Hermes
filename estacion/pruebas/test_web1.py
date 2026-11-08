@@ -462,7 +462,9 @@ class Calculos(Contrato):
     def test_elipse_en_descent(self):
         """alt_agl 300 m, bajando 10 m/s con deriva (vn 3, ve 4): 30 s restantes -> 90 m al norte, 120 m al este."""
         lat, lon = web1.SITIO_LAT, web1.SITIO_LON
-        e = self.estado(lat=lat, lon=lon, alt_msl_m=810.0, vn=3.0, ve=4.0, vu=-10.0, state=web1.S_FLY, moment=web1.M_PARACAIDAS)
+        self.estado(lat=lat, lon=lon, alt_msl_m=510.0)                 # la rampa en TIERRA: la referencia de altura (D-064)
+        e = self.estado(lat=lat, lon=lon, alt_msl_m=810.0, vn=3.0, ve=4.0, vu=-10.0, state=web1.S_FLY, moment=web1.M_PARACAIDAS,
+                        t_local=T0 + 4.05, utc_ms=g.UTC0_MS + 4000)
         el = e['calc']['elipse']
         este, norte, _ = web1.enu_wgs84(lat, lon, 810.0, el['lat'], el['lon'], 810.0)
         self.assertAlmostEqual(este, 120.0, delta=0.5)
@@ -869,6 +871,436 @@ class Reproceso(Contrato):
         with open(salida, encoding='utf-8') as f:
             metas = [json.loads(l)['datos'] for l in f if '"tipo":"meta"' in l]
         self.assertEqual([m['modo'] for m in metas], ['simulacion'])
+
+
+QUAT_EKF = (23170, 23170, 0, 0)      # un cuaternion que no es la identidad: el TELEM lo manda solo si el EKF tiene solucion
+
+
+def serie_paquetes(n, alt, rid=1, i0=0, dt=0.48, **kw):
+    """`n` paquetes @T cada `dt` s (ranuras de 40 ms, a partir del indice `i0`); `alt(i)` es la altura MSL del paquete `i`."""
+    out = []
+    for i in range(i0, i0 + n):
+        out.append(paquete(rid=rid, t_local=T0 + 0.05 + i * dt, utc_ms=g.UTC0_MS + int(round(i * dt * 1000 / 40)) * 40,
+                           alt_msl_m=alt(i), **kw))
+    return out
+
+
+def alt_agl_ultimo(msgs, mision='demeter'):
+    return de_tipo(msgs, 'estado', mision)[-1]['pos']['alt_agl_m']
+
+
+class AlturaDeMision(Contrato):
+    """T-657 / D-064: la altura sobre la rampa sale de una referencia que sigue al clima en TIERRA y se congela al armar
+    (la regla de `p0` de mission.cpp), no de una constante del sitio."""
+
+    def test_quieto_en_tierra_queda_en_cero(self):
+        # 60 s de espera (125 paquetes de 0,48 s) a 1200 m de altitud, con 0,5 m de ruido
+        tr, msgs = correr(serie_paquetes(130, lambda i: 1200.0 + 0.5 * math.sin(i)))
+        est = de_tipo(msgs, 'estado')
+        self.assertLessEqual(max(abs(e['pos']['alt_agl_m']) for e in est), 1.0)
+        self.assertLessEqual(abs(est[-1]['pos']['alt_agl_m']), 2.0)
+        self.assertAlmostEqual(est[-1]['pos']['alt_msl_m'], 1200.0, delta=0.6)     # el MSL es el del TELEM, sin tocar
+        self.assertAlmostEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 1200.0, delta=0.6)
+        self.assertValidos(msgs)
+
+    def test_sin_el_sitio(self):
+        """La altitud del sitio no entra: otra constante da el mismo resultado."""
+        lineas = serie_paquetes(20, lambda i: 1200.0)
+        _, a = correr(lineas)
+        _, b = correr(lineas, Traductor(sitio=(0.0, 0.0, 9999.0)))
+        self.assertEqual([e['pos'] for e in de_tipo(a, 'estado')], [e['pos'] for e in de_tipo(b, 'estado')])
+        self.assertEqual(alt_agl_ultimo(a), 0.0)
+
+    def test_sigue_al_clima_con_tau_60(self):
+        """La altitud sube 5 m de golpe (el clima cambio): la referencia la alcanza con tau = 60 s, como `p0` del firmware."""
+        n = 300
+        tr, msgs = correr(serie_paquetes(n, lambda i: 800.0 if i < 20 else 805.0))
+        est = de_tipo(msgs, 'estado')
+        for i in (21, 100, 200, n - 1):
+            t = (i - 20) * 0.48                               # tiempo desde el salto; el paquete 20 ya trae los 805
+            esperado = 5.0 * math.exp(-t / web1.REF_TAU_S) if t > 0 else 5.0
+            self.assertAlmostEqual(est[i]['pos']['alt_agl_m'], esperado, delta=0.15, msg=f'paquete {i}')
+        self.assertEqual(web1.REF_TAU_S, 60.0)
+
+    def test_sigue_en_armed_y_se_congela_en_vuelo(self):
+        """TIERRA tau = 60 s; ARMED tau = 5 s (absorbe el salto del EKF); FLY y RECOVERY congelada con el ultimo valor de ARMED."""
+        tr, msgs = correr(serie_paquetes(100, lambda i: 600.0))
+        # ARMED: la altitud sube 3 m (el EKF rehace el reposo al armar) y se queda ahi 5 minutos
+        tr, m2 = correr(serie_paquetes(600, lambda i: 603.0, i0=100, state=web1.S_ARMED), tr)
+        armado = de_tipo(m2, 'estado')
+        self.assertAlmostEqual(armado[0]['pos']['alt_agl_m'], 3.0, delta=0.3)     # no reinicializa de golpe
+        for k in (10, 33, 599):
+            esperado = 3.0 * math.exp(-(k + 1) * 0.48 / web1.REF_TAU_ARMADO_S)
+            self.assertAlmostEqual(armado[k]['pos']['alt_agl_m'], esperado, delta=0.15, msg=f'paquete ARMED {k}')
+        self.assertLessEqual(abs(armado[33]['pos']['alt_agl_m']), 0.5)            # tras ~15 s en ARMED
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref, 603.0, delta=0.05)
+        # FLY: 100 m mas arriba; el primer paquete de FLY no mueve la referencia
+        tr, m3 = correr(serie_paquetes(5, lambda i: 703.0, i0=700, state=web1.S_FLY, moment=web1.M_BOOST), tr)
+        self.assertAlmostEqual(alt_agl_ultimo(m3), 703.0 - ref, delta=0.06)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+        # RECOVERY: sigue congelada
+        tr, m4 = correr(serie_paquetes(5, lambda i: 590.0, i0=710, state=web1.S_RECOVERY, moment=web1.M_ATERRIZAJE), tr)
+        self.assertAlmostEqual(alt_agl_ultimo(m4), 590.0 - ref, delta=0.06)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+
+    def test_salto_de_4_m_al_armar_se_absorbe_en_15_s(self):
+        tr, _ = correr(serie_paquetes(150, lambda i: 600.0))                         # 72 s en TIERRA
+        tr, m = correr(serie_paquetes(35, lambda i: 604.0, i0=150, state=web1.S_ARMED), tr)   # +4 m al armar, 16,8 s
+        est = de_tipo(m, 'estado')
+        self.assertGreater(est[0]['pos']['alt_agl_m'], 3.5)                           # al principio se ve el salto
+        self.assertLessEqual(abs(est[-1]['pos']['alt_agl_m']), 0.5)                   # y a los ~15 s ya no
+
+    def test_el_despegue_no_mueve_la_referencia(self):
+        tr, _ = correr(serie_paquetes(150, lambda i: 600.0))
+        tr, _ = correr(serie_paquetes(60, lambda i: 600.0, i0=150, state=web1.S_ARMED), tr)
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        # el primer paquete FLY ya viene subiendo (LAUNCH) y luego BOOST: la referencia es la de ARMED, siempre
+        alturas = [601.5, 604.0, 612.0, 640.0, 700.0, 800.0]
+        tr, m = correr(serie_paquetes(len(alturas), lambda i: alturas[i - 210], i0=210, state=web1.S_FLY, moment=web1.M_LAUNCH), tr)
+        est = de_tipo(m, 'estado')
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+        for e, h in zip(est, alturas):
+            self.assertAlmostEqual(e['pos']['alt_agl_m'], h - ref, delta=0.06)
+        tr, m = correr(serie_paquetes(3, lambda i: 900.0, i0=216, state=web1.S_FLY, moment=web1.M_BOOST), tr)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+
+    def test_si_se_desarma_vuelve_a_tau_60(self):
+        tr, _ = correr(serie_paquetes(50, lambda i: 600.0))
+        tr, _ = correr(serie_paquetes(50, lambda i: 603.0, i0=50, state=web1.S_ARMED), tr)
+        ref0 = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref0, 603.0, delta=0.1)                                # ARMED siguio la altitud con tau = 5 s
+        # desarme: TIERRA otra vez, con tau = 60 s desde ahi (la altitud ahora es 610)
+        tr, _ = correr(serie_paquetes(200, lambda i: 610.0, i0=100), tr)
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref, 610.0 - (610.0 - ref0) * math.exp(-200 * 0.48 / web1.REF_TAU_S), delta=0.05)
+        self.assertGreater(610.0 - ref, 0.5)                                          # con tau = 5 s ya estaria en 610
+
+    def test_tras_estar_congelada_no_cuenta_ese_tiempo(self):
+        tr, _ = correr(serie_paquetes(50, lambda i: 600.0))
+        tr, _ = correr(serie_paquetes(5, lambda i: 600.0, i0=50, state=web1.S_FLY, moment=web1.M_COAST), tr)
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        tr, _ = correr(serie_paquetes(1, lambda i: 650.0, i0=5000), tr)               # una hora despues, de nuevo en TIERRA
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)    # no salta a la muestra
+
+    def test_las_referencias_son_por_cohete(self):
+        lin = serie_paquetes(40, lambda i: 700.0, rid=1) + serie_paquetes(40, lambda i: 1500.0, rid=2)
+        tr, msgs = correr(sorted(lin, key=lambda x: x[0]))
+        self.assertEqual(alt_agl_ultimo(msgs, 'demeter'), 0.0)
+        self.assertEqual(alt_agl_ultimo(msgs, 'hermes'), 0.0)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 700.0)
+        self.assertEqual(tr.snapshot('hermes')['salud']['alt_origen_msl_m'], 1500.0)
+
+    def test_solo_muestras_con_ekf_y_sin_ekf_las_del_gnss_3d(self):
+        # sin EKF (cuaternion identidad) y con fix 3D: el GNSS manda
+        tr, msgs = correr(serie_paquetes(10, lambda i: 560.0))
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 560.0)
+        # aparece el EKF (otra altura): la referencia se rehace con el EKF, no se mezcla
+        tr, _ = correr(serie_paquetes(10, lambda i: 550.0, i0=10, quat=QUAT_EKF), tr)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 550.0)
+        # el EKF se cae un momento: las muestras solo-GNSS ya no mueven la referencia
+        tr, m = correr(serie_paquetes(10, lambda i: 560.0, i0=20), tr)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 550.0)
+        # sin fix 3D y sin EKF no hay muestra valida
+        tr2, m2 = correr(serie_paquetes(10, lambda i: 999.0, fix=2))
+        self.assertIsNone(tr2.snapshot('demeter')['salud']['alt_origen_msl_m'])
+        self.assertEqual(alt_agl_ultimo(m2), 0.0)             # sin referencia: en la rampa, 0 m (nunca la altitud MSL)
+
+    def test_ekf_sin_fix_tambien_vale(self):
+        tr, msgs = correr(serie_paquetes(10, lambda i: 777.0, fix=0, quat=QUAT_EKF))
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 777.0)
+
+    def test_apogeo_medido_desde_la_rampa_en_un_vuelo_reproducido(self):
+        """El mismo vuelo de la simulacion en una rampa a 1500 m: el apogeo y la serie siguen en ~669 m sobre la rampa."""
+        tr, msgs = correr(tuple(g.vuelo(g.perfil_demeter(), alt_base_m=1500.0)))
+        apogeo = [e for e in de_tipo(msgs, 'evento') if e['tipo'] == 'apogeo'][0]
+        self.assertAlmostEqual(apogeo['valor'], 669.3, delta=3.0)
+        snap = tr.snapshot('demeter')
+        self.assertAlmostEqual(snap['salud']['apogeo_m'], 669.3, delta=3.0)
+        self.assertAlmostEqual(max(snap['serie']['alt_agl_m']), 669.3, delta=3.0)
+        self.assertEqual(snap['salud']['alt_origen_msl_m'], 1500.0)
+        self.assertAlmostEqual(max(e['pos']['alt_msl_m'] for e in de_tipo(msgs, 'estado')), 1500.0 + 669.3, delta=3.0)
+        aterrizado = de_tipo(msgs, 'estado')[-1]
+        self.assertLess(abs(aterrizado['pos']['alt_agl_m']), 1.0)                  # vuelve a la rampa
+        self.assertValidos(msgs)
+
+    def test_apogeo_con_un_salto_de_4_m_al_armar(self):
+        """El EKF salta +4 m al armar y se queda ahi: la referencia lo absorbe en ARMED y el apogeo sigue en 669,3 +- 3 m
+        (si se congelara en el primer paquete ARMED, el error fijo seria de 4 m)."""
+        tr, msgs = correr(tuple(g.vuelo(g.perfil_demeter(), alt_base_m=1500.0, salto_armado_m=4.0)))
+        apogeo = [e for e in de_tipo(msgs, 'evento') if e['tipo'] == 'apogeo'][0]
+        self.assertAlmostEqual(apogeo['valor'], 669.3, delta=3.0)
+        snap = tr.snapshot('demeter')
+        self.assertAlmostEqual(snap['salud']['apogeo_m'], 669.3, delta=3.0)
+        self.assertAlmostEqual(snap['salud']['alt_origen_msl_m'], 1504.0, delta=0.5)      # la referencia absorbio el salto
+        est = de_tipo(msgs, 'estado')
+        antes = [e for e in est if e['fase'] == 'ARMED'][0]
+        self.assertGreater(antes['pos']['alt_agl_m'], 2.0)                                # el salto se ve al armar...
+        despegue = [e for e in est if e['fase'] == 'BOOST'][0]
+        self.assertLess(abs(est[est.index(despegue) - 1]['pos']['alt_agl_m']), 0.5)       # ...y ya no al despegar
+        self.assertLess(abs(est[-1]['pos']['alt_agl_m']), 1.0)
+        self.assertValidos(msgs)
+
+    def test_tiempo_restante_usa_la_altura_sobre_la_rampa(self):
+        """En DESCENT, a 1000 m de altitud con la rampa a 700: 300 m sobre la rampa a 10 m/s = 30 s."""
+        lin = serie_paquetes(40, lambda i: 700.0)
+        lin += serie_paquetes(5, lambda i: 700.0, i0=40, state=web1.S_ARMED)
+        lin += [paquete(t_local=T0 + 30.0 + k * 0.1, utc_ms=g.UTC0_MS + 40 * (1000 + 3 * k), alt_msl_m=1000.0, vu=-10.0,
+                        state=web1.S_FLY, moment=web1.M_PARACAIDAS, flags=web1.TF_FLYING) for k in range(3)]
+        tr, msgs = correr(lin)
+        e = de_tipo(msgs, 'estado')[-1]
+        self.assertEqual(e['pos']['alt_agl_m'], 300.0)
+        self.assertEqual(e['calc']['elipse']['rumbo_deg'], 0.0)
+        self.assertEqual(tr.snapshot('demeter')['salud']['alt_origen_msl_m'], 700.0)
+
+
+class ReferenciaPersistida(Contrato):
+    """La referencia se guarda en un archivo (ignorado por el repo) para sobrevivir a un reinicio del dashboard con el cohete armado."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.ruta = os.path.join(self.dir.name, 'web1_referencia.json')
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_sin_ruta_no_se_escribe_nada(self):
+        correr(serie_paquetes(40, lambda i: 600.0) + serie_paquetes(5, lambda i: 600.0, i0=40, state=web1.S_ARMED))
+        self.assertFalse(os.path.exists(self.ruta))
+
+    def test_se_guarda_en_tierra_y_al_congelarse(self):
+        tr = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(60, lambda i: 600.0), tr)
+        with open(self.ruta, encoding='utf-8') as f:
+            d = json.load(f)
+        self.assertEqual(list(d), ['1:0'])                     # por cohete (1 = Demeter) y mision (0 = sin MISSION_ID)
+        self.assertEqual(d['1:0']['alt_msl_m'], 600.0)
+        self.assertFalse(d['1:0']['congelada'])
+        # ARMED: sigue y tambien guarda (cada 10 s); 40 paquetes son 19 s
+        correr(serie_paquetes(40, lambda i: 603.0, i0=60, state=web1.S_ARMED), tr)
+        with open(self.ruta, encoding='utf-8') as f:
+            d = json.load(f)
+        self.assertFalse(d['1:0']['congelada'])
+        self.assertGreater(d['1:0']['alt_msl_m'], 602.0)
+        # FLY: se congela y guarda siempre
+        correr(serie_paquetes(1, lambda i: 640.0, i0=100, state=web1.S_FLY, moment=web1.M_BOOST), tr)
+        with open(self.ruta, encoding='utf-8') as f:
+            d2 = json.load(f)
+        self.assertTrue(d2['1:0']['congelada'])
+        self.assertAlmostEqual(d2['1:0']['alt_msl_m'], tr.snapshot('demeter')['salud']['alt_origen_msl_m'], delta=0.06)   # el snapshot redondea a 0,1 m
+
+    def test_un_reinicio_con_el_cohete_armado_recupera_la_referencia(self):
+        tr = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(100, lambda i: 600.0), tr)
+        correr(serie_paquetes(60, lambda i: 603.0, i0=100, state=web1.S_ARMED), tr)
+        correr(serie_paquetes(2, lambda i: 640.0, i0=160, state=web1.S_FLY, moment=web1.M_BOOST), tr)   # se congela y guarda
+        ref = tr.snapshot('demeter')['salud']['alt_origen_msl_m']
+        self.assertAlmostEqual(ref, 603.0, delta=0.05)
+        # el dashboard se reinicia con el cohete en vuelo: otro Traductor recupera la referencia congelada
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        _, m = correr(serie_paquetes(3, lambda i: 750.0, i0=162, state=web1.S_FLY, moment=web1.M_COAST), nuevo)
+        self.assertAlmostEqual(alt_agl_ultimo(m), 750.0 - ref, delta=0.01)
+        self.assertEqual(nuevo.snapshot('demeter')['salud']['alt_origen_msl_m'], ref)
+        self.assertValidos(m)
+
+    def test_un_reinicio_con_el_cohete_en_armed_sigue_desde_la_guardada(self):
+        tr = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(100, lambda i: 600.0), tr)
+        correr(serie_paquetes(30, lambda i: 600.0, i0=100, state=web1.S_ARMED), tr)
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        # la altitud salto 4 m mientras el dashboard estaba apagado: parte de la guardada (600) y sigue con tau = 5 s
+        _, m = correr(serie_paquetes(40, lambda i: 604.0, i0=130, state=web1.S_ARMED), nuevo)
+        est = de_tipo(m, 'estado')
+        self.assertGreater(est[0]['pos']['alt_agl_m'], 3.0)
+        self.assertLessEqual(abs(est[-1]['pos']['alt_agl_m']), 0.5)
+
+    def test_otra_mision_u_otro_cohete_no_la_usan(self):
+        tr = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(100, lambda i: 600.0), tr)
+        correr(serie_paquetes(3, lambda i: 600.0, i0=100, state=web1.S_ARMED), tr)
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        _, m = correr(serie_paquetes(3, lambda i: 1500.0, rid=2, i0=103, state=web1.S_ARMED), nuevo)
+        self.assertEqual(nuevo.snapshot('hermes')['salud']['alt_origen_msl_m'], 1500.0)   # el respaldo, no los 600 de Demeter
+
+    def test_una_referencia_vieja_no_se_usa(self):
+        with open(self.ruta, 'w', encoding='utf-8') as f:
+            json.dump({'1:0': {'alt_msl_m': 600.0, 't': T0 - web1.REF_VIGENCIA_S - 1.0, 'fuente': 'ekf', 'congelada': True}}, f)
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        correr(serie_paquetes(3, lambda i: 603.0, state=web1.S_ARMED), nuevo)
+        self.assertEqual(nuevo.snapshot('demeter')['salud']['alt_origen_msl_m'], 603.0)
+
+    def test_respaldo_sin_archivo_la_altitud_de_la_estacion(self):
+        """(P) Sin referencia guardada: la altitud del GNSS de la estacion (`[time] ... pos(n)=`); sin ella, la primera muestra."""
+        nuevo = Traductor(ruta_referencia=self.ruta)
+        nuevo.procesar(g.linea_time(6.579, -75.815, 505.0), T0)
+        _, m = correr(serie_paquetes(3, lambda i: 603.0, i0=1, state=web1.S_FLY, moment=web1.M_BOOST), nuevo)
+        self.assertEqual(alt_agl_ultimo(m), 98.0)
+        self.assertEqual(nuevo.snapshot('demeter')['salud']['alt_origen_msl_m'], 505.0)
+        self.assertFalse(os.path.exists(self.ruta))            # un respaldo no se guarda como si fuera real
+        sin = Traductor(ruta_referencia=self.ruta)
+        _, m = correr(serie_paquetes(3, lambda i: 603.0, i0=1, state=web1.S_FLY, moment=web1.M_BOOST), sin)
+        self.assertEqual(alt_agl_ultimo(m), 0.0)
+        # en ARMED (el cohete sigue en la rampa) el respaldo lo reemplaza la primera muestra valida
+        armado = Traductor(ruta_referencia=self.ruta)
+        armado.procesar(g.linea_time(6.579, -75.815, 505.0), T0)
+        correr(serie_paquetes(3, lambda i: 603.0, i0=1, state=web1.S_ARMED), armado)
+        self.assertEqual(armado.snapshot('demeter')['salud']['alt_origen_msl_m'], 603.0)
+
+    def test_un_archivo_roto_o_ilegible_no_tumba_nada(self):
+        with open(self.ruta, 'w', encoding='utf-8') as f:
+            f.write('{no es json')
+        tr = Traductor(ruta_referencia=self.ruta)
+        _, m = correr(serie_paquetes(30, lambda i: 600.0), tr)
+        self.assertEqual(alt_agl_ultimo(m), 0.0)
+        _, m = correr(serie_paquetes(3, lambda i: 600.0, i0=30, state=web1.S_ARMED), Traductor(ruta_referencia=self.dir.name))   # un directorio
+        self.assertEqual(alt_agl_ultimo(m), 0.0)
+
+    def test_el_dashboard_en_vivo_la_activa(self):
+        tr = Traductor()
+        self.assertIsNone(tr.ruta_referencia)
+        tr.persistir_en(self.ruta)
+        correr(serie_paquetes(5, lambda i: 600.0), tr)
+        self.assertTrue(os.path.exists(self.ruta))
+
+
+class Actuadores(Contrato):
+    """T-657 / D-065: `act.*` y `flags.reanudado` salen de TELEM.actuators y TELEM.flags."""
+
+    @staticmethod
+    def estado(rid=1, **kw):
+        _, msgs = correr([paquete(rid=rid, **kw)])
+        return msgs, de_tipo(msgs, 'estado')[0]
+
+    def test_buzzer_y_pulso(self):
+        _, e = self.estado(actuators=web1.ACT_BUZZER)
+        self.assertEqual((e['act']['buzzer'], e['act']['pi_pulso']), (True, False))
+        _, e = self.estado(actuators=web1.ACT_PI_PULSO)
+        self.assertEqual((e['act']['buzzer'], e['act']['pi_pulso']), (False, True))
+        _, e = self.estado(actuators=web1.ACT_BUZZER | ACT_PI_ENVIADO | web1.ACT_PI_PULSO)       # el bit 2 (ya se envio) no es el pulso
+        self.assertEqual((e['act']['buzzer'], e['act']['pi_pulso']), (True, True))
+        _, e = self.estado(actuators=ACT_PI_ENVIADO)
+        self.assertEqual((e['act']['buzzer'], e['act']['pi_pulso']), (False, False))
+
+    def test_cam_ok_segun_el_estado_de_la_pi(self):
+        buenos = {'READY', 'ARMED', 'STARTING', 'ASCENT', 'RECORDING'}
+        for codigo, nombre in web1.PI_ESTADOS.items():
+            with self.subTest(estado=nombre):
+                _, e = self.estado(actuators=codigo << 8)
+                self.assertEqual(e['act']['cam_ok'], nombre in buenos)
+        _, e = self.estado(actuators=0xFF << 8)                  # sin latido
+        self.assertFalse(e['act']['cam_ok'])
+        _, e = self.estado(actuators=(0x30 << 8) | (4 << 3))      # grabando, con un motivo de error anterior: sigue grabando
+        self.assertTrue(e['act']['cam_ok'])
+
+    def test_hermes_no_tiene_pi(self):
+        for act in (0xFF << 8, (0x30 << 8) | web1.ACT_PI_PULSO, (0x03 << 8) | web1.ACT_PI_PULSO | web1.ACT_BUZZER):
+            with self.subTest(actuators=hex(act)):
+                msgs, e = self.estado(rid=2, actuators=act)
+                self.assertEqual((e['act']['cam_ok'], e['act']['pi_pulso']), (False, False))
+                self.assertEqual(e['act']['buzzer'], bool(act & web1.ACT_BUZZER))
+                self.assertValidos(msgs)
+
+    def test_los_otros_actuadores_siguen_en_falso(self):
+        _, e = self.estado(actuators=0xFFFF)
+        self.assertFalse(e['act']['wifi_ap'])
+        self.assertFalse(e['act']['backfill'])
+
+    def test_reanudado(self):
+        _, e = self.estado(flags=web1.TF_REANUDADO)
+        self.assertTrue(e['flags']['reanudado'])
+        _, e = self.estado(flags=web1.TF_REANUDADO | web1.TF_FLYING | web1.TF_BOOST_SIN_ARMAR)
+        self.assertTrue(e['flags']['reanudado'])
+        self.assertTrue(e['flags']['falla_activa'])
+        for f in (0, web1.TF_FLYING, web1.TF_BOOST_SIN_ARMAR, 4, 8, 32):                  # los otros bits de TelemFlags
+            with self.subTest(flags=f):
+                _, e = self.estado(flags=f)
+                self.assertFalse(e['flags']['reanudado'])
+        self.assertEqual(web1.TF_REANUDADO, 16)
+
+    def test_temp_esp_c_sigue_nula(self):
+        """TELEM.temp_c[0] es la del barometro, no la de la placa: no se pasa a `temp_esp_c`."""
+        tr, msgs = correr([paquete()])
+        self.assertIsNone(tr.snapshot('demeter')['salud']['temp_esp_c'])
+
+
+ACT_PI_ENVIADO = 4
+
+
+class SaludPi(Contrato):
+    """T-657 / D-065: `salud.pi` es opcional; null en Hermes, y en Demeter {estado, motivo, bat_pct}."""
+
+    @staticmethod
+    def salud(rid=1, **kw):
+        tr, msgs = correr([paquete(rid=rid, **kw)])
+        return tr.snapshot('demeter' if rid == 1 else 'hermes')['salud'], msgs
+
+    def test_hermes_es_null(self):
+        s, msgs = self.salud(rid=2, actuators=0xFF << 8)
+        self.assertIn('pi', s)
+        self.assertIsNone(s['pi'])
+        self.assertValidos(msgs)
+
+    def test_demeter_sin_latido_es_desconocido(self):
+        s, msgs = self.salud(actuators=0xFF << 8)
+        self.assertEqual(s['pi'], {'estado': 'DESCONOCIDO', 'motivo': None, 'bat_pct': None})
+        self.assertValidos(msgs)
+
+    def test_demeter_estado_y_motivo(self):
+        s, msgs = self.salud(actuators=(0x30 << 8) | (1 << 3))
+        self.assertEqual(s['pi'], {'estado': 'RECORDING', 'motivo': 'SD_ESPACIO', 'bat_pct': None})
+        s, _ = self.salud(actuators=(0xE1 << 8) | (1 << 3))
+        self.assertEqual(s['pi'], {'estado': 'SD_FULL', 'motivo': 'SD_ESPACIO', 'bat_pct': None})
+        s, _ = self.salud(actuators=(0x02 << 8) | (31 << 3))
+        self.assertEqual(s['pi'], {'estado': 'READY', 'motivo': 'OTRO', 'bat_pct': None})
+        s, _ = self.salud(actuators=(0x00 << 8))              # BOOT es un estado real (0x00), no "sin dato"
+        self.assertEqual(s['pi'], {'estado': 'BOOT', 'motivo': None, 'bat_pct': None})
+        s, _ = self.salud(actuators=(0x77 << 8) | (9 << 3))   # byte y codigo que el firmware no define
+        self.assertEqual(s['pi'], {'estado': 'DESCONOCIDO', 'motivo': 'OTRO', 'bat_pct': None})
+
+    def test_el_mensaje_salud_emitido_la_lleva_y_valida(self):
+        _, msgs = correr([paquete(actuators=(0x08 << 8))])
+        sal = de_tipo(msgs, 'salud', 'demeter')
+        self.assertTrue(sal)
+        self.assertEqual(sal[0]['pi'], {'estado': 'ASCENT', 'motivo': None, 'bat_pct': None})
+        self.assertValidos(msgs)
+
+    def test_el_esquema_acepta_con_y_sin_pi(self):
+        _, msgs = correr([paquete(actuators=(0x03 << 8))])
+        m = [x for x in msgs if x['tipo'] == 'salud'][0]
+        self.assertEqual(contrato.errores_mensaje(m), [])
+        sin = json.loads(json.dumps(m))
+        del sin['datos']['pi']
+        self.assertEqual(contrato.errores_mensaje(sin), [])
+        nulo = json.loads(json.dumps(m))
+        nulo['datos']['pi'] = None
+        self.assertEqual(contrato.errores_mensaje(nulo), [])
+
+    def test_el_esquema_rechaza_un_pi_mal_formado(self):
+        _, msgs = correr([paquete(actuators=(0x03 << 8))])
+        m = [x for x in msgs if x['tipo'] == 'salud'][0]
+        for malo in ({'estado': 'ARMED'}, {'estado': 'ARMED', 'motivo': None, 'bat_pct': None, 'extra': 1},
+                     {'estado': 3, 'motivo': None, 'bat_pct': None}, {'estado': 'ARMED', 'motivo': None, 'bat_pct': 101}):
+            with self.subTest(pi=malo):
+                x = json.loads(json.dumps(m))
+                x['datos']['pi'] = malo
+                self.assertNotEqual(contrato.errores_mensaje(x), [])
+
+    def test_los_nombres_son_los_de_visionpack(self):
+        """`PI_ESTADOS` y `PI_MOTIVOS` repiten `StatusCode` y `ErrorCode` de visionpack/demeter_protocol.py."""
+        sys.path.insert(0, os.path.join(g.RAIZ, 'visionpack'))
+        try:
+            import demeter_protocol as dp
+        finally:
+            sys.path.pop(0)
+        self.assertEqual(web1.PI_ESTADOS, {int(s): s.name for s in dp.StatusCode})
+        self.assertEqual(web1.PI_MOTIVOS, {int(e): e.name for e in dp.ErrorCode if e != dp.ErrorCode.NINGUNO})
+        self.assertEqual(web1.PI_ESTADOS_CAMARA_OK,
+                         {int(s) for s in (dp.StatusCode.READY, dp.StatusCode.ARMED, dp.StatusCode.STARTING,
+                                           dp.StatusCode.ASCENT, dp.StatusCode.RECORDING)})
+        import dashboard
+        self.assertEqual({k: v for k, v in dashboard.PI_STATUS.items() if k != 0xFF}, web1.PI_ESTADOS)
+        self.assertEqual({k: v for k, v in dashboard.PI_MOTIVO.items() if k}, web1.PI_MOTIVOS)
+        self.assertEqual((dashboard.ACT_BUZZER, dashboard.ACT_PI_EN_CURSO), (web1.ACT_BUZZER, web1.ACT_PI_PULSO))
 
 
 if __name__ == '__main__':

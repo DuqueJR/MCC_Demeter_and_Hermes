@@ -7,8 +7,10 @@ import {
   coordenadaValida,
   puntoCardinal,
   puntoDeRecuperacion,
+  puntoEnVuelo,
   textoCoordenadas,
   urlGoogleMaps,
+  vistaCoordenadasMapa,
   vistaRecuperacion,
 } from "../src/mision/vista_recuperacion";
 
@@ -158,6 +160,78 @@ describe("vista de la sección", () => {
     const calc = { ...estadoEjemplo.calc, dist_horiz_m: null, azimut_deg: null };
     const v = vistaRecuperacion(estadoEn("DESCENT", { calc }), "en_vivo", 200);
     expect(v.vector).toEqual({ distanciaM: null, azimutDeg: null, cardinal: null });
+  });
+});
+
+describe("la etiqueta compacta de coordenadas del mapa (T-671)", () => {
+  const FASES_DE_VUELO: Fase[] = ["PREFLIGHT", "ARMED", "BOOST", "COAST", "APOGEE", "DESCENT"];
+
+  it("en cada fase antes de LANDED muestra lat, lon y la altura sobre el nivel del mar", () => {
+    for (const fase of FASES_DE_VUELO) {
+      const v = vistaCoordenadasMapa(estadoEn(fase), "en_vivo", 200);
+      expect(v.oculta, fase).toBe(false);
+      expect(v.punto?.origen, fase).toBe("actual");
+      expect(v.lat, fase).toBe("6,58235");
+      expect(v.lon, fase).toBe("−75,82312");
+      // `pos.alt_msl_m` (822,4), no la altura sobre la rampa (312,4).
+      expect(v.altMsl, fase).toBe("822");
+    }
+  });
+
+  it("es la posición del cohete, no el centro de la elipse de impacto", () => {
+    const e = estadoEn("DESCENT", {
+      calc: { ...estadoEjemplo.calc, elipse: { ...ELIPSE, lat: 7, lon: -76 } },
+    });
+    expect(puntoEnVuelo(e, "en_vivo", 200)).toMatchObject({ lat: POS.lat, lon: POS.lon });
+  });
+
+  it("en LANDED se quita: ahí manda el bloque grande de Recuperación", () => {
+    const v = vistaCoordenadasMapa(estadoEn("LANDED"), "en_vivo", 200);
+    expect(v).toEqual({ oculta: true, punto: null, lat: null, lon: null, altMsl: null });
+  });
+
+  it("sin estado o sin posición válida: sin punto y sin números inventados", () => {
+    const sinPunto = { oculta: false, punto: null, lat: null, lon: null, altMsl: null };
+    expect(vistaCoordenadasMapa(null, "cargando", null)).toEqual(sinPunto);
+    const sinNada = estadoEn("PREFLIGHT", { pos: null, lkp: null });
+    expect(vistaCoordenadasMapa(sinNada, "en_vivo", 200)).toEqual(sinPunto);
+    const nan = estadoEn("DESCENT", { pos: { ...POS, lat: Number.NaN }, lkp: null });
+    expect(vistaCoordenadasMapa(nan, "en_vivo", 200)).toEqual(sinPunto);
+  });
+
+  it("altura sin dato (`alt_msl_m` null): lat y lon sí, la altura queda en null", () => {
+    const e = estadoEn("DESCENT", { pos: { ...POS, alt_msl_m: null } });
+    const v = vistaCoordenadasMapa(e, "en_vivo", 200);
+    expect(v.lat).toBe("6,58235");
+    expect(v.altMsl).toBeNull();
+  });
+
+  it("sin señal: el LKP con su antigüedad; la altura sale de `pos` si es la misma posición", () => {
+    const v = vistaCoordenadasMapa(estadoEn("DESCENT"), "sin_senal", 38_000);
+    expect(v.punto).toMatchObject({ origen: "lkp", edadMs: 38_000 });
+    expect(v.altMsl).toBe("822");
+  });
+
+  it("LKP distinto de `pos` (o sin `pos`): no hay altura sobre el nivel del mar que mostrar", () => {
+    const lkp = { lat: 6.5, lon: -75.5, alt_agl_m: 100, utc_ms: 1_000_000_000 };
+    const distinto = vistaCoordenadasMapa(estadoEn("DESCENT", { lkp }), "sin_senal", 5_000);
+    expect(distinto.punto).toMatchObject({ lat: 6.5, lon: -75.5, origen: "lkp" });
+    expect(distinto.altMsl).toBeNull();
+    const sinPos = vistaCoordenadasMapa(estadoEn("DESCENT", { pos: null, lkp }), "en_vivo", 5_000);
+    expect(sinPos.punto?.origen).toBe("lkp");
+    expect(sinPos.altMsl).toBeNull();
+  });
+
+  it("sin señal y sin LKP: la última `pos` hace de LKP", () => {
+    const v = vistaCoordenadasMapa(estadoEn("DESCENT", { lkp: null }), "sin_senal", 12_000);
+    expect(v.punto).toMatchObject({ lat: POS.lat, origen: "lkp", edadMs: 12_000 });
+  });
+
+  it("(P) sin señal y sin LANDED: el bloque grande y el QR no aparecen, la etiqueta sigue con el LKP", () => {
+    const e = estadoEn("DESCENT");
+    const bloque = vistaRecuperacion(e, "sin_senal", 90_000);
+    expect(bloque.aterrizado).toBe(false);
+    expect(vistaCoordenadasMapa(e, "sin_senal", 90_000).punto?.origen).toBe("lkp");
   });
 });
 

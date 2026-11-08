@@ -1094,6 +1094,8 @@ def main():
     WEB_DIST = os.path.abspath(a.web_dist)
     replay, replay_vel = a.reproducir, a.velocidad
     envio = reenviador.configurar(a.web_relay, a.web_cola, event, modo='demo' if demo else 'reproduccion' if replay else '')
+    if not demo and not replay:                 # T-657 (D-064): solo en vivo se persiste la referencia de altura, para sobrevivir a un reinicio
+        tr.persistir_en(web1.RUTA_REFERENCIA)
     try:
         srv = OnlyOneServer(('127.0.0.1', PORT), Handler)
     except OSError:

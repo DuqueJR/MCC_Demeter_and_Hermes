@@ -102,12 +102,12 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 | `utc_ms` | `t_ms` convertido con el último STATUS (`utc_ms` frente a `t_ms`) | `null` si no hay hora válida |
 | `fase`, `fase_cod` | NAV `fase` | Nombres de [maquina_estados](../04_diseno/maquina_estados.md) §1 |
 | `pos.lat/lon` | NAV `lat_e7`, `lon_e7` / 1e7 | `fuente`: `"ekf"` si `flags.EKF_OK`, si no `"gnss"` |
-| `pos.alt_agl_m` | NAV `alt_dm` / 10 | |
-| `pos.alt_msl_m` | `alt_agl_m` + STATUS `alt_origen_msl_dm` / 10 | |
+| `pos.alt_agl_m` | NAV `alt_dm` / 10 | **Con `net_proto` (D-064):** el TELEM solo trae `alt_cm` sobre el nivel del mar. El servicio de tierra calcula `alt_msl − referencia`. La referencia replica el `p0` del firmware: un filtro de τ = 60 s sobre `alt_msl` en TIERRA, de τ = 5 s en ARMED (el EKF se rehace al armar), congelado en FLY. Sin constantes del sitio. |
+| `pos.alt_msl_m` | `alt_agl_m` + STATUS `alt_origen_msl_dm` / 10 | Con `net_proto`: TELEM `alt_cm` / 100, la altura del EKF (o del GNSS sin EKF). Se muestra tal cual. |
 | `vel.*` | NAV `vel_n/e/u_cms` / 100 | `total_ms` = norma |
 | `acc_g.*` | NAV `acc_x/y/z_mg` / 1000 | El marco del cuerpo, promedio de 100 ms |
 | `q.*` | NAV `q_*` / 32767 | Del cuerpo a ENU. Con esto la web calcula roll, pitch y yaw. |
-| `flags.*`, `act.*` | NAV `flags`, `act` (bit a bit) | |
+| `flags.*`, `act.*` | NAV `flags`, `act` (bit a bit) | **Con `net_proto` (D-065):** `act.buzzer` = `TELEM.actuators` bit 0; `act.pi_pulso` = bit 1; `act.cam_ok` = la Pi en READY, ARMED, STARTING, ASCENT o RECORDING; `flags.reanudado` = `TF_REANUDADO`. |
 | `bat_pct` | NAV `bat_pct` | `0xFF` → `null` |
 | `secundario` | NAV `estado_sec` | Deméter: `StatusCode` de la Pi y su texto en español ([visionpack_integracion](../04_diseno/visionpack_integracion.md)). `0xFE` → `{"codigo":254,"texto":"Sin respuesta"}`. Hermes: `null`. |
 | `calc.*` | **Lo calcula el servicio de tierra** (*Objetivos* §6) | Distancia, azimut y elevación en WGS84 desde la estación. La elipse, con la tasa de descenso. Los tiempos estimados son GS-13. `null` si no aplica. |
@@ -131,6 +131,9 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 - `fallas`: los **nombres** de los bits activos, como en protocolo §3: `"LSM6DSO32"`, `"BMP581"`, …, `"EKF divergente"`, `"UART del VisionPack"`, `"Batería baja"`. Se acompaña de `fallas_bits`.
 - `go_nogo`: lo evalúa el servicio de tierra con las condiciones de [maquina_estados](../04_diseno/maquina_estados.md) §4. Es el "checklist automático" de *Objetivos* 7.C.
 - `temp_pi_c` es `null` en Hermes.
+- `alt_origen_msl_m`: con `net_proto`, es la referencia de D-064 (la rampa medida, congelada en FLY), no una constante del sitio.
+- `pi` (opcional, D-065): `null` en Hermes. En Demeter: `{"estado": <StatusCode de demeter_protocol.py, o "DESCONOCIDO" sin latido>, "motivo": <ErrorCode o null>, "bat_pct": null}`. Sale de `TELEM.actuators` (bits 8 a 15 el estado y 3 a 7 el motivo). `bat_pct` y `temp_pi_c` quedan en `null` hasta que la UART y LoRa los traigan. Si falta, es "sin dato": el esquema acepta mensajes con y sin `pi`.
+- **Con `net_proto`:** `fallas` llega vacío (el protocolo no trae la salud por sensor) y `calib.*` llega en `null` (D-050). La web no debe presentar esa ausencia como "todo en orden" sensor por sensor (D-065).
 - `fw_version` (opcional, PA-15): el hash corto de git del firmware, como texto (`"a1b2c3d"`). Viene en STATUS desde el protocolo v3 (DP-07); `null` con el protocolo v2.
 
 ### 2.4 `estacion`: latido a 1 Hz, aunque no llegue nada del cohete

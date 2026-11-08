@@ -41,7 +41,8 @@ T_INI = -30.0
 
 
 def lineas():
-    return g.vuelo(g.perfil_demeter(), t_ini=T_INI)
+    # con la Pi de Demeter sana (READY -> ARMED -> RECORDING -> COMPLETE): `act.cam_ok` y `salud.pi` salen del TELEM (T-657)
+    return g.vuelo(g.perfil_demeter(), t_ini=T_INI, actuators=g.actuators_demeter)
 
 
 def main(argv=None):

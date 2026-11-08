@@ -1,11 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import type { Salud, Snapshot } from "../src/contrato/tipos";
 import { alimentar, DEV, snapshotDe } from "./mapa_ayudas";
 
-// T-625: Recuperación y Salud del cohete. Se prueba en el servidor de desarrollo (:5174) con
-// `?sin_cliente`, inyectando snapshots reales de los escenarios de dev/datos en `datos/api.ts`.
+// T-625: Recuperación (la Salud del cohete pasó a e2e/salud.spec.ts en T-658). Se prueba en el servidor
+// de desarrollo (:5174) con `?sin_cliente`, inyectando snapshots reales de los escenarios de dev/datos en `datos/api.ts`.
 // No hay un escenario con fallas: se arman aquí, sobre el snapshot de un escenario real.
 // Las capturas van a docs/07_bitacora/capturas/T-625.
 const CAPTURAS = resolve(import.meta.dirname, "../../../docs/07_bitacora/capturas/T-625");
@@ -19,12 +18,7 @@ const MEDIDAS = [
 
 /** Instantes (ms del escenario `nominal`): ver dev/datos/*_nominal.jsonl. */
 const T_SIN_FIX = 1_000;
-const T_PREFLIGHT_CON_POS = 5_000;
-const T_ARMADO = 10_000;
 const T_DESCENSO = 40_000;
-const BIT_BMP581 = 1;
-const BIT_SD = 7;
-const BIT_BATERIA_BAJA = 13;
 
 const sinDesborde = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
@@ -40,49 +34,34 @@ function vigilarErrores(page: Page): string[] {
 
 const abrir = (page: Page, mision: Mision) => page.goto(`${DEV}/${mision}/?sin_cliente`);
 
-/** El snapshot de un escenario con `salud` cambiada. */
-function conSalud(base: Snapshot, cambios: Partial<Salud>): Snapshot {
-  if (base.salud === null) throw new Error("el escenario no trae salud");
-  return { ...base, salud: { ...base.salud, ...cambios } };
-}
-
 /** Los snapshots que usan las pruebas, por misión. */
 const nominalEn = (m: Mision, t: number) => snapshotDe(m, "nominal", t);
 const aterrizado = (m: Mision) => snapshotDe(m, "nominal");
 
 const recuperacion = (page: Page) => page.locator("section#recuperacion");
-const salud = (page: Page) => page.locator("section#salud");
-const resumen = (page: Page) => salud(page).locator('[data-salud="resumen"]');
 
-test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
+// T-671 (D-065): el bloque de recuperación (coordenadas grandes, Maps, QR) es solo de LANDED. Antes,
+// las coordenadas van compactas en el mapa (e2e/recuperacion_landed.spec.ts) y la sección solo trae
+// el vector desde la estación.
+test.describe("Recuperación: antes de LANDED, solo el vector (sin QR ni coordenadas grandes)", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("en descenso: el centro de la elipse con la etiqueta 'estimado' y el enlace de Maps", async ({
-    page,
-  }) => {
+  test("en descenso: sin QR, sin Maps, sin Copiar; el vector y su frase sí", async ({ page }) => {
     const errores = vigilarErrores(page);
     await abrir(page, "demeter");
-    const snap = nominalEn("demeter", T_DESCENSO);
-    const elipse = snap.estado?.calc.elipse;
-    if (!elipse) throw new Error("el escenario debe traer elipse en el descenso");
-    await alimentar(page, snap);
+    await alimentar(page, nominalEn("demeter", T_DESCENSO));
 
     const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Punto de impacto");
-    await expect(r.locator(".recup-chip")).toHaveText("estimado");
-    // Coma decimal, 7 decimales (lat/lon del contrato) y el símbolo de grados.
-    await expect(r.locator('[data-coord="lat"]')).toHaveText(
-      `${elipse.lat.toFixed(7).replace(".", ",")}°`,
-    );
-    await expect(r.locator('[data-coord="lon"]')).toHaveText(
-      `${elipse.lon.toFixed(7).replace(".", ",").replace("-", "−")}°`,
-    );
-    const url = `https://www.google.com/maps/search/?api=1&query=${elipse.lat.toFixed(7)},${elipse.lon.toFixed(7)}`;
-    const enlace = r.getByRole("link", { name: "Abrir en Google Maps" });
-    await expect(enlace).toHaveAttribute("href", url);
-    await expect(enlace).toHaveAttribute("target", "_blank");
-    await expect(enlace).toHaveAttribute("rel", /noopener/);
-    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", url);
+    await expect(r).toHaveAttribute("data-aterrizado", "no");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toContainText("cuando el cohete aterrice");
+    await expect(r.locator('[data-recup="coordenadas"]')).toHaveCount(0);
+    await expect(r.locator(".recup-rotulo")).toHaveCount(0);
+    await expect(r.locator("svg.qr")).toHaveCount(0);
+    await expect(r.locator(".recup-qr")).toHaveCount(0);
+    await expect(r.locator("a")).toHaveCount(0);
+    await expect(r.getByRole("button")).toHaveCount(0);
+    // Ni el texto ni el QR quedan en el árbol de accesibilidad.
+    await expect(r.getByText("Abrir en Google Maps")).toHaveCount(0);
     // El vector: distancia, azimut y la brújula, con el norte arriba.
     await expect(r.locator('[data-vector="distancia"]')).toContainText(/\d+ m/);
     await expect(r.locator('[data-vector="azimut"]')).toContainText(/\d+°/);
@@ -91,9 +70,43 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     expect(errores).toEqual([]);
   });
 
+  test("LANDED: coordenadas grandes, enlace de Maps y QR con la posición real", async ({
+    page,
+  }) => {
+    const errores = vigilarErrores(page);
+    await abrir(page, "demeter");
+    const snap = aterrizado("demeter");
+    const pos = snap.estado?.pos;
+    if (!pos) throw new Error("LANDED debe traer pos");
+    await alimentar(page, snap);
+
+    const r = recuperacion(page);
+    await expect(r).toHaveAttribute("data-aterrizado", "si");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toHaveCount(0);
+    await expect(r.locator(".recup-rotulo")).toContainText("Posición del cohete en tierra");
+    await expect(r.locator(".recup-chip")).toHaveCount(0);
+    // Coma decimal, 7 decimales (lat/lon del contrato) y el símbolo de grados.
+    await expect(r.locator('[data-coord="lat"]')).toHaveText(
+      `${pos.lat.toFixed(7).replace(".", ",")}°`,
+    );
+    await expect(r.locator('[data-coord="lon"]')).toHaveText(
+      `${pos.lon.toFixed(7).replace(".", ",").replace("-", "−")}°`,
+    );
+    const url = `https://www.google.com/maps/search/?api=1&query=${pos.lat.toFixed(7)},${pos.lon.toFixed(7)}`;
+    const enlace = r.getByRole("link", { name: "Abrir en Google Maps" });
+    await expect(enlace).toHaveAttribute("href", url);
+    await expect(enlace).toHaveAttribute("target", "_blank");
+    await expect(enlace).toHaveAttribute("rel", /noopener/);
+    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", url);
+    await expect(r.getByRole("button", { name: "Copiar" })).toBeVisible();
+    await expect(r.locator('[data-vector="distancia"]')).toContainText(/\d+ m/);
+    expect(await sinDesborde(page)).toBe(true);
+    expect(errores).toEqual([]);
+  });
+
   test("el QR del celular está detrás de un toque y se abre y se cierra", async ({ page }) => {
     await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_DESCENSO));
+    await alimentar(page, aterrizado("demeter"));
     const r = recuperacion(page);
     const boton = r.getByRole("button", { name: /QR/ });
     await expect(r.locator(".recup-qr")).toBeHidden();
@@ -106,37 +119,37 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     await expect(r.locator(".recup-qr")).toBeHidden();
   });
 
-  test("LANDED: la posición real, sin 'estimado'", async ({ page }) => {
-    await abrir(page, "demeter");
-    const snap = aterrizado("demeter");
-    const pos = snap.estado?.pos;
-    expect(snap.estado?.fase).toBe("LANDED");
-    if (!pos) throw new Error("LANDED debe traer pos");
-    await alimentar(page, snap);
-    const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Posición del cohete en tierra");
-    await expect(r.locator(".recup-chip")).toHaveCount(0);
-    await expect(r.locator('[data-coord="lat"]')).toHaveText(
-      `${pos.lat.toFixed(7).replace(".", ",")}°`,
-    );
-  });
-
-  test("sin señal: el LKP en rojo con su antigüedad, que no desaparece (GS-03)", async ({
+  test("sin señal en tierra (LANDED): el LKP en rojo con su antigüedad, que no desaparece (GS-03)", async ({
     page,
   }) => {
     await abrir(page, "demeter");
-    const snap = nominalEn("demeter", T_DESCENSO);
     // Sin señal: el último paquete llegó hace 38 s (el reloj local avanza; el estado se queda).
-    await alimentar(page, snap, "conectado", 38_000);
+    await alimentar(page, aterrizado("demeter"), "conectado", 38_000);
     const r = recuperacion(page);
     const rotulo = r.locator(".recup-rotulo");
     await expect(rotulo).toContainText("Última posición conocida");
     await expect(rotulo.locator(".recup-edad")).toContainText(/hace \d+ s/);
     expect(await rotulo.evaluate((e) => getComputedStyle(e).color)).toBe("rgb(255, 77, 94)");
     await expect(r.getByRole("link", { name: "Abrir en Google Maps" })).toBeVisible();
+    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", /query=/);
   });
 
-  test("sin posición ni elipse: una frase, sin botón muerto ni QR de null,null", async ({
+  test("LANDED sin posición ni LKP: una frase, sin botón muerto ni QR de null,null", async ({
+    page,
+  }) => {
+    await abrir(page, "demeter");
+    const base = aterrizado("demeter");
+    if (!base.estado) throw new Error("LANDED debe traer estado");
+    await alimentar(page, { ...base, estado: { ...base.estado, pos: null, lkp: null } });
+    const r = recuperacion(page);
+    await expect(r.locator('[data-recup="vacio"]')).toContainText("sin fix");
+    await expect(r.locator("a")).toHaveCount(0);
+    await expect(r.locator("svg.qr")).toHaveCount(0);
+    await expect(r.getByRole("button", { name: /Copiar|QR/ })).toHaveCount(0);
+    expect(await r.innerHTML()).not.toContain("null");
+  });
+
+  test("sin posición antes de LANDED: el vector, sin dato, se dice con palabras", async ({
     page,
   }) => {
     await abrir(page, "demeter");
@@ -145,31 +158,19 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     expect(snap.estado?.pos).toBeNull();
     await alimentar(page, snap);
     const r = recuperacion(page);
-    await expect(r.locator('[data-recup="vacio"]')).toContainText("sin fix");
     await expect(r.locator("a")).toHaveCount(0);
     await expect(r.locator("svg.qr")).toHaveCount(0);
-    await expect(r.getByRole("button", { name: /Copiar|QR/ })).toHaveCount(0);
     expect(await r.innerHTML()).not.toContain("null");
-    // El vector, sin dato, se dice con palabras.
     await expect(r.locator('[data-vector="distancia"]')).toContainText("sin dato");
     await expect(r.locator("[data-brujula] polygon")).toHaveCount(0);
   });
 
-  test("sin ningún dato todavía: estado vacío claro", async ({ page }) => {
+  test("sin ningún dato todavía: la frase de espera, sin enlaces", async ({ page }) => {
     await abrir(page, "demeter");
     const r = recuperacion(page);
-    await expect(r.locator('[data-recup="vacio"]')).toContainText("Todavía no hay posición");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toBeVisible();
     await expect(r.locator("a")).toHaveCount(0);
-  });
-
-  test("antes de la elipse pero con fix: la posición actual, sin hacerla pasar por estimado", async ({
-    page,
-  }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_PREFLIGHT_CON_POS));
-    const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Posición actual del cohete");
-    await expect(r.locator(".recup-chip")).toContainText("sin estimado");
+    await expect(r.locator("svg.qr")).toHaveCount(0);
   });
 });
 
@@ -343,7 +344,7 @@ test.describe("QR visible al lado en el portátil", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_DESCENSO));
+    await alimentar(page, aterrizado("demeter"));
     const r = recuperacion(page);
     await expect(r.locator("svg.qr")).toBeVisible();
     await expect(r.getByRole("button", { name: /QR/ })).toBeHidden();
@@ -351,183 +352,6 @@ test.describe("QR visible al lado en el portátil", () => {
     const caja = await r.locator("svg.qr").boundingBox();
     expect(caja && Math.abs(caja.width - caja.height) < 1).toBe(true);
     expect(await r.locator("svg.qr path.qr-modulos").getAttribute("d")).toMatch(/^M\d+ \d+h\d+v1/);
-  });
-});
-
-test.describe("Salud del cohete", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test("sin `salud` todavía: un estado vacío claro", async ({ page }) => {
-    await abrir(page, "demeter");
-    await expect(resumen(page)).toContainText("Sin datos de salud todavía");
-    await expect(salud(page).locator("details")).toHaveCount(0);
-  });
-
-  test("nominal: 'Todo en orden' y el detalle trae todos los grupos", async ({ page }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, aterrizado("demeter"));
-    await expect(resumen(page)).toContainText("Todo en orden");
-    await expect(salud(page)).toHaveAttribute("data-nivel", "ok");
-    const detalle = salud(page).locator("details");
-    await expect(detalle).not.toHaveAttribute("open", "");
-    await detalle.locator("summary").click();
-    await expect(detalle).toHaveAttribute("open", "");
-    for (const titulo of [
-      "Sensores",
-      "Sistemas",
-      "Calibraciones",
-      "Navegación",
-      "Enlace",
-      "Batería",
-      "Tarjeta SD",
-      "Temperatura",
-    ]) {
-      await expect(detalle.getByRole("heading", { name: titulo })).toBeVisible();
-    }
-    await expect(detalle.locator('[data-fila="temp-pi"]')).toContainText("°C");
-    await expect(detalle.locator('[data-fila="sd"]')).toContainText("MB");
-    await expect(detalle.locator('[data-fila="bateria-v"]')).toContainText("V");
-    await expect(detalle.locator('[data-fila="hacc"]')).toContainText("m");
-    await expect(detalle.locator('[data-falla="si"]')).toHaveCount(0);
-  });
-
-  test("con fallas: el resumen y el detalle cambian, y vuelven cuando se arreglan", async ({
-    page,
-  }) => {
-    const errores = vigilarErrores(page);
-    await abrir(page, "demeter");
-    const base = nominalEn("demeter", T_DESCENSO);
-    await alimentar(page, base);
-    await expect(resumen(page)).toContainText("Todo en orden");
-
-    // Un sensor en falla.
-    await alimentar(page, conSalud(base, { fallas: ["BMP581"], fallas_bits: 1 << BIT_BMP581 }));
-    await expect(resumen(page)).toContainText("Falla en un sensor");
-    await expect(salud(page)).toHaveAttribute("data-nivel", "falla");
-    await expect(salud(page).locator('[data-salud="fallas"]')).toContainText("BMP581");
-    const detalle = salud(page).locator("details");
-    await detalle.locator("summary").click();
-    await expect(detalle.locator('[data-fila="bit-BMP581"] [data-falla="si"]')).toContainText(
-      "En falla",
-    );
-    await expect(detalle.locator('[data-fila="bit-LSM6DSO32"] [data-falla="no"]')).toContainText(
-      "Sin falla",
-    );
-
-    // Dos fallas.
-    await alimentar(
-      page,
-      conSalud(base, { fallas: ["BMP581", "SD"], fallas_bits: (1 << BIT_BMP581) | (1 << BIT_SD) }),
-    );
-    await expect(resumen(page)).toContainText("2 fallas");
-    await expect(detalle.locator('[data-falla="si"]')).toHaveCount(2);
-
-    // Se arreglan.
-    await alimentar(page, base);
-    await expect(resumen(page)).toContainText("Todo en orden");
-    await expect(detalle.locator('[data-falla="si"]')).toHaveCount(0);
-    expect(errores).toEqual([]);
-  });
-
-  test("avisos: calibraciones sin terminar", async ({ page }) => {
-    await abrir(page, "demeter");
-    // El principio del escenario: el cohete en la rampa, calibrando.
-    await alimentar(page, nominalEn("demeter", T_SIN_FIX));
-    await expect(salud(page)).toHaveAttribute("data-nivel", "aviso");
-    await expect(resumen(page)).toContainText(/\d+ avisos?/);
-    await expect(salud(page).locator('[data-aviso="calibraciones"]')).toContainText(
-      "Calibraciones sin terminar",
-    );
-    await salud(page).locator("summary").click();
-    await expect(salud(page).locator('[data-completa="no"]').first()).toContainText("En proceso");
-  });
-
-  test("calibración sin dato (D-050): 'Sin dato' en gris, sin aviso y sin 'En proceso'", async ({
-    page,
-  }) => {
-    const errores = vigilarErrores(page);
-    await abrir(page, "demeter");
-    const base = nominalEn("demeter", T_DESCENSO);
-    await alimentar(
-      page,
-      conSalud(base, {
-        boot_count: null,
-        calib: { giro: null, mag: null, baro: null, origen: null, actitud: null },
-      }),
-    );
-    await expect(resumen(page)).toContainText("Todo en orden");
-    await expect(salud(page).locator('[data-aviso="calibraciones"]')).toHaveCount(0);
-    await salud(page).locator("summary").click();
-    const sinDato = salud(page).locator('[data-completa="sin_dato"]');
-    await expect(sinDato).toHaveCount(5);
-    await expect(sinDato.first()).toContainText("Sin dato");
-    await expect(salud(page).locator('[data-completa="no"]')).toHaveCount(0);
-    await expect(salud(page).locator('[data-completa="si"]')).toHaveCount(0);
-    expect(errores).toEqual([]);
-  });
-
-  test("Go/No-Go: en PREFLIGHT y ARMED con sus condiciones; no en descenso", async ({ page }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_SIN_FIX));
-    const chip = salud(page).locator('[data-salud="go-nogo"]');
-    await expect(chip).toBeVisible();
-    await expect(chip).toHaveAttribute("data-go", "no");
-    await expect(chip).toContainText(/NO-GO · falta/);
-    expect(await chip.locator("li").count()).toBeGreaterThan(3);
-    await expect(chip.locator('li[data-ok="no"]').first()).toContainText("no cumple");
-
-    // ARMED, ya con todo en verde (el escenario real).
-    await alimentar(page, nominalEn("demeter", T_ARMADO));
-    await expect(chip).toHaveAttribute("data-go", "si");
-    await expect(chip).toContainText("GO · Listo para armar");
-
-    await alimentar(page, nominalEn("demeter", T_DESCENSO));
-    await expect(salud(page).locator('[data-salud="go-nogo"]')).toHaveCount(0);
-  });
-
-  test("batería baja: solo la falla del bit 13; la web no recalcula con el %", async ({ page }) => {
-    await abrir(page, "demeter");
-    const base = nominalEn("demeter", T_DESCENSO);
-    const baja = { ...base, estado: base.estado && { ...base.estado, bat_pct: 5 } };
-    await alimentar(page, baja);
-    await expect(resumen(page)).toContainText("Todo en orden");
-    await expect(salud(page).locator('[data-aviso="bateria"]')).toHaveCount(0);
-    await salud(page).locator("summary").click();
-    await expect(salud(page).locator('[data-fila="bateria-pct"]')).toContainText("5");
-
-    await alimentar(
-      page,
-      conSalud(baja, { fallas: ["Batería baja"], fallas_bits: 1 << BIT_BATERIA_BAJA }),
-    );
-    await expect(resumen(page)).toContainText("Falla en un sistema");
-    await expect(salud(page).locator('[data-salud="fallas"]')).toContainText("Batería baja");
-    await expect(salud(page).locator('[data-fila="bateria-v"]')).toContainText("V");
-  });
-
-  test("Hermes: sin fila de temperatura de la Pi ni del UART del VisionPack", async ({ page }) => {
-    await abrir(page, "hermes");
-    await alimentar(page, aterrizado("hermes"));
-    await salud(page).locator("summary").click();
-    await expect(salud(page).locator('[data-fila="temp-esp"]')).toBeVisible();
-    await expect(salud(page).locator('[data-fila="temp-pi"]')).toHaveCount(0);
-    await expect(salud(page).locator('[data-fila="bit-UART del VisionPack"]')).toHaveCount(0);
-  });
-
-  test("datos viejos: el resumen dice hace cuánto fue el último dato", async ({ page }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_DESCENSO), "conectado", 20_000);
-    await expect(salud(page).locator(".salud-edad")).toContainText(/Último dato hace \d+ s/);
-  });
-
-  test("el detalle se maneja con el teclado (summary enfocable)", async ({ page }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, aterrizado("demeter"));
-    const resumenDetalle = salud(page).locator("summary");
-    await resumenDetalle.focus();
-    await page.keyboard.press("Enter");
-    await expect(salud(page).locator("details")).toHaveAttribute("open", "");
-    const alto = await resumenDetalle.evaluate((e) => e.getBoundingClientRect().height);
-    expect(alto).toBeGreaterThanOrEqual(44);
   });
 });
 
@@ -540,39 +364,11 @@ test.describe("capturas de la bitácora", () => {
       test("nominal (en descenso)", async ({ page }) => {
         await abrir(page, "demeter");
         await alimentar(page, nominalEn("demeter", T_DESCENSO));
-        await salud(page).locator("summary").click();
         await page.waitForTimeout(300);
-        if (med.ancho < 1024) await recuperacion(page).getByRole("button", { name: /QR/ }).click();
         await recuperacion(page).scrollIntoViewIfNeeded();
         await recuperacion(page).screenshot({
           path: `${CAPTURAS}/recuperacion-nominal-${medida}.png`,
         });
-        await salud(page).screenshot({ path: `${CAPTURAS}/salud-nominal-${medida}.png` });
-      });
-
-      test("fallas (incluida la batería baja, bit 13)", async ({ page }) => {
-        await abrir(page, "demeter");
-        const base = nominalEn("demeter", T_DESCENSO);
-        await alimentar(
-          page,
-          conSalud(
-            { ...base, estado: base.estado && { ...base.estado, bat_pct: 41 } },
-            {
-              fallas: ["BMP581", "SD", "Batería baja"],
-              fallas_bits: (1 << BIT_BMP581) | (1 << BIT_SD) | (1 << BIT_BATERIA_BAJA),
-            },
-          ),
-        );
-        await salud(page).locator("summary").click();
-        await page.waitForTimeout(300);
-        await salud(page).screenshot({ path: `${CAPTURAS}/salud-fallas-${medida}.png` });
-      });
-
-      test("preflight con Go/No-Go", async ({ page }) => {
-        await abrir(page, "demeter");
-        await alimentar(page, nominalEn("demeter", T_SIN_FIX));
-        await page.waitForTimeout(300);
-        await salud(page).screenshot({ path: `${CAPTURAS}/salud-preflight-${medida}.png` });
       });
 
       test("aterrizado: Recuperación arriba", async ({ page }) => {

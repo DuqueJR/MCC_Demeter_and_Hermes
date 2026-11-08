@@ -81,3 +81,87 @@ html.mapa-completa-abierta {
     min-height: calc(var(--e-8) * 7);
   }
 }
+
+/*
+ * Etiqueta compacta de coordenadas dentro del mapa [T-671, D-065]. Arriba a la izquierda, a la derecha
+ * del control de zoom y sin llegar a los botones de la derecha; el ajuste del mapa deja 72 px de
+ * relleno, así que el cohete queda fuera de esta franja. No captura gestos: el dedo la atraviesa.
+ */
+.mapa-coordenadas {
+  position: absolute;
+  top: var(--e-2);
+  left: calc(var(--toque-min) + var(--e-5));
+  z-index: 2;
+  display: grid;
+  gap: var(--e-1);
+  max-width: calc(100% - 2 * (var(--toque-min) + var(--e-5)));
+  padding: var(--e-1) var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto);
+  font-size: var(--t-etiqueta);
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.mapa-coordenadas p {
+  margin: 0;
+}
+
+.mapa-coordenadas-vacio {
+  color: var(--texto-2);
+  font-weight: 600;
+}
+
+.mapa-coordenadas-rotulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--e-1);
+  color: var(--texto-2);
+  font-weight: 700;
+}
+
+.mapa-coordenadas-rotulo svg {
+  flex: none;
+  width: var(--e-4);
+  height: var(--e-4);
+  stroke-width: 2;
+}
+
+/* La última posición conocida va en rojo y con la palabra (GS-03, 02 §4): el color nunca va solo. */
+.mapa-coordenadas[data-coords-mapa="lkp"] {
+  border-color: var(--estado-alarma);
+}
+
+.mapa-coordenadas[data-coords-mapa="lkp"] .mapa-coordenadas-rotulo {
+  color: var(--estado-alarma);
+}
+
+.mapa-coordenadas-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--e-3);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.mapa-coordenadas-datos > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e-1);
+  white-space: nowrap;
+}
+
+.mapa-coordenadas-datos dt {
+  color: var(--texto-2);
+  font-size: calc(var(--t-etiqueta) * 0.85);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mapa-coordenadas-datos dd {
+  margin: 0;
+}

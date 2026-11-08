@@ -1,15 +1,16 @@
-// Sección "Salud del cohete" (03 §3.8, Objetivos 7.C, T-625): el resumen siempre visible, el chip
-// maestro Go/No-Go (solo en PREFLIGHT y ARMED) y el detalle desplegable. Consume SOLO las signals de
-// lectura de `datos/api.ts`; la lógica está en `vista_salud.ts`.
+// Sección "Salud del cohete" (03 §3.8, Objetivos 7.C, T-625; simplificada en T-658): una sola fila de
+// estado general ("Sin fallas reportadas" o "Falla: ..."), el chip maestro Go/No-Go (solo en PREFLIGHT y
+// ARMED) y el detalle desplegable (navegación, enlace, batería, SD y temperatura de la placa). Sin
+// modelos de chip, sin lista de sensores y sin calibraciones. Consume SOLO las signals de lectura de
+// `datos/api.ts`; la lógica está en `vista_salud.ts`.
 // El estado nunca va solo en color (02 §4): cada uno lleva ícono y palabra.
 import { computed } from "@preact/signals";
-import { CircleCheck, Info, OctagonX, TriangleAlert } from "lucide-preact";
+import { CircleCheck, Hourglass, Info, OctagonX, TriangleAlert } from "lucide-preact";
 import type { ComponentChildren } from "preact";
 import type { Mision } from "../contrato/tipos";
 import { edad, estado, meta, salud } from "../datos/api";
-import { hace } from "./formato";
 import "./recuperacion_salud.css";
-import { type FilaBit, type NivelSalud, vistaSalud } from "./vista_salud";
+import { type EstadoGoNogo, type NivelSalud, vistaSalud } from "./vista_salud";
 import { datoViejo, textoONulo } from "./vista_telemetria";
 
 const MS_POR_S = 1000;
@@ -27,9 +28,26 @@ const edadS = computed(() => (edad.value === null ? null : Math.floor(edad.value
 const ICONO_NIVEL: Record<NivelSalud, ComponentChildren> = {
   sin_dato: <Info aria-hidden="true" />,
   ok: <CircleCheck aria-hidden="true" />,
-  aviso: <TriangleAlert aria-hidden="true" />,
   falla: <OctagonX aria-hidden="true" />,
 };
+
+/** El chip maestro: el estado nunca va solo en color, lleva ícono y palabra. */
+const ICONO_GO: Record<EstadoGoNogo, ComponentChildren> = {
+  esperando: <Hourglass aria-hidden="true" />,
+  go: <CircleCheck aria-hidden="true" />,
+  nogo: <OctagonX aria-hidden="true" />,
+};
+const CLASE_GO: Record<EstadoGoNogo, string> = {
+  esperando: "chip-go-espera",
+  go: "chip-go-si",
+  nogo: "chip-go-no",
+};
+
+function textoGo(go: { estado: EstadoGoNogo; faltan: number; armado: boolean }): string {
+  if (go.estado === "esperando") return "Esperando armado";
+  if (go.estado === "go") return go.armado ? "GO · Cohete armado" : "GO · Listo para armar";
+  return `NO-GO · ${go.faltan === 1 ? "falta 1 condición" : `faltan ${go.faltan} condiciones`}`;
+}
 
 const SinDato = () => <span class="sin-dato-texto">sin dato</span>;
 
@@ -69,24 +87,10 @@ function Fila({
   );
 }
 
-/** Una fila de bit de `fallas`: con ícono y palabra, nunca solo color. */
-function FilaDeBit({ fila }: { fila: FilaBit }) {
-  return (
-    <Fila nombre={fila.nombre} dato={`bit-${fila.nombre}`}>
-      <span
-        class={`salud-estado ${fila.falla ? "salud-falla" : "salud-ok"}`}
-        data-falla={fila.falla ? "si" : "no"}
-      >
-        {fila.falla ? <OctagonX aria-hidden="true" /> : <CircleCheck aria-hidden="true" />}
-        <span>{fila.falla ? "En falla" : "Sin falla"}</span>
-      </span>
-    </Fila>
-  );
-}
-
 export function Salud({ mision }: { mision: Mision }) {
-  const v = vistaSalud(salud.value, estado.value, meta.value?.mision ?? mision);
   const esViejo = viejo.value;
+  const edadMs = edadS.value === null ? null : edadS.value * MS_POR_S;
+  const v = vistaSalud(salud.value, estado.value, meta.value?.mision ?? mision, edadMs, esViejo);
 
   return (
     <section
@@ -112,106 +116,49 @@ export function Salud({ mision }: { mision: Mision }) {
             <span>{v.resumen}</span>
           </p>
 
-          {esViejo && edadS.value !== null && (
-            <p class="salud-edad">
-              <TriangleAlert aria-hidden="true" />
-              <span>Último dato {hace(edadS.value * MS_POR_S)}: puede haber cambiado.</span>
-            </p>
-          )}
-
-          {v.fallas.length > 0 && (
+          {v.causas.length > 1 && (
             <ul class="salud-causas" data-salud="fallas">
-              {v.fallas.map((f) => (
-                <li key={f} class="salud-falla">
+              {v.causas.map((c) => (
+                <li key={c} class="salud-falla">
                   <OctagonX aria-hidden="true" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {v.avisos.length > 0 && (
-            <ul class="salud-causas" data-salud="avisos">
-              {v.avisos.map((a) => (
-                <li key={a.id} class="salud-aviso" data-aviso={a.id}>
-                  <TriangleAlert aria-hidden="true" />
-                  <span>{a.texto}</span>
+                  <span>{c}</span>
                 </li>
               ))}
             </ul>
           )}
 
           {v.goNogo !== null && (
-            <div class="salud-go" data-go={v.goNogo.listo ? "si" : "no"} data-salud="go-nogo">
-              <p class={`chip-go ${v.goNogo.listo ? "chip-go-si" : "chip-go-no"}`}>
-                {v.goNogo.listo ? (
-                  <CircleCheck aria-hidden="true" />
-                ) : (
-                  <OctagonX aria-hidden="true" />
-                )}
-                <span>
-                  {v.goNogo.listo
-                    ? "GO · Listo para armar"
-                    : `NO-GO · ${v.goNogo.faltan === 1 ? "falta 1 condición" : `faltan ${v.goNogo.faltan} condiciones`}`}
-                </span>
+            <div class="salud-go" data-go={v.goNogo.estado} data-salud="go-nogo">
+              <p class={`chip-go ${CLASE_GO[v.goNogo.estado]}`}>
+                {ICONO_GO[v.goNogo.estado]}
+                <span>{textoGo(v.goNogo)}</span>
               </p>
-              <ul class="salud-condiciones">
-                {v.goNogo.condiciones.map((c) => (
-                  <li key={c.id} data-condicion={c.id} data-ok={c.ok ? "si" : "no"}>
-                    {c.ok ? (
-                      <CircleCheck class="salud-ok" aria-hidden="true" />
-                    ) : (
-                      <OctagonX class="salud-falla" aria-hidden="true" />
-                    )}
-                    <span>{c.nombre}</span>
-                    <span class="solo-lector">{c.ok ? ": cumple" : ": no cumple"}</span>
-                  </li>
-                ))}
-              </ul>
+              {v.goNogo.estado === "esperando" && (
+                <p class="salud-go-nota">
+                  El cohete confirma el Go cuando responde al armado. Estas son las condiciones que
+                  ya se ven.
+                </p>
+              )}
+              {v.goNogo.condiciones.length > 0 && (
+                <ul class="salud-condiciones">
+                  {v.goNogo.condiciones.map((c) => (
+                    <li key={c.id} data-condicion={c.id} data-ok={c.ok ? "si" : "no"}>
+                      {c.ok ? (
+                        <CircleCheck class="salud-ok" aria-hidden="true" />
+                      ) : (
+                        <OctagonX class="salud-falla" aria-hidden="true" />
+                      )}
+                      <span>{c.nombre}</span>
+                      <span class="solo-lector">{c.ok ? ": cumple" : ": no cumple"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
           <details class="salud-detalle" data-salud="detalle">
             <summary>Ver el detalle</summary>
-
-            <h3 class="subtitulo">Sensores</h3>
-            <dl class="salud-lista">
-              {v.sensores.map((f) => (
-                <FilaDeBit key={f.nombre} fila={f} />
-              ))}
-            </dl>
-
-            <h3 class="subtitulo">Sistemas</h3>
-            <dl class="salud-lista">
-              {v.sistemas.map((f) => (
-                <FilaDeBit key={f.nombre} fila={f} />
-              ))}
-            </dl>
-
-            <h3 class="subtitulo">Calibraciones</h3>
-            <dl class="salud-lista">
-              {v.calibraciones.map((c) => (
-                <Fila key={c.id} nombre={c.nombre} dato={`calib-${c.id}`}>
-                  {c.completa === null ? (
-                    <span class="salud-estado salud-sin-dato" data-completa="sin_dato">
-                      <Info aria-hidden="true" />
-                      <span>Sin dato</span>
-                    </span>
-                  ) : (
-                    <span
-                      class={`salud-estado ${c.completa ? "salud-ok" : "salud-aviso"}`}
-                      data-completa={c.completa ? "si" : "no"}
-                    >
-                      {c.completa ? (
-                        <CircleCheck aria-hidden="true" />
-                      ) : (
-                        <TriangleAlert aria-hidden="true" />
-                      )}
-                      <span>{c.completa ? "Completa" : "En proceso"}</span>
-                    </span>
-                  )}
-                </Fila>
-              ))}
-            </dl>
 
             <h3 class="subtitulo">Navegación</h3>
             <dl class="salud-lista">
@@ -285,14 +232,9 @@ export function Salud({ mision }: { mision: Mision }) {
 
             <h3 class="subtitulo">Temperatura</h3>
             <dl class="salud-lista">
-              <Fila nombre="Placa (ESP32)" dato="temp-esp">
-                <Medida valor={v.temperatura.espC} decimales={0} unidad="°C" />
+              <Fila nombre="Placa de vuelo" dato="temp-placa">
+                <Medida valor={v.temperatura.placaC} decimales={0} unidad="°C" />
               </Fila>
-              {v.temperatura.mostrarPi && (
-                <Fila nombre="Raspberry Pi" dato="temp-pi">
-                  <Medida valor={v.temperatura.piC} decimales={0} unidad="°C" />
-                </Fila>
-              )}
             </dl>
           </details>
         </>

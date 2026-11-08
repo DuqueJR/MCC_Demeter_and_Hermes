@@ -11,6 +11,13 @@ Contratos que cumple (no se cambian desde aqui):
 - docs/04_diseno/maquina_estados.md §5 (de `state`/`moment` a `fase`);
 - docs/08_gui/05_contrato_datos_web.md (`web-1`) y gui/web/src/contrato/esquema.json.
 
+Altura (T-657, D-064): `pos.alt_agl_m` = `alt_msl - referencia`, con la regla de `p0` de firmware/cohete/src/mission.cpp
+(`REF_TAU_S` = 60 s): mientras el cohete esta en TIERRA la referencia sigue a la altitud del TELEM (solo muestras con EKF;
+sin EKF, GNSS con fix 3D); en ARMED sigue con un tau corto (`REF_TAU_ARMADO_S` = 5 s, porque el EKF rehace su reposo al
+armar y su altitud puede saltar unos metros); en FLY y RECOVERY queda congelada con el ultimo valor de ARMED. No hay altitud del sitio en el calculo. `ruta_referencia`
+(el dashboard en vivo) la persiste por cohete y mision. `act.*`, `flags.reanudado` y `salud.pi` salen de TELEM.actuators
+y TELEM.flags (D-065).
+
 Uso como libreria (lo que hara dashboard.py en T-662; NO esta integrado todavia):
 
     from web1 import Traductor
@@ -33,6 +40,7 @@ import argparse
 import collections
 import json
 import math
+import os
 import re
 import struct
 import sys
@@ -44,7 +52,7 @@ import time
 # ---------------------------------------------------------------------------
 SITIO_LAT = 6.582                 # SITIO: Santa Fe de Antioquia
 SITIO_LON = -75.823
-SITIO_ALT_MSL_M = 510.0
+SITIO_ALT_MSL_M = 510.0           # solo para `meta.sitio` (informativo): NO entra en ningun calculo de altura (D-064)
 ALARMA_DESCENSO_MS = 10.0         # se evalua solo en DESCENT (= momento PARACAIDAS)
 BAT_PCT_VMIN_MV = 3300            # (P) para pasar vbat_mv a bat_pct
 BAT_PCT_VMAX_MV = 4200            # (P)
@@ -60,7 +68,7 @@ WGS84_F = 1.0 / 298.257223563
 # net_proto.h
 DEMETER, HERMES = 1, 2
 P_TELEM, P_LOG_INFO = 1, 5
-TF_FLYING, TF_BOOST_SIN_ARMAR = 1, 2
+TF_FLYING, TF_BOOST_SIN_ARMAR, TF_REANUDADO = 1, 2, 16
 MAX_GAP_SLOTS = SLOTS_PER_S * 60  # gnd_rx.cpp: un salto mayor es un reinicio, no perdidas
 
 # Parametros propios de este modulo, todos provisionales (P): no estan en constantes.md.
@@ -72,6 +80,26 @@ DESCENSO_VZ_MIN_MS = 0.1          # (P) por debajo de esta bajada no hay tiempo 
 LATIDO_S = 1.0                    # `salud` y `estacion` a 1 Hz
 CMD_VIGENCIA_S = 30.0             # un comando escrito vale para atribuir la respuesta
 SERIE_MAX_RETENIDOS = 200_000     # (P) puntos que se guardan en memoria por mision
+
+# Altura de mision (D-064): la regla de `p0` del firmware (mission.cpp: REF_TAU_S) aplicada a la altura del TELEM.
+REF_TAU_S = 60.0                  # igual que mission.cpp: en TIERRA la referencia sigue al clima con tau = 60 s
+REF_TAU_ARMADO_S = 5.0            # (P) en ARMED sigue con este tau corto: absorbe el salto del EKF al rehacer su reposo
+REF_GUARDAR_S = 10.0              # (P) cada cuanto se persiste la referencia mientras sigue (y siempre al congelarse)
+REF_VIGENCIA_S = 12 * 3600.0      # (P) una referencia guardada mas vieja que esto no se usa (otro dia de pruebas)
+RUTA_REFERENCIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web1_referencia.json')   # ignorado por el repo
+
+# TELEM.actuators (protocolo_paquetes.md §2, T-413): bit 0 buzzer, bit 1 pulso de la Pi en curso, bits 3-7 motivo del
+# error de la Pi, bits 8-15 estado de la Pi
+ACT_BUZZER, ACT_PI_PULSO = 1, 2
+PI_ESTADO_DESCONOCIDO = 0xFF      # sin latido en 3 s, y siempre en Hermes
+# `StatusCode` de visionpack/demeter_protocol.py (una prueba comprueba que son iguales)
+PI_ESTADOS = {0x00: "BOOT", 0x01: "PREFLIGHT", 0x02: "READY", 0x03: "ARMED", 0x04: "STARTING", 0x05: "INGESTING",
+              0x06: "PROCESSING", 0x07: "COMPLETE", 0x08: "ASCENT", 0x30: "RECORDING", 0xE0: "ABORTED", 0xE1: "SD_FULL",
+              0xE2: "RATE_FALLBACK", 0xE3: "TELEMETRY_LOST", 0xE4: "ABORT_REQUESTED", 0xE5: "CLOCK_UNSYNCED",
+              0xEF: "PIPELINE_ERROR"}
+PI_ESTADOS_CAMARA_OK = frozenset((0x02, 0x03, 0x04, 0x08, 0x30))   # READY, ARMED, STARTING, ASCENT, RECORDING (D-065)
+# `ErrorCode` de demeter_protocol.py (bits 3-7 de actuators); 31 = OTRO
+PI_MOTIVOS = {1: "SD_ESPACIO", 2: "SD_LENTA", 3: "RAM", 4: "CAMARA", 5: "TELEMETRIA", 6: "PROCESO", 7: "ARCHIVOS", 31: "OTRO"}
 
 MISIONES = {DEMETER: "demeter", HERMES: "hermes"}
 NODO = {"demeter": DEMETER, "hermes": HERMES}
@@ -272,6 +300,12 @@ class _Cohete:
         self.vz_alarma = None
         self.lastAbs = 0
         self.enlace = collections.deque()   # (t_local, esperados, perdidos)
+        # Referencia de altura (D-064): la altitud sobre el nivel del mar que vale como 0 m
+        self.ref = None
+        self.ref_fuente = None        # 'ekf' | 'gnss' (muestras reales, tambien la recuperada del archivo) | 'respaldo'
+        self.ref_t = None             # hora local de la ultima muestra que la movio (None = congelada o sin empezar)
+        self.ref_congelada = False
+        self.ref_escrita_t = None
 
 
 class Traductor:
@@ -281,9 +315,10 @@ class Traductor:
     quien lo use desde varios (dashboard.py, T-662) debe proteger las llamadas con un candado.
     """
 
-    def __init__(self, modo="vivo", sitio=(SITIO_LAT, SITIO_LON, SITIO_ALT_MSL_M)):
+    def __init__(self, modo="vivo", sitio=(SITIO_LAT, SITIO_LON, SITIO_ALT_MSL_M), ruta_referencia=None):
         self.modo = modo
-        self.sitio = sitio
+        self.sitio = sitio            # solo para `meta.sitio`: la altura NO sale de aqui (D-064)
+        self.ruta_referencia = ruta_referencia   # donde se persiste la referencia de altura; None = no se persiste
         self.cohetes = {rid: _Cohete(rid) for rid in MISIONES}
         self.gnss_ok = False
         self.pos_estacion = None      # (lat, lon, alt_msl_m): la ultima del texto `[time] ... pos(n)=`
@@ -478,6 +513,104 @@ class Traductor:
             t_ms = int(round(t_local * 1000))
         return c.seq_local, t_ms, None
 
+    # -- referencia de altura (D-064) ---------------------------------------------
+    def persistir_en(self, ruta):
+        """Activa la persistencia de la referencia de altura en `ruta` (el dashboard en vivo; no en demo ni reproduccion)."""
+        self.ruta_referencia = ruta
+
+    @staticmethod
+    def _clave_ref(c):
+        return f'{c.rid}:{c.mission_id or 0}'
+
+    def _leer_refs(self):
+        try:
+            with open(self.ruta_referencia, encoding='utf-8') as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _guardar_ref(self, c, t_local, forzar):
+        """Persiste la referencia (solo la real: de muestras EKF o GNSS) para recuperarla si el dashboard se reinicia
+        con el cohete ya armado. Nunca lanza: un disco lleno no debe tumbar la traduccion."""
+        if self.ruta_referencia is None or c.ref is None or c.ref_fuente not in ('ekf', 'gnss'):
+            return
+        if not forzar and c.ref_escrita_t is not None and t_local - c.ref_escrita_t < REF_GUARDAR_S:
+            return
+        c.ref_escrita_t = t_local
+        try:
+            d = self._leer_refs()
+            d[self._clave_ref(c)] = {"alt_msl_m": c.ref, "t": t_local, "fuente": c.ref_fuente, "congelada": c.ref_congelada}
+            tmp = self.ruta_referencia + '.tmp'
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(d, f)
+            os.replace(tmp, self.ruta_referencia)
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def _cargar_ref(self, c, t_local):
+        """La referencia guardada de este cohete y esta mision, si es reciente: (altitud, fuente); si no, None."""
+        if self.ruta_referencia is None:
+            return None
+        r = self._leer_refs().get(self._clave_ref(c))
+        try:
+            if (r is not None and 0.0 <= t_local - float(r["t"]) <= REF_VIGENCIA_S and math.isfinite(float(r["alt_msl_m"]))
+                    and r["fuente"] in ('ekf', 'gnss')):
+                return float(r["alt_msl_m"]), r["fuente"]
+        except (KeyError, TypeError, ValueError):
+            pass
+        return None
+
+    def _seguir(self, c, alt_msl, ekf_ok, fix, t_local, tau):
+        """Mueve la referencia hacia `alt_msl` con un filtro exponencial de constante `tau`, si la muestra vale.
+        La primera muestra valida la inicializa (como `s_ref` en el firmware); un respaldo tambien se reemplaza por ella."""
+        fuente = 'ekf' if ekf_ok else ('gnss' if fix >= 3 else None)
+        if fuente is None:
+            return
+        if c.ref is None or c.ref_fuente == 'respaldo' or (fuente == 'ekf' and c.ref_fuente == 'gnss'):
+            c.ref, c.ref_fuente = alt_msl, fuente
+        elif fuente == c.ref_fuente:
+            dt = 0.0 if c.ref_t is None else max(0.0, t_local - c.ref_t)   # tras estar congelada no cuenta ese tiempo
+            c.ref += (alt_msl - c.ref) * (1.0 - math.exp(-dt / tau))
+        else:
+            return
+        c.ref_t = t_local
+        self._guardar_ref(c, t_local, forzar=False)
+
+    def _referencia(self, c, t, alt_msl, ekf_ok, t_local):
+        """La altitud (sobre el nivel del mar) que vale como 0 m, con la regla de `p0` de mission.cpp:
+        - TIERRA: sigue a `alt_msl` con un filtro exponencial de tau = REF_TAU_S (60 s), como el clima.
+        - ARMED (el cohete sigue quieto en la rampa): sigue con tau = REF_TAU_ARMADO_S (5 s) desde el valor que traia, para
+          absorber el salto que puede dar la altitud del EKF cuando el firmware rehace su reposo al armar.
+        - FLY y RECOVERY: congelada con el ultimo valor de ARMED (el primer paquete de FLY ya puede venir subiendo).
+        Solo mueven la referencia las muestras con EKF; sin EKF, las del GNSS con fix 3D. No se mezclan las fuentes: una
+        referencia nacida del EKF ignora las muestras solo-GNSS (la altura de cada una se mide distinto).
+        Devuelve None si aun no hay referencia (ni muestra valida en TIERRA)."""
+        state = t['state']
+        if state in (S_TIERRA, S_ARMED):
+            if c.ref is None and state == S_ARMED:
+                self._recuperar_ref(c, alt_msl, t_local)
+            c.ref_congelada = False
+            self._seguir(c, alt_msl, ekf_ok, t['fix'], t_local, REF_TAU_S if state == S_TIERRA else REF_TAU_ARMADO_S)
+        elif state != 0:                                               # FLY o RECOVERY: congelada
+            if not c.ref_congelada:
+                c.ref_congelada, c.ref_t = True, None
+                self._guardar_ref(c, t_local, forzar=True)
+            if c.ref is None:                                          # el dashboard arranco con el cohete ya en vuelo
+                self._recuperar_ref(c, alt_msl, t_local)
+        return c.ref
+
+    def _recuperar_ref(self, c, alt_msl, t_local):
+        """El dashboard arranco con el cohete ya fuera de TIERRA: la referencia guardada; si no hay, el respaldo (P):
+        la altitud de la estacion, o la primera muestra. Un respaldo no se persiste y lo reemplaza la primera muestra
+        valida mientras el cohete siga en ARMED."""
+        guardada = self._cargar_ref(c, t_local)
+        if guardada is not None:
+            c.ref, c.ref_fuente = guardada
+        else:
+            c.ref = self.pos_estacion[2] if self.pos_estacion is not None else alt_msl
+            c.ref_fuente = 'respaldo'
+
     def _estado(self, c, t, t_local):
         seq, t_ms, utc_ms = self._tiempos(c, t, t_local)
         fase = fase_de(t['state'], t['moment'])
@@ -491,7 +624,9 @@ class Traductor:
         ekf_ok = norma >= 1e-6 and tuple(t['quat']) != (32767, 0, 0, 0)
         pos = vel = None
         alt_msl = t['alt_cm'] / 100.0
-        alt_agl = alt_msl - self.sitio[2]
+        ref = self._referencia(c, t, alt_msl, ekf_ok, t_local)
+        # Sin referencia aun (en TIERRA y sin muestra valida: sin fix 3D ni EKF) el cohete esta en su rampa: 0 m, no la altitud MSL.
+        alt_agl = alt_msl - ref if ref is not None else 0.0
         if t['fix'] >= 2:
             pos = {"lat": redondear(t['lat_e7'] / 1e7, 7), "lon": redondear(t['lon_e7'] / 1e7, 7), "alt_agl_m": redondear(alt_agl, 1),
                    "alt_msl_m": redondear(alt_msl, 1), "fuente": "ekf" if ekf_ok else "gnss"}
@@ -534,14 +669,34 @@ class Traductor:
             "q": {"w": redondear(q[0], 5), "x": redondear(q[1], 5), "y": redondear(q[2], 5), "z": redondear(q[3], 5)},
             "flags": {"gnss_fix": t['fix'] >= 3, "ekf_ok": ekf_ok, "falla_activa": falla,
                       "eyeccion": en_ctx and t['moment'] >= M_PARACAIDAS, "apogeo": en_ctx and t['moment'] >= M_APOGEO,
-                      "log_activo": log_activo, "reanudado": False},
-            "act": {"pi_pulso": False, "cam_ok": False, "buzzer": False, "wifi_ap": False, "backfill": False},
+                      "log_activo": log_activo, "reanudado": bool(t['flags'] & TF_REANUDADO)},
+            "act": self._act(t),
             "bat_pct": bat, "secundario": None,
             "calc": self._calc(c, t, fase, pos, vel, alt_agl),
             "enlace": {"rssi_dbm": int(round(c.rssi)), "snr_db": redondear(c.snr, 1), "perdidos_pct_10s": self._perdidos(c, t, t_local)},
             "alarmas": {"descenso_rapido": alarma},
             "lkp": c.lkp,
         }
+
+    @staticmethod
+    def _act(t):
+        """`act.*` desde TELEM.actuators (D-065). Hermes no lleva Pi: `cam_ok` y `pi_pulso` en false."""
+        a = t['actuators']
+        demeter = t['rid'] == DEMETER
+        return {"pi_pulso": demeter and bool(a & ACT_PI_PULSO),
+                "cam_ok": demeter and ((a >> 8) & 0xFF) in PI_ESTADOS_CAMARA_OK,
+                "buzzer": bool(a & ACT_BUZZER), "wifi_ap": False, "backfill": False}
+
+    @staticmethod
+    def _pi(t):
+        """`salud.pi` (D-065): null en Hermes; en Demeter, el estado (byte alto) y el motivo (bits 3-7) de la Pi."""
+        if t['rid'] != DEMETER:
+            return None
+        a = t['actuators']
+        motivo = (a >> 3) & 0x1F
+        return {"estado": PI_ESTADOS.get((a >> 8) & 0xFF, "DESCONOCIDO"),   # 0xFF (sin latido) y todo byte sin nombre
+                "motivo": PI_MOTIVOS.get(motivo, "OTRO") if motivo else None,
+                "bat_pct": None}                                               # la UART no la trae todavia
 
     def _calc(self, c, t, fase, pos, vel, alt_agl):
         """GS-02 (distancia, azimut, elevacion desde la estacion) y GS-10 (elipse de aterrizaje, provisional)."""
@@ -634,13 +789,14 @@ class Traductor:
             "t_ms": est['t_ms'], "utc_ms": est['utc_ms'], "mission_id": c.mission_id or None,
             "boot_count": None,      # net_proto no lo trae: null = sin dato (D-050), no 0
             "gnss": {"fix": 3 if t['fix'] in (3, 4) else (2 if t['fix'] == 2 else 0), "sv": t['nsv'], "hacc_m": None},
-            "bat_mv": t['vbat'], "temp_esp_c": None, "temp_pi_c": None,
+            # temp_esp_c: null a proposito. TELEM.temp_c[0] es la del barometro, no la de la placa (T-657, A6)
+            "bat_mv": t['vbat'], "temp_esp_c": None, "temp_pi_c": None, "pi": self._pi(t),
             "fallas": [], "fallas_bits": 0,
             # net_proto no trae la calibracion: null = sin dato (D-050). Con `false` la web diria "no calibrado".
             "calib": {"giro": None, "mag": None, "baro": None, "origen": None, "actitud": None},
             "nav_innov_m": None,
             "apogeo_m": redondear(c.alt_max, 1) if (est['flags']['apogeo'] and c.alt_max is not None) else None,
-            "alt_origen_msl_m": redondear(self.sitio[2], 1), "sd_libre_mb": None,
+            "alt_origen_msl_m": redondear(c.ref, 1) if c.ref is not None else None, "sd_libre_mb": None,
             "rssi_tierra_dbm": int(round(c.rssi)), "ultimo_cmd_seq": t['ack'] & 63,
             "go_nogo": self.go_nogo(c), "fw_version": None,
         }

@@ -71,6 +71,29 @@ class Fixture(unittest.TestCase):
         for t in ('despegue', 'fin_combustion', 'apogeo', 'eyeccion', 'aterrizaje'):
             self.assertIn(t, tipos, t)
 
+    def test_el_apogeo_se_mide_desde_la_rampa(self):
+        """T-657 / D-064: el apogeo es la altura sobre la rampa (669,3 m en la simulacion), no sobre el nivel del mar."""
+        apogeo = [m['datos'] for m in self.msgs if m['tipo'] == 'evento' and m['datos']['tipo'] == 'apogeo']
+        self.assertEqual(len(apogeo), 1)
+        self.assertAlmostEqual(apogeo[0]['valor'], 669.3, delta=3.0)
+        salud = [m['datos'] for m in self.msgs if m['tipo'] == 'salud' and m['mision'] == 'demeter']
+        self.assertEqual({s['alt_origen_msl_m'] for s in salud}, {510.0})      # la referencia sale del TELEM, congelada al armar
+        self.assertAlmostEqual(salud[-1]['apogeo_m'], 669.3, delta=3.0)
+
+    def test_act_y_salud_pi_salen_del_telem(self):
+        """T-657 / D-065: la Pi del fixture pasa por READY, ARMED, RECORDING y COMPLETE (`generador.actuators_demeter`)."""
+        est = [m['datos'] for m in self.msgs if m['tipo'] == 'estado']
+        cam = {e['fase']: e['act']['cam_ok'] for e in est}
+        self.assertTrue(cam['PREFLIGHT'] and cam['ARMED'] and cam['COAST'])     # READY, ARMED y RECORDING
+        self.assertFalse(cam['LANDED'])                                         # COMPLETE: ya no graba
+        estados = []
+        for m in self.msgs:
+            if m['tipo'] == 'salud':
+                e = m['datos']['pi']['estado']
+                if not estados or estados[-1] != e:
+                    estados.append(e)
+        self.assertEqual(estados, ['READY', 'ARMED', 'RECORDING', 'COMPLETE'])
+
     def test_los_tipos_esperados_y_nada_mas(self):
         self.assertEqual({m['tipo'] for m in self.msgs}, {'meta', 'estado', 'salud', 'estacion', 'evento'})
 

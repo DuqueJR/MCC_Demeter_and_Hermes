@@ -67,6 +67,7 @@ export const saludEjemplo: Salud = {
   bat_mv: 3980,
   temp_esp_c: 41,
   temp_pi_c: 55,
+  pi: { estado: "RECORDING", motivo: null, bat_pct: null },
   fallas: [],
   fallas_bits: 0,
   calib: { giro: true, mag: true, baro: true, origen: true, actitud: true },

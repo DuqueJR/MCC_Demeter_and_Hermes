@@ -125,6 +125,27 @@ class PuntosDeLaPropuesta1(unittest.TestCase):
         d["boot_count"] = "3"
         self.assertTrue(validar_mensaje("salud", d))
 
+    def test_salud_pi_es_opcional_d065(self):
+        """`salud.pi` (T-657 / D-065): puede faltar, ser null (Hermes) o ser {estado, motivo, bat_pct}."""
+        d = _base("salud")
+        d.pop("pi", None)
+        self.assertValido("salud", d)  # sin `pi`: "sin dato"
+        d["pi"] = None
+        self.assertValido("salud", d)
+        d["pi"] = {"estado": "RECORDING", "motivo": None, "bat_pct": None}
+        self.assertValido("salud", d)
+        d["pi"] = {"estado": "SD_FULL", "motivo": "SD_ESPACIO", "bat_pct": 80}
+        self.assertValido("salud", d)
+        for malo in (
+            {"estado": "ARMED"},  # incompleto
+            {"estado": None, "motivo": None, "bat_pct": None},  # el estado no es nulo
+            {"estado": "ARMED", "motivo": None, "bat_pct": 101},
+            {"estado": "ARMED", "motivo": None, "bat_pct": None, "extra": 1},
+        ):
+            with self.subTest(pi=malo):
+                d["pi"] = malo
+                self.assertTrue(validar_mensaje("salud", d))
+
     def test_calib_nulos_d050(self):
         d = _base("salud")
         d["calib"] = {c: None for c in ("giro", "mag", "baro", "origen", "actitud")}
