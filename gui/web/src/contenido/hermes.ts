@@ -8,6 +8,8 @@
 //   del motor; hasta entonces no se inventa ninguna cifra.
 // El tono (se tutea, cercano, números exactos con su unidad) sale de 02_identidad_visual §9.
 
+// La miniatura de la vista 3D del mapa (T-656): el cohete de la misión, con transparencia, de 128 px.
+import coheteMapa from "../assets/hermes/cohete.png?w=128&format=webp";
 import cohete from "../assets/hermes/cohete.png?w=1000&format=webp";
 import equipo from "../assets/hermes/equipo.jpg?w=1400&format=webp";
 import iconoAletas from "../assets/hermes/iconos/aletas.png?w=96&format=webp";
@@ -32,6 +34,7 @@ export const hermes: Contenido = {
     nota: "Mira cómo se verá esta página durante el vuelo, con un vuelo de ejemplo hecho con datos de muestra (sintéticos). No es un cálculo del motor G80-7T y no son datos reales: las alturas y los tiempos que verás no son los de Hermes.",
     banner: "Simulación: vuelo de ejemplo con datos de muestra",
   },
+  coheteMapa,
   parcheChico,
   parcheGrande,
   // Carrusel de Inicio: solo el cohete. La foto del equipo va en la sección Equipo (T-646).

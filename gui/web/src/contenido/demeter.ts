@@ -9,6 +9,8 @@
 // - VisionPack (Raspberry Pi 5 y 2 cámaras): docs/04_diseno/visionpack_integracion.md y 03 §3.9.
 // El tono (se tutea, cercano, números exactos con su unidad) sale de 02_identidad_visual §9.
 
+// La miniatura de la vista 3D del mapa (T-656): el cohete de la misión, con transparencia, de 128 px.
+import coheteMapa from "../assets/demeter/cohete.png?w=128&format=webp";
 import cohete from "../assets/demeter/cohete.png?w=1000&format=webp";
 import equipo from "../assets/demeter/equipo.jpg?w=1400&format=webp";
 import iconoAletas from "../assets/demeter/iconos/aletas.png?w=96&format=webp";
@@ -33,6 +35,7 @@ export const demeter: Contenido = {
     nota: "Mira cómo se verá esta página durante el vuelo, con un vuelo simulado de OpenRocket. No son datos reales.",
     banner: "Simulación: así será el vuelo",
   },
+  coheteMapa,
   parcheChico,
   parcheGrande,
   // Carrusel de Inicio: solo el cohete. La foto del equipo va en la sección Equipo (T-646).

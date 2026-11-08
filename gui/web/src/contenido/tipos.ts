@@ -51,6 +51,8 @@ export interface Contenido {
   /** Los textos de la simulación para el público (botón y banner). */
   simulacion: TextoSimulacion;
   /** Parche pequeño (barra de misión) y grande (Equipo). */
+  /** La miniatura del cohete (128 px, con transparencia) para la vista 3D del mapa (T-656). */
+  coheteMapa?: string;
   parcheChico: string;
   parcheGrande: string;
   /** Carrusel de Inicio: las fotos del cohete (la del equipo va aparte, en `fotoEquipo`; T-646). */
