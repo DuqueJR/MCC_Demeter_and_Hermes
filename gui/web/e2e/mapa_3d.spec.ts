@@ -3,9 +3,10 @@ import { resolve } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { PNG } from "pngjs";
 import { MAPA_3D_PITCH, MAPA_3D_PITCH_MAX } from "../src/mapa/constantes";
+import { apiColgada, esperarPintado } from "./api_colgada";
 import { alimentar, DEV, reposos, snapshotDe } from "./mapa_ayudas";
 
-// T-656 (D-W23): la vista 3D opcional del mapa: terreno con relieve, trayectoria como tubo en el
+// T-656 (D-W23): la vista 3D opcional del mapa: terreno con relieve, trayectoria como línea fina en el
 // aire y la caída estimada sobre el terreno. Arranca siempre en 2D; sin relieve el botón no aparece.
 // Se prueba en el servidor de desarrollo (:5174), que deja inyectar un snapshot en `datos/api.ts`.
 const RUTA_RELIEVE = resolve(import.meta.dirname, "../public/mapas/relieve/relieve.json");
@@ -231,9 +232,9 @@ test.describe("activar y desactivar la vista 3D", () => {
       await entrar3d(page);
       await expect(boton3d(page)).toHaveAccessibleName("Vista 2D");
       await expect(boton3d(page)).toHaveAttribute("aria-pressed", "true");
-      // El tubo de la trayectoria, el cohete y la caída estimada se dibujan.
+      // La línea de la trayectoria (capa personalizada) y la caída estimada se dibujan.
       await expect
-        .poll(() => numeroDe(page, "data-mapa-tubo-dibujado"), { timeout: 15_000 })
+        .poll(() => numeroDe(page, "data-mapa-linea-segmentos"), { timeout: 15_000 })
         .toBeGreaterThan(0);
       await expect
         .poll(() => numeroDe(page, "data-mapa-elipse-dibujada"), { timeout: 15_000 })
@@ -247,9 +248,9 @@ test.describe("activar y desactivar la vista 3D", () => {
       await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 10_000 });
       await expect.poll(() => numeroDe(page, "data-mapa-pitch")).toBe(0);
       await expect.poll(() => numeroDe(page, "data-mapa-bearing")).toBe(0);
-      await expect(lienzo(page)).not.toHaveAttribute("data-mapa-tubo-dibujado", /.*/);
-      await expect(lienzo(page)).not.toHaveAttribute("data-mapa-cohete-dibujado", /.*/);
-      await expect(lienzo(page)).not.toHaveAttribute("data-mapa-estaca-dibujada", /.*/);
+      await expect(lienzo(page)).not.toHaveAttribute("data-mapa-capa3d", /.*/);
+      await expect(lienzo(page)).not.toHaveAttribute("data-mapa-linea-segmentos", /.*/);
+      await expect(page.locator(".mapa-cohete-3d")).toHaveCount(0);
       expect(await atributo(page, "data-mapa-limites")).toBe(antes.limites);
       expect(await atributo(page, "data-mapa-zoom-min")).toBe(antes.zoomMin);
       expect(errores).toEqual([]);
@@ -318,7 +319,7 @@ test.describe("la caída estimada y la trayectoria en 3D", () => {
       await volar(page, mision); // DESCENT, con calc.elipse
       await entrar3d(page);
 
-      const impacto = page.locator(".mapa-impacto");
+      const impacto = page.locator(".mapa-pin");
       await expect(impacto).toBeVisible();
       await expect.poll(() => estaEnPantalla(page, impacto), { timeout: 20_000 }).toBe(true);
       await expect(impacto).toHaveCSS("opacity", "1");
@@ -341,7 +342,7 @@ test.describe("la caída estimada y la trayectoria en 3D", () => {
 
       // Aterriza: la elipse y el impacto desaparecen, como en 2D.
       await volar(page, mision, T_ATERRIZADO_MS);
-      await expect(page.locator(".mapa-impacto")).toHaveCount(0);
+      await expect(page.locator(".mapa-pin, .mapa-impacto")).toHaveCount(0);
       await expect
         .poll(() => numeroDe(page, "data-mapa-elipse-dibujada"), { timeout: 15_000 })
         .toBe(0);
@@ -374,20 +375,7 @@ test.describe("la caída estimada y la trayectoria en 3D", () => {
   });
 });
 
-/** Los atributos de lo dibujado en 3D: cuántos elementos de cada capa salieron en pantalla. */
-const dibujados = (page: Page) =>
-  Promise.all(
-    ["tubo-dibujado", "cohete-dibujado", "estaca-dibujada", "elipse-dibujada"].map((n) =>
-      numeroDe(page, `data-mapa-${n}`),
-    ),
-  ).then(([tubo, cohete, estaca, elipse]) => ({
-    tubo: tubo as number,
-    cohete: cohete as number,
-    estaca: estaca as number,
-    elipse: elipse as number,
-  }));
-
-/** Los tiempos del escenario nominal (ms) de cada misión: ascenso, apogeo, descenso y en tierra. */
+/** Los tiempos del escenario nominal (ms) de cada misión: ascenso, apogeo y descenso. */
 const TIEMPOS = {
   demeter: { ascenso: 25_000, apogeo: 29_700, descenso: 70_000 },
   hermes: { ascenso: 24_000, apogeo: 28_200, descenso: 70_000 },
@@ -411,58 +399,121 @@ const anguloDeLaFlecha = (page: Page) =>
 /** Diferencia mínima entre dos ángulos, en grados (0 a 180). */
 const dif = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 360) - 180);
 
-test.describe("el cohete, el tubo y la estaca en 3D (ronda 2)", () => {
+/** La imagen del cohete en 3D y lo que dice de sí misma (posición y giro, que escribe el controlador). */
+const imagenCohete = (page: Page) => page.locator(".mapa-cohete-3d");
+const lecturaDeLaImagen = (page: Page) =>
+  imagenCohete(page).evaluate((img: HTMLImageElement) => ({
+    oculta: img.hidden,
+    x: Number(img.dataset.x),
+    y: Number(img.dataset.y),
+    angulo: Number(img.dataset.angulo),
+    src: img.currentSrc || img.src,
+    ancho: img.naturalWidth,
+    alto: img.naturalHeight,
+  }));
+
+test.describe("la línea, el cohete con su imagen y el pin del impacto en 3D (ronda 3)", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   for (const mision of MISIONES) {
-    test(`${mision}: el tubo, el cohete y la estaca existen y se dibujan; sin cohete flotante ni estaca al aterrizar`, async ({
+    test(`${mision}: la capa personalizada dibuja la línea, no hay prismas y la imagen del cohete es la de la misión`, async ({
       page,
     }) => {
       test.setTimeout(240_000);
       const errores = vigilarErrores(page);
       await abrir(page, mision);
-      const t = TIEMPOS[mision];
-
-      // Ascenso: el tubo y el cohete (con su plomada) están en el aire; aún no hay impacto estimado.
-      await volar(page, mision, t.ascenso);
+      await volar(page, mision, TIEMPOS[mision].ascenso);
       await entrar3d(page);
-      await expect
-        .poll(async () => (await dibujados(page)).tubo, { timeout: 20_000 })
-        .toBeGreaterThan(0);
-      await expect
-        .poll(async () => (await dibujados(page)).cohete, { timeout: 20_000 })
-        .toBeGreaterThan(0);
-      expect((await dibujados(page)).estaca).toBe(0);
-      expect((await dibujados(page)).elipse).toBe(0);
 
-      // Descenso: aparece la estaca con la elipse y el rombo de caída plano sobre el terreno.
-      await volar(page, mision, t.descenso);
-      await page.waitForTimeout(1500);
+      // La capa personalizada existe, tiene segmentos y dibuja cuadros; no queda ningún fill-extrusion.
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-capa3d", "custom");
       await expect
-        .poll(async () => (await dibujados(page)).estaca, { timeout: 20_000 })
-        .toBeGreaterThan(0);
+        .poll(() => numeroDe(page, "data-mapa-linea-segmentos"), { timeout: 20_000 })
+        .toBeGreaterThan(5);
       await expect
-        .poll(async () => (await dibujados(page)).elipse, { timeout: 20_000 })
+        .poll(() => numeroDe(page, "data-mapa-cuadros3d"), { timeout: 20_000 })
         .toBeGreaterThan(0);
-      expect((await dibujados(page)).tubo).toBeGreaterThan(0);
-      await expect(page.locator(".mapa-impacto")).toBeVisible();
-      await expect(page.locator(".mapa-marcador:has(.mapa-impacto)")).toHaveCSS(
-        "transform",
-        /matrix3d/, // tendido sobre el terreno (rotateX), no de frente a la pantalla
-      );
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-capas-extrusion", "0");
 
-      // Aterriza: sin estaca ni cohete en el aire (queda el marcador del suelo y el tubo recorrido).
-      await volar(page, mision, T_ATERRIZADO_MS);
-      await expect.poll(async () => (await dibujados(page)).estaca, { timeout: 20_000 }).toBe(0);
-      await expect.poll(async () => (await dibujados(page)).cohete, { timeout: 20_000 }).toBe(0);
-      expect((await dibujados(page)).tubo).toBeGreaterThan(0);
-      await expect(page.locator(".mapa-impacto")).toHaveCount(0);
-      await expect(page.locator(".mapa-cohete")).toHaveCount(1);
+      // La imagen del cohete está dentro del lienzo, con la miniatura de ESTA misión, y es un webp con transparencia.
+      const imagen = imagenCohete(page);
+      await expect(imagen).toHaveCount(1);
+      await expect(imagen).toBeVisible();
+      await expect.poll(() => estaEnPantalla(page, imagen), { timeout: 20_000 }).toBe(true);
+      const lectura = await lecturaDeLaImagen(page);
+      expect([lectura.ancho, lectura.alto]).toEqual([128, 128]);
+      const pixeles = await imagen.evaluate(async (img: HTMLImageElement) => {
+        const lienzoAux = document.createElement("canvas");
+        lienzoAux.width = img.naturalWidth;
+        lienzoAux.height = img.naturalHeight;
+        const ctx = lienzoAux.getContext("2d");
+        if (!ctx) return null;
+        ctx.drawImage(img, 0, 0);
+        const alfa = (x: number, y: number) => ctx.getImageData(x, y, 1, 1).data[3] as number;
+        return { esquina: alfa(1, img.naturalHeight - 2), centro: alfa(64, 64) };
+      });
+      expect(pixeles?.esquina).toBe(0); // el fondo es transparente
+      expect(imagen).toBeDefined();
       expect(errores).toEqual([]);
     });
   }
 
-  test("en LKP no hay cohete flotante: queda el pin del LKP en el suelo (GS-03)", async ({
+  test("la imagen del cohete es de cada misión: Deméter y Hermes cargan archivos distintos", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const srcs: string[] = [];
+    for (const mision of MISIONES) {
+      await abrir(page, mision);
+      await volar(page, mision, TIEMPOS[mision].ascenso);
+      await entrar3d(page);
+      srcs.push((await lecturaDeLaImagen(page)).src);
+    }
+    expect(new Set(srcs).size).toBe(2);
+  });
+
+  test("la imagen se mueve al cambiar el dato y se gira hacia donde va; en el descenso queda vertical", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await abrir(page, "demeter");
+    await volar(page, "demeter", TIEMPOS.demeter.ascenso);
+    await entrar3d(page);
+    await expect.poll(async () => (await lecturaDeLaImagen(page)).oculta).toBe(false);
+    const ascenso = await lecturaDeLaImagen(page);
+    // Subiendo con motor o por inercia: la nariz sigue la dirección del movimiento, casi hacia arriba
+    // (la imagen trae la nariz a 45° y se le resta eso: casi -45°).
+    expect(ascenso.angulo).toBeGreaterThan(-90);
+    expect(ascenso.angulo).toBeLessThan(0);
+
+    // Otro dato (el apogeo): la imagen se movió.
+    await volar(page, "demeter", TIEMPOS.demeter.apogeo);
+    await expect
+      .poll(
+        async () => {
+          const l = await lecturaDeLaImagen(page);
+          return Math.hypot(l.x - ascenso.x, l.y - ascenso.y);
+        },
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(3);
+
+    // Descenso con paracaídas: vertical, con la nariz arriba (decisión de T-656: no cae de nariz).
+    await volar(page, "demeter", TIEMPOS.demeter.descenso);
+    await expect
+      .poll(async () => (await lecturaDeLaImagen(page)).angulo, { timeout: 20_000 })
+      .toBe(-45);
+    await expect(imagenCohete(page)).toBeVisible();
+
+    // Aterriza: la imagen se oculta (queda el marcador del suelo) y no hay plomada de un cohete en el aire.
+    await volar(page, "demeter", T_ATERRIZADO_MS);
+    await expect
+      .poll(async () => (await lecturaDeLaImagen(page)).oculta, { timeout: 20_000 })
+      .toBe(true);
+    await expect(page.locator(".mapa-cohete")).toHaveCount(1);
+  });
+
+  test("en LKP no hay cohete flotante: la imagen se oculta y queda el pin del LKP en el suelo (GS-03)", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -471,25 +522,81 @@ test.describe("el cohete, el tubo y la estaca en 3D (ronda 2)", () => {
     await entrar3d(page);
     await expect(page.locator(".mapa-lkp")).toBeVisible();
     await expect(page.locator(".mapa-cohete")).toHaveCount(0);
-    await expect.poll(async () => (await dibujados(page)).cohete, { timeout: 20_000 }).toBe(0);
+    await expect(imagenCohete(page)).toBeHidden();
   });
 
-  test("el tubo y el cohete se rearman con el zoom: el tamaño en píxeles se mantiene", async ({
+  for (const mision of MISIONES) {
+    test(`${mision}: el pin del impacto de pie con su anillo en DESCENT y sin ellos al aterrizar; en 2D, la diana de siempre`, async ({
+      page,
+    }) => {
+      test.setTimeout(240_000);
+      await abrir(page, mision);
+      // En 2D: la diana, sin pin ni anillo ni línea del cohete.
+      await volar(page, mision, TIEMPOS[mision].descenso);
+      await expect(page.locator(".mapa-impacto")).toBeVisible();
+      await expect(page.locator(".mapa-pin, .impacto-anillo")).toHaveCount(0);
+
+      await entrar3d(page);
+      const pin = page.locator(".mapa-pin");
+      await expect(pin).toBeVisible();
+      await expect.poll(() => estaEnPantalla(page, pin), { timeout: 20_000 }).toBe(true);
+      await expect(page.locator(".impacto-anillo")).toBeVisible();
+      await expect(page.locator(".mapa-impacto")).toHaveCount(0); // la diana plana de 2D ya no está
+      // De pie: de frente a la pantalla (sin matriz 3D) y anclado por abajo.
+      await expect(page.locator(".mapa-marcador:has(.mapa-pin)")).not.toHaveCSS(
+        "transform",
+        /matrix3d/,
+      );
+      await expect(page.locator(".mapa-marcador:has(.impacto-anillo)")).toHaveCSS(
+        "transform",
+        /matrix3d/,
+      );
+      await expect(pin).toHaveCSS("opacity", "1");
+      await expect
+        .poll(() => numeroDe(page, "data-mapa-elipse-dibujada"), { timeout: 20_000 })
+        .toBeGreaterThan(0);
+
+      // Aterriza: ni el pin ni el anillo ni la elipse, como en 2D.
+      await volar(page, mision, T_ATERRIZADO_MS);
+      await expect(page.locator(".mapa-pin, .impacto-anillo")).toHaveCount(0);
+      await expect
+        .poll(() => numeroDe(page, "data-mapa-elipse-dibujada"), { timeout: 20_000 })
+        .toBe(0);
+
+      // De vuelta a 2D en pleno descenso: la diana vuelve y el pin se va.
+      await volar(page, mision, TIEMPOS[mision].descenso);
+      await expect(page.locator(".mapa-pin")).toBeVisible();
+      await boton3d(page).click();
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 15_000 });
+      await expect(page.locator(".mapa-impacto")).toBeVisible();
+      await expect(page.locator(".mapa-pin, .impacto-anillo, .mapa-cohete-3d")).toHaveCount(0);
+    });
+  }
+
+  test("la animación del anillo respeta prefers-reduced-motion", async ({ page }) => {
+    test.setTimeout(150_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await abrir(page, "demeter");
+    await volar(page, "demeter", TIEMPOS.demeter.descenso);
+    await entrar3d(page);
+    const anillo = page.locator(".impacto-anillo");
+    await expect(anillo).toBeVisible();
+    await expect(anillo).toHaveCSS("animation-name", "none");
+  });
+
+  test("en 3D no queda ninguna capa fill-extrusion y la capa personalizada se quita al volver a 2D", async ({
     page,
   }) => {
     test.setTimeout(150_000);
-    await abrir(page, "demeter");
-    await volar(page, "demeter", TIEMPOS.demeter.apogeo);
+    await abrir(page, "hermes");
+    await volar(page, "hermes", TIEMPOS.hermes.descenso);
     await entrar3d(page);
-    const mPorPx = () => numeroDe(page, "data-mapa-m-por-px");
-    const antes = await mPorPx();
-    expect(antes).toBeGreaterThan(0);
-    // Un nivel más cerca: los metros por píxel de dibujo se reducen a la mitad (el tubo, en metros, también).
-    await dibujado(page, () => page.locator(".maplibregl-ctrl-zoom-in").click());
-    await expect.poll(mPorPx, { timeout: 20_000 }).toBeLessThan(antes * 0.75);
-    const dentro = await mPorPx();
-    await dibujado(page, () => page.locator(".maplibregl-ctrl-zoom-out").click());
-    await expect.poll(mPorPx, { timeout: 20_000 }).toBeGreaterThan(dentro * 1.3);
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-capas-extrusion", "0");
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-capa3d", "custom");
+    await boton3d(page).click();
+    await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 15_000 });
+    await expect(lienzo(page)).not.toHaveAttribute("data-mapa-capa3d", /.*/);
+    await expect(imagenCohete(page)).toHaveCount(0);
   });
 
   test("la flecha del rumbo sigue al mapa: apunta al rumbo aunque el mapa esté girado (2D y 3D)", async ({
@@ -519,14 +626,13 @@ test.describe("el cohete, el tubo y la estaca en 3D (ronda 2)", () => {
     await page.waitForTimeout(1500);
     expect(Math.abs(await numeroDe(page, "data-mapa-bearing"))).toBeGreaterThan(5);
     expect(dif((await anguloDeLaFlecha(page)) as number, await esperado())).toBeLessThan(2);
-    // Y el marcador está tendido sobre el terreno (inclinado con el mapa).
     await expect(page.locator(".mapa-marcador:has(.mapa-cohete)")).toHaveCSS(
       "transform",
       /matrix3d/,
     );
   });
 
-  test("la rampa, la estación y el impacto se tienden sobre el terreno en 3D; el chip y el LKP quedan de frente", async ({
+  test("la rampa, la estación y la sombra del cohete se tienden sobre el terreno en 3D; el chip, el pin y el LKP quedan de frente", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -539,16 +645,57 @@ test.describe("el cohete, el tubo y la estaca en 3D (ronda 2)", () => {
       await expect(transformDe(clase)).not.toHaveCSS("transform", /matrix3d/);
     }
     await entrar3d(page);
-    for (const clase of [".mapa-rampa", ".mapa-estacion", ".mapa-impacto"]) {
+    for (const clase of [".mapa-rampa", ".mapa-estacion", ".mapa-cohete"]) {
       await expect(transformDe(clase)).toHaveCSS("transform", /matrix3d/);
     }
-    await expect(transformDe(".mapa-chip")).not.toHaveCSS("transform", /matrix3d/);
+    for (const clase of [".mapa-chip", ".mapa-pin"]) {
+      await expect(transformDe(clase)).not.toHaveCSS("transform", /matrix3d/);
+    }
     // Al volver a 2D, otra vez de frente.
     await boton3d(page).click();
     await expect(lienzo(page)).toHaveAttribute("data-mapa-terreno", "no", { timeout: 10_000 });
-    for (const clase of [".mapa-rampa", ".mapa-estacion", ".mapa-impacto"]) {
+    for (const clase of [".mapa-rampa", ".mapa-estacion", ".mapa-cohete"]) {
       await expect(transformDe(clase)).not.toHaveCSS("transform", /matrix3d/);
     }
+  });
+});
+
+test.describe("la imagen del cohete en la producción (dist/)", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("cada misión carga su miniatura webp, y no se pide hasta activar el 3D", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const srcs: string[] = [];
+    for (const mision of MISIONES) {
+      const pedidos: string[] = [];
+      const alPedir = (r: { url(): string }) => pedidos.push(new URL(r.url()).pathname);
+      page.on("request", alPedir);
+      await apiColgada(page);
+      await page.goto(`/${mision}/`);
+      await esperarPintado(page);
+      await page.locator("#mapa").scrollIntoViewIfNeeded();
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-listo", "1");
+      await expect(lienzo(page)).toHaveAttribute("data-mapa-relieve-cargado", "1", {
+        timeout: 45_000,
+      });
+      const antes = new Set(pedidos);
+      await boton3d(page).click();
+      const imagen = imagenCohete(page);
+      await expect(imagen).toHaveCount(1);
+      const src = (await imagen.getAttribute("src")) as string;
+      expect(src).toMatch(/\/assets\/cohete-[\w-]+\.webp$/);
+      const ruta = new URL(src, "http://x").pathname;
+      // La miniatura no se había pedido (el archivo se descarga solo al activar el 3D)...
+      expect(antes.has(ruta)).toBe(false);
+      // ...y después sí.
+      await expect.poll(() => pedidos.includes(ruta), { timeout: 20_000 }).toBe(true);
+      srcs.push(ruta);
+      page.off("request", alPedir);
+    }
+    // Cada misión, el suyo.
+    expect(new Set(srcs).size).toBe(2);
   });
 });
 
@@ -752,7 +899,7 @@ test.describe("capturas", () => {
         await capturar(page, `${mision}-${medida.nombre}-2d`);
         await entrar3d(page);
         await expect
-          .poll(() => numeroDe(page, "data-mapa-tubo-dibujado"), { timeout: 15_000 })
+          .poll(() => numeroDe(page, "data-mapa-linea-segmentos"), { timeout: 15_000 })
           .toBeGreaterThan(0);
         await capturar(page, `${mision}-${medida.nombre}-3d`);
         // Alejado hasta el zoom mínimo y con la inclinación máxima: así se ve el horizonte.
@@ -772,12 +919,12 @@ test.describe("capturas", () => {
   }
 });
 
-// ---- Capturas de la ronda 2: ascenso, apogeo, descenso con la elipse y vista girada ----
+// ---- Capturas de la ronda 3: ascenso, apogeo, descenso con la elipse y vista girada ----
 
-const CAPTURAS_R2 = resolve(CAPTURAS, "ronda2");
+const CAPTURAS_R2 = resolve(CAPTURAS, "ronda3");
 mkdirSync(CAPTURAS_R2, { recursive: true });
 
-test.describe("capturas de la ronda 2", () => {
+test.describe("capturas de la ronda 3", () => {
   for (const medida of MEDIDAS) {
     for (const mision of MISIONES) {
       test(`${mision} ${medida.nombre}: ascenso, apogeo, descenso con la elipse y girada`, async ({
