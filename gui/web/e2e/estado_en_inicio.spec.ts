@@ -73,6 +73,14 @@ const verMapa = (page: Page) =>
     if (r) window.scrollBy(0, r.top - cabecera);
   }, ALTO_CABECERA_PX);
 
+/** Oculta la cabecera fija y la navegación inferior: no deben tapar una captura de un elemento. */
+const ocultarFijos = (page: Page) =>
+  page.evaluate(() => {
+    for (const el of document.querySelectorAll<HTMLElement>(".cabecera-mision, .navegacion")) {
+      el.style.visibility = "hidden";
+    }
+  });
+
 /** Captura la página desde arriba hasta el borde inferior del Resumen del vuelo. */
 async function capturarHastaResumen(page: Page, ruta: string) {
   await page.evaluate(() => {
@@ -298,79 +306,114 @@ for (const mision of MISIONES) {
   });
 }
 
-/** Escenario nominal en BOOST: la aceleración pasa de 8 g, para ver las barras de fuerzas g. */
-const T_BOOST_MS = 19_200;
+/**
+ * Escenario nominal justo después del fin de la combustión: la banda de X de los últimos 10 s abarca el
+ * empuje de ~10 g, el cohete va a 85° de cabeceo (se ve inclinado) y todavía sube a ~100 m/s.
+ */
+const T_ASCENSO_MS = 20_300;
 
-test.describe("fuerzas g en 'Desde la estación' (ajuste de T-674)", () => {
+test.describe("actitud y fuerzas g en 'Desde la estación' (ajuste de T-674)", () => {
   const g = (page: Page) => page.locator("#recuperacion .fuerzas-g");
+  const actitud = (page: Page) => page.locator("#recuperacion .actitud-estacion");
 
-  test("portátil: tres barras con su valor, la magnitud y la escala", async ({ page }) => {
+  test("portátil: la rosa con el cohete y los dos medidores de fuerzas g", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const errores = vigilarErrores(page);
     await page.goto(`${DEV}/demeter/?sin_cliente`);
-    // Sin datos: "sin dato" en cada eje y en la magnitud, y ninguna barra rellena.
-    await expect(g(page).locator("[data-g='x']")).toContainText("sin dato");
-    await expect(g(page).locator("[data-g='total']")).toContainText("sin dato");
-    await expect(g(page).locator(".g-relleno")).toHaveCount(0);
+    // Sin datos: "sin dato" en las dos y ningún cohete dibujado.
+    await expect(g(page)).toContainText("sin dato");
+    await expect(actitud(page)).toContainText("sin dato");
+    await expect(page.locator("[data-cohete]")).toHaveCount(0);
 
-    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS));
-    await expect(g(page).locator("[data-g='x'] .g-num")).toHaveText(/^\d,\d\d$/);
-    await expect(g(page).locator("[data-g='y'] .g-num")).toHaveText("0,00");
+    await alimentar(page, snapshotDe("demeter", "nominal", T_ASCENSO_MS));
+    // Fuerzas g: el total en texto, el radar con su estela, la banda del eje X y los dos rótulos.
     await expect(g(page).locator("[data-g='total'] .g-num")).toHaveText(/^\d,\d\d$/);
-    await expect(g(page).locator(".g-escala")).toContainText("Escala ±32 g");
-    await expect(g(page)).toHaveAttribute("data-satura", "no");
-    // La barra de X (positiva) arranca en el centro y llega a la derecha; sin pisar el lado negativo.
-    const pista = await caja(page, "[data-g='x'] .g-pista");
-    const relleno = await caja(page, "[data-g='x'] .g-relleno");
-    expect(relleno.x).toBeGreaterThanOrEqual(pista.x + pista.width / 2 - 2);
-    expect(relleno.x + relleno.width).toBeLessThanOrEqual(pista.x + pista.width);
+    await expect(g(page).locator("[data-g-svg]")).toContainText("Sección (Y, Z):");
+    await expect(g(page).locator("[data-g-svg]")).toContainText("Eje X (nariz):");
+    await expect(g(page).locator("[data-g-svg]")).toContainText("1 g: quieto,");
+    await expect(g(page).locator("[data-g-svg]")).toContainText("ejes del chip, sin calibrar");
+    await expect(g(page).locator("[data-g-estela]")).toHaveCount(1);
+    await expect(g(page).locator("[data-g-banda]")).toHaveCount(1);
+    await expect(g(page).locator("[data-g-svg]")).toHaveAttribute("role", "img");
+    // El punto del radar está dentro del círculo y el de X, dentro de la barra.
+    const aro = await caja(page, "#recuperacion .g-aro");
+    const punto = await caja(page, "[data-g-punto='radar']");
+    expect(punto.x).toBeGreaterThanOrEqual(aro.x);
+    expect(punto.x + punto.width).toBeLessThanOrEqual(aro.x + aro.width + 1);
+    const barra = await caja(page, "#recuperacion .g-barra");
+    const puntoX = await caja(page, "[data-g-punto='x']");
+    expect(puntoX.y + puntoX.height / 2).toBeGreaterThanOrEqual(barra.y - 1);
+    expect(puntoX.y + puntoX.height / 2).toBeLessThanOrEqual(barra.y + barra.height + 1);
+
+    // Actitud: el cohete (con su marca y su costado), la flecha de velocidad y los tres ángulos en texto.
+    await expect(actitud(page)).toHaveAttribute("data-vista", "vivo");
+    await expect(actitud(page).locator("[data-cohete] .tr-marca")).toHaveCount(1);
+    await expect(actitud(page).locator("[data-cohete] .tr-costado")).toHaveCount(1);
+    await expect(actitud(page).locator("[data-cohete] .aleta-marca")).toHaveCount(1);
+    await expect(actitud(page).locator("[data-velocidad]")).toHaveCount(1);
+    await expect(actitud(page).locator("[data-angulo='cabeceo']")).toHaveText(/^8\d,\d°$/);
+    await expect(actitud(page).locator("[data-angulo='guinada']")).toHaveText(/^\d+,\d°$/);
+    await expect(actitud(page).locator("[data-rosa-svg]")).toHaveAttribute("role", "img");
+    // La rosa y el radar cuelgan de la columna: sin desborde.
     expect(await sinDesborde(page)).toBe(true);
     expect(errores).toEqual([]);
 
-    // Dato viejo: el mismo gris y la antigüedad que la telemetría.
-    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS), "conectado", 3000);
-    await expect(g(page)).toHaveAttribute("data-viejo", "si");
-    await expect(g(page).locator(".telemetria-edad")).toContainText("Último dato hace 3 s");
-    await alimentar(page, snapshotDe("demeter", "nominal", T_BOOST_MS));
+    // Sin orientación del EKF: la rosa queda, el cohete no.
+    const sinEkf = snapshotDe("demeter", "nominal", T_ASCENSO_MS);
+    if (!sinEkf.estado) throw new Error("el escenario no trae estado");
+    sinEkf.estado = { ...sinEkf.estado, flags: { ...sinEkf.estado.flags, ekf_ok: false } };
+    await alimentar(page, sinEkf);
+    await expect(actitud(page)).toHaveAttribute("data-vista", "no-disponible");
+    await expect(actitud(page)).toContainText("Orientación aún no disponible");
+    await expect(page.locator("[data-cohete]")).toHaveCount(0);
 
-    // La captura deja "Desde la estación" entero: la brújula y las fuerzas g.
-    await page.evaluate((cabecera) => {
-      const r = document.querySelector("#recuperacion .recup-vector")?.getBoundingClientRect();
-      if (r) window.scrollBy(0, r.top - cabecera - 80);
-    }, ALTO_CABECERA_PX);
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: `${CAPTURAS}/demeter-portatil-estacion-g.png` });
+    // Dato viejo: el mismo gris y la antigüedad que la telemetría, en las dos.
+    await alimentar(page, snapshotDe("demeter", "nominal", T_ASCENSO_MS), "conectado", 3000);
+    await expect(g(page)).toHaveAttribute("data-viejo", "si");
+    await expect(actitud(page)).toHaveAttribute("data-viejo", "si");
+    await expect(g(page).locator(".telemetria-edad")).toContainText("Último dato hace 3 s");
+    await alimentar(page, snapshotDe("demeter", "nominal", T_ASCENSO_MS));
+
+    // Capturas: "Desde la estación" entero (brújula, actitud y fuerzas g), y solo las fuerzas g.
+    await ocultarFijos(page);
+    await page.locator("#recuperacion .recup-vector").screenshot({
+      path: `${CAPTURAS}/demeter-portatil-estacion-actitud-g.png`,
+    });
+    await g(page).screenshot({ path: `${CAPTURAS}/demeter-portatil-estacion-g.png` });
   });
 
-  test("celular: cabe sin desborde", async ({ page }) => {
+  test("celular: cabe sin desborde y se lee", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const errores = vigilarErrores(page);
-    await abrir(page, "demeter", T_BOOST_MS);
-    await expect(g(page).locator("[data-g='x'] .g-num")).toHaveText(/^\d,\d\d$/);
+    await abrir(page, "demeter", T_ASCENSO_MS);
+    await expect(g(page).locator("[data-g='total'] .g-num")).toHaveText(/^\d,\d\d$/);
     expect(await sinDesborde(page)).toBe(true);
-    const caja390 = await caja(page, "#recuperacion .fuerzas-g");
-    expect(caja390.x + caja390.width).toBeLessThanOrEqual(391);
-    await page.evaluate((cabecera) => {
-      const r = document.querySelector("#recuperacion .fuerzas-g")?.getBoundingClientRect();
-      if (r) window.scrollBy(0, r.top - cabecera - 170);
-    }, ALTO_CABECERA_PX);
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: `${CAPTURAS}/demeter-celular-estacion-g.png` });
+    for (const sel of ["#recuperacion .actitud-estacion", "#recuperacion .fuerzas-g"]) {
+      const c = await caja(page, sel);
+      expect(c.x).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.width).toBeLessThanOrEqual(391);
+    }
+    await ocultarFijos(page);
+    await page.locator("#recuperacion .estacion-instrumentos").screenshot({
+      path: `${CAPTURAS}/demeter-celular-estacion-actitud-g.png`,
+    });
+    await g(page).screenshot({ path: `${CAPTURAS}/demeter-celular-estacion-g.png` });
     expect(errores).toEqual([]);
   });
 
-  test("fuera de escala: la barra queda en el borde y lo dice", async ({ page }) => {
+  test("fuera del rango del sensor: lo dice con texto", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${DEV}/demeter/?sin_cliente`);
-    const snap = snapshotDe("demeter", "nominal", T_BOOST_MS);
+    const snap = snapshotDe("demeter", "nominal", T_ASCENSO_MS);
     if (!snap.estado) throw new Error("el escenario no trae estado");
     snap.estado = { ...snap.estado, acc_g: { x: -40, y: 0, z: 0 } };
     await alimentar(page, snap);
     await expect(g(page)).toHaveAttribute("data-satura", "si");
-    await expect(g(page).locator(".g-satura")).toHaveText(/fuera de escala/);
-    const pista = await caja(page, "[data-g='x'] .g-pista");
-    const relleno = await caja(page, "[data-g='x'] .g-relleno");
-    expect(Math.abs(relleno.x - (pista.x + 1))).toBeLessThan(3);
+    await expect(g(page).locator(".g-satura")).toContainText("Fuera del rango del sensor");
+    // El punto queda en el borde de la barra (la escala llega a −50 g, no se sale).
+    const barra = await caja(page, "#recuperacion .g-barra");
+    const puntoX = await caja(page, "[data-g-punto='x']");
+    expect(puntoX.y + puntoX.height / 2).toBeLessThanOrEqual(barra.y + barra.height + 1);
   });
 });
 
