@@ -31,10 +31,10 @@ Solo `npm` y Node (Windows y macOS), sin bash.
 
 Variables: ver `.env.example` (`VITE_API_BASE`).
 
-**`VITE_API_BASE` en producción (T-642):** el sitio publicado (Cloudflare Pages) habla con el relay de otro dominio, así que en
-el proyecto de Pages (Settings → Variables and secrets, entorno *Production*) se define `VITE_API_BASE=https://api.eiaspice.space/api`
+**`VITE_API_BASE` en producción (T-642):** el sitio publicado (un Worker de assets con Workers Builds, ver `wrangler.jsonc`) habla con el relay de otro dominio, así que en
+el Worker `hermes-demeter` (Settings → Build → Variables) se define `VITE_API_BASE=https://api.eiaspice.space/api`
 **antes** de construir (Vite la incrusta en el build; si se cambia después hay que volver a desplegar). Sin ella el sitio llama a
-`/api` de su propio dominio, que en Pages no existe: se queda en "Sin servidor". En desarrollo no se define: `/api` pasa por el proxy
+`/api` de su propio dominio, que en el Worker de assets no existe: se queda en "Sin servidor". En desarrollo no se define: `/api` pasa por el proxy
 de Vite al puerto 8787 (`vite.config.ts`), y ese proxy no se toca. Guía completa: [`docs/08_gui/11_guia_despliegue.md`](../../docs/08_gui/11_guia_despliegue.md).
 
 Imágenes: `vite-imagetools` está activo. Ejemplo: `import src from "./foto.png?format=avif;webp&w=256;512&as=srcset"`.

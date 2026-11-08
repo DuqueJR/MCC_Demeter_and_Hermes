@@ -7,7 +7,7 @@
 # UNA SOLA maquina, sin autoscale y sin auto-stop: el estado esta en memoria (04 §4.5) y el vuelo no puede perder el SSE.
 
 app = "hermes-demeter-relay"      # el nombre es global en Fly: si esta tomado, cambialo aqui y en `fly launch --name`
-primary_region = "bog"            # (P) Bogota, la mas cercana a Santa Fe de Antioquia. Si no hay capacidad: "mia" (Miami)
+primary_region = "iad"            # Ashburn; Fly ya no tiene "bog" ni "mia" (verificado el 2026-11-07)
 kill_signal = "SIGTERM"
 kill_timeout = 10                 # segundos; los JSONL ya estan en disco (fsync antes de responder cada lote)
 

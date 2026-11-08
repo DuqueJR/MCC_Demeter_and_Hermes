@@ -5,5 +5,7 @@ playwright-report/
 e2e/capturas/
 .env.local
 
-# PMTiles del mapa (T-632): lo genera un humano (src/mapa/README.md) y va al CDN, no al repo.
+# PMTiles del mapa (T-632): los que genera un humano (src/mapa/README.md) no van al repo...
 public/mapas/*.pmtiles
+# ...salvo el de Santa Fe de Antioquia: pesa menos de 1 MB y Workers Builds lo necesita para publicar el sitio con mapa (T-655, D-062).
+!public/mapas/santa_fe.pmtiles
