@@ -1,8 +1,8 @@
 ---
 id: gui_guia_despliegue
-estado: preparada (T-642), falta ejecutarla por una persona con las cuentas de Fly.io y Cloudflare
+estado: en curso (T-642). Relay desplegado y apagado, dominio api con TLS; falta conectar Workers Builds (T-655) y las pruebas (§7)
 actualizado: 2026-11-07
-depende_de: [gui_arquitectura_web, D-061]
+depende_de: [gui_arquitectura_web, D-061, D-062]
 ---
 # Guía de despliegue del relay y la web (T-642)
 
@@ -75,7 +75,8 @@ Todo **desde la raíz del repo**. Reemplaza `hermes-demeter-relay` si el nombre 
    ```
    - `--copy-config` usa nuestro `fly.toml` tal cual. Si `fly launch` ofrece variantes (base de datos, Redis, "tweak settings"), la respuesta es **no** a todo.
    - Si da problemas, alternativa equivalente: `fly apps create hermes-demeter-relay`.
-   - **Región (P):** `bog` (Bogotá) es la más cercana, pero no se pudo comprobar desde aquí que tenga capacidad: `fly platform regions`. Si no sirve, usa `mia` (Miami) en `primary_region` de `fly.toml`, en `--region` de este paso y en el del volumen.
+   - **Región: `iad` (Ashburn), D-062.** El 2026-11-07, `fly platform regions` ya no lista `bog` ni `mia`; en Latinoamérica solo queda `gru`. `iad` es la de más capacidad y, desde Colombia, el tráfico suele salir por Florida hacia la costa este (latencia sin medir). Va en `primary_region` de `fly.toml` (T-655), en `--region` de este paso y en el del volumen.
+   - **Hecho el 2026-11-07** (§7): la app se creó con `fly apps create hermes-demeter-relay --org personal` en vez de `fly launch`, porque `fly launch` puede reescribir el `fly.toml` y borrarle los comentarios.
 3. **Crear el volumen, exactamente UNO** (en la misma región; `fly deploy` crea una máquina por volumen libre y queremos una):
    ```bash
    fly volumes create relay_datos --app hermes-demeter-relay --region bog --size 1
@@ -114,7 +115,8 @@ Todo **desde la raíz del repo**. Reemplaza `hermes-demeter-relay` si el nombre 
    curl -si -H 'Origin: https://otro.example' https://api.eiaspice.space/api/v1/salud | grep -ic access-control-allow-origin    # 0
    ```
 5. **Que el SSE no quede en búfer** (los mensajes llegan uno a uno): con datos corriendo (paso 8), `curl -N https://api.eiaspice.space/api/v1/demeter/stream` debe imprimir cada `event:` apenas llega, no en bloques.
-6. **Variable de build del sitio (Cloudflare Pages):** Workers & Pages → el proyecto → Settings → Variables and secrets → entorno **Production** → `VITE_API_BASE` = `https://api.eiaspice.space/api` (texto plano).
+6. **Variable de build del sitio.** **Corrección (D-062):** el sitio **no está en Pages**, sino en un Worker de solo assets (`hermes-demeter`). Desde T-655 se publica solo con Workers Builds y la variable se define en el Worker: ver §9. El texto que sigue era para Pages y se deja como referencia.
+   - (Pages) Workers & Pages → el proyecto → Settings → Variables and secrets → entorno **Production** → `VITE_API_BASE` = `https://api.eiaspice.space/api` (texto plano).
    - Ajustes de build del proyecto (si se despliega desde Git): carpeta raíz `gui/web`, comando `npm run build`, salida `dist`, `NODE_VERSION` = 22 (`.nvmrc`).
    - Vuelve a desplegar el sitio (Deployments → Retry deployment, o un push): **la variable solo cuenta al construir**.
    - Si el sitio se sube a mano (sin Git): `cd gui/web && npm ci && VITE_API_BASE=https://api.eiaspice.space/api npm run build`, y se sube `dist/` como siempre (el mapa PMTiles incluido, T-638).
@@ -188,3 +190,86 @@ Con Docker (OrbStack), desde la raíz del repo: `docker build -f gui/relay/Docke
 | 401 del reenviador o de `alimentar.py` | El token no coincide con el secreto de Fly |
 | El relay se reinicia solo | `fly logs`: sin `WEB_INGESTA_TOKEN` sale con código 2; o sin memoria (`fly status`). El volumen conserva los datos |
 | Hay que volver atrás | `fly releases` y `fly deploy --image <la imagen de la versión anterior>` |
+| `fly machine stop` dice `failed to obtain lease` | Un deploy o comando cortado dejó el bloqueo. Si no hay otro `fly` corriendo: `fly machine leases clear <id>` y repetir (vence solo en ~5 min) |
+
+## 7. Estado al 7 de noviembre de 2026 (noche)
+
+Verificado con `fly` y con la API de Cloudflare:
+
+| Qué | Estado |
+| --- | --- |
+| Cuenta de Fly | `alzatejuanpablo25@gmail.com`, organización `personal` (no existe `juan-pablo-alzate`) |
+| App `hermes-demeter-relay` | Creada en `iad`. Release **v1** desplegada (imagen del commit `785638b`). **Máquina `811d3e5bdde578` apagada** (`stopped`) |
+| Volumen `relay_datos` | Uno solo (`vol_491j5d7xnxdyoy9r`), `iad`, 1 GB, cifrado, snapshots diarios. **Sin datos de ensayo**: `seq_relay` 0 y `mission_id` null en las dos misiones al verificar |
+| Secreto `WEB_INGESTA_TOKEN` | En Fly (`Deployed`). El valor lo guarda Juan Pablo (Llavero de macOS, entrada `hermes-relay-token`); nunca va al repo ni al chat |
+| Verificado con la máquina prendida | `salud` 200 sin rutas ni token; `/docs`, `/redoc` y `/openapi.json` 404; HTTP → 301 a HTTPS; check 1/1 |
+| DNS | CNAME `api` → `hermes-demeter-relay.fly.dev`, **solo DNS** (nube gris) |
+| TLS | `fly certs`: `api.eiaspice.space` **Issued** (Let's Encrypt, RSA y ECDSA); el handshake verifica |
+| Sitio | Worker `hermes-demeter` de solo assets (no Pages), subido a mano desde el panel. **Sin `VITE_API_BASE` todavía**: hasta T-655 y §9 el sitio no llama al relay |
+| Falta | §9 (conectar Git; T-655 ya está en `develop`, PR #92); las pruebas de §3.4 a §3.10 con la máquina prendida; T-643; la limpieza de §4 si las pruebas dejan datos |
+
+**Hallazgo aparte:** `www.eiaspice.space` responde 522, porque su CNAME apunta a un Worker (`weathered-brook-8b18`) que ya no existe. No es de T-642. El CORS del relay tampoco incluye `www`.
+
+## 8. Desde otro PC: prender, probar y apagar
+
+La imagen ya está en Fly: **para probar no hace falta desplegar, solo prender la máquina.** `fly deploy` solo hace falta si cambió el código del relay o su `fly.toml`.
+
+1. **Una vez por PC:**
+   - instalar `flyctl` (§2.1);
+   - `fly auth login` con la cuenta del proyecto;
+   - `git pull` en `develop`;
+   - comprobar con `fly status -a hermes-demeter-relay`.
+2. **Prender:**
+   ```bash
+   fly machine list -a hermes-demeter-relay            # el ID (hoy 811d3e5bdde578; cambia si la máquina se recrea)
+   fly machine start 811d3e5bdde578 -a hermes-demeter-relay
+   curl -s https://api.eiaspice.space/api/v1/salud     # 200 y "estado": "ok" (puede tardar unos segundos)
+   ```
+3. **Probar:** §3.4 a §3.9 con el dominio.
+   - `alimentar.py` y el reenviador necesitan el token. Pídeselo a Juan Pablo **por un gestor de contraseñas**, nunca por chat ni por el repo.
+   - Prender, apagar y desplegar **no** necesitan el token: el secreto ya está en Fly.
+4. **Si las pruebas dejaron datos y viene el vuelo:** hacer la limpieza de §4 **con la máquina prendida**, antes de apagarla.
+5. **Apagar:**
+   ```bash
+   fly machine stop 811d3e5bdde578 -a hermes-demeter-relay
+   ```
+   - Con `auto_start_machines = false` el proxy de Fly no la vuelve a prender sola.
+   - Apagada solo cuesta el disco (centavos al mes). El sitio, si ya tiene `VITE_API_BASE`, mostrará que no hay servidor y la simulación sigue visible (T-636).
+6. **Si cambió el código del relay** (nunca el día del vuelo), desde la raíz:
+   ```bash
+   fly deploy . --config gui/relay/fly.toml --dockerfile gui/relay/Dockerfile --ha=false
+   ```
+   - El `.` explícito hace que el contexto del build sea la raíz.
+   - El deploy deja la máquina **prendida**: apágala después si no la vas a usar.
+7. **El día del vuelo:** prender sí, desplegar o cambiar secretos no (§4). Prende la máquina con tiempo y verifica `salud` antes de encender el reenviador.
+
+## 9. Web publicada desde Git (Workers Builds, D-062)
+
+El Worker `hermes-demeter` pasa a construirse y publicarse solo con cada merge a `develop`. Requisitos y pasos, en orden:
+
+1. **El PR de T-655 en `develop` (hecho, PR #92).** Trae `gui/web/wrangler.jsonc` (nombre, `dist`, dominios `eiaspice.space` y `web.eiaspice.space`, la misma configuración de assets del Worker actual), `wrangler` fijado en `devDependencies`, el PMTiles versionado y `primary_region = "iad"`.
+   - Sin este archivo no se conecta: un deploy mal configurado podría soltar los dominios.
+2. **La app de Cloudflare en GitHub.** El repo es de la cuenta `DuqueJR` y solo el dueño puede instalar apps.
+   - El dueño entra a GitHub → Settings → Applications → instala **Cloudflare Workers and Pages** con acceso al repositorio `MCC_Demeter_and_Hermes`.
+   - Otra opción: quien conecta en Cloudflare pide la instalación desde el flujo del paso 3 y el dueño la aprueba.
+3. **Conectar** (panel de Cloudflare → Workers & Pages → `hermes-demeter` → Settings → Build → Connect):
+
+   | Campo | Valor |
+   | --- | --- |
+   | Repositorio | `DuqueJR/MCC_Demeter_and_Hermes` |
+   | Rama de producción | `develop` |
+   | Builds de otras ramas | desactivados |
+   | Directorio raíz | `gui/web` |
+   | Comando de build | `npm run build` |
+   | Comando de deploy | `npx wrangler deploy` |
+   | Variables de build | `VITE_API_BASE` = `https://api.eiaspice.space/api` y `NODE_VERSION` = `22` |
+   | Rutas vigiladas (*build watch paths*) | incluir `gui/web/*`, para que un merge de firmware o de docs no vuelva a publicar la web |
+
+4. **Comprobar el primer build** (Deployments del Worker):
+   - el log termina en `Deployed`;
+   - `https://eiaspice.space` y `https://web.eiaspice.space` siguen respondiendo;
+   - el mapa carga (`/mapas/santa_fe.pmtiles` da 200);
+   - en `https://eiaspice.space/demeter/` (Red) las peticiones van a `https://api.eiaspice.space/api/v1/...`.
+   - Si un build falla, el sitio anterior sigue publicado.
+5. **Desde ahí, publicar es hacer merge a `develop`.** Las subidas a mano desde el panel ya no se usan: el siguiente build las pisaría.
+   - Ojo: un merge a `develop` que toque `gui/web/` publica, **también el día del vuelo**. El 8 de noviembre no se hacen merges que toquen `gui/web/`. Si las rutas vigiladas no quedaron configuradas, no se hace ningún merge a `develop`.
