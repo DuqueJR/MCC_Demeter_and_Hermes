@@ -131,12 +131,12 @@ for (const mision of ["demeter", "hermes"] as const) {
     // T-636: el escenario va en modo simulación, así que la barra no dice "EN VIVO" en verde.
     await expect(page.locator(".indicador")).toContainText("SIMULACIÓN", { timeout: 15_000 });
     await expect(page.locator(".marca-sim")).toHaveText("SIM");
-    await expect(page.locator('#estado .objetivo[data-objetivo="despegue"]')).toHaveAttribute(
+    await expect(page.locator('#estado [data-objetivo="despegue"]')).toHaveAttribute(
       "data-encendido",
       "si",
       { timeout: 15_000 },
     );
-    await expect(page.locator('#estado .objetivo[data-objetivo="aterrizaje"]')).toHaveAttribute(
+    await expect(page.locator('#estado [data-objetivo="aterrizaje"]')).toHaveAttribute(
       "data-encendido",
       "si",
       { timeout: 20_000 },
@@ -146,11 +146,11 @@ for (const mision of ["demeter", "hermes"] as const) {
     ).filter((id) => id !== "camaras");
     expect(orden).toEqual(["despegue", "fin_combustion", "eyeccion", "apogeo", "aterrizaje"]);
     // La línea de fases termina en "En tierra", con su T+ del vuelo.
-    await expect(page.locator('#estado .paso[data-paso="tierra"]')).toHaveAttribute(
+    await expect(page.locator('#resumen .paso[data-paso="tierra"]')).toHaveAttribute(
       "data-situacion",
       "actual",
     );
-    await expect(page.locator('#estado .paso[data-paso="tierra"] .paso-t')).toHaveText(
+    await expect(page.locator('#resumen .paso[data-paso="tierra"] .paso-t')).toHaveText(
       /^T\+ \d\d:\d\d$/,
     );
     // La telemetría trae números con coma decimal.

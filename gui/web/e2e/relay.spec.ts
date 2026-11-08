@@ -101,7 +101,7 @@ test.describe("relay alimentado con el vuelo nominal", () => {
       await irAGraficas(page);
       await expect(page.locator("#graficas canvas")).toHaveCount(1);
       await expect(
-        page.locator('[data-paso="despegue"]:not([data-situacion="pendiente"])'),
+        page.locator(`#estado [data-objetivo="despegue"][data-encendido="si"]`),
       ).toHaveCount(1);
 
       for (const m of MEDIDAS) {

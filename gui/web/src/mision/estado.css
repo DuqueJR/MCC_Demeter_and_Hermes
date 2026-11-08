@@ -52,13 +52,30 @@
   font-weight: 600;
 }
 
+/*
+ * El estado en la parte de arriba [T-674]: dentro de Inicio, bajo el motor. La fase de ahora con su T+,
+ * y debajo la tira de objetivos que se van chequeando. El aviso y la invitación a la simulación van antes.
+ */
+.inicio-estado {
+  display: grid;
+  gap: var(--e-3);
+  margin-top: var(--e-4);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--linea);
+  scroll-margin-top: calc(var(--alto-cabecera) + var(--e-4));
+}
+
+.inicio-estado .estado-aviso,
+.inicio-estado .sim-invitacion {
+  margin: 0;
+}
+
 .estado-ahora {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--e-3) var(--e-5);
-  margin-bottom: var(--e-4);
+  gap: var(--e-2) var(--e-5);
 }
 
 .estado-t {
@@ -66,9 +83,9 @@
 }
 
 .estado-t-valor {
-  font-size: var(--t-num-gran);
+  font-size: var(--t-num-sec);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -80,13 +97,79 @@
 .estado-fase-titulo {
   font-size: var(--t-titulo);
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .estado-fase-sub {
   color: var(--texto-2);
 }
 
-/* La línea de fases: una lista vertical, legible a una mano en el celular. */
+/* La tira de objetivos: se envuelve en varias filas, así no desborda ni en el celular. */
+.objetivos-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.objetivo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  /* No son botones: más bajos que un toque, para que quepan dos por fila en el celular. */
+  min-height: var(--e-6);
+  padding: var(--e-1) var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 600;
+  transition:
+    border-color var(--dur-media) var(--curva),
+    color var(--dur-media) var(--curva);
+}
+
+.objetivo-chip svg {
+  flex: none;
+  width: calc(var(--e-4) + var(--e-1));
+  height: calc(var(--e-4) + var(--e-1));
+  stroke-width: 1.75;
+}
+
+.objetivo-chip .objetivo-chip-marca {
+  width: var(--e-4);
+  height: var(--e-4);
+}
+
+.objetivo-chip-icono {
+  display: inline-flex;
+}
+
+.objetivo-chip-pendiente {
+  opacity: 0.75;
+}
+
+.objetivo-chip-logrado {
+  border-color: var(--acento);
+  color: var(--texto);
+}
+
+.objetivo-chip-logrado .objetivo-chip-icono {
+  color: var(--acento);
+}
+
+.objetivo-chip-logrado .objetivo-chip-marca {
+  color: var(--estado-ok);
+}
+
+.objetivo-chip-titulo {
+  line-height: 1.2;
+}
+
+/* La línea de fases (en el Resumen del vuelo): una lista vertical, legible a una mano en el celular. */
 .fases,
 .objetivos {
   display: grid;
@@ -232,6 +315,23 @@
 .objetivo .unidad {
   color: var(--texto-2);
   font-size: var(--t-etiqueta);
+}
+
+/* ---------- Resumen del vuelo [T-674] ---------- */
+
+.resumen-cuerpo {
+  display: grid;
+  /* Tres bloques lado a lado en el portátil; uno bajo otro en el celular. */
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--e-8) * 4), 1fr));
+  gap: var(--e-5) var(--e-5);
+}
+
+.resumen-bloque {
+  min-width: 0;
+}
+
+.resumen-bloque .subtitulo {
+  margin-top: 0;
 }
 
 /* ---------- Telemetría ---------- */

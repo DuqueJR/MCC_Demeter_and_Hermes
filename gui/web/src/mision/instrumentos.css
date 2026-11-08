@@ -1,0 +1,292 @@
+/*
+ * Los visualizadores de "Desde la estación": la actitud (rosa con el cohete de alambre) y las fuerzas g
+ * (radar de la sección y barra del eje X), como en la ventana EKF del dashboard de Pablo [T-674].
+ * SOLO tokens de src/tema/ (06 §6). Los dibujos son SVG; el color nunca va solo: cada valor clave
+ * también está en texto.
+ */
+
+.estacion-instrumentos {
+  display: grid;
+  /* Uno bajo otro en la columna angosta (y en el celular); lado a lado si hay ancho. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--e-8) * 5)), 1fr));
+  gap: var(--e-5) var(--e-4);
+  margin-top: var(--e-4);
+}
+
+.viz {
+  display: grid;
+  /* Aterrizado, "Desde la estación" ocupa todo el ancho: ni el dibujo ni su total se estiran de más. */
+  max-width: calc(var(--e-8) * 7);
+  align-content: start;
+  gap: var(--e-2);
+  min-width: 0;
+}
+
+.viz-titulo {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.viz-svg {
+  display: block;
+  width: 100%;
+  max-width: calc(var(--e-8) * 7);
+  height: auto;
+}
+
+.viz-svg text {
+  fill: var(--texto-2);
+  font-family: var(--fuente-texto), sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.viz-nota,
+.viz-sin-dato {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* ---------- Actitud: la rosa y el cohete ---------- */
+
+.rosa-aro,
+.rosa-eje,
+.rosa-eje-n,
+.rosa-arriba,
+.tr-cuerpo,
+.tr-punta,
+.tr-tenue,
+.tr-marca,
+.tr-costado,
+.rosa-vel {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.rosa-aro,
+.rosa-eje {
+  stroke: var(--linea);
+}
+
+.rosa-eje-n {
+  stroke: var(--estado-alarma);
+  stroke-opacity: 0.6;
+}
+
+.viz-svg .rosa-letra-n {
+  fill: var(--estado-alarma);
+}
+
+.rosa-arriba {
+  stroke: var(--texto-2);
+  stroke-dasharray: 3 3;
+  stroke-opacity: 0.7;
+}
+
+.tr-cuerpo {
+  stroke: var(--texto);
+}
+
+.tr-punta {
+  stroke: var(--texto-2);
+}
+
+.tr-tenue {
+  stroke: var(--texto-2);
+  stroke-opacity: 0.5;
+}
+
+.tr-marca {
+  stroke: var(--estado-aviso);
+}
+
+.tr-costado {
+  stroke: var(--estado-info);
+}
+
+.aleta-marca,
+.aleta-costado,
+.aleta-tenue {
+  fill-opacity: 0.55;
+}
+
+.aleta-marca {
+  fill: var(--estado-aviso);
+}
+
+.aleta-costado {
+  fill: var(--estado-info);
+}
+
+.aleta-tenue {
+  fill: var(--texto-2);
+}
+
+.rosa-vel {
+  stroke: var(--estado-ok);
+  stroke-dasharray: 5 3;
+  stroke-width: 2;
+}
+
+.viz-svg .rosa-vel-texto {
+  fill: var(--estado-ok);
+}
+
+.viz-svg .rosa-nariz {
+  fill: var(--texto);
+}
+
+.rosa-angulos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2) var(--e-5);
+  margin: 0;
+}
+
+.rosa-angulos dt {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.rosa-angulos dd {
+  margin: 0;
+  font-size: var(--t-titulo);
+  font-weight: 700;
+}
+
+/* ---------- Fuerzas g ---------- */
+
+.g-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-3);
+  margin: 0;
+}
+
+.g-total-nombre {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.g-total-valor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e-1);
+  white-space: nowrap;
+}
+
+.g-num {
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.g-unidad {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.g-aro,
+.g-barra {
+  fill: var(--fondo);
+  stroke: var(--linea);
+}
+
+.g-anillo,
+.g-cruz,
+.g-marca {
+  fill: none;
+  stroke: var(--linea);
+}
+
+.g-marca {
+  stroke: var(--texto-2);
+  stroke-opacity: 0.7;
+}
+
+.g-uno {
+  stroke: var(--estado-ok);
+  stroke-width: 1.5;
+}
+
+.viz-svg .g-t-uno {
+  fill: var(--estado-ok);
+  font-size: 11px;
+}
+
+.viz-svg .g-t-marca {
+  fill: var(--estado-aviso);
+}
+
+.viz-svg .g-t-y {
+  fill: var(--estado-info);
+}
+
+.viz-svg .g-t-valor {
+  fill: var(--texto);
+}
+
+.viz-svg .g-t-pie {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.g-estela {
+  fill: none;
+  stroke: var(--estado-alarma);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.6;
+  stroke-width: 1.5;
+}
+
+.g-punto {
+  fill: var(--estado-alarma);
+}
+
+.g-punto-x {
+  fill: var(--estado-info);
+}
+
+.g-banda {
+  fill: var(--estado-info);
+  fill-opacity: 0.3;
+}
+
+.g-satura {
+  margin: 0;
+  color: var(--estado-aviso);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+}
+
+/* Dato viejo (>= WEB_DATO_VIEJO_S): todo en el gris de "sin dato", con su antigüedad arriba. */
+[data-viejo="si"] .g-punto,
+[data-viejo="si"] .g-punto-x,
+[data-viejo="si"] .g-banda {
+  fill: var(--estado-sin-dato);
+}
+
+[data-viejo="si"] .g-estela,
+[data-viejo="si"] .tr-marca,
+[data-viejo="si"] .tr-costado,
+[data-viejo="si"] .rosa-vel {
+  stroke: var(--estado-sin-dato);
+}
+
+[data-viejo="si"] .g-num,
+[data-viejo="si"] .g-unidad {
+  color: var(--estado-sin-dato);
+}
+
+[data-viejo="si"] .rocket {
+  opacity: 0.6;
+}
