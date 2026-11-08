@@ -28,7 +28,7 @@ python estacion/dashboard.py --reproducir sesiones/AAAAMMDD_HHMMSS_tierra.txt --
 | --- | --- |
 | `dashboard.py` + `dashboard.html` | La estación y el dashboard de misión (arriba). |
 | `dashboard_ekf.js` | La pestaña **EKF** del dashboard de control (abajo). No toca la web pública. |
-| `web1.py` | (T-661) Traduce las líneas de la estación (`@T`, `@L`, `@G`, `[cmd ]`, `[time]`) a mensajes `web-1`. Solo biblioteca estándar. Como librería: `Traductor.procesar(linea, t_local)`, `tick`, `comando` y `snapshot(mision)`. Por línea de comandos reprocesa una sesión: `python estacion/web1.py sesiones/AAAAMMDD_HHMMSS_tierra.txt --salida web1.jsonl [--snapshot snap.json]`. Desde T-662 `dashboard.py` lo usa: un `Traductor` por proceso, con candado. |
+| `web1.py` | (T-661) Traduce las líneas de la estación (`@T`, `@L`, `@G`, `[cmd ]`, `[time]`) a mensajes `web-1`. Solo biblioteca estándar. Como librería: `Traductor.procesar(linea, t_local)`, `tick`, `comando` y `snapshot(mision)`. Por línea de comandos reprocesa una sesión: `python estacion/web1.py sesiones/AAAAMMDD_HHMMSS_tierra.txt --salida web1.jsonl [--snapshot snap.json]`. Desde T-662 `dashboard.py` lo usa: un `Traductor` por proceso, con candado. Desde T-657 (D-064 y D-065): la altura sobre la rampa (`alt_agl_m`) sale de una referencia que en TIERRA sigue a la altitud del TELEM con τ = 60 s (la regla de `p0` del firmware), en ARMED con τ = 5 s (absorbe el salto del EKF al rehacer su reposo) y se congela en FLY; `act.*` y `salud.pi` salen de `TELEM.actuators`; `flags.reanudado` de `TF_REANUDADO`. En vivo, el dashboard guarda la referencia en `estacion/web1_referencia.json` (no se versiona) para recuperarla si se reinicia con el cohete armado. |
 | `tbget.py` | Descarga los logs de un cohete por USB: `python estacion/tbget.py COM3 list`, `get`, `get --ultimos 2`, `reset`. Opciones `--dir`, `--analizar`, `--csv`. Solo lee. |
 | `tblog.py` | Resume un log `.BIN`: `python estacion/tblog.py LOG.BIN` (`--csv` deja un CSV por fuente en `LOG_csv/`). |
 | `calib.py` | Calibración de un cohete desde un log hecho con la guía del dashboard: `python estacion/calib.py LOG.BIN --salida calib_x.json`. |
@@ -41,7 +41,7 @@ Los `calib_*.json` y `dashboard.html` viven junto a los `.py` porque se buscan e
 
 Pruebas de `web1.py` y de la API local (unittest, sin dependencias nuevas): `python -m unittest discover -s estacion/pruebas`.
 
-Salidas locales que no se versionan: `sesiones/`, `mision.json`, `*.BIN`, `*_csv/`, `*_ekf.csv`. Los resúmenes de `tblog.py` de los logs reales de Pablo están en `datos/logs_referencia/pablo/`.
+Salidas locales que no se versionan: `sesiones/`, `mision.json`, `web1_referencia.json`, `*.BIN`, `*_csv/`, `*_ekf.csv`. Los resúmenes de `tblog.py` de los logs reales de Pablo están en `datos/logs_referencia/pablo/`.
 
 ## Vuelos sintéticos para el replay (T-304)
 
