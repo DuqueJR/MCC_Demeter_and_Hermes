@@ -1,0 +1,236 @@
+/*
+ * Sección de la Raspberry Pi (solo Deméter) [T-659].
+ * SOLO tokens de src/tema/ (06 §6): nada de colores literales. El color nunca va solo (02 §4): cada
+ * estado lleva un ícono y una palabra. Comparte la lista de datos (`salud-lista`) y los colores de estado
+ * con Salud, en recuperacion_salud.css.
+ */
+
+/* ---------- El estado de la misión de la Pi ---------- */
+
+.pi-estado {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-3);
+  margin: 0 0 var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  background: var(--superficie-2);
+  border-left: var(--e-1) solid var(--estado-sin-dato);
+  border-radius: var(--radio);
+}
+
+.pi-estado > svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  margin-top: var(--e-1);
+  color: var(--estado-sin-dato);
+  stroke-width: 1.75;
+}
+
+.pi-estado-texto {
+  display: grid;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.pi-estado-titulo {
+  font-size: var(--t-titulo);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pi-estado-detalle {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* Sin dato: más discreto que un estado real. */
+.pi-estado[data-nivel="sin_dato"] .pi-estado-titulo {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.pi-estado[data-nivel="espera"] {
+  border-left-color: var(--estado-info);
+}
+.pi-estado[data-nivel="espera"] > svg {
+  color: var(--estado-info);
+}
+
+.pi-estado[data-nivel="activo"] {
+  border-left-color: var(--acento);
+}
+.pi-estado[data-nivel="activo"] > svg {
+  color: var(--acento);
+}
+
+.pi-estado[data-nivel="procesando"] {
+  border-left-color: var(--estado-aviso);
+}
+.pi-estado[data-nivel="procesando"] > svg {
+  color: var(--estado-aviso);
+}
+
+.pi-estado[data-nivel="completo"] {
+  border-left-color: var(--estado-ok);
+}
+.pi-estado[data-nivel="completo"] > svg {
+  color: var(--estado-ok);
+}
+
+.pi-estado[data-nivel="falla"] {
+  border-left-color: var(--estado-alarma);
+}
+.pi-estado[data-nivel="falla"] > svg {
+  color: var(--estado-alarma);
+}
+
+/* El ícono de procesando gira despacio, salvo que la persona pida menos movimiento (02 §4). */
+@media (prefers-reduced-motion: no-preference) {
+  .pi-estado[data-nivel="procesando"] > svg {
+    animation: pi-giro 2.4s linear infinite;
+  }
+}
+
+@keyframes pi-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Datos viejos: el estado se atenúa; la nota de abajo dice hace cuánto fue el último dato. */
+.pi[data-viejo="si"] .pi-estado,
+.pi[data-viejo="si"] .pi-pasos {
+  opacity: 0.7;
+}
+
+/* ---------- El motivo de la falla ---------- */
+
+.pi-motivo,
+.pi-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-3);
+  font-weight: 600;
+}
+
+.pi-motivo svg,
+.pi-nota svg {
+  flex: none;
+  width: var(--e-5);
+  height: var(--e-5);
+  stroke-width: 1.75;
+}
+
+.pi-motivo-rotulo {
+  text-transform: uppercase;
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+}
+
+.pi-nota {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 400;
+}
+
+/* ---------- Los cinco pasos de la misión ---------- */
+
+.pi-pasos {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--e-1);
+  margin: 0 0 var(--e-4);
+  padding: 0;
+  list-style: none;
+}
+
+.pi-paso {
+  display: grid;
+  justify-items: start;
+  gap: var(--e-2);
+  min-width: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* La barra de cada paso: vacía, llena (hecho) o llena con contorno (en curso). */
+.pi-paso-marca {
+  width: 100%;
+  height: var(--e-2);
+  background: var(--superficie-2);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+}
+
+.pi-paso[data-avance="hecho"] .pi-paso-marca {
+  background: var(--estado-ok);
+  border-color: var(--estado-ok);
+}
+
+.pi-paso[data-avance="actual"] {
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.pi-paso[data-avance="actual"] .pi-paso-marca {
+  background: var(--acento);
+  border-color: var(--texto);
+}
+
+.pi-paso-nombre {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Equipo ---------- */
+
+.pi-subtitulo {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin-bottom: var(--e-2);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.pi-subtitulo svg {
+  flex: none;
+  width: var(--e-4);
+  height: var(--e-4);
+  stroke-width: 1.75;
+}
+
+.pi-neutro,
+.pi-neutro svg {
+  color: var(--texto-2);
+}
+
+/* ---------- Distribución ---------- */
+
+.pi-cuerpo {
+  display: grid;
+  gap: var(--e-3);
+}
+
+.pi-columna {
+  min-width: 0;
+}
+
+/*
+ * Tableta (dos columnas del panel): Salud y la Pi quedan lado a lado, cada una en su columna.
+ * Portátil: el panel tiene filas fijas (mision.css) y la Pi no cabe en ninguna, así que toma una banda a todo
+ * el ancho, con el estado a un lado y los pasos y el equipo al otro. Va después de Salud y antes de Los ojos.
+ */
+@media (min-width: 1024px) {
+  #pi {
+    grid-column: 1 / -1;
+  }
+
+  .pi-cuerpo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--e-5);
+  }
+}
