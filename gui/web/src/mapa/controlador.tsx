@@ -28,13 +28,14 @@ import {
   zoomMinimo,
 } from "./area";
 import { detectarBase } from "./base";
+import { Capa3d, type CoheteVivo, type Fotograma } from "./capa3d";
 import {
   ESTILO_3D,
   ESTILO_MAPA,
+  MAPA_3D_COHETE_PX,
   MAPA_3D_EXAGERACION,
   MAPA_3D_PITCH,
   MAPA_3D_PITCH_MAX,
-  MAPA_3D_TUBO_PX,
   MAPA_3D_ZOOM_VER_TODO_MENOS,
   MAPA_CENTRO_POR_DEFECTO,
   MAPA_ESCALA_MAX_PX,
@@ -46,15 +47,10 @@ import {
 } from "./constantes";
 import { relieveActivo } from "./estado_relieve";
 import {
-  CAPAS_3D,
   CAPAS_RELIEVE,
-  capaCohete,
-  capaEstaca,
-  capaTubo,
   cielo3d,
   construirEstilo,
   FUENTE,
-  fuente3dVacia,
   fuenteTerreno,
   ID_3D,
   leerTokensDelDocumento,
@@ -66,25 +62,19 @@ import {
   agregarPunto,
   agregarPuntoAlt,
   type Capas,
-  type ColeccionPiezas,
-  type ColeccionTubo,
   type Coord,
-  cohete3d,
   construirCapas,
   type DecisionLkp,
   decidirLkp,
+  direccionDeVelocidad,
   type EntradaMapa,
-  estaca3d,
   fueraDeLimites,
   type Limites,
   limitesConAltura,
-  metrosPorPixel,
   type PuntoAlt,
   puntosAltDeSerie,
   puntosDeSerie,
-  tuboTrayectoria,
   unirLimites,
-  zoomDeDibujo,
 } from "./geo";
 import {
   ChipDistancia,
@@ -94,6 +84,7 @@ import {
   MarcadorEstacion,
   MarcadorImpacto,
   MarcadorLkp,
+  MarcadorPin,
   MarcadorRampa,
 } from "./marcadores";
 import { cargarRelieve } from "./relieve";
@@ -224,7 +215,16 @@ class Marca {
 
 const sinMovimiento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
+/** Lo que la misión le da al mapa (viene de su contenido, para que el mapa no importe nada de una misión). */
+export interface OpcionesMapa {
+  /** La miniatura del cohete de la misión (URL), para la vista 3D. Sin ella no se dibuja la imagen. */
+  coheteMapa?: string;
+}
+
+export async function crearMapa(
+  contenedor: HTMLElement,
+  opciones: OpcionesMapa = {},
+): Promise<ControlMapa> {
   // MapLibre busca su worker junto a su propio archivo, que el empaquetado no conserva: se le dice
   // dónde quedó (el archivo se emite como recurso aparte y solo se pide al dibujar el mapa).
   setWorkerUrl(urlTrabajador);
@@ -292,6 +292,11 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   const rampa = new Marca(mapa, "center", "marcador-rampa", () => <MarcadorRampa />);
   const estacionMarca = new Marca(mapa, "center", "marcador-estacion", () => <MarcadorEstacion />);
   const impacto = new Marca(mapa, "center", "marcador-impacto", () => <MarcadorImpacto />);
+  // Solo en 3D (ronda 3): el impacto es un pin de pie, y a su pie un anillo suave tendido sobre el terreno.
+  const impactoPin = new Marca(mapa, "bottom", "marcador-impacto-pin", () => <MarcadorPin />);
+  const anillo = new Marca(mapa, "center", "marcador-anillo", () => (
+    <span class="impacto-anillo" />
+  ));
   const chip = new Marca(mapa, "center", "marcador-chip", () => (
     <ChipDistancia texto={textoChip} />
   ));
@@ -315,12 +320,13 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   let rastroAlt: PuntoAlt[] = [];
   let serieAnterior: EntradaMapa["serie"] | null = null;
   let rastroPublicado: Coord[] | null = null;
-  let tuboPublicado: PuntoAlt[] | null = null;
-  /** Lo que se levanta en el aire en 3D: el cohete a su altura y el impacto estimado (T-656). */
-  let cohete3dDatos: { pos: Coord; alt: number } | null = null;
-  let impacto3dPos: Coord | null = null;
-  /** El zoom (redondeado) con que están armados los prismas del 3D: ver `zoomDeDibujo`. */
-  let zoomDibujo3d = 0;
+  /** Lo que se dibuja en el aire en 3D (T-656): el cohete a su altura, la rampa y el impacto estimado. */
+  let coheteVivo: CoheteVivo | null = null;
+  let rampaPos: Coord | null = null;
+  let impactoPos: Coord | null = null;
+  /** La capa personalizada (la línea y la plomada) y la imagen del cohete: solo existen en 3D. */
+  let capa3d: Capa3d | null = null;
+  let imagenCohete: HTMLImageElement | null = null;
   let capas: Capas | null = null;
   let interactuo = false; // el usuario movió el mapa: no se le quita la vista
   let ajustado = false; // ya se encuadró alguna vez lo que hay
@@ -335,15 +341,8 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   let generacion3d = 0;
 
   const duracion = () => (sinMovimiento() ? 0 : tokens.duracionMs);
-  const ponerDatos = (
-    id: string,
-    datos:
-      | Capas["trayectoria"]
-      | Capas["elipse"]
-      | Capas["linea"]
-      | ColeccionTubo
-      | ColeccionPiezas,
-  ) => (mapa.getSource(id) as GeoJSONSource | undefined)?.setData(datos);
+  const ponerDatos = (id: string, datos: Capas["trayectoria"] | Capas["elipse"] | Capas["linea"]) =>
+    (mapa.getSource(id) as GeoJSONSource | undefined)?.setData(datos);
 
   const ajustarA = (l: Limites) =>
     mapa.fitBounds(
@@ -473,7 +472,8 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
 
     rampa.poner(m.rampa);
     estacionMarca.poner(m.estacion);
-    impacto.poner(m.impacto);
+    impactoPos = m.impacto;
+    ponerImpacto();
     if (m.chip) textoChip.value = m.chip.texto;
     chip.poner(m.chip?.pos ?? null);
     if (m.cohete) datosCohete.value = { rumbo: m.cohete.rumbo, atenuado: m.cohete.atenuado };
@@ -481,14 +481,19 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     cohete.poner(m.cohete?.pos ?? null);
     if (m.cohete?.rumbo != null) contenedor.dataset.mapaRumbo = m.cohete.rumbo.toFixed(1);
     else delete contenedor.dataset.mapaRumbo;
-    // En 3D el cohete se levanta a su altura real, salvo ya aterrizado (queda el marcador del suelo).
+    // En 3D el cohete va a su altura real, salvo ya aterrizado o en LKP (ahí manda el marcador del suelo).
     const alt = entrada.estado?.pos?.alt_agl_m ?? null;
-    cohete3dDatos =
+    coheteVivo =
       m.cohete && alt !== null && entrada.estado?.fase !== "LANDED"
-        ? { pos: m.cohete.pos, alt }
+        ? {
+            lon: m.cohete.pos[0],
+            lat: m.cohete.pos[1],
+            alt_agl_m: alt,
+            direccion: direccionDeVelocidad(entrada.estado?.vel ?? null, entrada.estado?.fase),
+          }
         : null;
-    impacto3dPos = m.impacto;
-    publicar3d(); // el tubo, el cohete y la estaca de la vista 3D, con los mismos datos y en el mismo momento
+    rampaPos = m.rampa ?? (rastroAlt[0] ? [rastroAlt[0].lon, rastroAlt[0].lat] : null);
+    publicar3d(); // la línea y la plomada de la vista 3D, con los mismos datos y en el mismo momento
     if (m.lkp) datosLkp.value = { alt_agl_m: m.lkp.alt_agl_m, edadMs: m.lkp.edadMs };
     lkpMarca.poner(m.lkp?.pos ?? null);
     const destino = destinoDe(capas);
@@ -526,65 +531,78 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   /** Los diagnósticos del dibujo en 3D para las pruebas (qué salió dibujado); solo existen en 3D. */
   const publicarModo3d = () => {
     publicarPose();
-    const claves = {
-      [ID_3D.tubo]: "mapaTuboDibujado",
-      [ID_3D.cohete]: "mapaCoheteDibujado",
-      [ID_3D.estaca]: "mapaEstacaDibujada",
-    } as const;
-    if (modo3d.value && mapa.getLayer(ID_3D.tubo)) {
-      for (const capa of CAPAS_3D) {
-        contenedor.dataset[claves[capa]] = String(
-          mapa.queryRenderedFeatures({ layers: [capa] }).length,
-        );
-      }
+    if (modo3d.value && capa3d) {
+      contenedor.dataset.mapaCapa3d = mapa.getLayer(ID_3D.capa)?.type ?? "";
+      contenedor.dataset.mapaLineaSegmentos = String(capa3d.segmentos());
+      contenedor.dataset.mapaCuadros3d = String(capa3d.cuadros());
+      contenedor.dataset.mapaCapasExtrusion = String(
+        mapa.getStyle().layers.filter((l) => l.type === "fill-extrusion").length,
+      );
       // La caída estimada (GS-10) apoyada en el terreno: lo que salió dibujado de la elipse.
       contenedor.dataset.mapaElipseDibujada = String(
         mapa.queryRenderedFeatures({ layers: ["elipse-relleno", "elipse-borde"] }).length,
       );
-      contenedor.dataset.mapaMPorPx = metrosPorPixel(zoomDibujo3d, mapa.getCenter().lat).toFixed(4);
     } else {
-      for (const clave of Object.values(claves)) delete contenedor.dataset[clave];
-      delete contenedor.dataset.mapaElipseDibujada;
-      delete contenedor.dataset.mapaMPorPx;
+      for (const clave of [
+        "mapaCapa3d",
+        "mapaLineaSegmentos",
+        "mapaCuadros3d",
+        "mapaCapasExtrusion",
+        "mapaElipseDibujada",
+      ]) {
+        delete contenedor.dataset[clave];
+      }
     }
   };
 
-  const SIN_PIEZAS: ColeccionPiezas = { type: "FeatureCollection", features: [] };
-
-  /**
-   * Arma lo que se levanta en el aire en 3D con los metros por píxel del zoom de dibujo: el tubo de la
-   * trayectoria (solo si cambió el rastro o `forzar`), el cohete con su plomada y la estaca del impacto.
-   * Solo en 3D.
-   */
-  function publicar3d(forzar = false): void {
-    if (!modo3d.value) return;
-    const mPorPx = metrosPorPixel(zoomDibujo3d, mapa.getCenter().lat);
-    if (forzar || rastroAlt !== tuboPublicado) {
-      tuboPublicado = rastroAlt;
-      ponerDatos(
-        ID_3D.tubo,
-        tuboTrayectoria(rastroAlt, MAPA_3D_TUBO_PX * mPorPx, undefined, MAPA_3D_EXAGERACION),
-      );
-    }
-    ponerDatos(
-      ID_3D.cohete,
-      cohete3dDatos
-        ? cohete3d(cohete3dDatos.pos, cohete3dDatos.alt, mPorPx, MAPA_3D_EXAGERACION)
-        : SIN_PIEZAS,
-    );
-    ponerDatos(ID_3D.estaca, impacto3dPos ? estaca3d(impacto3dPos, mPorPx) : SIN_PIEZAS);
+  /** Le da a la capa personalizada lo que hay ahora (solo en 3D). Ella rearma la línea solo si cambió el rastro. */
+  function publicar3d(): void {
+    if (!modo3d.value || !capa3d) return;
+    capa3d.poner(rampaPos ? { puntos: rastroAlt, cohete: coheteVivo, rampa: rampaPos } : null);
   }
 
-  /** Al terminar un zoom, si cambió el zoom de dibujo se rearman los prismas con su nuevo tamaño en metros. */
-  const alTerminarZoom3d = () => {
-    const z = zoomDeDibujo(mapa.getZoom());
-    if (z === zoomDibujo3d) return;
-    zoomDibujo3d = z;
-    publicar3d(true);
+  /** En 3D el impacto es un pin de pie con un anillo en el suelo; en 2D, la diana de siempre. */
+  function ponerImpacto(): void {
+    const en3d = modo3d.value;
+    impacto.poner(en3d ? null : impactoPos);
+    impactoPin.poner(en3d ? impactoPos : null);
+    anillo.poner(en3d ? impactoPos : null);
+  }
+
+  /** Cada cuadro la capa dice dónde queda el cohete en pantalla: se mueve y se gira la imagen. */
+  const alFotograma = (f: Fotograma) => {
+    const img = imagenCohete;
+    if (!img) return;
+    const c = f.cohete;
+    if (c === null || !c.dentro) {
+      if (!img.hidden) img.hidden = true;
+      return;
+    }
+    if (img.hidden) img.hidden = false;
+    img.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translate(-50%, -50%) rotate(${c.angulo.toFixed(1)}deg)`;
+    img.dataset.angulo = c.angulo.toFixed(1);
+    img.dataset.x = c.x.toFixed(1);
+    img.dataset.y = c.y.toFixed(1);
+  };
+
+  /** La imagen del cohete de la misión, sobre el lienzo (HTML, no del estilo). `null` si la misión no la dio. */
+  const crearImagenCohete = (): HTMLImageElement | null => {
+    if (!opciones.coheteMapa) return null;
+    const img = document.createElement("img");
+    img.className = "mapa-cohete-3d";
+    img.src = opciones.coheteMapa;
+    img.alt = "";
+    img.setAttribute("aria-hidden", "true");
+    img.draggable = false;
+    img.width = MAPA_3D_COHETE_PX;
+    img.height = MAPA_3D_COHETE_PX;
+    img.hidden = true;
+    mapa.getCanvasContainer().append(img);
+    return img;
   };
 
   /** Los marcadores que se tienden sobre el terreno en 3D (el chip y el LKP llevan texto y quedan de frente). */
-  const marcasPlanas = [rampa, estacionMarca, impacto, cohete];
+  const marcasPlanas = [rampa, estacionMarca, cohete, anillo];
 
   /** Un gesto del usuario con el mapa inclinado o girado también detiene el encuadre automático. */
   const eventos3d = ["rotatestart", "pitchstart"] as const;
@@ -597,25 +615,26 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     camara2d = { center: [c.lng, c.lat], zoom: mapa.getZoom() };
     movidaEn3d = false;
     mapa.addSource(ID_3D.fuenteTerreno, fuenteTerreno(relieve.relieve));
-    // Los prismas del 3D: el tubo, el cohete con su plomada y la estaca (todos fill-extrusion).
-    for (const capa of CAPAS_3D) mapa.addSource(capa, fuente3dVacia());
-    mapa.addLayer(capaTubo(tokens));
-    mapa.addLayer(capaCohete(tokens));
-    mapa.addLayer(capaEstaca(tokens));
-    // La caída estimada, con el borde y el relleno más marcados (la elipse real es pequeña).
+    // La línea de la trayectoria y la plomada, en una capa personalizada; y la imagen del cohete encima.
+    capa3d = new Capa3d({
+      colores: { viejo: tokens.linea, nuevo: tokens.acento, plomada: tokens.texto2 },
+      exageracion: MAPA_3D_EXAGERACION,
+      alFotograma,
+    });
+    mapa.addLayer(capa3d);
+    imagenCohete = crearImagenCohete();
+    // La caída estimada, con el borde fino y suave (la elipse real es pequeña) y un relleno algo más visible.
     mapa.setPaintProperty("elipse-borde", "line-width", ESTILO_3D.anchoElipse);
     mapa.setPaintProperty("elipse-relleno", "fill-opacity", ESTILO_3D.opacidadElipse);
     for (const m of marcasPlanas) m.tender(true);
+    ponerImpacto();
     mapa.setTerrain({ source: ID_3D.fuenteTerreno, exaggeration: MAPA_3D_EXAGERACION });
     mapa.setSky(cielo3d(tokens));
     mapa.setMaxPitch(MAPA_3D_PITCH_MAX);
     mapa.dragRotate.enable();
     mapa.touchZoomRotate.enableRotation();
     for (const e of eventos3d) mapa.on(e, alMoverUsuario);
-    mapa.on("zoomend", alTerminarZoom3d);
-    zoomDibujo3d = zoomDeDibujo(mapa.getZoom());
-    tuboPublicado = null;
-    publicar3d(true);
+    publicar3d();
     aplicarLimites(); // el área incluye la parte alta de la trayectoria
     if (!interactuo && capas?.limites && destinoDe(capas))
       ajustarA3d(cajaDibujada() ?? capas.limites);
@@ -631,23 +650,22 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     mapa.dragRotate.disable();
     mapa.touchZoomRotate.disableRotation();
     for (const e of eventos3d) mapa.off(e, alMoverUsuario);
-    mapa.off("zoomend", alTerminarZoom3d);
     // El terreno, el cielo y los prismas se quitan cuando la cámara ya está plana: así no hay un salto.
     const limpiar = () => {
       if (generacion !== generacion3d || modo3d.value) return;
       mapa.setTerrain(null);
       // Sin argumento, MapLibre quita el cielo (en runtime acepta `undefined`; el tipo no lo dice).
       mapa.setSky(undefined as unknown as SkySpecification);
-      for (const capa of CAPAS_3D) {
-        if (mapa.getLayer(capa)) mapa.removeLayer(capa);
-        if (mapa.getSource(capa)) mapa.removeSource(capa);
-      }
+      if (mapa.getLayer(ID_3D.capa)) mapa.removeLayer(ID_3D.capa);
+      capa3d = null;
+      imagenCohete?.remove();
+      imagenCohete = null;
       if (mapa.getSource(ID_3D.fuenteTerreno)) mapa.removeSource(ID_3D.fuenteTerreno);
       mapa.setPaintProperty("elipse-borde", "line-width", ESTILO_MAPA.anchoElipse);
       mapa.setPaintProperty("elipse-relleno", "fill-opacity", ESTILO_MAPA.opacidadElipse);
       for (const m of marcasPlanas) m.tender(false);
+      ponerImpacto();
       mapa.setMaxPitch(maxPitch2d);
-      tuboPublicado = null;
       aplicarLimites();
       publicarModo3d();
     };
@@ -763,7 +781,10 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     destruir() {
       detener?.();
       relieveActivo.value = false;
-      for (const m of [rampa, estacionMarca, impacto, chip, cohete, lkpMarca]) m.quitar();
+      imagenCohete?.remove();
+      for (const m of [rampa, estacionMarca, impacto, impactoPin, anillo, chip, cohete, lkpMarca]) {
+        m.quitar();
+      }
       mapa.remove();
       removeProtocol("pmtiles");
     },

@@ -147,34 +147,43 @@ export const MAPA_3D_PITCH = 60;
 /** Inclinación máxima permitida en 3D: con más se ve mucho horizonte, fuera del área con teselas. */
 export const MAPA_3D_PITCH_MAX = 70;
 /**
- * Tamaños de lo que se levanta en el aire, EN PÍXELES: los prismas se arman en metros con los metros por
- * píxel del zoom de dibujo (`MAPA_3D_ZOOM_PASO`), así que se ven del mismo tamaño a cualquier zoom.
+ * La trayectoria, el cohete y la plomada en el aire (ronda 3): los dibuja una capa personalizada de
+ * MapLibre (`capa3d.ts`) y una imagen HTML. Los tamaños son EN PÍXELES de pantalla: se ven igual a
+ * cualquier zoom.
  */
-/** Radio del tubo de la trayectoria (el tubo mide el doble de ancho). */
-export const MAPA_3D_TUBO_PX = 3;
-/** Largo del cohete en 3D (cuerpo y ojiva). */
-export const MAPA_3D_COHETE_PX = 40;
-/** Radio de la plomada: la columna delgada del suelo al cohete. */
-export const MAPA_3D_PLOMADA_PX = 1;
-/** Alto de la estaca del impacto estimado. */
-export const MAPA_3D_ESTACA_PX = 64;
-/** Radio de la columna de la estaca y de su cabeza. */
-export const MAPA_3D_ESTACA_RADIO_PX = 1.5;
-export const MAPA_3D_ESTACA_CABEZA_PX = 7;
-/** Lados de los polígonos circulares (cuerpo, ojiva y cabeza) y de los finos (plomada y estaca). */
-export const MAPA_3D_LADOS = 12;
-export const MAPA_3D_LADOS_FINOS = 6;
+/** Ancho de la línea fina de la trayectoria en el aire. */
+export const MAPA_3D_LINEA_PX = 2;
+/** Segmentos máximos de la línea: con más puntos se diezma (uno de cada k, y siempre el último). */
+export const MAPA_3D_LINEA_MAX_SEGMENTOS = 800;
+/** Ancho de la plomada (la línea punteada del cohete al suelo) y largo de cada raya (y de cada hueco). */
+export const MAPA_3D_PLOMADA_PX = 1.25;
+export const MAPA_3D_PLOMADA_RAYA_PX = 5;
 /**
- * Los prismas se rearman cuando el zoom pasa a otro múltiplo de esto (al terminar el zoom), no en cada
- * cuadro. Con 0,5 niveles miden entre 0,8 y 1,2 veces lo pedido.
+ * Lado de la imagen del cohete en 3D (es cuadrada y el cohete va en su diagonal, así que el cohete mide
+ * un 40 % más de largo que esto y es delgado). 44 px se veía muy chico junto a un mapa de 650 px (y 60, aún delgado).
  */
-export const MAPA_3D_ZOOM_PASO = 0.5;
-/** Tramos máximos del tubo: con más puntos se diezma (uno de cada k, y siempre el último). */
-export const MAPA_3D_TUBO_MAX_SEGMENTOS = 400;
-/** Un tramo largo o inclinado se parte en hasta esta cantidad de prismas para que siga la pendiente. */
-export const MAPA_3D_TUBO_SUBDIV_MAX = 4;
+export const MAPA_3D_COHETE_PX = 72;
+/**
+ * Ángulo (grados, en el sentido de las agujas del reloj desde "arriba") hacia el que apunta la nariz en
+ * la imagen del cohete de cada misión (`assets/<misión>/cohete.png`): en diagonal, hacia arriba y a la derecha.
+ */
+export const MAPA_3D_COHETE_ANGULO_DIBUJO = 45;
+/** A qué distancia en pantalla (px) se proyecta el punto "adelante" para sacar hacia dónde va el cohete. */
+export const MAPA_3D_COHETE_ADELANTE_PX = 24;
+/** Si ese vector mide menos que esto en pantalla (px) no hay rumbo fiable y el cohete se deja vertical. */
+export const MAPA_3D_COHETE_MIN_PX = 4;
+/** Por debajo de esta rapidez (m/s) no hay dirección fiable. */
+export const MAPA_3D_VEL_MIN_MS = 2;
+/**
+ * En qué fases la nariz del cohete sigue la dirección del movimiento: en la subida con motor y por inercia.
+ * En el resto (rampa, apogeo y descenso con paracaídas) queda vertical, con la nariz arriba: bajo el
+ * paracaídas el cohete no cae de nariz y la imagen vertical es más legible.
+ */
+export const MAPA_3D_FASES_CON_RUMBO = ["BOOST", "COAST"] as const;
 /** Dos puntos a la misma posición y a menos de esta diferencia de altura (m) son el mismo punto. */
 export const MAPA_3D_EPSILON_ALT_M = 0.5;
+/** Cambio de la elevación del terreno (m) que obliga a rearmar la línea. */
+export const MAPA_3D_EPSILON_ELEVACION_M = 0.25;
 /**
  * Cuánto se aleja el zoom al "Ver todo" en 3D, respecto al que calcula MapLibre para un plano: con la
  * inclinación, lo que está cerca de la cámara se ve más grande y se saldría de los bordes.
@@ -185,23 +194,12 @@ export const MAPA_MARCADOR_OPACIDAD_TAPADO = 1;
 
 /** Dibujo de la vista 3D (los colores salen de los tokens del tema). */
 export const ESTILO_3D = {
-  /** Opacidad del tubo, el cohete y la estaca: 1, porque los prismas se solapan (con menos se verían sus costuras). */
-  opacidadSolidos: 1,
-  /** Borde y relleno de la elipse de impacto en 3D, más marcados que en 2D (`ESTILO_MAPA`). */
-  anchoElipse: 4,
-  opacidadElipse: 0.3,
-  /** La cabeza de la estaca mide esto (veces su radio) de alto. */
-  estacaCabezaAlto: 0.8,
-  /**
-   * Las piezas del cohete: `[parte, radio, desde, hasta]`, con radio, desde y hasta en fracciones de su
-   * largo, medidos desde su altura (el centro). La primera es el cuerpo y las demás, la ojiva.
-   */
-  cohete: [
-    ["cuerpo", 0.16, -0.5, 0.15],
-    ["ojiva", 0.12, 0.15, 0.28],
-    ["ojiva", 0.08, 0.28, 0.4],
-    ["ojiva", 0.04, 0.4, 0.5],
-  ] as readonly (readonly [string, number, number, number])[],
+  /** Opacidad de la línea de la trayectoria y de la plomada. */
+  opacidadLinea: 1,
+  opacidadPlomada: 0.7,
+  /** Borde fino y relleno de la elipse de impacto en 3D (en 2D, `ESTILO_MAPA`). */
+  anchoElipse: 1.5,
+  opacidadElipse: 0.2,
   /** Cielo y neblina (0 a 1) con que el horizonte se funde con el fondo y no deja ver el borde del DEM. */
   cieloHorizonte: 0.2,
   neblinaHorizonte: 0.6,

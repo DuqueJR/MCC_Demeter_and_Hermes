@@ -1,38 +1,30 @@
-// Vista 3D del mapa (T-656, D-W23): la geometría pura del tubo de la trayectoria, del cohete (con su
-// plomada) y de la estaca del impacto (alturas, tamaños, puntos nulos, repetidos, diezmado, radio por
-// zoom), la caja con altura, y que el estilo del 3D solo use tokens del tema y no cambie el de 2D.
+// Vista 3D del mapa (T-656): lo que se puede probar sin WebGL ni navegador. La altura de dibujo, las
+// coordenadas de Mercator, el armado del búfer de la línea y de la plomada (nulos, repetidos, ascenso
+// vertical, diezmado), la matriz relativa y la proyección a píxeles, el ángulo de la imagen del cohete
+// (vertical, descenso, sin velocidad), la dirección de la velocidad, los colores de los tokens y que el
+// estilo del 3D no use prismas ni colores sueltos y no cambie el de 2D.
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Serie } from "../src/contrato/tipos";
 import {
   ESTILO_3D,
-  MAPA_3D_COHETE_PX,
+  MAPA_3D_COHETE_ANGULO_DIBUJO,
+  MAPA_3D_COHETE_MIN_PX,
   MAPA_3D_EPSILON_ALT_M,
-  MAPA_3D_ESTACA_CABEZA_PX,
-  MAPA_3D_ESTACA_PX,
-  MAPA_3D_ESTACA_RADIO_PX,
-  MAPA_3D_LADOS,
-  MAPA_3D_PLOMADA_PX,
-  MAPA_3D_TUBO_MAX_SEGMENTOS,
-  MAPA_3D_TUBO_PX,
-  MAPA_3D_TUBO_SUBDIV_MAX,
-  MAPA_3D_ZOOM_PASO,
+  MAPA_3D_FASES_CON_RUMBO,
+  MAPA_3D_LINEA_MAX_SEGMENTOS,
+  MAPA_3D_LINEA_PX,
+  MAPA_3D_VEL_MIN_MS,
   MAPA_EPSILON_GRADOS,
   MAPA_MUNDO_PX,
   MAPA_RASTRO_MAX_PUNTOS,
   RADIO_TIERRA_M,
 } from "../src/mapa/constantes";
 import {
-  CAPAS_3D,
-  CAPAS_RELIEVE,
-  capaCohete,
-  capaEstaca,
-  capaTubo,
   cielo3d,
   construirEstilo,
   FUENTE,
-  fuente3dVacia,
   fuenteTerreno,
   ID_3D,
   leerTokens,
@@ -43,17 +35,24 @@ import {
 import {
   agregarPunto,
   agregarPuntoAlt,
-  circuloPoligono,
-  cohete3d,
-  estaca3d,
+  alturaDeDibujo,
+  aMercator,
+  anguloDeImagen,
+  colorARgb,
+  construirBufferLinea,
+  construirBufferPlomada,
+  direccionDeVelocidad,
+  FLOATS_POR_VERTICE,
   limitesConAltura,
+  matrizRelativa,
+  metroEnMercator,
   metrosPorPixel,
   type PuntoAlt,
+  proyectarAPixeles,
   puntosAltDeSerie,
   puntosDeSerie,
-  tuboTrayectoria,
   unirLimites,
-  zoomDeDibujo,
+  VERTICES_POR_SEGMENTO,
 } from "../src/mapa/geo";
 
 const raiz = resolve(import.meta.dirname, "..");
@@ -63,321 +62,358 @@ const LON = -75.823;
 const COS_LAT = Math.cos((LAT * Math.PI) / 180);
 /** Longitud de un paso de ~10 m hacia el este (en grados, cerca de la rampa). */
 const PASO_ESTE = 10 / (M_POR_GRADO * COS_LAT);
-const PRECISION_M = 0.05;
-/** Radio del tubo que usan las pruebas, en metros. */
-const R = 6;
+const ORIGEN = aMercator(LON, LAT);
+const METRO = metroEnMercator(LAT);
+const CONTEXTO = { origen: ORIGEN, metroMercator: METRO, exageracion: 1 };
+const N = FLOATS_POR_VERTICE;
 
 /** Puntos hacia el este, cada 10 m, con las alturas dadas (null = sin altura). */
-function alEste(alturas: (number | null)[], lon0 = LON): PuntoAlt[] {
-  return alturas.map((alt_agl_m, i) => ({ lon: lon0 + i * PASO_ESTE, lat: LAT, alt_agl_m }));
+function alEste(alturas: (number | null)[]): PuntoAlt[] {
+  return alturas.map((alt_agl_m, i) => ({ lon: LON + i * PASO_ESTE, lat: LAT, alt_agl_m }));
 }
 
 /** Puntos en la misma posición (ascenso vertical) a las alturas dadas. */
 const enVertical = (alturas: number[]): PuntoAlt[] =>
   alturas.map((alt_agl_m) => ({ lon: LON, lat: LAT, alt_agl_m }));
 
-/** Distancia en metros entre dos coordenadas cercanas. */
-function distanciaM(a: number[], b: number[]): number {
-  const este = ((b[0] as number) - (a[0] as number)) * COS_LAT;
-  const norte = (b[1] as number) - (a[1] as number);
-  return Math.hypot(este, norte) * M_POR_GRADO;
-}
+/** Los números de un vértice del búfer. */
+const vertice = (datos: Float32Array, i: number) => ({
+  pos: [...datos.slice(i * N, i * N + 3)],
+  otro: [...datos.slice(i * N + 3, i * N + 6)],
+  lado: datos[i * N + 6] as number,
+  f: datos[i * N + 7] as number,
+  s: datos[i * N + 8] as number,
+  extremo: datos[i * N + 9] as number,
+});
 
-/** El anillo exterior de un polígono (sin el cierre repetido). */
-const esquinas = (f: { geometry: { coordinates: number[][][] } }): number[][] =>
-  (f.geometry.coordinates[0] as number[][]).slice(0, -1);
-
-/** Ancho y largo (m) de la caja que contiene al polígono, en este y norte. */
-function medidasDe(f: { geometry: { coordinates: number[][][] } }): {
-  este: number;
-  norte: number;
-} {
-  const pts = esquinas(f);
-  const lons = pts.map((p) => p[0] as number);
-  const lats = pts.map((p) => p[1] as number);
-  return {
-    este: (Math.max(...lons) - Math.min(...lons)) * COS_LAT * M_POR_GRADO,
-    norte: (Math.max(...lats) - Math.min(...lats)) * M_POR_GRADO,
-  };
-}
-
-describe("tuboTrayectoria: prismas flotantes que siguen la trayectoria en el aire", () => {
-  it("un tramo horizontal a altura constante: rectángulo engrosado y alargado, de la altura menos r a la altura más r", () => {
-    const c = tuboTrayectoria(alEste([100, 100]), R);
-    expect(c.type).toBe("FeatureCollection");
-    expect(c.features).toHaveLength(1);
-    const f = c.features[0] as NonNullable<(typeof c.features)[number]>;
-    expect(f.properties.base).toBe(100 - R);
-    expect(f.properties.height).toBe(100 + R);
-    // 10 m de tramo + r de cada lado de largo, y 2r de ancho.
-    const { este, norte } = medidasDe(f);
-    expect(Math.abs(este - (10 + 2 * R))).toBeLessThan(PRECISION_M);
-    expect(Math.abs(norte - 2 * R)).toBeLessThan(PRECISION_M);
-    const anillo = f.geometry.coordinates[0] as number[][];
-    expect(anillo).toHaveLength(5);
-    expect(anillo[4]).toEqual(anillo[0]);
+describe("altura de dibujo y Mercator", () => {
+  it("alturaDeDibujo: la elevación de la rampa más la altura por la exageración", () => {
+    expect(alturaDeDibujo(510, 0, 1)).toBe(510);
+    expect(alturaDeDibujo(510, 669, 1)).toBe(1179);
+    // Con el terreno exagerado, `queryTerrainElevation` ya trae la exageración; la altura sobre la rampa se multiplica.
+    expect(alturaDeDibujo(1020, 669, 2)).toBe(1020 + 1338);
+    expect(alturaDeDibujo(0, 100, 1)).toBe(100);
   });
 
-  it("un ascenso vertical (misma posición) NO se pierde: cuadrados de 2r, base > 0 y prismas que se solapan", () => {
-    const c = tuboTrayectoria(enVertical([0, 100, 200, 300]), R);
-    expect(c.features.length).toBeGreaterThanOrEqual(3);
-    for (const f of c.features) {
-      const { este, norte } = medidasDe(f);
-      expect(Math.abs(este - 2 * R)).toBeLessThan(PRECISION_M);
-      expect(Math.abs(norte - 2 * R)).toBeLessThan(PRECISION_M);
-      expect(f.properties.base).toBeGreaterThanOrEqual(0);
-      expect(f.properties.height).toBeGreaterThan(f.properties.base);
-    }
-    // Continuo: de 0 a 300 + r, y cada prisma empieza antes de que termine el anterior.
-    expect(Math.min(...c.features.map((f) => f.properties.base))).toBe(0);
-    expect(Math.max(...c.features.map((f) => f.properties.height))).toBe(300 + R);
-    const ordenados = [...c.features].sort((a, b) => a.properties.base - b.properties.base);
-    for (let i = 1; i < ordenados.length; i++) {
-      const antes = ordenados[i - 1] as NonNullable<(typeof ordenados)[number]>;
-      const ahora = ordenados[i] as NonNullable<(typeof ordenados)[number]>;
-      expect(ahora.properties.base).toBeLessThanOrEqual(antes.properties.height);
-    }
+  it("aMercator da lo mismo que MapLibre: (0,0) en el centro y el norte hacia y = 0", () => {
+    expect(aMercator(0, 0)).toEqual({ x: 0.5, y: 0.5 });
+    expect(aMercator(-180, 0).x).toBe(0);
+    expect(aMercator(180, 0).x).toBe(1);
+    const m = aMercator(LON, LAT);
+    expect(m.x).toBeCloseTo((LON + 180) / 360, 12);
+    // y = 0,5 - atanh(sen(lat)) / 2π (la forma cerrada de la proyección).
+    expect(m.y).toBeCloseTo(0.5 - Math.atanh(Math.sin((LAT * Math.PI) / 180)) / (2 * Math.PI), 12);
+    expect(aMercator(0, 40).y).toBeLessThan(aMercator(0, 10).y); // más al norte, menos y
   });
 
-  it("la base nunca baja de 0 (despegue a ras del suelo)", () => {
-    const c = tuboTrayectoria(enVertical([0, 1, 2]), R);
-    for (const f of c.features) expect(f.properties.base).toBeGreaterThanOrEqual(0);
-    expect(c.features[0]?.properties.base).toBe(0);
+  it("metroEnMercator: un metro en unidades de Mercator, mayor lejos del ecuador", () => {
+    expect(metroEnMercator(0)).toBeCloseTo(1 / (2 * Math.PI * RADIO_TIERRA_M), 20);
+    expect(metroEnMercator(60)).toBeCloseTo(2 * metroEnMercator(0), 18);
+    // Es consistente con metrosPorPixel: el mundo mide MAPA_MUNDO_PX * 2^zoom píxeles.
+    expect(metrosPorPixel(15, LAT) * METRO * MAPA_MUNDO_PX * 2 ** 15).toBeCloseTo(1, 9);
   });
 
-  it("una deriva inclinada sigue la pendiente: se parte en varios prismas, cada uno con su rango de alturas", () => {
-    // 40 m al este bajando de 400 a 0 m: se parte en MAPA_3D_TUBO_SUBDIV_MAX.
-    const puntos: PuntoAlt[] = [
-      { lon: LON, lat: LAT, alt_agl_m: 400 },
-      { lon: LON + 4 * PASO_ESTE, lat: LAT, alt_agl_m: 0 },
+  it("metrosPorPixel: la mitad por cada nivel de zoom", () => {
+    expect(metrosPorPixel(16, LAT) * 2).toBeCloseTo(metrosPorPixel(15, LAT), 9);
+    expect(metrosPorPixel(0, 0)).toBeCloseTo((2 * Math.PI * RADIO_TIERRA_M) / MAPA_MUNDO_PX, 6);
+  });
+});
+
+describe("construirBufferLinea: la línea en el aire", () => {
+  it("un segmento = dos triángulos de seis vértices, con el ancho a cargo del shader", () => {
+    const b = construirBufferLinea(alEste([0, 100]), CONTEXTO);
+    expect(b.segmentos).toBe(1);
+    expect(b.datos).toBeInstanceOf(Float32Array);
+    expect(b.datos.length).toBe(VERTICES_POR_SEGMENTO * N);
+    // Los lados son -1 y +1, y los extremos 0 (el principio) y 1 (el final).
+    const v = Array.from({ length: 6 }, (_, i) => vertice(b.datos, i));
+    expect(v.map((x) => x.lado).sort()).toEqual([-1, -1, -1, 1, 1, 1]);
+    expect(v.filter((x) => x.extremo === 0)).toHaveLength(3);
+    expect(v.filter((x) => x.extremo === 1)).toHaveLength(3);
+  });
+
+  it("las posiciones son relativas a la rampa, en unidades de Mercator, con la altura en z", () => {
+    const b = construirBufferLinea(alEste([0, 100]), CONTEXTO);
+    const [a, e] = [vertice(b.datos, 0), vertice(b.datos, 2)];
+    // El primer punto está en el origen (la rampa) a altura 0; el segundo, 10 m al este y 100 m más arriba.
+    expect(a.pos[0]).toBeCloseTo(0, 12);
+    expect(a.pos[1]).toBeCloseTo(0, 12);
+    expect(a.pos[2]).toBeCloseTo(0, 12);
+    expect(e.pos[0]).toBeCloseTo(10 * METRO * (1 / COS_LAT) * COS_LAT * 1, 10);
+    expect(e.pos[1]).toBeCloseTo(0, 10);
+    expect(e.pos[2]).toBeCloseTo(100 * METRO, 10);
+    // Cada vértice trae también el otro extremo del segmento.
+    expect(a.otro).toEqual(e.pos);
+    expect(e.otro).toEqual(a.pos);
+  });
+
+  it("la exageración escala la altura y nada más", () => {
+    const [uno, dos] = [
+      construirBufferLinea(alEste([0, 100]), CONTEXTO),
+      construirBufferLinea(alEste([0, 100]), { ...CONTEXTO, exageracion: 2 }),
     ];
-    const c = tuboTrayectoria(puntos, R);
-    expect(c.features).toHaveLength(MAPA_3D_TUBO_SUBDIV_MAX);
-    const alturas = c.features.map((f) => f.properties.height);
-    expect([...alturas].sort((a, b) => b - a)).toEqual(alturas); // baja a lo largo del tramo
-    expect(alturas[0]).toBe(400 + R);
-    expect(c.features[c.features.length - 1]?.properties.base).toBe(0);
+    expect(vertice(dos.datos, 2).pos[2]).toBeCloseTo(
+      2 * (vertice(uno.datos, 2).pos[2] as number),
+      9,
+    );
+    expect(vertice(dos.datos, 2).pos[0]).toBeCloseTo(vertice(uno.datos, 2).pos[0] as number, 9);
+  });
+
+  it("el ascenso vertical NO se pierde: misma posición, otra altura, es un segmento (la línea sube)", () => {
+    const b = construirBufferLinea(enVertical([0, 100, 200, 300]), CONTEXTO);
+    expect(b.segmentos).toBe(3);
+    const alturas = [0, 6, 12].map((i) => (vertice(b.datos, i).pos[2] as number) / METRO);
+    expect(alturas[0]).toBeCloseTo(0, 6);
+    // Cada segmento empieza donde acabó el anterior.
+    expect(alturas[1]).toBeCloseTo(100, 4);
+    expect(alturas[2]).toBeCloseTo(200, 4);
+    expect(vertice(b.datos, 14).pos[2] as number).toBeCloseTo(300 * METRO, 9);
+    // Y la posición en el plano no cambia.
+    for (let i = 0; i < b.segmentos * VERTICES_POR_SEGMENTO; i++) {
+      expect(vertice(b.datos, i).pos[0]).toBeCloseTo(0, 12);
+    }
   });
 
   it("salta los puntos con alt_agl_m nulo y une los vecinos útiles", () => {
-    const c = tuboTrayectoria(alEste([0, 100, null, 300, 400]), R);
-    // Tramos 0-100, 100-300 (pasando por el nulo) y 300-400.
-    expect(c.features.length).toBeGreaterThanOrEqual(3);
-    expect(tuboTrayectoria(alEste([null, null, null]), R).features).toEqual([]);
-    expect(tuboTrayectoria(alEste([null, 50]), R).features).toEqual([]);
-    expect(tuboTrayectoria([], R).features).toEqual([]);
-    expect(tuboTrayectoria(alEste([100]), R).features).toEqual([]);
+    expect(construirBufferLinea(alEste([0, 100, null, 300, 400]), CONTEXTO).segmentos).toBe(3);
+    expect(construirBufferLinea(alEste([null, null]), CONTEXTO).segmentos).toBe(0);
+    expect(construirBufferLinea(alEste([null, 50]), CONTEXTO).segmentos).toBe(0);
+    expect(construirBufferLinea([], CONTEXTO).segmentos).toBe(0);
+    expect(construirBufferLinea([], CONTEXTO).datos).toHaveLength(0);
+    expect(construirBufferLinea(alEste([100]), CONTEXTO).segmentos).toBe(0);
   });
 
-  it("salta los puntos repetidos (misma posición Y altura) pero no los que solo cambian de altura", () => {
-    const p = alEste([100, 100, 100]);
-    const repetidos = [p[0], p[0], p[1], p[1]] as PuntoAlt[];
-    expect(tuboTrayectoria(repetidos, R).features).toHaveLength(1);
-    // Casi la misma posición y a menos de MAPA_3D_EPSILON_ALT_M: también es el mismo punto.
+  it("salta los repetidos (misma posición Y altura, o casi) pero no los que solo cambian de altura", () => {
+    const p = alEste([100, 100]);
+    expect(construirBufferLinea([p[0], p[0], p[1], p[1]] as PuntoAlt[], CONTEXTO).segmentos).toBe(
+      1,
+    );
     const casi: PuntoAlt[] = [
       { lon: LON, lat: LAT, alt_agl_m: 10 },
       { lon: LON + MAPA_EPSILON_GRADOS / 10, lat: LAT, alt_agl_m: 10 + MAPA_3D_EPSILON_ALT_M / 2 },
       { lon: LON + PASO_ESTE, lat: LAT, alt_agl_m: 10 },
     ];
-    expect(tuboTrayectoria(casi, R).features).toHaveLength(1);
-    // Misma posición, 50 m más arriba: es un tramo vertical.
-    expect(tuboTrayectoria(enVertical([10, 60]), R).features.length).toBeGreaterThanOrEqual(1);
-    // Nada de NaN.
-    for (const f of tuboTrayectoria(repetidos, R).features) {
-      for (const par of esquinas(f)) expect(par.every(Number.isFinite)).toBe(true);
-    }
+    expect(construirBufferLinea(casi, CONTEXTO).segmentos).toBe(1);
+    expect(
+      construirBufferLinea(enVertical([10, 10 + 2 * MAPA_3D_EPSILON_ALT_M]), CONTEXTO).segmentos,
+    ).toBe(1);
+    // Nada de NaN en los números del búfer.
+    for (const n of construirBufferLinea(casi, CONTEXTO).datos)
+      expect(Number.isFinite(n)).toBe(true);
   });
 
-  it("f crece de lo más viejo (0) a lo más nuevo (1), para desvanecer", () => {
-    const c = tuboTrayectoria(alEste(Array.from({ length: 20 }, (_, i) => i * 10)), R);
-    const f = c.features.map((x) => x.properties.f);
-    expect([...f].sort((a, b) => a - b)).toEqual(f);
-    expect(f[0]).toBeGreaterThanOrEqual(0);
-    expect(f[0]).toBeLessThan(0.1);
-    expect(f[f.length - 1]).toBeGreaterThan(0.9);
-    expect(f[f.length - 1]).toBeLessThanOrEqual(1);
+  it("el degradado crece de lo más viejo (0) a lo más nuevo (1)", () => {
+    const b = construirBufferLinea(alEste(Array.from({ length: 12 }, (_, i) => i * 10)), CONTEXTO);
+    const f = Array.from(
+      { length: b.segmentos },
+      (_, i) => vertice(b.datos, i * VERTICES_POR_SEGMENTO).f,
+    );
+    expect(f[0]).toBe(0);
+    expect(f[f.length - 1]).toBe(1);
+    expect([...f].sort((a, c) => a - c)).toEqual(f);
+    // Con un solo segmento, el más nuevo.
+    expect(vertice(construirBufferLinea(alEste([0, 10]), CONTEXTO).datos, 0).f).toBe(1);
   });
 
-  it("factorAltura escala las alturas, no el radio (terreno exagerado)", () => {
-    const [f] = tuboTrayectoria(alEste([100, 100]), R, undefined, 2).features;
-    expect(f?.properties.base).toBe(200 - R);
-    expect(f?.properties.height).toBe(200 + R);
-    expect(medidasDe(f as NonNullable<typeof f>).norte).toBeCloseTo(2 * R, 1);
-  });
-
-  it("diezma: a lo sumo maxSegmentos tramos y siempre el último punto", () => {
+  it("diezma: a lo sumo maxSegmentos, y el último punto sigue estando", () => {
     const n = 1000;
-    const puntos = alEste(Array.from({ length: n }, (_, i) => 10 + i));
-    const c = tuboTrayectoria(puntos, R, 50);
-    // Cada tramo se parte en hasta MAPA_3D_TUBO_SUBDIV_MAX prismas.
-    expect(c.features.length).toBeLessThanOrEqual(50 * MAPA_3D_TUBO_SUBDIV_MAX);
-    expect(c.features.length).toBeGreaterThan(10);
-    const alturas = c.features.map((f) => f.properties.height);
-    expect(Math.max(...alturas)).toBe(10 + (n - 1) + R); // el último punto sigue estando
-  });
-
-  it("con la constante por defecto, el rastro más largo posible da a lo sumo maxSegmentos × subdivisiones", () => {
-    const puntos = alEste(Array.from({ length: MAPA_RASTRO_MAX_PUNTOS }, (_, i) => i / 10));
-    const c = tuboTrayectoria(puntos, R);
-    expect(c.features.length).toBeLessThanOrEqual(
-      MAPA_3D_TUBO_MAX_SEGMENTOS * MAPA_3D_TUBO_SUBDIV_MAX,
+    const b = construirBufferLinea(
+      alEste(Array.from({ length: n }, (_, i) => 10 + i)),
+      CONTEXTO,
+      50,
     );
-    expect(c.features.length).toBeGreaterThan(0);
-  });
-});
-
-describe("el radio del tubo sale del zoom (metros por píxel)", () => {
-  it("metrosPorPixel: la circunferencia por el coseno de la latitud entre el mundo en píxeles", () => {
-    const esperado = (2 * Math.PI * RADIO_TIERRA_M * COS_LAT) / (MAPA_MUNDO_PX * 2 ** 15);
-    expect(metrosPorPixel(15, LAT)).toBeCloseTo(esperado, 9);
-    // Cada nivel de zoom la mitad; a más latitud, menos metros por píxel.
-    expect(metrosPorPixel(16, LAT) * 2).toBeCloseTo(metrosPorPixel(15, LAT), 9);
-    expect(metrosPorPixel(15, 60)).toBeLessThan(metrosPorPixel(15, 0));
-    // Ecuador, zoom 0: la circunferencia entera sobre 512 px.
-    expect(metrosPorPixel(0, 0)).toBeCloseTo((2 * Math.PI * RADIO_TIERRA_M) / MAPA_MUNDO_PX, 6);
+    expect(b.segmentos).toBeLessThanOrEqual(50);
+    expect(b.segmentos).toBeGreaterThan(20);
+    const ultimo = vertice(b.datos, b.segmentos * VERTICES_POR_SEGMENTO - 1);
+    expect(ultimo.pos[2] as number).toBeCloseTo((10 + n - 1) * METRO, 9);
   });
 
-  it("zoomDeDibujo redondea al paso: el tubo no se rearma en cada cuadro", () => {
-    expect(MAPA_3D_ZOOM_PASO).toBeGreaterThan(0);
-    expect(zoomDeDibujo(15.1)).toBe(15);
-    expect(zoomDeDibujo(15.3)).toBe(15.5);
-    expect(zoomDeDibujo(15.74)).toBe(15.5);
-    expect(zoomDeDibujo(15.76)).toBe(16);
-    // Entre dos pasos el tamaño en píxeles varía poco (el radio se fijó al zoom de dibujo).
-    for (const z of [14.1, 14.6, 15.2, 15.9]) {
-      const px = (MAPA_3D_TUBO_PX * metrosPorPixel(zoomDeDibujo(z), LAT)) / metrosPorPixel(z, LAT);
-      expect(px).toBeGreaterThan(MAPA_3D_TUBO_PX * 0.8);
-      expect(px).toBeLessThan(MAPA_3D_TUBO_PX * 1.2);
-    }
-  });
-
-  it("el radio en metros = MAPA_3D_TUBO_PX por los metros por píxel: más zoom, tubo más angosto en metros", () => {
-    const ancho = (zoom: number) => {
-      const r = MAPA_3D_TUBO_PX * metrosPorPixel(zoom, LAT);
-      const [f] = tuboTrayectoria(alEste([100, 100]), r).features;
-      return medidasDe(f as NonNullable<typeof f>).norte; // 2r
-    };
-    expect(ancho(15)).toBeCloseTo(2 * MAPA_3D_TUBO_PX * metrosPorPixel(15, LAT), 1);
-    expect(ancho(14)).toBeCloseTo(2 * ancho(15), 1);
-  });
-});
-
-describe("circuloPoligono", () => {
-  it("es un polígono cerrado de N lados con el radio pedido", () => {
-    const p = circuloPoligono([LON, LAT], 10, 8);
-    const anillo = p.coordinates[0] as number[][];
-    expect(anillo).toHaveLength(9);
-    expect(anillo[8]).toEqual(anillo[0]);
-    for (const punto of anillo) {
-      expect(Math.abs(distanciaM([LON, LAT], punto) - 10)).toBeLessThan(PRECISION_M);
-    }
-  });
-});
-
-describe("cohete3d: cuerpo, ojiva y plomada a la altura real", () => {
-  const mpp = 2;
-  const L = MAPA_3D_COHETE_PX * mpp;
-
-  it("el cuerpo y las ojivas miden lo pedido, escalonadas y cada vez más angostas, a su altura", () => {
-    const c = cohete3d([LON, LAT], 500, mpp);
-    const piezas = c.features.filter((f) => f.properties.parte !== "plomada");
-    expect(piezas).toHaveLength(ESTILO_3D.cohete.length);
-    const [cuerpo, ...ojivas] = piezas as NonNullable<(typeof piezas)[number]>[];
-    expect(cuerpo?.properties.parte).toBe("cuerpo");
-    expect(ojivas.every((o) => o.properties.parte === "ojiva")).toBe(true);
-    // Las alturas son sobre el suelo: el cohete va a 500 m, de 500 - 0,5 L a 500 + 0,5 L.
-    expect(cuerpo?.properties.base).toBeCloseTo(500 - 0.5 * L, 6);
-    expect(Math.max(...piezas.map((f) => f.properties.height))).toBeCloseTo(500 + 0.5 * L, 6);
-    expect(Math.min(...piezas.map((f) => f.properties.base))).toBeCloseTo(500 - 0.5 * L, 6);
-    // Radios decrecientes: cuerpo > ojiva 1 > ojiva 2 > ojiva 3.
-    const radios = piezas.map((f) => medidasDe(f).norte / 2);
-    for (let i = 1; i < radios.length; i++) {
-      expect(radios[i] as number).toBeLessThan(radios[i - 1] as number);
-    }
-    expect(radios[0]).toBeCloseTo((ESTILO_3D.cohete[0]?.[1] ?? 0) * L, 0);
-    // Cada pieza empieza donde acaba la anterior (el cohete es continuo).
-    for (let i = 1; i < piezas.length; i++) {
-      expect((piezas[i] as NonNullable<(typeof piezas)[number]>).properties.base).toBeCloseTo(
-        (piezas[i - 1] as NonNullable<(typeof piezas)[number]>).properties.height,
-        6,
-      );
-    }
-  });
-
-  it("la plomada va del suelo al cuerpo, delgada, en la misma posición", () => {
-    const c = cohete3d([LON, LAT], 500, mpp);
-    const plomada = c.features.find((f) => f.properties.parte === "plomada");
-    expect(plomada).toBeDefined();
-    expect(plomada?.properties.base).toBe(0);
-    expect(plomada?.properties.height).toBeCloseTo(500 - 0.5 * L, 6);
-    expect(medidasDe(plomada as NonNullable<typeof plomada>).este / 2).toBeLessThan(
-      MAPA_3D_PLOMADA_PX * mpp * 1.01,
+  it("con las constantes por defecto, el rastro más largo posible cabe en MAPA_3D_LINEA_MAX_SEGMENTOS", () => {
+    const b = construirBufferLinea(
+      alEste(Array.from({ length: MAPA_RASTRO_MAX_PUNTOS }, (_, i) => i / 10)),
+      CONTEXTO,
     );
-    const cuerpo = c.features[0] as NonNullable<(typeof c.features)[number]>;
-    expect(medidasDe(plomada as NonNullable<typeof plomada>).este).toBeLessThan(
-      medidasDe(cuerpo).este / 3,
+    expect(b.segmentos).toBeLessThanOrEqual(MAPA_3D_LINEA_MAX_SEGMENTOS);
+    expect(b.segmentos).toBeGreaterThan(0);
+    expect(b.datos.length).toBe(b.segmentos * VERTICES_POR_SEGMENTO * N);
+  });
+
+  it("las constantes del dibujo son píxeles razonables", () => {
+    expect(MAPA_3D_LINEA_PX).toBeGreaterThan(0);
+    expect(MAPA_3D_LINEA_PX).toBeLessThanOrEqual(4); // una línea fina, no una cinta
+  });
+});
+
+describe("construirBufferPlomada: del cohete al suelo", () => {
+  it("un segmento vertical del cohete (arriba) al suelo, con la distancia para el punteado", () => {
+    const b = construirBufferPlomada([LON, LAT], 500, 0, CONTEXTO);
+    expect(b).not.toBeNull();
+    const [arriba, abajo] = [
+      vertice((b as { datos: Float32Array }).datos, 0),
+      vertice((b as { datos: Float32Array }).datos, 2),
+    ];
+    expect(arriba.pos[2] as number).toBeCloseTo(500 * METRO, 9);
+    expect(abajo.pos[2]).toBeCloseTo(0, 12);
+    expect(arriba.pos[0]).toBeCloseTo(0, 12);
+    expect(abajo.s).toBeCloseTo(500, 3); // la distancia, en metros
+    expect(arriba.s).toBe(0);
+  });
+
+  it("si el suelo bajo el cohete está más alto o más bajo que la rampa, la plomada llega hasta él", () => {
+    const sobre = construirBufferPlomada([LON, LAT], 500, 40, CONTEXTO);
+    expect(vertice((sobre as { datos: Float32Array }).datos, 2).s).toBeCloseTo(460, 3);
+    const bajo = construirBufferPlomada([LON, LAT], 500, -30, CONTEXTO);
+    expect(vertice((bajo as { datos: Float32Array }).datos, 2).s).toBeCloseTo(530, 3);
+    expect(vertice((bajo as { datos: Float32Array }).datos, 2).pos[2] as number).toBeCloseTo(
+      -30 * METRO,
+      9,
     );
   });
 
-  it("a ras del suelo no hay plomada ni base negativa (el cohete sentado en el suelo)", () => {
-    const c = cohete3d([LON, LAT], 0, mpp);
-    expect(c.features.find((f) => f.properties.parte === "plomada")).toBeUndefined();
-    for (const f of c.features) {
-      expect(f.properties.base).toBeGreaterThanOrEqual(0);
-      expect(f.properties.height).toBeGreaterThan(0);
-    }
-  });
-
-  it("el tamaño sale de los píxeles: el doble de metros por píxel, el doble de cohete", () => {
-    const [a, b] = [cohete3d([LON, LAT], 300, 1), cohete3d([LON, LAT], 300, 2)];
-    const largo = (c: typeof a) =>
-      Math.max(
-        ...c.features
-          .filter((f) => f.properties.parte !== "plomada")
-          .map((f) => f.properties.height),
-      ) -
-      Math.min(
-        ...c.features.filter((f) => f.properties.parte !== "plomada").map((f) => f.properties.base),
-      );
-    expect(largo(a)).toBeCloseTo(MAPA_3D_COHETE_PX, 6);
-    expect(largo(b)).toBeCloseTo(2 * MAPA_3D_COHETE_PX, 6);
-  });
-
-  it("factorAltura escala la altura (terreno exagerado)", () => {
-    const c = cohete3d([LON, LAT], 100, mpp, 2);
-    expect(c.features[0]?.properties.base).toBeCloseTo(200 - 0.5 * L, 6);
-  });
-
-  it("los polígonos circulares tienen MAPA_3D_LADOS lados", () => {
-    const c = cohete3d([LON, LAT], 100, mpp);
-    expect(c.features[0]?.geometry.coordinates[0]).toHaveLength(MAPA_3D_LADOS + 1);
+  it("sin altura sobre el suelo no hay plomada", () => {
+    expect(construirBufferPlomada([LON, LAT], 0, 0, CONTEXTO)).toBeNull();
+    expect(construirBufferPlomada([LON, LAT], 5, 10, CONTEXTO)).toBeNull();
   });
 });
 
-describe("estaca3d: columna delgada con cabeza ancha", () => {
-  it("la columna y la cabeza suman MAPA_3D_ESTACA_PX píxeles de alto y la cabeza es más ancha", () => {
-    const mpp = 1.5;
-    const c = estaca3d([LON, LAT], mpp);
-    const estaca = c.features.find((f) => f.properties.parte === "estaca") as NonNullable<
-      (typeof c.features)[number]
-    >;
-    const cabeza = c.features.find((f) => f.properties.parte === "cabeza") as NonNullable<
-      (typeof c.features)[number]
-    >;
-    expect(estaca.properties.base).toBe(0);
-    expect(cabeza.properties.height).toBeCloseTo(MAPA_3D_ESTACA_PX * mpp, 6);
-    // La cabeza apoya justo sobre la columna.
-    expect(cabeza.properties.base).toBeCloseTo(estaca.properties.height, 6);
-    expect(cabeza.properties.height).toBeGreaterThan(cabeza.properties.base);
-    expect(medidasDe(cabeza).este / 2).toBeCloseTo(MAPA_3D_ESTACA_CABEZA_PX * mpp, 0);
-    expect(medidasDe(estaca).este / 2).toBeLessThan(MAPA_3D_ESTACA_RADIO_PX * mpp * 1.01);
-    expect(medidasDe(cabeza).este).toBeGreaterThan(2 * medidasDe(estaca).este);
+describe("matrizRelativa y proyectarAPixeles", () => {
+  /** Una proyección en perspectiva sencilla, por columnas: mira hacia -z desde z = 3. */
+  const perspectiva = (): number[] => {
+    const f = 2;
+    // x' = f x; y' = f y; w = 3 - z  (la cámara está en z = 3 mirando al origen)
+    return [f, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, 0, 3];
+  };
+
+  it("proyectar relativo al origen = proyectar la suma (no se pierde nada al restar el origen)", () => {
+    const m = perspectiva();
+    const origen = [0.2, -0.1, 0.5] as const;
+    const rel = matrizRelativa(m, origen);
+    const p = [0.05, 0.03, -0.4] as const;
+    const a = proyectarAPixeles(rel, p, 800, 600);
+    const b = proyectarAPixeles(
+      m,
+      [origen[0] + p[0], origen[1] + p[1], origen[2] + p[2]],
+      800,
+      600,
+    );
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a?.x).toBeCloseTo(b?.x as number, 9);
+    expect(a?.y).toBeCloseTo(b?.y as number, 9);
   });
 
-  it("el tamaño sigue a los metros por píxel", () => {
-    const alto = (mpp: number) =>
-      Math.max(...estaca3d([LON, LAT], mpp).features.map((f) => f.properties.height));
-    expect(alto(3)).toBeCloseTo(2 * alto(1.5), 6);
+  it("el centro del recorte es el centro del lienzo, y arriba es -y en pantalla", () => {
+    const m = perspectiva();
+    const c = proyectarAPixeles(m, [0, 0, 0], 800, 600);
+    expect(c).toMatchObject({ x: 400, y: 300, dentro: true });
+    const arriba = proyectarAPixeles(m, [0, 0.1, 0], 800, 600);
+    expect((arriba?.y as number) < 300).toBe(true);
+    const derecha = proyectarAPixeles(m, [0.1, 0, 0], 800, 600);
+    expect((derecha?.x as number) > 400).toBe(true);
+  });
+
+  it("detrás de la cámara (w <= 0) no hay proyección; fuera del lienzo, dentro = false", () => {
+    const m = perspectiva();
+    expect(proyectarAPixeles(m, [0, 0, 3], 800, 600)).toBeNull();
+    expect(proyectarAPixeles(m, [0, 0, 5], 800, 600)).toBeNull();
+    const lejos = proyectarAPixeles(m, [2, 0, 0], 800, 600);
+    expect(lejos?.dentro).toBe(false);
+  });
+});
+
+describe("anguloDeImagen: hacia dónde apunta la nariz en pantalla", () => {
+  const base = MAPA_3D_COHETE_ANGULO_DIBUJO;
+  const desde = { x: 100, y: 100 };
+
+  it("vertical (nariz arriba): resta los grados del dibujo", () => {
+    expect(base).toBe(45);
+    // Hacia arriba en pantalla (y disminuye): la imagen se gira -45° para que su nariz diagonal apunte arriba.
+    expect(anguloDeImagen(desde, { x: 100, y: 40 })).toBeCloseTo(-base, 9);
+  });
+
+  it("hacia la diagonal arriba-derecha: el dibujo ya apunta ahí, sin girar", () => {
+    expect(anguloDeImagen(desde, { x: 160, y: 40 })).toBeCloseTo(0, 9);
+  });
+
+  it("hacia la derecha, abajo y a la izquierda", () => {
+    expect(anguloDeImagen(desde, { x: 160, y: 100 })).toBeCloseTo(90 - base, 9);
+    // El descenso (nariz hacia abajo, si se sigue la velocidad): 180° - 45°.
+    expect(anguloDeImagen(desde, { x: 100, y: 160 })).toBeCloseTo(180 - base, 9);
+    expect(anguloDeImagen(desde, { x: 40, y: 100 })).toBeCloseTo(-90 - base, 9);
+  });
+
+  it("siempre en (-180, 180]", () => {
+    for (const grados of [-170, -135, -90, 0, 45, 90, 135, 179]) {
+      const t = (grados * Math.PI) / 180;
+      const a = anguloDeImagen(desde, { x: 100 + 50 * Math.sin(t), y: 100 - 50 * Math.cos(t) });
+      expect(a).toBeGreaterThan(-180);
+      expect(a).toBeLessThanOrEqual(180);
+    }
+    // Abajo-izquierda: 225° - 45° = 180°, y no -180°.
+    expect(anguloDeImagen(desde, { x: 50, y: 150 })).toBeCloseTo(180, 9);
+  });
+
+  it("sin los dos puntos o con un vector muy corto no hay rumbo: vertical", () => {
+    expect(anguloDeImagen(null, { x: 1, y: 1 })).toBe(-base);
+    expect(anguloDeImagen(desde, null)).toBe(-base);
+    expect(anguloDeImagen(null, null)).toBe(-base);
+    expect(anguloDeImagen(desde, { x: 100 + MAPA_3D_COHETE_MIN_PX / 2, y: 100 })).toBe(-base);
+    expect(anguloDeImagen(desde, desde)).toBe(-base);
+    expect(anguloDeImagen(desde, { x: 100 + MAPA_3D_COHETE_MIN_PX * 2, y: 100 })).toBeCloseTo(
+      90 - base,
+      9,
+    );
+  });
+});
+
+describe("direccionDeVelocidad", () => {
+  const vel = (e: number, n: number, u: number) => ({ e_ms: e, n_ms: n, u_ms: u });
+
+  it("en la subida (BOOST y COAST) es el vector unitario [este, norte, arriba]", () => {
+    for (const fase of MAPA_3D_FASES_CON_RUMBO) {
+      const d = direccionDeVelocidad(vel(3, 4, 12), fase);
+      expect(d).not.toBeNull();
+      expect(Math.hypot(...(d as [number, number, number]))).toBeCloseTo(1, 9);
+      expect(d?.[2]).toBeCloseTo(12 / 13, 9);
+    }
+  });
+
+  it("en el resto de las fases (apogeo, descenso, rampa) queda vertical: no hay dirección", () => {
+    for (const fase of ["PREFLIGHT", "ARMED", "APOGEE", "DESCENT", "LANDED"]) {
+      expect(direccionDeVelocidad(vel(1, 1, -9), fase)).toBeNull();
+    }
+  });
+
+  it("sin velocidad, sin fase o con una rapidez no fiable, tampoco", () => {
+    expect(direccionDeVelocidad(null, "COAST")).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, 100), undefined)).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS / 2), "COAST")).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS * 2), "COAST")).not.toBeNull();
+  });
+});
+
+describe("colorARgb: los tokens a colores de WebGL", () => {
+  it("lee #rgb, #rrggbb y rgb()", () => {
+    expect(colorARgb("#ffffff")).toEqual([1, 1, 1]);
+    expect(colorARgb("#000")).toEqual([0, 0, 0]);
+    expect(colorARgb(" #f00 ")).toEqual([1, 0, 0]);
+    const c = colorARgb("#0b1a24") as number[];
+    expect(c[0]).toBeCloseTo(11 / 255, 9);
+    expect(c[2]).toBeCloseTo(36 / 255, 9);
+    expect(colorARgb("rgb(255, 128, 0)")).toEqual([1, 128 / 255, 0]);
+  });
+
+  it("si no lo entiende, null (no se inventa un color)", () => {
+    expect(colorARgb("")).toBeNull();
+    expect(colorARgb("azul")).toBeNull();
+    expect(colorARgb("#12")).toBeNull();
+  });
+
+  it("entiende todos los colores de los tokens que usa la capa", () => {
+    for (const mision of ["demeter", "hermes"] as const) {
+      const t = leerTokens(lectorDeTema(mision));
+      for (const css of [t.linea, t.acento, t.texto2]) expect(colorARgb(css), css).not.toBeNull();
+    }
   });
 });
 
@@ -412,7 +448,6 @@ describe("el rastro con altura", () => {
       r = agregarPuntoAlt(r, { lon: LON, lat: LAT, alt_agl_m: alt });
     }
     expect(r.map((p) => p.alt_agl_m)).toEqual([0, 5, 40, 120]);
-    // La línea del suelo, en cambio, sigue sin repetir el punto.
     let suelo: [number, number][] = [];
     for (let i = 0; i < 8; i++) suelo = agregarPunto(suelo, [LON, LAT]);
     expect(suelo).toHaveLength(1);
@@ -438,8 +473,6 @@ describe("limitesConAltura: la caja que abarca la parte alta de la trayectoria",
     expect(limitesConAltura(puntos, 0)).toEqual([-75.82, 6.58, -75.81, 6.59]);
     const [, , , norte60] = limitesConAltura(puntos, 60) as number[];
     expect(((norte60 as number) - 6.59) * M_POR_GRADO).toBeCloseTo(1000 * Math.tan(Math.PI / 3), 0);
-    const [o2, s2, e2] = limitesConAltura(puntos, 60) as number[];
-    expect([o2, s2, e2]).toEqual([-75.82, 6.58, -75.81]);
   });
 
   it("sin puntos, null; con altura nula o negativa, no la cuenta", () => {
@@ -492,16 +525,9 @@ function relieveDePrueba(mision: "demeter" | "hermes"): RelieveEstilo {
   };
 }
 
-/** Todas las cadenas de una expresión de MapLibre (anidada), para revisar sus colores. */
-function cadenasDe(valor: unknown): string[] {
-  if (typeof valor === "string") return [valor];
-  if (Array.isArray(valor)) return valor.flatMap(cadenasDe);
-  return [];
-}
-
 describe("estilo de la vista 3D", () => {
   for (const mision of ["demeter", "hermes"] as const) {
-    it(`${mision}: el tubo, el cohete, la estaca y el cielo solo usan colores de los tokens del tema`, () => {
+    it(`${mision}: el cielo solo usa colores de los tokens del tema`, () => {
       const lector = lectorDeTema(mision);
       const t = leerTokens(lector);
       const permitidos = new Set<string>(
@@ -510,20 +536,6 @@ describe("estilo de la vista 3D", () => {
       for (const clave of Object.keys(VARIABLES_TOKENS)) {
         expect(lector(VARIABLES_TOKENS[clave as keyof typeof VARIABLES_TOKENS])).not.toBe("");
       }
-      for (const capa of [capaTubo(t), capaCohete(t), capaEstaca(t)]) {
-        const color = (capa as { paint: Record<string, unknown> }).paint["fill-extrusion-color"];
-        // Los colores (los que parecen un color CSS) son todos tokens, y hay al menos uno.
-        const colores = cadenasDe(color).filter((c) => /^(#|rgb|hsl)/i.test(c));
-        expect(colores.length, capa.id).toBeGreaterThan(0);
-        for (const c of colores) expect(permitidos.has(c), `${capa.id}: ${c}`).toBe(true);
-      }
-      // El tubo va del color más viejo (--linea) al más nuevo (--acento), como el rastro del suelo.
-      const tubo = (capaTubo(t) as { paint: Record<string, unknown> }).paint[
-        "fill-extrusion-color"
-      ];
-      expect(cadenasDe(tubo)).toContain(t.acento);
-      expect(cadenasDe(tubo)).toContain(t.linea);
-
       const cielo = cielo3d(t) as Record<string, unknown>;
       const coloresCielo = Object.entries(cielo).filter(([k]) => k.endsWith("-color"));
       expect(coloresCielo.map(([k]) => k).sort()).toEqual([
@@ -540,7 +552,14 @@ describe("estilo de la vista 3D", () => {
   }
 
   it("ningún color del 3D está escrito en el código del mapa (solo tokens)", () => {
-    for (const archivo of ["estilo.ts", "controlador.tsx", "geo.ts", "constantes.ts", "Mapa.tsx"]) {
+    for (const archivo of [
+      "estilo.ts",
+      "controlador.tsx",
+      "geo.ts",
+      "constantes.ts",
+      "capa3d.ts",
+      "Mapa.tsx",
+    ]) {
       const texto = readFileSync(join(raiz, "src/mapa", archivo), "utf8");
       expect(texto, archivo).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
       expect(texto, archivo).not.toMatch(/\brgba?\s*\(/i);
@@ -548,26 +567,14 @@ describe("estilo de la vista 3D", () => {
     }
   });
 
-  it("cada capa de prismas es una fill-extrusion con altura y base de cada polígono, sobre su propia fuente", () => {
-    const t = leerTokens(lectorDeTema("demeter"));
-    const capas = [capaTubo(t), capaCohete(t), capaEstaca(t)] as unknown as {
-      id: string;
-      type: string;
-      source: string;
-      paint: Record<string, unknown>;
-    }[];
-    expect(capas.map((c) => c.id)).toEqual([...CAPAS_3D]);
-    for (const capa of capas) {
-      expect(capa.type).toBe("fill-extrusion");
-      expect(capa.source).toBe(capa.id);
-      expect(capa.paint["fill-extrusion-height"]).toEqual(["get", "height"]);
-      expect(capa.paint["fill-extrusion-base"]).toEqual(["get", "base"]);
-      expect(capa.paint["fill-extrusion-opacity"]).toBe(ESTILO_3D.opacidadSolidos);
+  it("no hay prismas (fill-extrusion) en el 3D: la línea y el cohete no son bloques", () => {
+    for (const archivo of ["estilo.ts", "capa3d.ts", "geo.ts"]) {
+      const texto = readFileSync(join(raiz, "src/mapa", archivo), "utf8");
+      expect(
+        texto.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""),
+        archivo,
+      ).not.toContain("fill-extrusion");
     }
-    expect(fuente3dVacia()).toEqual({
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] },
-    });
   });
 
   it("el terreno tiene su fuente raster-dem aparte, con las mismas teselas que el sombreado", () => {
@@ -586,28 +593,30 @@ describe("estilo de la vista 3D", () => {
     expect(terreno.attribution).toBeUndefined();
   });
 
-  it("el estilo de 2D no lleva nada del 3D: ni capas, ni fuentes, ni cielo ni terreno", () => {
+  it("el estilo de 2D no lleva nada del 3D: ni la capa personalizada, ni prismas, ni cielo ni terreno", () => {
     for (const mision of ["demeter", "hermes"] as const) {
       const t = leerTokens(lectorDeTema(mision));
       for (const relieve of [null, relieveDePrueba(mision)]) {
         const estilo = construirEstilo(t, null, relieve);
-        for (const capa of CAPAS_3D) {
-          expect(estilo.layers.map((l) => l.id)).not.toContain(capa);
-          expect(Object.keys(estilo.sources)).not.toContain(capa);
-        }
+        expect(estilo.layers.map((l) => l.id)).not.toContain(ID_3D.capa);
+        expect(estilo.layers.some((l) => (l.type as string) === "custom")).toBe(false);
         expect(estilo.layers.some((l) => l.type === "fill-extrusion")).toBe(false);
         expect(Object.keys(estilo.sources)).not.toContain(ID_3D.fuenteTerreno);
         expect(estilo.terrain).toBeUndefined();
         expect(estilo.sky).toBeUndefined();
       }
     }
-    const estilo = construirEstilo(
-      leerTokens(lectorDeTema("demeter")),
-      null,
-      relieveDePrueba("demeter"),
-    );
-    expect(estilo.layers.filter((l) => l.id.startsWith("relieve-")).map((l) => l.id)).toEqual([
-      CAPAS_RELIEVE.sombreado,
-    ]);
+  });
+
+  it("la presentación del 3D sale de constantes: opacidades entre 0 y 1", () => {
+    for (const o of [
+      ESTILO_3D.opacidadLinea,
+      ESTILO_3D.opacidadPlomada,
+      ESTILO_3D.opacidadElipse,
+    ]) {
+      expect(o).toBeGreaterThan(0);
+      expect(o).toBeLessThanOrEqual(1);
+    }
+    expect(ESTILO_3D.anchoElipse).toBeLessThanOrEqual(2); // un borde fino, no el de 4 px de la ronda 2
   });
 });

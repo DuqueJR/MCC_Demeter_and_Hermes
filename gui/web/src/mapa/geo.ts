@@ -5,18 +5,12 @@ import type { Estacion, Estado, Meta, Serie } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/estado_pagina";
 import { hace, numero } from "../mision/formato";
 import {
-  ESTILO_3D,
-  MAPA_3D_COHETE_PX,
+  MAPA_3D_COHETE_ANGULO_DIBUJO,
+  MAPA_3D_COHETE_MIN_PX,
   MAPA_3D_EPSILON_ALT_M,
-  MAPA_3D_ESTACA_CABEZA_PX,
-  MAPA_3D_ESTACA_PX,
-  MAPA_3D_ESTACA_RADIO_PX,
-  MAPA_3D_LADOS,
-  MAPA_3D_LADOS_FINOS,
-  MAPA_3D_PLOMADA_PX,
-  MAPA_3D_TUBO_MAX_SEGMENTOS,
-  MAPA_3D_TUBO_SUBDIV_MAX,
-  MAPA_3D_ZOOM_PASO,
+  MAPA_3D_FASES_CON_RUMBO,
+  MAPA_3D_LINEA_MAX_SEGMENTOS,
+  MAPA_3D_VEL_MIN_MS,
   MAPA_CUADRICULA_PASO_GRADOS,
   MAPA_CUADRICULA_RADIO_GRADOS,
   MAPA_EPSILON_GRADOS,
@@ -280,7 +274,10 @@ export function tramosDesvanecidos(
   return coleccion(features);
 }
 
-// ---- Trayectoria, cohete y estaca en el aire (vista 3D, T-656)
+// ---- Trayectoria y cohete en el aire (vista 3D, T-656)
+// Lo dibuja la capa personalizada de `capa3d.ts`; aquí está lo que se puede probar sin WebGL: los
+// puntos con altura, las coordenadas de Mercator, la altura de dibujo, el armado del búfer de la línea,
+// la proyección a píxeles y el ángulo de la imagen del cohete.
 
 /** Un punto de la trayectoria con su altura sobre el suelo (`alt_agl_m`). */
 export interface PuntoAlt {
@@ -288,23 +285,6 @@ export interface PuntoAlt {
   lat: number;
   alt_agl_m: number | null;
 }
-
-/**
- * Propiedades de cada prisma (`fill-extrusion-base` y `-height`, en metros sobre el suelo). `f` va de 0
- * (lo más viejo) a 1 (lo más nuevo), para desvanecer la trayectoria; `parte` nombra la pieza.
- */
-export interface PropsTubo {
-  base: number;
-  height: number;
-  f: number;
-}
-export interface PropsPieza {
-  base: number;
-  height: number;
-  parte: string;
-}
-export type ColeccionTubo = Coleccion<Poligono, PropsTubo>;
-export type ColeccionPiezas = Coleccion<Poligono, PropsPieza>;
 
 /** Los puntos de la `serie` que tienen posición (los mismos de `puntosDeSerie`), con su altura. */
 export function puntosAltDeSerie(serie: Serie): PuntoAlt[] {
@@ -351,19 +331,41 @@ export function metrosPorPixel(zoom: number, latGrados: number): number {
   return circunferencia / (MAPA_MUNDO_PX * 2 ** zoom);
 }
 
+// ---- Coordenadas de Mercator (las de MapLibre: [0, 1] en x e y, con el norte hacia y = 0)
+
+/** `[lon, lat]` a Mercator (`MercatorCoordinate.fromLngLat` de MapLibre, sin la altura). */
+export function aMercator(lon: number, lat: number): { x: number; y: number } {
+  const lat_rad = aRadianes(lat);
+  return {
+    x: (lon + GRADOS_MEDIA_VUELTA) / GRADOS_VUELTA,
+    y: 0.5 - Math.log(Math.tan(Math.PI / 4 + lat_rad / 2)) / (2 * Math.PI),
+  };
+}
+
+/** Lo que mide un metro en unidades de Mercator a esa latitud (`meterInMercatorCoordinateUnits`). */
+export function metroEnMercator(latGrados: number): number {
+  return 1 / (2 * Math.PI * RADIO_TIERRA_M * Math.cos(aRadianes(latGrados)));
+}
+
 /**
- * El zoom "de dibujo" del 3D: el zoom real redondeado a `paso` niveles. Los prismas se arman con los
- * metros por píxel de este zoom, así que se rearman cuando cambia (al terminar el zoom), no en cada
- * cuadro; entre dos pasos miden entre 0,8 y 1,2 veces lo pedido.
+ * La altura (m sobre el nivel del mar, la que usa el terreno de MapLibre) a la que se dibuja un punto del
+ * aire: la elevación del terreno en la rampa MÁS la altura sobre la rampa (`alt_agl_m`) por la
+ * exageración. `alt_agl_m` se mide desde la rampa, así que se suma a la elevación de la rampa y no a la
+ * del suelo que haya debajo de cada punto. `elevacionBaseM` ya viene multiplicada por la exageración
+ * (`queryTerrainElevation` la incluye).
  */
-export function zoomDeDibujo(zoom: number, paso: number = MAPA_3D_ZOOM_PASO): number {
-  return Math.round(zoom / paso) * paso;
+export function alturaDeDibujo(
+  elevacionBaseM: number,
+  altAglM: number,
+  exageracion: number,
+): number {
+  return elevacionBaseM + altAglM * exageracion;
 }
 
 type PuntoConAlt = PuntoAlt & { alt_agl_m: number };
 
 /** Los puntos con altura, sin los de `alt_agl_m` nulo ni los repetidos (misma posición y altura). */
-function puntosUtilesDelTubo(puntos: readonly PuntoAlt[]): PuntoConAlt[] {
+function puntosUtilesConAltura(puntos: readonly PuntoAlt[]): PuntoConAlt[] {
   const utiles: PuntoConAlt[] = [];
   for (const p of puntos) {
     if (p.alt_agl_m === null || !Number.isFinite(p.alt_agl_m)) continue;
@@ -382,167 +384,249 @@ function diezmarSegmentos<T>(puntos: T[], maxSegmentos: number): T[] {
   return puntos.filter((_, i) => i % k === 0 || i === puntos.length - 1);
 }
 
-/** Un polígono regular de `lados` lados y `radioM` metros de radio alrededor de `centro`. */
-export function circuloPoligono(
-  centro: Coord,
-  radioM: number,
-  lados: number = MAPA_3D_LADOS,
-): Poligono {
-  const anillo: Coord[] = [];
-  for (let i = 0; i < lados; i++) {
-    const t = (2 * Math.PI * i) / lados;
-    anillo.push(desplazar(centro, radioM * Math.sin(t), radioM * Math.cos(t)));
-  }
-  anillo.push([...(anillo[0] as Coord)]);
-  return { type: "Polygon", coordinates: [anillo] };
+/** Cuántos números lleva cada vértice del búfer de la línea: posición (3), el otro extremo (3) y 4 atributos. */
+export const FLOATS_POR_VERTICE = 10;
+/** Vértices por segmento: dos triángulos. */
+export const VERTICES_POR_SEGMENTO = 6;
+
+/** Lo que necesita el armado del búfer. Las posiciones salen RELATIVAS al origen, en unidades de Mercator. */
+export interface ContextoLinea {
+  /** El origen (la rampa) en Mercator: se resta a todo, para que `float32` no pierda precisión. */
+  origen: { x: number; y: number };
+  /** Lo que mide un metro en Mercator en el origen (`metroEnMercator`). */
+  metroMercator: number;
+  exageracion: number;
 }
 
-/** El rectángulo de `a` a `b` engrosado `radioM` a cada lado y alargado `radioM` en cada extremo. */
-function rectanguloEngrosado(
-  a: Coord,
-  b: Coord,
-  dirEste: number,
-  dirNorte: number,
-  radioM: number,
-): Poligono {
-  const [e, n] = [dirEste * radioM, dirNorte * radioM];
-  const pa = desplazar(a, -e, -n);
-  const pb = desplazar(b, e, n);
-  const esquinas: Coord[] = [
-    desplazar(pa, -n, e),
-    desplazar(pb, -n, e),
-    desplazar(pb, n, -e),
-    desplazar(pa, n, -e),
-  ];
-  esquinas.push([...(esquinas[0] as Coord)]);
-  return { type: "Polygon", coordinates: [esquinas] };
+export interface BufferLinea {
+  /** Vértices intercalados: `FLOATS_POR_VERTICE` números por vértice. */
+  datos: Float32Array;
+  segmentos: number;
 }
 
-/** El cuadrado de lado `2 * radioM` centrado en `c` (para un tramo casi vertical). */
-function cuadradoEn(c: Coord, radioM: number): Poligono {
-  const esquinas: Coord[] = [
-    desplazar(c, -radioM, -radioM),
-    desplazar(c, radioM, -radioM),
-    desplazar(c, radioM, radioM),
-    desplazar(c, -radioM, radioM),
-  ];
-  esquinas.push([...(esquinas[0] as Coord)]);
-  return { type: "Polygon", coordinates: [esquinas] };
+/** Un vértice de un segmento: `pos` es el extremo de este vértice y `otro`, el opuesto. */
+function escribirVertice(
+  d: Float32Array,
+  i: number,
+  pos: readonly [number, number, number],
+  otro: readonly [number, number, number],
+  lado: number,
+  f: number,
+  s: number,
+  extremo: number,
+): void {
+  d.set(pos, i);
+  d.set(otro, i + 3);
+  d[i + 6] = lado;
+  d[i + 7] = f;
+  d[i + 8] = s;
+  d[i + 9] = extremo;
+}
+
+/** Los seis vértices de un segmento de `a` a `b` (un rectángulo de dos triángulos que el shader engrosa). */
+function escribirSegmento(
+  d: Float32Array,
+  desde: number,
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+  f: number,
+  sA: number,
+  sB: number,
+): void {
+  const n = FLOATS_POR_VERTICE;
+  escribirVertice(d, desde, a, b, -1, f, sA, 0);
+  escribirVertice(d, desde + n, a, b, 1, f, sA, 0);
+  escribirVertice(d, desde + 2 * n, b, a, -1, f, sB, 1);
+  escribirVertice(d, desde + 3 * n, b, a, -1, f, sB, 1);
+  escribirVertice(d, desde + 4 * n, a, b, 1, f, sA, 0);
+  escribirVertice(d, desde + 5 * n, b, a, 1, f, sB, 1);
+}
+
+/** Un punto del aire en Mercator relativo al origen: x, y y la altura sobre la elevación base (z). */
+function relativoAlOrigen(
+  lon: number,
+  lat: number,
+  altM: number,
+  c: ContextoLinea,
+): [number, number, number] {
+  const m = aMercator(lon, lat);
+  return [m.x - c.origen.x, m.y - c.origen.y, altM * c.exageracion * c.metroMercator];
 }
 
 /**
- * La trayectoria como un TUBO en el aire: prismas flotantes (`fill-extrusion` con `base` > 0) de
- * `radioM` metros de radio, uno por tramo (los largos o muy inclinados se parten en hasta
- * `MAPA_3D_TUBO_SUBDIV_MAX` para que sigan la pendiente).
- * - Tramo con desplazamiento horizontal: su huella es el tramo engrosado `radioM` a cada lado y
- *   alargado `radioM` en los extremos (así la deriva del descenso queda continua).
- * - Tramo casi vertical (el ascenso): un cuadrado de `2 * radioM` de lado en su punto medio.
- * - `base` = la altura menor menos `radioM`, `height` = la mayor más `radioM` (la base nunca baja de
- *   0): los prismas vecinos se solapan y la columna es continua.
- * Los puntos con `alt_agl_m` nulo y los repetidos se saltan; con más de `maxSegmentos` se diezma.
- * `factorAltura` escala las alturas con el terreno exagerado. `f` (0 a 1) crece de lo viejo a lo nuevo.
+ * El búfer de la línea de la trayectoria en el aire: un rectángulo (dos triángulos) por segmento, que el
+ * *shader* engrosa a un ancho constante en pantalla. Salta los puntos con `alt_agl_m` nulo y los repetidos
+ * (misma posición Y altura: el ascenso vertical se conserva) y diezma por encima de `maxSegmentos`.
+ * Cada segmento lleva `f` (0 lo más viejo, 1 lo más nuevo) para el degradado.
  */
-export function tuboTrayectoria(
+export function construirBufferLinea(
   puntos: readonly PuntoAlt[],
-  radioM: number,
-  maxSegmentos: number = MAPA_3D_TUBO_MAX_SEGMENTOS,
-  factorAltura = 1,
-): ColeccionTubo {
-  const utiles = diezmarSegmentos(puntosUtilesDelTubo(puntos), maxSegmentos);
-  const segmentos = utiles.length - 1;
-  const features: Caracteristica<Poligono, PropsTubo>[] = [];
-  for (let i = 1; i < utiles.length; i++) {
-    const a = utiles[i - 1] as PuntoConAlt;
-    const b = utiles[i] as PuntoConAlt;
-    const este = (b.lon - a.lon) * Math.cos(aRadianes(a.lat)) * M_POR_GRADO;
-    const norte = (b.lat - a.lat) * M_POR_GRADO;
-    const largo = Math.hypot(este, norte);
-    const dz = b.alt_agl_m - a.alt_agl_m;
-    const partes = Math.min(
-      MAPA_3D_TUBO_SUBDIV_MAX,
-      Math.max(1, Math.ceil(Math.max(largo, Math.abs(dz)) / (2 * radioM))),
+  c: ContextoLinea,
+  maxSegmentos: number = MAPA_3D_LINEA_MAX_SEGMENTOS,
+): BufferLinea {
+  const utiles = diezmarSegmentos(puntosUtilesConAltura(puntos), maxSegmentos);
+  const segmentos = Math.max(0, utiles.length - 1);
+  const datos = new Float32Array(segmentos * VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE);
+  for (let i = 0; i < segmentos; i++) {
+    const [a, b] = [utiles[i], utiles[i + 1]] as [PuntoConAlt, PuntoConAlt];
+    escribirSegmento(
+      datos,
+      i * VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE,
+      relativoAlOrigen(a.lon, a.lat, a.alt_agl_m, c),
+      relativoAlOrigen(b.lon, b.lat, b.alt_agl_m, c),
+      segmentos > 1 ? i / (segmentos - 1) : 1,
+      0,
+      0,
     );
-    for (let k = 0; k < partes; k++) {
-      const [t0, t1] = [k / partes, (k + 1) / partes];
-      const p0: Coord = [a.lon + (b.lon - a.lon) * t0, a.lat + (b.lat - a.lat) * t0];
-      const p1: Coord = [a.lon + (b.lon - a.lon) * t1, a.lat + (b.lat - a.lat) * t1];
-      const [z0, z1] = [a.alt_agl_m + dz * t0, a.alt_agl_m + dz * t1];
-      const huella =
-        largo < radioM
-          ? cuadradoEn([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], radioM)
-          : rectanguloEngrosado(p0, p1, este / largo, norte / largo, radioM);
-      features.push({
-        type: "Feature",
-        properties: {
-          base: Math.max(0, Math.min(z0, z1) * factorAltura - radioM),
-          height: Math.max(0, Math.max(z0, z1) * factorAltura + radioM),
-          f: segmentos > 1 ? (i - 1 + (k + 0.5) / partes) / segmentos : 1,
-        },
-        geometry: huella,
-      });
-    }
   }
-  return coleccion(features);
+  return { datos, segmentos };
 }
 
 /**
- * El cohete en 3D, a su altura real: un cuerpo cilíndrico y una ojiva de discos escalonados cada vez
- * más angostos (`fill-extrusion`), centrado en `pos` a `altM` metros sobre el suelo, más una
- * "plomada" delgada del suelo al cohete para que se lea dónde está sobre el terreno. Mide
- * `MAPA_3D_COHETE_PX` píxeles de largo con `mPorPx` metros por píxel.
+ * La plomada: un segmento vertical del cohete (a `altM` sobre la rampa) al suelo que tiene debajo, a
+ * `zSueloM` metros sobre la elevación base (negativo si el suelo queda más bajo que la rampa). Lleva en
+ * `s` la distancia en metros a lo largo, para punteado. `null` si no mide casi nada.
  */
-export function cohete3d(
+export function construirBufferPlomada(
   pos: Coord,
   altM: number,
-  mPorPx: number,
-  factorAltura = 1,
-): ColeccionPiezas {
-  const largo = MAPA_3D_COHETE_PX * mPorPx;
-  const alt = altM * factorAltura;
-  const features: Caracteristica<Poligono, PropsPieza>[] = [];
-  for (const [parte, radioRel, desdeRel, hastaRel] of ESTILO_3D.cohete) {
-    features.push({
-      type: "Feature",
-      properties: {
-        parte,
-        base: Math.max(0, alt + desdeRel * largo),
-        height: Math.max(0, alt + hastaRel * largo),
-      },
-      geometry: circuloPoligono(pos, radioRel * largo),
-    });
-  }
-  const [, , cuerpoDesde] = ESTILO_3D.cohete[0] ?? ["cuerpo", 0, 0, 0];
-  const bajoElCuerpo = Math.max(0, alt + cuerpoDesde * largo);
-  if (bajoElCuerpo > 0) {
-    features.push({
-      type: "Feature",
-      properties: { parte: "plomada", base: 0, height: bajoElCuerpo },
-      geometry: circuloPoligono(pos, MAPA_3D_PLOMADA_PX * mPorPx, MAPA_3D_LADOS_FINOS),
-    });
-  }
-  return coleccion(features);
+  zSueloM: number,
+  c: ContextoLinea,
+): BufferLinea | null {
+  const largo = altM * c.exageracion - zSueloM;
+  if (!(largo > MAPA_3D_EPSILON_ALT_M)) return null;
+  const m = aMercator(pos[0], pos[1]);
+  const [x, y] = [m.x - c.origen.x, m.y - c.origen.y];
+  const datos = new Float32Array(VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE);
+  escribirSegmento(
+    datos,
+    0,
+    [x, y, altM * c.exageracion * c.metroMercator],
+    [x, y, zSueloM * c.metroMercator],
+    1,
+    0,
+    largo,
+  );
+  return { datos, segmentos: 1 };
 }
 
 /**
- * La estaca del impacto estimado: una columna delgada de `MAPA_3D_ESTACA_PX` píxeles de alto con una
- * cabeza más ancha, para que se vea de lejos y con la vista inclinada.
+ * Una matriz de 4 × 4 (por columnas) que pasa de Mercator RELATIVO a `origen` a espacio de recorte:
+ * es la de MapLibre (Mercator a recorte) por la traslación al origen. Se calcula en doble precisión.
  */
-export function estaca3d(pos: Coord, mPorPx: number): ColeccionPiezas {
-  const alto = MAPA_3D_ESTACA_PX * mPorPx;
-  const radioCabeza = MAPA_3D_ESTACA_CABEZA_PX * mPorPx;
-  const altoCabeza = radioCabeza * ESTILO_3D.estacaCabezaAlto;
-  return coleccion<Poligono, PropsPieza>([
-    {
-      type: "Feature",
-      properties: { parte: "estaca", base: 0, height: alto - altoCabeza },
-      geometry: circuloPoligono(pos, MAPA_3D_ESTACA_RADIO_PX * mPorPx, MAPA_3D_LADOS_FINOS),
-    },
-    {
-      type: "Feature",
-      properties: { parte: "cabeza", base: alto - altoCabeza, height: alto },
-      geometry: circuloPoligono(pos, radioCabeza),
-    },
-  ]);
+export function matrizRelativa(
+  m: ArrayLike<number>,
+  origen: readonly [number, number, number],
+): Float64Array {
+  const r = new Float64Array(16);
+  for (let i = 0; i < 12; i++) r[i] = m[i] as number;
+  for (let fila = 0; fila < 4; fila++) {
+    r[12 + fila] =
+      (m[fila] as number) * origen[0] +
+      (m[4 + fila] as number) * origen[1] +
+      (m[8 + fila] as number) * origen[2] +
+      (m[12 + fila] as number);
+  }
+  return r;
+}
+
+/** Un punto proyectado a píxeles de pantalla (CSS, con el origen arriba a la izquierda). */
+export interface PuntoPantalla {
+  x: number;
+  y: number;
+  /** Cae dentro del lienzo. */
+  dentro: boolean;
+}
+
+/** Proyecta `p` con la matriz (por columnas) a píxeles; `null` si queda detrás de la cámara (`w` <= 0). */
+export function proyectarAPixeles(
+  m: ArrayLike<number>,
+  p: readonly [number, number, number],
+  ancho: number,
+  alto: number,
+): PuntoPantalla | null {
+  const [x, y, z] = p;
+  const w = (m[3] as number) * x + (m[7] as number) * y + (m[11] as number) * z + (m[15] as number);
+  if (!(w > 0)) return null;
+  const nx =
+    ((m[0] as number) * x + (m[4] as number) * y + (m[8] as number) * z + (m[12] as number)) / w;
+  const ny =
+    ((m[1] as number) * x + (m[5] as number) * y + (m[9] as number) * z + (m[13] as number)) / w;
+  return {
+    x: ((nx + 1) / 2) * ancho,
+    y: ((1 - ny) / 2) * alto,
+    dentro: Math.abs(nx) <= 1 && Math.abs(ny) <= 1,
+  };
+}
+
+/** Lleva un ángulo a (-180, 180]. */
+function normalizarAngulo(grados: number): number {
+  const g =
+    (((grados % GRADOS_VUELTA) + GRADOS_VUELTA + GRADOS_MEDIA_VUELTA) % GRADOS_VUELTA) -
+    GRADOS_MEDIA_VUELTA;
+  return g === -GRADOS_MEDIA_VUELTA ? GRADOS_MEDIA_VUELTA : g;
+}
+
+/**
+ * El giro (grados, sentido de las agujas del reloj, el `rotate()` de CSS) de la imagen del cohete para que
+ * su nariz apunte hacia donde se mueve EN PANTALLA: de `p0` (el cohete) a `p1` (un punto un poco adelante,
+ * ya proyectados). La imagen trae la nariz a `anguloDibujo` grados de la vertical, así que se le resta. Sin
+ * los dos puntos o con un vector muy corto (`minPx`) no hay rumbo fiable y queda vertical (nariz arriba).
+ */
+export function anguloDeImagen(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): number {
+  if (!p0 || !p1) return normalizarAngulo(-anguloDibujo);
+  const [dx, dy] = [p1.x - p0.x, p1.y - p0.y];
+  if (Math.hypot(dx, dy) < minPx) return normalizarAngulo(-anguloDibujo);
+  // La pantalla crece hacia abajo: "arriba" es -y, y el ángulo desde arriba crece hacia la derecha.
+  return normalizarAngulo((Math.atan2(dx, -dy) * GRADOS_MEDIA_VUELTA) / Math.PI - anguloDibujo);
+}
+
+/**
+ * La dirección del movimiento en 3D, `[este, norte, arriba]` unitario, para orientar la imagen del cohete;
+ * `null` si la fase no sigue el movimiento (`MAPA_3D_FASES_CON_RUMBO`) o la rapidez no es fiable.
+ */
+export function direccionDeVelocidad(
+  vel: { e_ms: number; n_ms: number; u_ms: number } | null,
+  fase: string | undefined,
+): [number, number, number] | null {
+  if (!vel || fase === undefined) return null;
+  if (!(MAPA_3D_FASES_CON_RUMBO as readonly string[]).includes(fase)) return null;
+  const rapidez = Math.hypot(vel.e_ms, vel.n_ms, vel.u_ms);
+  if (!(rapidez >= MAPA_3D_VEL_MIN_MS)) return null;
+  return [vel.e_ms / rapidez, vel.n_ms / rapidez, vel.u_ms / rapidez];
+}
+
+/**
+ * Un color CSS de un token (en hexadecimal corto o largo, o con la función de rojo, verde y azul) a `[r, g, b]` en 0 a 1 para WebGL;
+ * `null` si no se entiende (no se inventa un color).
+ */
+export function colorARgb(css: string): [number, number, number] | null {
+  const t = css.trim();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(t);
+  if (hex) {
+    const h =
+      (hex[1] as string).length === 3
+        ? (hex[1] as string).replace(/./g, "$&$&")
+        : (hex[1] as string);
+    return [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255) as [
+      number,
+      number,
+      number,
+    ];
+  }
+  const rgb = /^rgba?\(\s*(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)/i.exec(t);
+  if (rgb)
+    return [1, 2, 3].map((i) => Number.parseFloat(rgb[i] as string) / 255) as [
+      number,
+      number,
+      number,
+    ];
+  return null;
 }
 
 /**

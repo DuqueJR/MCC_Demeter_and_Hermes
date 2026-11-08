@@ -14,7 +14,8 @@ const CLASE_COMPLETA_ABIERTA = "mapa-completa-abierta";
 
 type Fase = "esperando" | "cargando" | "listo" | "fallo";
 
-export function SeccionMapa() {
+/** `coheteMapa`: la miniatura del cohete de la misión para la vista 3D; la misión la aporta (D-W01). */
+export function SeccionMapa({ coheteMapa }: { coheteMapa?: string }) {
   const marco = useRef<HTMLDivElement>(null);
   const pedido = useRef(false);
   const [fase, setFase] = useState<Fase>("esperando");
@@ -76,7 +77,11 @@ export function SeccionMapa() {
       <h2 id="mapa-titulo">Mapa</h2>
       <div ref={marco} class="mapa-marco" data-mapa-fase={fase}>
         {Mapa ? (
-          <Mapa completa={completa} alAlternarCompleta={() => setCompleta((c) => !c)} />
+          <Mapa
+            completa={completa}
+            alAlternarCompleta={() => setCompleta((c) => !c)}
+            coheteMapa={coheteMapa}
+          />
         ) : fase === "fallo" ? (
           <div class="mapa-espera" role="alert">
             <p>No se pudo cargar el mapa. El resto de la página sigue funcionando.</p>

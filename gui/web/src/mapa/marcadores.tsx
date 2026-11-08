@@ -58,6 +58,21 @@ export function MarcadorImpacto() {
   );
 }
 
+/**
+ * El impacto estimado en 3D (ronda 3): un pin de mapa limpio, de pie y de frente a la pantalla, en forma de
+ * gota, con el ícono de impacto y apoyado en el punto estimado (el marcador se ancla por abajo). Los
+ * colores y la sombra salen de los tokens por CSS (`mapa.css`).
+ */
+export function MarcadorPin() {
+  return (
+    <div class="mapa-pin" role="img" aria-label="Impacto estimado" title="Impacto estimado">
+      <span class="pin-gota">
+        <Target aria-hidden="true" />
+      </span>
+    </div>
+  );
+}
+
 /** Distancia y azimut desde la estación, en la mitad de la línea (`calc`). */
 export function ChipDistancia({ texto }: { texto: ReadonlySignal<string> }) {
   return <div class="mapa-chip">{texto.value}</div>;
