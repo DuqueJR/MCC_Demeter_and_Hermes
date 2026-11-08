@@ -63,7 +63,7 @@ La gente va a ampliar y arrastrar el mapa: **no puede salir del área donde se v
 
 ### Cómo generarlo (lo corre un humano)
 
-El archivo **no se versiona** (`public/mapas/*.pmtiles` está en `gui/web/.gitignore`): pesa unos MB y se sube al CDN (T-642, PEN-W05). Hace falta la herramienta oficial de Protomaps, el CLI `pmtiles` ([go-pmtiles](https://github.com/protomaps/go-pmtiles/releases); documentación en [docs.protomaps.com/pmtiles/cli](https://docs.protomaps.com/pmtiles/cli)). **Las órdenes de abajo no se corrieron en T-632** (la tarea no descarga binarios ni datos grandes): al ejecutarlas por primera vez, confirma las opciones con `pmtiles extract --help` y la URL vigente en [docs.protomaps.com](https://docs.protomaps.com). Con internet, desde la raíz del repo:
+El archivo **sí se versiona** (excepción `!public/mapas/santa_fe.pmtiles` en `gui/web/.gitignore`, T-649, D-062): pesa menos de 1 MB (940 KB) y así el build de Workers Builds desde Git publica el sitio con mapa. Cualquier otro `.pmtiles` sigue ignorado. Hace falta la herramienta oficial de Protomaps, el CLI `pmtiles` ([go-pmtiles](https://github.com/protomaps/go-pmtiles/releases); documentación en [docs.protomaps.com/pmtiles/cli](https://docs.protomaps.com/pmtiles/cli)). **Las órdenes de abajo no se corrieron en T-632** (la tarea no descarga binarios ni datos grandes): al ejecutarlas por primera vez, confirma las opciones con `pmtiles extract --help` y la URL vigente en [docs.protomaps.com](https://docs.protomaps.com). Con internet, desde la raíz del repo:
 
 ```
 pmtiles extract https://build.protomaps.com/<AAAAMMDD>.pmtiles gui/web/public/mapas/santa_fe.pmtiles \
