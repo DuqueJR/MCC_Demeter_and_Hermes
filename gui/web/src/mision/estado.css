@@ -444,3 +444,142 @@
 [data-viejo="si"] .celda-altitud.lkp .unidad {
   color: var(--estado-alarma);
 }
+
+/* ---------- Fuerzas g (en "Desde la estación") [T-674] ---------- */
+
+.fuerzas-g {
+  display: grid;
+  gap: var(--e-2);
+  /* Aterrizado, "Desde la estación" ocupa todo el ancho: las barras no se estiran de más. */
+  max-width: calc(var(--e-8) * 7);
+  margin-top: var(--e-4);
+}
+
+.fuerzas-g-titulo {
+  margin: 0;
+  font-size: var(--t-etiqueta);
+}
+
+.g-total {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--e-1) var(--e-3);
+}
+
+.g-total-nombre {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.g-total-valor,
+.g-valor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e-1);
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.g-total-valor .g-num {
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.g-valor .g-num {
+  font-size: var(--t-titulo);
+  font-weight: 700;
+}
+
+.g-total-valor .g-unidad,
+.g-valor .g-unidad {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* La pista: una barra con el 0 al centro (ejes) o al principio (total). */
+.g-pista {
+  position: relative;
+  display: block;
+  height: var(--e-3);
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.g-pista-total {
+  grid-column: 1 / -1;
+  height: var(--e-4);
+}
+
+.g-relleno {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--acento);
+  transition:
+    left var(--dur-rapida) var(--curva),
+    width var(--dur-rapida) var(--curva);
+}
+
+.g-cero {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--texto-2);
+  z-index: 1;
+}
+
+.g-ejes {
+  display: grid;
+  gap: var(--e-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.g-eje {
+  display: grid;
+  grid-template-columns: var(--e-5) minmax(0, 1fr) calc(var(--e-8) + var(--e-5));
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.g-eje-nombre {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  font-weight: 700;
+}
+
+.g-escala {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.g-satura {
+  color: var(--estado-aviso);
+}
+
+/* Dato viejo: todo en el gris de "sin dato", con su antigüedad arriba (igual que la telemetría). */
+.fuerzas-g[data-viejo="si"] .g-relleno {
+  background: var(--estado-sin-dato);
+}
+
+.fuerzas-g[data-viejo="si"] .g-num,
+.fuerzas-g[data-viejo="si"] .g-unidad {
+  color: var(--estado-sin-dato);
+}
+
+/* Fuera de escala: la barra en el color de aviso (también con dato viejo). */
+.g-eje[data-saturado="si"] .g-relleno,
+.fuerzas-g[data-satura="si"] .g-pista-total .g-relleno {
+  background: var(--estado-aviso);
+}

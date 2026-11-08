@@ -3,6 +3,7 @@
 import type { Estado, Evento, Salud } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/api";
 import { WEB_DATO_VIEJO_S } from "../datos/constantes";
+import { ACC_ESCALA_G } from "./constantes";
 import { numero } from "./formato";
 
 const MS_POR_S = 1000;
@@ -82,4 +83,22 @@ export function vistaTelemetria(
 /** El texto de un número o el guion de "sin dato". */
 export function textoONulo(valor: number | null, decimales: number): string {
   return valor === null ? "—" : numero(valor, decimales);
+}
+
+/** La magnitud de la aceleración, |g| = √(x² + y² + z²) (T-674). */
+export function magnitudG(a: { x: number; y: number; z: number }): number {
+  return Math.hypot(a.x, a.y, a.z);
+}
+
+export interface PosicionBarra {
+  /** Dónde cae el valor en la escala simétrica, de −1 (borde izquierdo) a 1 (borde derecho). */
+  fraccion: number;
+  /** El valor se salió de la escala y la barra quedó en el borde. */
+  saturado: boolean;
+}
+
+/** La posición de un valor en una barra de ±`escala` (por defecto `ACC_ESCALA_G`); satura al borde. */
+export function posicionBarra(valor: number, escala: number = ACC_ESCALA_G): PosicionBarra {
+  const fraccion = Math.max(-1, Math.min(1, valor / escala));
+  return { fraccion, saturado: Math.abs(valor) > escala };
 }

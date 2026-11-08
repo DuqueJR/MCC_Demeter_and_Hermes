@@ -9,6 +9,7 @@ import { computed } from "@preact/signals";
 import { ArrowDown, ArrowUp, MapPin, Minus, Mountain, TriangleAlert } from "lucide-preact";
 import type { ComponentChildren } from "preact";
 import { edad, estado, estadoPagina, eventos, salud } from "../datos/api";
+import { ACC_ESCALA_G } from "./constantes";
 import { hace, numero, tMas } from "./formato";
 import "./estado.css";
 import {
@@ -16,6 +17,8 @@ import {
   DECIMALES_ALTITUD,
   DECIMALES_VELOCIDAD,
   datoViejo,
+  magnitudG,
+  posicionBarra,
   type Sentido,
   textoONulo,
   vistaTelemetria,
@@ -153,6 +156,94 @@ export function TelemetriaMapa() {
   return (
     <section id="telemetria" class="mapa-telemetria" aria-label="Telemetría">
       <DatosTelemetria />
+    </section>
+  );
+}
+
+const EJES_G = ["x", "y", "z"] as const;
+
+/**
+ * Los visualizadores de las fuerzas g (T-674), para el bloque "Desde la estación": una barra por eje,
+ * centrada en 0 (hacia la izquierda es negativo), con su valor en texto, y la magnitud |g| destacada.
+ * La aceleración es la misma de `vistaTelemetria` (la de la telemetría), con el mismo tratamiento de
+ * dato viejo. La escala es fija (`ACC_ESCALA_G`) y satura al borde, avisando con texto.
+ */
+export function FuerzasG() {
+  const v = vistaTelemetria(estado.value, eventos.value, salud.value, principal.value);
+  const esViejo = viejo.value;
+  const a = v.aceleracion;
+  const total = a === null ? null : magnitudG(a);
+  const posTotal = total === null ? null : posicionBarra(total);
+  const posiciones = EJES_G.map((eje) => (a === null ? null : posicionBarra(a[eje])));
+  const satura = (posTotal?.saturado ?? false) || posiciones.some((p) => p?.saturado === true);
+
+  return (
+    <section
+      class="fuerzas-g"
+      aria-label="Fuerzas g que siente el cohete"
+      data-fuerzas-g
+      data-viejo={esViejo ? "si" : "no"}
+      data-satura={satura ? "si" : "no"}
+    >
+      <h4 class="etiqueta fuerzas-g-titulo">Fuerzas g</h4>
+      {esViejo && edadS.value !== null && (
+        <p class="telemetria-edad">
+          <TriangleAlert aria-hidden="true" />
+          <span>Último dato {hace(edadS.value * 1000)}</span>
+        </p>
+      )}
+
+      <div class="g-total" data-g="total">
+        <span class="g-total-nombre">Total |g|</span>
+        {total === null ? (
+          <SinDato />
+        ) : (
+          <span class="g-total-valor">
+            <span class="g-num">{numero(total, DECIMALES_ACELERACION)}</span>
+            <span class="g-unidad">g</span>
+          </span>
+        )}
+        <span class="g-pista g-pista-total" aria-hidden="true">
+          {posTotal !== null && (
+            <span class="g-relleno" style={{ left: "0%", width: `${posTotal.fraccion * 100}%` }} />
+          )}
+        </span>
+      </div>
+
+      <ul class="g-ejes">
+        {EJES_G.map((eje, i) => {
+          const pos = posiciones[i] ?? null;
+          return (
+            <li key={eje} class="g-eje" data-g={eje} data-saturado={pos?.saturado ? "si" : "no"}>
+              <span class="g-eje-nombre">{eje.toUpperCase()}</span>
+              <span class="g-pista" aria-hidden="true">
+                <span class="g-cero" />
+                {pos !== null && (
+                  <span
+                    class="g-relleno"
+                    style={{
+                      left: `${50 + Math.min(0, pos.fraccion) * 50}%`,
+                      width: `${Math.abs(pos.fraccion) * 50}%`,
+                    }}
+                  />
+                )}
+              </span>
+              {a === null ? (
+                <SinDato />
+              ) : (
+                <span class="g-valor">
+                  <span class="g-num">{textoONulo(a[eje], DECIMALES_ACELERACION)}</span>
+                  <span class="g-unidad">g</span>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <p class="g-escala">
+        Escala ±{ACC_ESCALA_G} g{satura && <strong class="g-satura"> · fuera de escala</strong>}
+      </p>
     </section>
   );
 }

@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import { estadoEjemplo } from "../src/contrato/ejemplos";
 import type { Estado, Evento, Fase, TipoEvento } from "../src/contrato/tipos";
 import { SostenedorAlarma } from "../src/mision/alarma";
+import { ACC_ESCALA_G } from "../src/mision/constantes";
 import { numero } from "../src/mision/formato";
 import { construirPasos } from "../src/mision/linea_fases";
 import { calcularObjetivos } from "../src/mision/objetivos";
 import {
   datoViejo,
+  magnitudG,
+  posicionBarra,
   sentidoVertical,
   textoONulo,
   vistaTelemetria,
@@ -353,5 +356,39 @@ describe("sostener el banner de alarma (03 §4, D-W18)", () => {
     s.actualizar(false);
     s.detener();
     expect(f.plazos[0]?.cancelado).toBe(true);
+  });
+});
+
+describe("fuerzas g (T-674)", () => {
+  it("la magnitud es la raíz de la suma de cuadrados", () => {
+    expect(magnitudG({ x: 3, y: 4, z: 0 })).toBe(5);
+    expect(magnitudG({ x: 0, y: 0, z: 1 })).toBe(1);
+    expect(magnitudG({ x: -2, y: 3, z: 6 })).toBe(7);
+  });
+
+  it("la de la aceleración de la telemetría sale de la misma vista", () => {
+    const a = vistaTelemetria(estadoEjemplo, [], null, "en_vivo").aceleracion;
+    expect(a).not.toBeNull();
+    if (a) expect(magnitudG(a)).toBeCloseTo(Math.sqrt(1.012 ** 2 + 0.031 ** 2 + 0.02 ** 2), 10);
+  });
+
+  it("la escala es el rango del LSM6DSO32 (±32 g)", () => {
+    expect(ACC_ESCALA_G).toBe(32);
+  });
+
+  it("la barra va de −1 a 1, con el 0 en el centro", () => {
+    expect(posicionBarra(0)).toEqual({ fraccion: 0, saturado: false });
+    expect(posicionBarra(16)).toEqual({ fraccion: 0.5, saturado: false });
+    expect(posicionBarra(-8)).toEqual({ fraccion: -0.25, saturado: false });
+    expect(posicionBarra(ACC_ESCALA_G)).toEqual({ fraccion: 1, saturado: false });
+  });
+
+  it("fuera de la escala satura al borde y lo dice", () => {
+    expect(posicionBarra(40)).toEqual({ fraccion: 1, saturado: true });
+    expect(posicionBarra(-33)).toEqual({ fraccion: -1, saturado: true });
+  });
+
+  it("acepta otra escala", () => {
+    expect(posicionBarra(5, 10)).toEqual({ fraccion: 0.5, saturado: false });
   });
 });

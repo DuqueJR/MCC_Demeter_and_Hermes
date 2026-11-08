@@ -15,6 +15,7 @@ import { hace, numero } from "./formato";
 import { Qr } from "./Qr";
 import "./recuperacion_salud.css";
 import { edadS, MS_POR_S, principal } from "./senales_recuperacion";
+import { FuerzasG } from "./Telemetria";
 import {
   DECIMALES_AZIMUT,
   DECIMALES_DISTANCIA,
@@ -232,6 +233,7 @@ export function Recuperacion() {
             </div>
           </dl>
         </div>
+        <FuerzasG />
       </div>
     </section>
   );
