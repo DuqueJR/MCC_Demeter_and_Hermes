@@ -173,6 +173,34 @@ Observaciones sobre la pestaña EKF (Pablo, 2026-11-05), menores:
 
 **Leer primero:** [estacion_terrena](../docs/04_diseno/estacion_terrena.md), [protocolo_paquetes](../docs/04_diseno/protocolo_paquetes.md) y [constantes](../docs/02_requisitos/constantes.md).
 
+## Sesión en un comando (T-672)
+
+Dos scripts para macOS (`bash`) que hacen el proceso de [`11_guia_despliegue`](../docs/08_gui/11_guia_despliegue.md) §8 sin pasos manuales. Funcionan desde cualquier carpeta; `--ayuda` explica cada uno.
+
+```
+estacion/iniciar_sesion.sh [--permitir-ensayo] [opciones del dashboard]    # ej.: --no-abrir  --puerto 8799
+estacion/detener_sesion.sh [--apagar] [carpeta de la sesión]
+```
+
+**`iniciar_sesion.sh`** (queda en **primer plano**: es el propio dashboard, `Ctrl+C` lo cierra):
+1. Revisa `fly` con sesión, `estacion/.venv` con `pyserial`, el token del Llavero (`hermes-relay-token`, 64 caracteres, sin mostrarlo) y el puerto 8765 libre (si hay un dashboard viejo, pregunta antes de cerrarlo).
+2. Busca el ID de la máquina (limpio), la prende si está `stopped`, espera `salud` `"estado": "ok"` y avisa si en `fly logs` sale `Trial machine stopping`.
+3. Muestra `seq_relay` y `mission_id` por misión. **Si `seq_relay` > 0 avisa en grande** que hay datos de una sesión anterior; **no limpia** (guía §4).
+4. Crea `estacion/sesiones_relay/AAAAMMDD_HHMMSS/` (ignorada por git) con `inicio.json` (hora, máquina, salud inicial y el PID del dashboard) y abre `dashboard.py --web-relay https://api.eiaspice.space` con el token **solo en su entorno**.
+5. `--demo` y `--reproducir` se rechazan contra el relay real, salvo con `--permitir-ensayo` (con un relay local, `http://127.0.0.1`, no hace falta). `--web-relay` no se acepta: la URL sale de `RELAY_URL`.
+
+Después: en el dashboard, "tierra" → elegir el puerto → Conectar; la web está en `https://eiaspice.space/demeter/` y `/hermes/`.
+
+**`detener_sesion.sh`** (en otra terminal, o en la misma tras `Ctrl+C`):
+1. Toma la última carpeta de `sesiones_relay/` (o la que le pases), cierra el dashboard de esa sesión (SIGINT al PID de `inicio.json`, solo si sigue siendo un `dashboard.py`).
+2. Guarda en esa carpeta `salud_final.json`, `snapshot_demeter.json`, `snapshot_hermes.json`, los `/datos/*.jsonl` del relay (por `fly ssh sftp get`, con la copia verificada por tamaño; si falla, por `base64` en `fly ssh console -C`), los `*_tierra.txt` de `estacion/sesiones/` creados desde el inicio y un `resumen.txt` (conteos por misión y tipo, `seq_relay` final, tamaños y fallos).
+3. Pregunta si apagar la máquina (por defecto **no**; `--apagar` la apaga sin preguntar). **Nunca borra datos del relay**: la limpieza antes del vuelo es aparte (guía §4).
+4. Sale con código 1 si algo no se pudo guardar (el `resumen.txt` dice qué).
+
+Variables: `RELAY_APP` (`hermes-demeter-relay`), `RELAY_URL` (`https://api.eiaspice.space`), `RELAY_MAQUINA`, `SIN_FLY=1` (salta Fly: para un relay local; con `RELAY_DATOS_LOCAL=<carpeta>` copia ahí los `*.jsonl`), `PYTHON_ESTACION`, `ESPERA_SALUD_S`. El token se toma de `WEB_INGESTA_TOKEN` si ya está en el entorno, y si no, del Llavero. `sesion_comun.sh` es la parte compartida (se carga con `source`, no se corre sola).
+
+Probar sin tocar Fly ni el relay real: arrancar `gui/relay/servidor.py` (127.0.0.1:8787) con un token de prueba de 64 caracteres y correr los dos scripts con `RELAY_URL=http://127.0.0.1:8787 SIN_FLY=1 RELAY_DATOS_LOCAL=<WEB_RELAY_DATOS del relay>`.
+
 ## Reenviador al relay público (T-605a)
 
 `reenviador.py` sube los mensajes `web-1` de los dos cohetes al relay público (`POST /api/v1/ingesta`, lotes `{"mensajes": [...]}` con `Authorization: Bearer <token>`). **Está apagado por defecto**: sin URL y sin token no hay hilo, ni archivos, ni cambios en el dashboard. Solo biblioteca estándar. Nota: el relay (T-640) todavía no existe; esto se probó contra un servidor de mentira.

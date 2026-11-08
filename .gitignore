@@ -67,3 +67,6 @@ pio_cache/
 
 # Reenviador de la estacion (T-605a): la cola en disco (sqlite, con sus -wal y -shm)
 estacion/cola_web.db*
+
+# Sesiones del relay (T-672): lo que guardan iniciar_sesion.sh y detener_sesion.sh (snapshots, JSONL, resumen)
+estacion/sesiones_relay/
