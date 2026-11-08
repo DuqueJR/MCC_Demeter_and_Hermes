@@ -5,6 +5,8 @@ import type { Estacion, Estado, Meta, Serie } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/estado_pagina";
 import { hace, numero } from "../mision/formato";
 import {
+  MAPA_3D_ANCHO_CORTINA_M,
+  MAPA_3D_CORTINA_MAX_SEGMENTOS,
   MAPA_CUADRICULA_PASO_GRADOS,
   MAPA_CUADRICULA_RADIO_GRADOS,
   MAPA_EPSILON_GRADOS,
@@ -267,6 +269,147 @@ export function tramosDesvanecidos(
   return coleccion(features);
 }
 
+// ---- Trayectoria en el aire (vista 3D, T-656)
+
+/** Un punto de la trayectoria con su altura sobre el suelo (la de la capa del suelo, más `alt_agl_m`). */
+export interface PuntoAlt {
+  lon: number;
+  lat: number;
+  alt_agl_m: number | null;
+}
+
+/** Propiedades de cada polígono de la cortina: `fill-extrusion-height` y `-base`, en metros. */
+export interface PropsCortina {
+  height: number;
+  base: number;
+}
+export type ColeccionCortina = Coleccion<Poligono, PropsCortina>;
+
+/** Los puntos de la `serie` que tienen posición (los mismos de `puntosDeSerie`), con su altura. */
+export function puntosAltDeSerie(serie: Serie): PuntoAlt[] {
+  const puntos: PuntoAlt[] = [];
+  for (let i = 0; i < serie.lat.length; i++) {
+    const lat = serie.lat[i];
+    const lon = serie.lon[i];
+    if (lat != null && lon != null)
+      puntos.push({ lon, lat, alt_agl_m: serie.alt_agl_m[i] ?? null });
+  }
+  return puntos;
+}
+
+/**
+ * Lo mismo que `agregarPunto` pero con la altura: misma regla para repetir el último punto y para
+ * diezmar, así que el rastro con altura y el de la línea del suelo tienen siempre los mismos puntos.
+ */
+export function agregarPuntoAlt(
+  rastro: PuntoAlt[],
+  punto: PuntoAlt,
+  max: number = MAPA_RASTRO_MAX_PUNTOS,
+): PuntoAlt[] {
+  const ultimo = rastro[rastro.length - 1];
+  if (
+    ultimo &&
+    Math.abs(ultimo.lon - punto.lon) < MAPA_EPSILON_GRADOS &&
+    Math.abs(ultimo.lat - punto.lat) < MAPA_EPSILON_GRADOS
+  ) {
+    return rastro;
+  }
+  const nuevo = [...rastro, punto];
+  if (nuevo.length <= max) return nuevo;
+  return nuevo.filter((_, i) => i % 2 === 0 || i === nuevo.length - 1);
+}
+
+/** Los puntos con altura, sin los de `alt_agl_m` nulo ni los repetidos (misma posición que el anterior). */
+function puntosUtilesDeCortina(puntos: readonly PuntoAlt[]): (PuntoAlt & { alt_agl_m: number })[] {
+  const utiles: (PuntoAlt & { alt_agl_m: number })[] = [];
+  for (const p of puntos) {
+    if (p.alt_agl_m === null || !Number.isFinite(p.alt_agl_m)) continue;
+    const ultimo = utiles[utiles.length - 1];
+    if (
+      ultimo &&
+      Math.abs(ultimo.lon - p.lon) < MAPA_EPSILON_GRADOS &&
+      Math.abs(ultimo.lat - p.lat) < MAPA_EPSILON_GRADOS
+    ) {
+      continue;
+    }
+    utiles.push(p as PuntoAlt & { alt_agl_m: number });
+  }
+  return utiles;
+}
+
+/** Conserva uno de cada `k` puntos y siempre el último, para que haya a lo sumo `maxSegmentos` segmentos. */
+function diezmarParaCortina<T>(puntos: T[], maxSegmentos: number): T[] {
+  const segmentos = puntos.length - 1;
+  if (segmentos <= maxSegmentos) return puntos;
+  const k = Math.ceil(segmentos / maxSegmentos);
+  return puntos.filter((_, i) => i % k === 0 || i === puntos.length - 1);
+}
+
+/**
+ * La trayectoria como una "cortina" que va del suelo a la altura del cohete: un polígono angosto
+ * por segmento (de `anchoM` metros), con `height` = la altura media de sus dos extremos y `base` = 0,
+ * para una capa `fill-extrusion` (MapLibre la apoya sobre el terreno). Los puntos con `alt_agl_m`
+ * nulo y los repetidos se saltan; si hay más de `maxSegmentos` se diezma. `factorAltura` escala la
+ * altura cuando el terreno está exagerado (la altura sobre el suelo no se exagera sola).
+ */
+export function cortinaTrayectoria(
+  puntos: readonly PuntoAlt[],
+  anchoM: number = MAPA_3D_ANCHO_CORTINA_M,
+  maxSegmentos: number = MAPA_3D_CORTINA_MAX_SEGMENTOS,
+  factorAltura = 1,
+): ColeccionCortina {
+  const utiles = diezmarParaCortina(puntosUtilesDeCortina(puntos), maxSegmentos);
+  const features: Caracteristica<Poligono, PropsCortina>[] = [];
+  for (let i = 1; i < utiles.length; i++) {
+    const a = utiles[i - 1] as PuntoAlt & { alt_agl_m: number };
+    const b = utiles[i] as PuntoAlt & { alt_agl_m: number };
+    const este = (b.lon - a.lon) * Math.cos(aRadianes(a.lat)) * M_POR_GRADO;
+    const norte = (b.lat - a.lat) * M_POR_GRADO;
+    const largo = Math.hypot(este, norte);
+    if (largo === 0) continue;
+    // Perpendicular al segmento, de medio ancho a cada lado.
+    const nE = (-norte / largo) * (anchoM / 2);
+    const nN = (este / largo) * (anchoM / 2);
+    const pa: Coord = [a.lon, a.lat];
+    const pb: Coord = [b.lon, b.lat];
+    const anillo: Coord[] = [
+      desplazar(pa, nE, nN),
+      desplazar(pb, nE, nN),
+      desplazar(pb, -nE, -nN),
+      desplazar(pa, -nE, -nN),
+    ];
+    anillo.push([...(anillo[0] as Coord)]);
+    features.push({
+      type: "Feature",
+      properties: {
+        height: Math.max(0, ((a.alt_agl_m + b.alt_agl_m) / 2) * factorAltura),
+        base: 0,
+      },
+      geometry: { type: "Polygon", coordinates: [anillo] },
+    });
+  }
+  return coleccion(features);
+}
+
+/**
+ * La caja que contiene la trayectoria vista desde `pitchDeg` grados de inclinación y con el norte
+ * arriba: además de los puntos del suelo, cada punto con altura `h` se corre `h * tan(pitch)` al
+ * norte, que es donde la cortina asoma por arriba en la pantalla. Es lo que "Ver todo" y el área
+ * navegable deben abarcar en 3D para que la parte alta de la trayectoria no quede fuera (GS-03).
+ * `null` si no hay puntos.
+ */
+export function limitesConAltura(puntos: readonly PuntoAlt[], pitchDeg: number): Limites | null {
+  const tangente = Math.tan(aRadianes(pitchDeg));
+  const coords: Coord[] = [];
+  for (const p of puntos) {
+    coords.push([p.lon, p.lat]);
+    if (p.alt_agl_m !== null && Number.isFinite(p.alt_agl_m) && p.alt_agl_m > 0) {
+      coords.push(desplazar([p.lon, p.lat], 0, p.alt_agl_m * tangente));
+    }
+  }
+  return limitesDe(coords);
+}
+
 // ---- Etiquetas
 
 /** `271` -> `"O"`. */
@@ -367,6 +510,13 @@ export function limitesDe(coords: Coord[]): Limites | null {
     norte = Math.max(norte, lat);
   }
   return [oeste, sur, este, norte];
+}
+
+/** La caja más pequeña que contiene a las dos (una puede faltar). */
+export function unirLimites(a: Limites | null, b: Limites | null): Limites | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 }
 
 /** ¿Está la coordenada fuera de la caja visible? */

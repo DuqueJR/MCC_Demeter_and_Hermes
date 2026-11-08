@@ -134,3 +134,37 @@ export const ESTILO_RELIEVE = {
   /** Las curvas intermedias aparecen desde este zoom; con menos, solo las índice (si no, se empastan). */
   zoomCurvaIntermedia: 13,
 } as const;
+
+// ---- Vista 3D opcional (T-656, D-W23): terreno con relieve y trayectoria en el aire
+
+/**
+ * Exageración del terreno en 3D. 1 = la real: es la única con la que la altura de la cortina de la
+ * trayectoria (metros sobre el suelo) y el relieve están a la misma escala.
+ */
+export const MAPA_3D_EXAGERACION = 1;
+/** Inclinación con la que se entra en 3D, en grados. */
+export const MAPA_3D_PITCH = 60;
+/** Inclinación máxima permitida en 3D: con más se ve mucho horizonte, fuera del área con teselas. */
+export const MAPA_3D_PITCH_MAX = 70;
+/** Ancho de la cortina de la trayectoria (cada segmento es un polígono de este ancho), en metros. */
+export const MAPA_3D_ANCHO_CORTINA_M = 12;
+/** Segmentos máximos de la cortina: con más puntos se diezma (se conserva uno de cada k y el último). */
+export const MAPA_3D_CORTINA_MAX_SEGMENTOS = 500;
+/**
+ * Cuánto se aleja el zoom al "Ver todo" en 3D, respecto al que calcula MapLibre para un plano: con la
+ * inclinación, lo que está cerca de la cámara se ve más grande y se saldría de los bordes.
+ */
+export const MAPA_3D_ZOOM_VER_TODO_MENOS = 0.35;
+/** Valor de `opacityWhenCovered` de los marcadores: 1 = nunca se atenúan (GS-03), ni detrás de un cerro. */
+export const MAPA_MARCADOR_OPACIDAD_TAPADO = 1;
+
+/** Dibujo de la vista 3D (los colores salen de los tokens del tema). */
+export const ESTILO_3D = {
+  /** Opacidad de la cortina de la trayectoria (`fill-extrusion-opacity`: no admite datos por punto). */
+  opacidadCortina: 0.55,
+  /** Cielo y neblina (0 a 1) con que el horizonte se funde con el fondo y no deja ver el borde del DEM. */
+  cieloHorizonte: 0.2,
+  neblinaHorizonte: 0.6,
+  neblinaSuelo: 0.35,
+  atmosfera: 0.3,
+} as const;
