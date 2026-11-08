@@ -53,7 +53,8 @@ const PI_MOT={1:'sin espacio en la SD',2:'SD lenta',3:'RAM o tmpfs',4:'camara',5
 const f2=v=>v===null||v===undefined?'-':(+v).toFixed(2);
 const ambRows=a=>!a?[]:[['Temperatura del suelo',a.tomando?'tomando la muestra...':(a.hay?f2(a.t_suelo)+' C, '+(a.dudosa?'DUDOSA':'buena')+' ('+a.fuente+(a.edad_min!==null?', hace '+a.edad_min+' min':'')+')':'SIN MUESTRA')],
  ['Ahora BMP / BME',f2(a.t_bmp)+' / '+f2(a.t_bme)+' C'+(a.p!==null?', '+a.p.toFixed(1)+' Pa':'')],
- ['Para armar',a.arm?'NO: '+a.arm_txt:'sirve'],
+ ['Muestra de temperatura al armar',a.arm?'pedira confirmar: '+a.arm_txt:'lista, no pide confirmar'],
+ ...(a.aviso_txt?[['Aviso (no frena el armado)',a.aviso_txt]]:[]),
  ...(a.ref?[['Contra '+a.ref.name,'BMP '+(a.ref.dt_bmp>=0?'+':'')+f2(a.ref.dt_bmp)+' C, P '+(a.ref.dp>=0?'+':'')+(a.ref.dp===null?'-':a.ref.dp.toFixed(1))+' Pa, suelo '+(a.ref.dt_suelo>=0?'+':'')+f2(a.ref.dt_suelo)+' C']]:[])];
 const piText=a=>{const v=(a>>8)&255,m=(a>>3)&31;return (PI_ST[v]||('0x'+v.toString(16)))+(m?' - '+(PI_MOT[m]||('motivo '+m)):'')};   // byte alto de TELEM.actuators (ext_pi)
 const mmss=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
@@ -78,6 +79,7 @@ function build(){
   <button onclick="cmd('${k} ping')">Ping</button><button onclick="cmd('${k} armar')">Armar</button><button onclick="cmd('${k} launch')">Launch</button>
   <button onclick="cmd('${k} abortar')">Abortar</button><button onclick="cmd('${k} desarmar')">Desarmar</button><button onclick="cmd('${k} dormir')">Dormir</button><button onclick="if(confirm('Reiniciar ${n}?'))cmd('${k} reiniciar')">Reiniciar</button>
   <button onclick="cmd('${k} buzzer on')">Buzzer on</button><button onclick="cmd('${k} buzzer off')">Buzzer off</button>${k=='d'?`<button onclick="cmd('d pi encender')">Pi encender</button>`:''}</p>
+  <p>BOOST sin armar (detectar BOOST en TIERRA): <b id="bt_${r}">-</b> <button onclick="cmd('${k} boosttierra on')">Activar</button><button onclick="cmd('${k} boosttierra off')">Desactivar</button></p>
   <p>Forzar estado <select id="fs_${r}">${STATES.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} estado '+$('fs_${r}').value)">Enviar</button>
   &nbsp; momento <select id="fm_${r}">${MOMENTS.map(s=>`<option>${s}</option>`).join('')}</select><button onclick="cmd('${k} momento '+$('fm_${r}').value)">Enviar</button></p></div>`).join('')+'</div>';
  if(tab=='Monitores') m.innerHTML='<div class="three">'+[['tierra','Tierra'],...ROCKETS.map(([r,,n])=>[r,n])].map(([r,n])=>`<div class="box fill"><div><b>${n}</b> <button onclick="copyRaw('${r}',event)">Copiar</button></div><pre id="raw_${r}"></pre></div>`).join('')+'</div><p class="note" style="margin:6px 0 0">'+pauseBtn()+' Pausa para seleccionar texto. Solo se ven las placas conectadas arriba.</p>';
@@ -201,6 +203,7 @@ function renderDiag(id,rows){
 function render(){
  if(!S)return;
  $('bt').innerHTML='<tr><th></th><th>Estado</th><th>Momento</th><th>Modo</th><th>Registro</th></tr>'+[...S.rockets,S.ground].map(b=>`<tr class="${b.stale?'stale':''}"><td class="name">${b.name}</td><td>${esc(b.estado)}</td><td>${esc(b.momento)}</td><td class="${b.modo&&b.modo!='NORMAL'&&b.modo!='CON HORA'?'warn':''}">${esc(b.modo)}</td><td class="${b.log&&b.log.rec?'warn':''}">${b.name=='Tierra'?'':esc(logText(b.log))}</td></tr>`).join('');
+ ROCKETS.forEach(([r],i)=>{const b=$('bt_'+r);if(b){const v=S.rockets[i].boost_tierra;b.textContent=v===undefined?'sin telemetria':(v?'ACTIVADO':'DESACTIVADO')}});
  ROCKETS.forEach(([r],i)=>{const el=$('tm_'+r);if(!el)return;const t=S.rockets[i].telem,l=S.rockets[i].log;
   const reg=l?[['Registro',l.rec?'REGISTRANDO':(l.prep?'PREPARADO':'sin registrar')],['Archivo',l.name||'-'],...(l.rec?[['Tiempo / lleno',mmss(l.elapsed)+' / '+l.pct+' %'],['Cabe aun en este archivo',mmss(l.remain)+' min:s']]:[]),['Reserva',spareText(l)]]:[];
   el.innerHTML=t?[...reg,['Edad',t.age+' s'],['RSSI / SNR',t.rssi+' dBm / '+t.snr+' dB'],['GNSS','fix '+t.fix+', '+t.nsv+' sv'],['Posicion',t.lat.toFixed(6)+', '+t.lon.toFixed(6)],['Altura GNSS',t.alt.toFixed(1)+' m'],['Velocidad N E D',t.vn+' '+t.ve+' '+t.vd+' m/s'],['Bateria',t.vbat+' mV'],['Actuadores',actText(t.actuators)],...(r=='demeter'?[['Raspberry Pi',piText(t.actuators)]]:[]),...ambRows(S.rockets[i].amb),['Ultimo comando','contador '+(t.ack&63)+', resultado '+(t.ack>>6)]].map(([a,b])=>`<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join(''):'<tr><td class="old">sin telemetria</td></tr>'});

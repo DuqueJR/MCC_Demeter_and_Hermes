@@ -86,6 +86,8 @@ bool Preferences::remove(const char *k) { return g_nvs.erase(clave(this, k)) > 0
 uint32_t Preferences::getUInt(const char *k, uint32_t d) { uint32_t v = d; getBytes(k, &v, sizeof(v)); return v; }
 uint32_t Preferences::getULong(const char *k, uint32_t d) { return getUInt(k, d); }
 void Preferences::putULong(const char *k, uint32_t v) { putBytes(k, &v, sizeof(v)); }
+uint8_t Preferences::getUChar(const char *k, uint8_t d) { uint8_t v = d; getBytes(k, &v, 1); return v; }
+size_t Preferences::putUChar(const char *k, uint8_t v) { return putBytes(k, &v, 1); }
 static bool g_horaOk = true;                                   // hay hora UTC (el modelo de tiempo de core_bus): el UTC es el reloj local + 1,7e15 us
 static const int64_t UTC_OFFSET_US = 1700000000000000LL;
 int64_t time_to_utc_us(int64_t t) { return g_horaOk ? t + UTC_OFFSET_US : -1; }

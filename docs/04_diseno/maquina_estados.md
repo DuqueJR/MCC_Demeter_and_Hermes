@@ -50,8 +50,11 @@ reemplaza: 99_archivo/diseno_v1/maquina_estados.md (D-010 a D-014)
 | `dormir` | TIERRA | SLEEP | No apto con el imán presente, ni en ARMED o FLY (RECOVERY: no apto mientras haya batería) |
 | `reiniciar` | TIERRA | (reinicio) | No apto fuera de TIERRA |
 | `ping` | Cualquiera | — | Siempre |
+| `boosttierra <on\|off>` | Cualquiera | — | Siempre. Activa o desactiva el BOOST sin armar (la detección de BOOST en TIERRA); queda en NVS. En ARMED el BOOST se detecta igual (D-063) |
 
-- **Confirmación:** vale **10 s** (`CONFIRM_WINDOW_MS`, y 9 s en tierra), y solo si el comando y los motivos **no cambiaron**.
+- **Confirmación:** vale **10 s** (`CONFIRM_WINDOW_MS`, y 9 s en tierra), y solo si el comando es el mismo y **no apareció ningún motivo nuevo** (D-063).
+  - Si desde el pedido solo se fueron motivos (por ejemplo, una lectura que oscilaba), el "sí" vale y se ejecuta. Si apareció uno que no se confirmó, el cohete vuelve a responder NO APTO con los motivos de ahora.
+  - La temperatura del suelo pide confirmar solo por lo que es de la muestra guardada: sin muestra, dudosa o vieja (`RZ_TEMP`). Las comparaciones con las lecturas de ahora (el BMP lejos de la muestra, BMP contra BME) son avisos en tierra: oscilaban con el calentamiento y hacían fallar el "sí" (D-063).
   - Lo forzado prende `TF_FORZADO` y queda en el log (`T_MISSION`).
 - ⚠️ **Mientras no exista T-410, nunca hay "BOOST"** en un vuelo real. Las protecciones "en vuelo" no actúan: un `desarmar` en pleno vuelo se ejecuta y cierra el log (C1 de la [revisión](../06_revisiones/revision_firmware_pablo.md)).
   - Hasta entonces, **el operador manda `momento boost` apenas vea el despegue**. Va en el checklist.

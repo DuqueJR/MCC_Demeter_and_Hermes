@@ -44,7 +44,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 52 | `vbat_mv` | u16 | mV (PMU) |
 | 54 | `temp_c[2]` | i8 ×2 | [0] = BME280; [1] reservado |
 | 56 | `state` | u8 | **Estado en los bits 0–3, momento en los bits 4–7** ([maquina_estados](maquina_estados.md)) |
-| 57 | `flags` | u8 | Bit 0 `TF_FLYING` (10 Hz) · 1 `TF_BOOST_SIN_ARMAR` · 2 `TF_FORZADO` · 3 `TF_LAUNCH_VENCIDO` · 4 `TF_REANUDADO` (T-411, D-052) |
+| 57 | `flags` | u8 | Bit 0 `TF_FLYING` (10 Hz) · 1 `TF_BOOST_SIN_ARMAR` · 2 `TF_FORZADO` · 3 `TF_LAUNCH_VENCIDO` · 4 `TF_REANUDADO` (T-411, D-052) · 5 `TF_BOOST_TIERRA_OFF`: la detección de BOOST en TIERRA está desactivada por `boosttierra off` (D-063) |
 | 58 | `actuators` | u16 | Bit 0: buzzer activo · bit 1: pulso de la Pi en curso · bit 2: se envió algún pulso a la Pi desde el arranque (T-413) · **bits 3-7: motivo del error de la Pi** (`ErrorCode` de `demeter_protocol.py`: 0 ninguno, 1 sin espacio en la SD, 2 SD lenta, 3 RAM o tmpfs, 4 cámara, 5 telemetryd o UART, 6 proceso, 7 archivos, 31 otro; D-056) · **bits 8-15: estado de la Pi** por la UART (`StatusCode` de `demeter_protocol.py`; `0xFF` = desconocido, sin latido en 3 s, y siempre en Hermes) (D-054) |
 | 60 | `time_flags` | u8 | Bits 0–1: **calidad** (0 = PPS reciente, 1 = error < 1 ms, 2 = error ≥ 1 ms, 3 = sin hora). Bits 2–3: **fuente** (0 = ninguna, 1 = GNSS, 2 = baliza) |
 | 61 | `cmd_ack` | u8 | Bits 0–5: el contador del último comando (mod 64). Bits 6–7: su `CmdResult` |
@@ -88,6 +88,7 @@ reemplaza: 99_archivo/diseno_v1/protocolo_paquetes.md (protocolo v2, D-005 a D-0
 | 9 | `RESET` | `reiniciar` | — |
 | 10 | `BUZZER` | `buzzer <on\|off>` | 1 o 0 (T-413, D-049) |
 | 11 | `PI_POWER` | `pi encender` | — (solo Demeter; T-413, D-049) |
+| 16 | `BOOST_TIERRA` | `boosttierra <on\|off>` | 1 o 0: detectar o no BOOST en TIERRA (BOOST sin armar). Apto en cualquier estado, sin confirmar; queda en NVS (`tbmis/bsa`, por defecto 1). En ARMED y FLY no cambia nada (D-063) |
 
 ## 4. Respuestas
 
@@ -151,7 +152,7 @@ Para la temperatura del suelo y para usar un cohete en tierra (por ejemplo Herme
 | 0 | `type` | u8 | 6 |
 | 1 | `rocket_id` | u8 | |
 | 2 | `flags` | u8 | Bit 0: hay muestra · bit 1: dudosa · bits 2-3: fuente (1 sueño largo, 2 encendido, 3 a mano) · bit 4: tomándola · bit 5: BMP vivo · bit 6: BME vivo |
-| 3 | `arm` | u8 | Bits de la revisión al armar: 1 sin muestra, 2 dudosa, 4 vieja (más de 12 h), 8 el BMP se alejó más de 6 °C de la muestra, 16 BMP y BME discrepan más de 4 °C. 0 = sirve |
+| 3 | `arm` | u8 | Bits de la revisión al armar: 1 sin muestra, 2 dudosa, 4 vieja (más de 12 h), 8 el BMP se alejó más de 6 °C de la muestra, 16 BMP y BME discrepan más de 4 °C. 0 = sirve. **Solo 1, 2 y 4 dan `RZ_TEMP` al armar** (`AB_BLOQUEA`, D-063); 8 y 16 son avisos para tierra |
 | 4 | `press_pa` | f32 | BMP581 ahora (NaN sin él) |
 | 8 | `t_bmp_cC` | i16 | BMP ahora, centésimas de °C (−32768 = sin dato) |
 | 10 | `t_bme_cC` | i16 | BME ahora |
