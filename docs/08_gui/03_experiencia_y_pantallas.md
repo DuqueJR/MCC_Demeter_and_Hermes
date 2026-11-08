@@ -149,6 +149,7 @@ La misma estructura para los dos (cambia el tema) y una sección extra en Demét
 ### 3.4 Mapa (*Objetivos* 7.A, GS-10)
 - **Capas:**
   - la base oscura con el estilo del tema;
+  - el **relieve** (D-W22, T-649): sombreado del terreno y curvas de nivel, discretos, para que la trayectoria y los marcadores sigan siendo lo que más se ve;
   - la **rampa**;
   - la **estación**;
   - la **trayectoria** (línea `--acento`, que se desvanece con el tiempo);
