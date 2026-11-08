@@ -19,6 +19,8 @@ import type { CustomLayerInterface, Map as MapaGL } from "maplibre-gl";
 import {
   ESTILO_3D,
   MAPA_3D_COHETE_ADELANTE_PX,
+  MAPA_3D_COHETE_SUAVIZADO_MAX_MS,
+  MAPA_3D_COHETE_SUAVIZADO_MS,
   MAPA_3D_LINEA_PX,
   MAPA_3D_PLOMADA_PX,
   MAPA_3D_PLOMADA_RAYA_PX,
@@ -26,7 +28,7 @@ import {
 import { ID_3D } from "./estilo";
 import {
   aMercator,
-  anguloDeImagen,
+  anguloConMemoria,
   type BufferLinea,
   type ContextoLinea,
   type Coord,
@@ -39,6 +41,7 @@ import {
   metrosPorPixel,
   type PuntoAlt,
   proyectarAPixeles,
+  suavizarAngulo,
   VERTICES_POR_SEGMENTO,
 } from "./geo";
 
@@ -47,7 +50,7 @@ export interface CoheteVivo {
   lon: number;
   lat: number;
   alt_agl_m: number;
-  /** `[este, norte, arriba]` unitario, de `direccionDeVelocidad`; `null` si no sigue el movimiento. */
+  /** `[este, norte, arriba]` unitario, de `direccionDeVelocidad`; `null` si no hay velocidad fiable. */
   direccion: [number, number, number] | null;
 }
 
@@ -157,6 +160,12 @@ export class Capa3d implements CustomLayerInterface {
   private readonly colores: { viejo: number[]; nuevo: number[]; plomada: number[] };
   private readonly exageracion: number;
   private readonly alFotograma: (f: Fotograma) => void;
+  /** ¿Se suaviza el giro de la imagen? (no, con `prefers-reduced-motion`). */
+  private readonly suavizado: () => boolean;
+  /** El último ángulo válido (con rumbo fiable) y el que se muestra ahora, con su instante. */
+  private anguloUltimo: number | null = null;
+  private anguloMostrado: number | null = null;
+  private instantePrevio = 0;
 
   private mapa: MapaGL | null = null;
   private programa: WebGLProgram | null = null;
@@ -179,6 +188,7 @@ export class Capa3d implements CustomLayerInterface {
     colores: ColoresCapa3d;
     exageracion: number;
     alFotograma: (f: Fotograma) => void;
+    suavizado?: () => boolean;
   }) {
     const componentes = (css: string): number[] => colorARgb(css) ?? [1, 1, 1];
     this.colores = {
@@ -188,6 +198,7 @@ export class Capa3d implements CustomLayerInterface {
     };
     this.exageracion = opciones.exageracion;
     this.alFotograma = opciones.alFotograma;
+    this.suavizado = opciones.suavizado ?? (() => true);
   }
 
   /** Segmentos de la línea armados (para las pruebas). */
@@ -367,6 +378,7 @@ export class Capa3d implements CustomLayerInterface {
 
     // El cohete: su posición 3D a píxeles, y un punto "adelante" para saber hacia dónde apunta.
     if (!cohete) {
+      this.anguloMostrado = null; // al reaparecer, sin giro desde el ángulo viejo
       this.alFotograma({ cohete: null });
       return;
     }
@@ -375,6 +387,7 @@ export class Capa3d implements CustomLayerInterface {
     const p: [number, number, number] = [mc.x - origen.x, mc.y - origen.y, z];
     const p0 = proyectarAPixeles(matriz, p, ancho, alto);
     if (!p0) {
+      this.anguloMostrado = null; // al reaparecer, sin giro desde el ángulo viejo
       this.alFotograma({ cohete: null });
       return;
     }
@@ -390,8 +403,19 @@ export class Capa3d implements CustomLayerInterface {
         alto,
       );
     }
-    this.alFotograma({
-      cohete: { x: p0.x, y: p0.y, angulo: anguloDeImagen(p0, p1), dentro: p0.dentro },
-    });
+    // La nariz sigue siempre el movimiento en pantalla (también al bajar); sin rumbo fiable, el último válido.
+    const rumbo = anguloConMemoria(p0, p1, this.anguloUltimo);
+    if (rumbo.fiable) this.anguloUltimo = rumbo.angulo;
+    const ahora = performance.now();
+    const dt = ahora - this.instantePrevio;
+    this.instantePrevio = ahora;
+    let angulo = rumbo.angulo;
+    if (this.anguloMostrado !== null && dt < MAPA_3D_COHETE_SUAVIZADO_MAX_MS && this.suavizado()) {
+      angulo = suavizarAngulo(this.anguloMostrado, rumbo.angulo, dt, MAPA_3D_COHETE_SUAVIZADO_MS);
+      // Mientras falte camino, se sigue pidiendo cuadros (si no, el giro se quedaría a medias).
+      if (angulo !== rumbo.angulo) mapa.triggerRepaint();
+    }
+    this.anguloMostrado = angulo;
+    this.alFotograma({ cohete: { x: p0.x, y: p0.y, angulo, dentro: p0.dentro } });
   }
 }

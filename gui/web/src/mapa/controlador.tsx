@@ -489,7 +489,7 @@ export async function crearMapa(
             lon: m.cohete.pos[0],
             lat: m.cohete.pos[1],
             alt_agl_m: alt,
-            direccion: direccionDeVelocidad(entrada.estado?.vel ?? null, entrada.estado?.fase),
+            direccion: direccionDeVelocidad(entrada.estado?.vel ?? null),
           }
         : null;
     rampaPos = m.rampa ?? (rastroAlt[0] ? [rastroAlt[0].lon, rastroAlt[0].lat] : null);
@@ -620,6 +620,7 @@ export async function crearMapa(
       colores: { viejo: tokens.linea, nuevo: tokens.acento, plomada: tokens.texto2 },
       exageracion: MAPA_3D_EXAGERACION,
       alFotograma,
+      suavizado: () => !sinMovimiento(),
     });
     mapa.addLayer(capa3d);
     imagenCohete = crearImagenCohete();

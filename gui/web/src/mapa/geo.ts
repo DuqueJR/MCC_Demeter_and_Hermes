@@ -8,7 +8,6 @@ import {
   MAPA_3D_COHETE_ANGULO_DIBUJO,
   MAPA_3D_COHETE_MIN_PX,
   MAPA_3D_EPSILON_ALT_M,
-  MAPA_3D_FASES_CON_RUMBO,
   MAPA_3D_LINEA_MAX_SEGMENTOS,
   MAPA_3D_VEL_MIN_MS,
   MAPA_CUADRICULA_PASO_GRADOS,
@@ -579,23 +578,66 @@ export function anguloDeImagen(
   minPx: number = MAPA_3D_COHETE_MIN_PX,
   anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
 ): number {
-  if (!p0 || !p1) return normalizarAngulo(-anguloDibujo);
+  return anguloFiable(p0, p1, minPx, anguloDibujo) ?? normalizarAngulo(-anguloDibujo);
+}
+
+/** Como `anguloDeImagen`, pero `null` si no hay rumbo fiable (faltan puntos o el vector es muy corto). */
+export function anguloFiable(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): number | null {
+  if (!p0 || !p1) return null;
   const [dx, dy] = [p1.x - p0.x, p1.y - p0.y];
-  if (Math.hypot(dx, dy) < minPx) return normalizarAngulo(-anguloDibujo);
+  if (Math.hypot(dx, dy) < minPx) return null;
   // La pantalla crece hacia abajo: "arriba" es -y, y el ángulo desde arriba crece hacia la derecha.
   return normalizarAngulo((Math.atan2(dx, -dy) * GRADOS_MEDIA_VUELTA) / Math.PI - anguloDibujo);
 }
 
 /**
- * La dirección del movimiento en 3D, `[este, norte, arriba]` unitario, para orientar la imagen del cohete;
- * `null` si la fase no sigue el movimiento (`MAPA_3D_FASES_CON_RUMBO`) o la rapidez no es fiable.
+ * El ángulo de la imagen del cohete con memoria: si hay rumbo fiable, ese; si no (sin velocidad fiable o
+ * un vector muy corto, como justo en el apogeo), el último ángulo válido (`ultimo`), para que la imagen
+ * no salte a vertical y vuelva; y si nunca hubo uno, vertical con la nariz arriba.
+ */
+export function anguloConMemoria(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  ultimo: number | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): { angulo: number; fiable: boolean } {
+  const nuevo = anguloFiable(p0, p1, minPx, anguloDibujo);
+  if (nuevo !== null) return { angulo: nuevo, fiable: true };
+  return { angulo: ultimo ?? normalizarAngulo(-anguloDibujo), fiable: false };
+}
+
+/**
+ * Acerca `actual` a `objetivo` por el camino corto (nunca da la vuelta larga) con una suavización
+ * exponencial de constante `tauMs`, tras `dtMs` ms. Con `tauMs` <= 0 salta directo. Devuelve el ángulo en
+ * (-180, 180]; si ya está a menos de 0,1°, el objetivo exacto.
+ */
+export function suavizarAngulo(
+  actual: number,
+  objetivo: number,
+  dtMs: number,
+  tauMs: number,
+): number {
+  const dif = normalizarAngulo(objetivo - actual);
+  if (!(tauMs > 0) || Math.abs(dif) < 0.1) return objetivo;
+  const factor = 1 - Math.exp(-Math.max(0, dtMs) / tauMs);
+  return normalizarAngulo(actual + dif * factor);
+}
+
+/**
+ * La dirección del movimiento en 3D, `[este, norte, arriba]` unitario, para orientar la imagen del cohete
+ * en TODAS las fases de vuelo (también en la bajada, con la nariz hacia abajo); `null` si no hay
+ * velocidad o la rapidez no es fiable (`MAPA_3D_VEL_MIN_MS`).
  */
 export function direccionDeVelocidad(
   vel: { e_ms: number; n_ms: number; u_ms: number } | null,
-  fase: string | undefined,
 ): [number, number, number] | null {
-  if (!vel || fase === undefined) return null;
-  if (!(MAPA_3D_FASES_CON_RUMBO as readonly string[]).includes(fase)) return null;
+  if (!vel) return null;
   const rapidez = Math.hypot(vel.e_ms, vel.n_ms, vel.u_ms);
   if (!(rapidez >= MAPA_3D_VEL_MIN_MS)) return null;
   return [vel.e_ms / rapidez, vel.n_ms / rapidez, vel.u_ms / rapidez];

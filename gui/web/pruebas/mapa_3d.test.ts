@@ -12,7 +12,6 @@ import {
   MAPA_3D_COHETE_ANGULO_DIBUJO,
   MAPA_3D_COHETE_MIN_PX,
   MAPA_3D_EPSILON_ALT_M,
-  MAPA_3D_FASES_CON_RUMBO,
   MAPA_3D_LINEA_MAX_SEGMENTOS,
   MAPA_3D_LINEA_PX,
   MAPA_3D_VEL_MIN_MS,
@@ -37,7 +36,9 @@ import {
   agregarPuntoAlt,
   alturaDeDibujo,
   aMercator,
+  anguloConMemoria,
   anguloDeImagen,
+  anguloFiable,
   colorARgb,
   construirBufferLinea,
   construirBufferPlomada,
@@ -51,6 +52,7 @@ import {
   proyectarAPixeles,
   puntosAltDeSerie,
   puntosDeSerie,
+  suavizarAngulo,
   unirLimites,
   VERTICES_POR_SEGMENTO,
 } from "../src/mapa/geo";
@@ -369,26 +371,89 @@ describe("anguloDeImagen: hacia dónde apunta la nariz en pantalla", () => {
 describe("direccionDeVelocidad", () => {
   const vel = (e: number, n: number, u: number) => ({ e_ms: e, n_ms: n, u_ms: u });
 
-  it("en la subida (BOOST y COAST) es el vector unitario [este, norte, arriba]", () => {
-    for (const fase of MAPA_3D_FASES_CON_RUMBO) {
-      const d = direccionDeVelocidad(vel(3, 4, 12), fase);
-      expect(d).not.toBeNull();
-      expect(Math.hypot(...(d as [number, number, number]))).toBeCloseTo(1, 9);
-      expect(d?.[2]).toBeCloseTo(12 / 13, 9);
-    }
+  it("subiendo es el vector unitario [este, norte, arriba]", () => {
+    const d = direccionDeVelocidad(vel(3, 4, 12));
+    expect(d).not.toBeNull();
+    expect(Math.hypot(...(d as [number, number, number]))).toBeCloseTo(1, 9);
+    expect(d?.[2]).toBeCloseTo(12 / 13, 9);
   });
 
-  it("en el resto de las fases (apogeo, descenso, rampa) queda vertical: no hay dirección", () => {
-    for (const fase of ["PREFLIGHT", "ARMED", "APOGEE", "DESCENT", "LANDED"]) {
-      expect(direccionDeVelocidad(vel(1, 1, -9), fase)).toBeNull();
-    }
+  it("bajando también hay dirección (la nariz sigue el movimiento en todas las fases): hacia abajo y con la deriva", () => {
+    const d = direccionDeVelocidad(vel(1, 1, -9)) as [number, number, number];
+    expect(d).not.toBeNull();
+    expect(Math.hypot(...d)).toBeCloseTo(1, 9);
+    expect(d[2]).toBeLessThan(-0.9); // casi recto hacia abajo
+    expect(d[0]).toBeGreaterThan(0); // y se inclina con la deriva hacia el este y el norte
+    expect(d[1]).toBeGreaterThan(0);
   });
 
-  it("sin velocidad, sin fase o con una rapidez no fiable, tampoco", () => {
-    expect(direccionDeVelocidad(null, "COAST")).toBeNull();
-    expect(direccionDeVelocidad(vel(0, 0, 100), undefined)).toBeNull();
-    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS / 2), "COAST")).toBeNull();
-    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS * 2), "COAST")).not.toBeNull();
+  it("sin velocidad o con una rapidez no fiable, no hay dirección", () => {
+    expect(direccionDeVelocidad(null)).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS / 2))).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, -MAPA_3D_VEL_MIN_MS / 2))).toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, MAPA_3D_VEL_MIN_MS * 2))).not.toBeNull();
+    expect(direccionDeVelocidad(vel(0, 0, -MAPA_3D_VEL_MIN_MS * 2))).not.toBeNull();
+  });
+});
+
+describe("el ángulo de la imagen con memoria y suavizado", () => {
+  const desde = { x: 100, y: 100 };
+
+  it("anguloFiable: null sin los dos puntos o con un vector corto", () => {
+    expect(anguloFiable(null, desde)).toBeNull();
+    expect(anguloFiable(desde, null)).toBeNull();
+    expect(anguloFiable(desde, { x: 100, y: 100 + MAPA_3D_COHETE_MIN_PX / 2 })).toBeNull();
+    expect(anguloFiable(desde, { x: 100, y: 40 })).toBeCloseTo(-45, 9);
+  });
+
+  it("la bajada, boca abajo: la nariz hacia abajo en pantalla, con la deriva (135° ± lo que se inclina)", () => {
+    // Cayendo recto: 180° - 45° = 135° (la imagen se gira para que su nariz diagonal apunte abajo).
+    expect(anguloFiable(desde, { x: 100, y: 160 })).toBeCloseTo(135, 9);
+    // Con deriva hacia la derecha, la nariz se inclina hacia la derecha: el ángulo baja de 135°.
+    const conDeriva = anguloFiable(desde, { x: 110, y: 160 }) as number;
+    expect(conDeriva).toBeLessThan(135);
+    expect(conDeriva).toBeGreaterThan(90);
+  });
+
+  it("con rumbo fiable usa ese y lo marca como válido", () => {
+    expect(anguloConMemoria(desde, { x: 100, y: 160 }, -45)).toEqual({ angulo: 135, fiable: true });
+  });
+
+  it("sin rumbo fiable (justo en el apogeo) conserva el último ángulo válido en vez de saltar a vertical", () => {
+    const sinRumbo = anguloConMemoria(desde, { x: 100.5, y: 100 }, 20);
+    expect(sinRumbo).toEqual({ angulo: 20, fiable: false });
+    expect(anguloConMemoria(null, null, 135)).toEqual({ angulo: 135, fiable: false });
+    // Si nunca hubo uno, vertical con la nariz arriba.
+    expect(anguloConMemoria(desde, desde, null)).toEqual({ angulo: -45, fiable: false });
+    expect(anguloConMemoria(null, null, null)).toEqual({ angulo: -45, fiable: false });
+  });
+
+  it("anguloDeImagen sigue dando vertical sin rumbo (compatibilidad)", () => {
+    expect(anguloDeImagen(null, null)).toBe(-45);
+  });
+
+  it("suavizarAngulo: avanza hacia el objetivo por el camino corto y no se pasa", () => {
+    const a = suavizarAngulo(0, 90, 100, 150);
+    expect(a).toBeGreaterThan(0);
+    expect(a).toBeLessThan(90);
+    // Con el tiempo se acerca; con mucho tiempo llega (a menos de 0,1°: el objetivo exacto).
+    expect(suavizarAngulo(a, 90, 100, 150)).toBeGreaterThan(a);
+    let x = 0;
+    for (let i = 0; i < 100; i++) x = suavizarAngulo(x, 90, 16, 150);
+    expect(x).toBe(90);
+  });
+
+  it("suavizarAngulo da la vuelta corta: de 170° a -170° pasa por 180°, no por 0°", () => {
+    const a = suavizarAngulo(170, -170, 100, 150);
+    expect(a > 170 || a <= -170).toBe(true);
+    // Y de -45° (nariz arriba) a 135° (nariz abajo) es media vuelta: en un cuadro no salta de golpe.
+    const medio = suavizarAngulo(-45, 135, 16, 150);
+    expect(Math.abs(medio - -45)).toBeLessThan(30);
+  });
+
+  it("suavizarAngulo sin constante de tiempo (movimiento reducido) salta directo", () => {
+    expect(suavizarAngulo(-45, 135, 16, 0)).toBe(135);
+    expect(suavizarAngulo(10, 10, 16, 150)).toBe(10);
   });
 });
 

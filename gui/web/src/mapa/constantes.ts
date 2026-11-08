@@ -170,16 +170,21 @@ export const MAPA_3D_COHETE_PX = 72;
 export const MAPA_3D_COHETE_ANGULO_DIBUJO = 45;
 /** A qué distancia en pantalla (px) se proyecta el punto "adelante" para sacar hacia dónde va el cohete. */
 export const MAPA_3D_COHETE_ADELANTE_PX = 24;
-/** Si ese vector mide menos que esto en pantalla (px) no hay rumbo fiable y el cohete se deja vertical. */
+/**
+ * Si ese vector mide menos que esto en pantalla (px) no hay rumbo fiable: el cohete conserva el último
+ * ángulo válido (y, si nunca hubo uno, queda vertical con la nariz arriba).
+ */
 export const MAPA_3D_COHETE_MIN_PX = 4;
 /** Por debajo de esta rapidez (m/s) no hay dirección fiable. */
 export const MAPA_3D_VEL_MIN_MS = 2;
 /**
- * En qué fases la nariz del cohete sigue la dirección del movimiento: en la subida con motor y por inercia.
- * En el resto (rampa, apogeo y descenso con paracaídas) queda vertical, con la nariz arriba: bajo el
- * paracaídas el cohete no cae de nariz y la imagen vertical es más legible.
+ * Tiempo (ms) en que el ángulo mostrado de la imagen del cohete recorre el 63 % del camino hacia el
+ * ángulo nuevo (una suavización exponencial corta): la vuelta del apogeo, de la nariz arriba a la nariz
+ * abajo, no es un salto de 180°. Con `prefers-reduced-motion` no se suaviza.
  */
-export const MAPA_3D_FASES_CON_RUMBO = ["BOOST", "COAST"] as const;
+export const MAPA_3D_COHETE_SUAVIZADO_MS = 150;
+/** Si entre dos cuadros pasó más que esto (ms), el ángulo salta directo al nuevo (la pestaña estuvo oculta). */
+export const MAPA_3D_COHETE_SUAVIZADO_MAX_MS = 500;
 /** Dos puntos a la misma posición y a menos de esta diferencia de altura (m) son el mismo punto. */
 export const MAPA_3D_EPSILON_ALT_M = 0.5;
 /** Cambio de la elevación del terreno (m) que obliga a rearmar la línea. */
