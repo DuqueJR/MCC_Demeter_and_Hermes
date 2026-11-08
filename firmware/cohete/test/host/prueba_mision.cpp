@@ -125,6 +125,66 @@ static void esc_tierra(int t) {
     if (t == 89) CHECK(st().state == ST_TIERRA && !(st().flags & TF_BOOST_SIN_ARMAR), "estado tierra confirmado: TIERRA y borra TF_BOOST_SIN_ARMAR");
 }
 
+// D-063: con la deteccion en TIERRA desactivada (OP_BOOST_TIERRA 0), un BOOST sin armar no cambia nada; el ajuste queda en NVS y en flags
+static void esc_boost_tierra_off(int t) {
+    sano();
+    if (t == 5) cmd(OP_BOOST_TIERRA, 0);
+    if (t == 7) {
+        printf("BOOST sin armar desactivado\n");
+        CHECK(g_haveResp && g_resp.result == CR_OK, "boosttierra off: EJECUTADO sin confirmar");
+        CHECK(st().flags & TF_BOOST_TIERRA_OFF, "flags lleva TF_BOOST_TIERRA_OFF (32)");
+        CHECK(missionFlags() & TF_BOOST_TIERRA_OFF, "missionFlags (TELEM) tambien");
+        CHECK(g_nvs.count("tbmis/bsa") && g_nvs["tbmis/bsa"][0] == 0, "queda en NVS (tbmis/bsa = 0)");
+    }
+    if (t >= 50 && t < 60) rafaga(true, 7.0f);
+    if (t == 80) {
+        recogerLogs();
+        CHECK(st().state == ST_TIERRA && st().moment == M_NONE, "7 g en TIERRA: sigue en TIERRA");
+        CHECK(!(st().flags & TF_BOOST_SIN_ARMAR), "sin TF_BOOST_SIN_ARMAR");
+        CHECK(autoLogs(BOOST_INERCIAL) == 0, "sin T_MISSION de BOOST");
+        g_haveResp = false; cmd(OP_BOOST_TIERRA, 2);
+    }
+    if (t == 82) { CHECK(g_haveResp && g_resp.result == CR_ERROR && g_resp.reasons == (1u << RZ_OP), "arg 2: ERROR (RZ_OP)"); g_haveResp = false; cmd(OP_BOOST_TIERRA, 1); }
+    if (t == 84) CHECK(g_haveResp && g_resp.result == CR_OK && !(st().flags & TF_BOOST_TIERRA_OFF) && g_nvs["tbmis/bsa"][0] == 1, "boosttierra on: vuelve a activarse");
+    if (t >= 90 && t < 100) rafaga(true, 7.0f);
+    if (t == 120) CHECK(st().state == ST_FLY && (st().flags & TF_BOOST_SIN_ARMAR), "activada otra vez: el BOOST sin armar pasa a FLY");
+}
+
+// D-063: en ARMED el ajuste no importa: el BOOST se detecta igual
+static void esc_boost_tierra_off_armado(int t) {
+    sano();
+    if (t == 5) cmd(OP_BOOST_TIERRA, 0);
+    if (t == 10) armar();
+    if (t == 11) armarConfirma();
+    if (t >= 50 && t < 60) rafaga(true, 7.0f);
+    if (t == 80) {
+        printf("BOOST sin armar desactivado, cohete armado\n");
+        CHECK(st().state == ST_FLY && st().moment == M_BOOST && !(st().flags & TF_BOOST_SIN_ARMAR), "ARMED: BOOST -> FLY como siempre");
+    }
+}
+
+// D-063: el "si" vale si los motivos de ahora son los confirmados o menos; si aparece uno nuevo, se vuelve a preguntar
+static void esc_confirma_menos(int t) {
+    sano();
+    if (t < 10) g_ambBits = 1 | 8;                             // sin muestra (bloquea) y deriva (aviso: no cuenta)
+    if (t == 10) { g_haveResp = false; armar(); }
+    if (t == 12) {
+        printf("confirmacion con menos motivos\n");
+        CHECK(g_haveResp && g_resp.result == CR_NO_APTO && g_resp.reasons == (1u << RZ_TEMP), "ARM: NO_APTO solo por RZ_TEMP (la deriva del BMP no cuenta)");
+        g_ambBits = 8;                                         // la muestra quedo lista antes del "si"
+        g_haveResp = false; cmd((uint8_t)(OP_ARM | OP_CONFIRM), 0, 1u << RZ_TEMP);
+    }
+    if (t == 14) CHECK(g_haveResp && g_resp.result == CR_OK && st().state == ST_ARMED, "si con un motivo que ya no esta: ARMED");
+    if (t == 16) { g_haveResp = false; cmd(OP_DISARM); }
+    if (t == 18) { CHECK(st().state == ST_TIERRA, "desarmado"); g_ambBits = 1; g_haveResp = false; armar(); }
+    if (t == 20) {
+        CHECK(g_haveResp && g_resp.result == CR_NO_APTO && g_resp.reasons == (1u << RZ_TEMP), "ARM otra vez: NO_APTO por RZ_TEMP");
+        g_lsmVivo = false;                                     // el LSM se cae: en 0.5 s aparece RZ_LSM, que no se confirmo
+    }
+    if (t == 50) { g_haveResp = false; cmd((uint8_t)(OP_ARM | OP_CONFIRM), 0, 1u << RZ_TEMP); }
+    if (t == 52) CHECK(g_haveResp && g_resp.result == CR_NO_APTO && (g_resp.reasons & (1u << RZ_LSM)) && st().state == ST_TIERRA, "si con un motivo nuevo (LSM): vuelve a preguntar, no ejecuta");
+}
+
 static void esc_armado(int t) {
     sano();
     if (t == 10) armar();
@@ -775,6 +835,9 @@ int main(int argc, char **argv) {
     else if (n == "pi_hermes") { g_escenario = esc_pi_hermes; rocket = 2; ticks = 120; }
     else if (n == "sueno") { g_escenario = esc_sueno; ticks = 110; }
     else if (n == "d051") { g_escenario = esc_d051; ticks = 30; }
+    else if (n == "boost_tierra_off") { g_escenario = esc_boost_tierra_off; ticks = 130; }
+    else if (n == "boost_tierra_off_armado") { g_escenario = esc_boost_tierra_off_armado; ticks = 90; }
+    else if (n == "confirma_menos") { g_escenario = esc_confirma_menos; ticks = 60; }
     else if (n == "a_fly") { g_escenario = esc_a_fly; ticks = 700; }
     else if (n == "a_fly_sin_armar") { g_escenario = esc_a_fly_sin_armar; ticks = 100; }
     else if (n == "a_fly_forzado") { g_escenario = esc_a_fly_forzado; ticks = 30; }

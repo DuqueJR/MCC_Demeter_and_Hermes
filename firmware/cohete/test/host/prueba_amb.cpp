@@ -58,6 +58,8 @@ int main() {
     CHECK(revisarArmado(true, buena, 13 * 3600, 28.0f, 28.5f) == AB_VIEJA, "muestra de hace 13 h: vieja");
     CHECK(revisarArmado(true, buena, 60, 35.0f, 35.5f) == AB_DERIVA, "BMP 7 C por encima de la muestra: deriva");
     CHECK(revisarArmado(true, buena, 60, 28.0f, 33.0f) == AB_BMP_BME, "BMP y BME de ahora a 5 C: discrepan");
+    CHECK(!(AB_BLOQUEA & (AB_DERIVA | AB_BMP_BME)) && (AB_BLOQUEA & AB_SIN) && (AB_BLOQUEA & AB_DUDOSA) && (AB_BLOQUEA & AB_VIEJA),
+          "D-063: al armar solo piden confirmar sin muestra, dudosa y vieja; deriva y BMP contra BME son avisos");
     const Muestra dudosa = evaluar(serie(28.0f, 0.0f), serie(31.0f, 0.0f), F_ENCENDIDO);
     CHECK(revisarArmado(true, dudosa, 60, 28.0f, 29.0f) == AB_DUDOSA, "muestra dudosa: no apto");
     Muestra mano = dudosa; mano.fuente = F_MANO;

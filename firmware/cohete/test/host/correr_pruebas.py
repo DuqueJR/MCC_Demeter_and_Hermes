@@ -317,7 +317,10 @@ def main():
                      ("launch_sin_boost", "LAUNCH sin BOOST: registra, avisa a los 120 s, el BOOST tardio apaga el aviso"),
                      ("baro", "BOOST barometrico (arg 2) con el salto en cm"),
                      ("qmi_con_lsm", "el QMI no cuenta si el LSM esta fresco"),
-                     ("qmi_sin_lsm", "el QMI da el BOOST si el LSM no tiene datos")):
+                     ("qmi_sin_lsm", "el QMI da el BOOST si el LSM no tiene datos"),
+                     ("boost_tierra_off", "D-063: boosttierra off ignora el BOOST en TIERRA (flag 32, NVS); on lo devuelve"),
+                     ("boost_tierra_off_armado", "D-063: con boosttierra off, el BOOST armado pasa a FLY igual"),
+                     ("confirma_menos", "D-063: el si vale con menos motivos; con uno nuevo vuelve a preguntar; la deriva del BMP no frena el ARM")):
         r = subprocess.run([str(BUILD / "prueba_mision"), esc], capture_output=True, text=True)
         anotar("mision: " + que, r.returncode == 0, "ver `build/prueba_mision %s`" % esc if r.returncode else "todas las comprobaciones pasan")
         if r.returncode:

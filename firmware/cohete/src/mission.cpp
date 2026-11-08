@@ -63,6 +63,8 @@ static int64_t s_boostUtcMs = -1;
 
 static volatile uint8_t s_state = ST_TIERRA, s_moment = M_NONE, s_flags = 0, s_ack = 0;
 static bool     s_boosted = false;
+static bool     s_boostTierra = true;      // detectar BOOST en TIERRA (BOOST sin armar); OP_BOOST_TIERRA lo cambia y queda en NVS ("bsa", D-063)
+static inline uint8_t flagsOut() { return (uint8_t)(s_flags | (s_boostTierra ? 0 : TF_BOOST_TIERRA_OFF)); }
 static int64_t  s_abortAt = 0, s_recEndAt = 0;
 static bool     s_abortOn = false;
 static volatile uint32_t s_sleepAt = 0, s_resetAt = 0;
@@ -206,7 +208,7 @@ static uint32_t readyReasons() {
         const uint8_t pi = piStatus();
         if (pi != piplan::PS_READY && pi != piplan::PS_ARMED) m |= rz(RZ_PI_NO_LISTA);
     }
-    if (ambArmBits()) m |= rz(RZ_TEMP);                // temperatura del suelo dudosa (D-058); se puede forzar con confirmacion
+    if (ambArmBits() & amb::AB_BLOQUEA) m |= rz(RZ_TEMP);   // muestra de temperatura sin tomar, dudosa o vieja (D-058, D-063); se puede forzar con confirmacion
     return m | motionReasons();
 }
 
@@ -258,6 +260,7 @@ static uint32_t evaluate(uint8_t op, uint8_t arg) {
     case OP_RESET:     return s_state == ST_TIERRA ? 0 : ((s_state == ST_FLY && s_boosted) ? rz(RZ_EN_VUELO) | motionReasons() : rz(RZ_TRANSICION));
     case OP_SET_STATE: return arg >= ST_TIERRA && arg <= ST_RECOVERY ? evalTo(arg) : rz(RZ_OP);
     case OP_BUZZER:    return arg <= 1 ? 0 : rz(RZ_OP);                  // apto en cualquier estado: sirve para el banco y para buscar el cohete
+    case OP_BOOST_TIERRA: return arg <= 1 ? 0 : rz(RZ_OP);               // apto en cualquier estado: solo cambia lo que pasa en TIERRA
     case OP_PI_POWER:
         if (s_rocket != ROCKET_DEMETER) return rz(RZ_OP);                // Hermes no tiene Pi: IO45 queda sin usar
         // Sin la UART con la Pi (T-702) no se sabe si esta encendida, y una pulsacion podria apagarla: siempre pide confirmacion
@@ -290,7 +293,7 @@ static void logTransition(uint8_t op, uint8_t arg, uint8_t result, uint8_t from,
     MissionLog l; memset(&l, 0, sizeof(l));
     l.t_us = esp_timer_get_time();
     l.r.counter = counter; l.r.reasons = reasons;
-    l.r.op = op; l.r.arg = arg; l.r.result = result; l.r.from = from; l.r.to = s_state; l.r.moment = s_moment; l.r.flags = s_flags;
+    l.r.op = op; l.r.arg = arg; l.r.result = result; l.r.from = from; l.r.to = s_state; l.r.moment = s_moment; l.r.flags = flagsOut();
     xQueueSend(s_logQ, &l, 0);
 }
 
@@ -341,6 +344,7 @@ static void setState(uint8_t to, bool save = true) {
 static void onBoost(uint8_t kind, uint32_t value) {
     const uint8_t from = s_state;
     if (from == ST_RECOVERY || (from == ST_FLY && s_moment >= M_BOOST)) return;      // ya en BOOST o despues: nada
+    if (from == ST_TIERRA && !s_boostTierra) return;                                 // BOOST sin armar desactivado por comando (D-063)
     if (from == ST_TIERRA) s_flags = (uint8_t)(s_flags | TF_BOOST_SIN_ARMAR);        // hasta un reinicio o el paso a TIERRA
     if (from != ST_FLY) setState(ST_FLY, false);                                     // desde ARMED: el archivo ya esta preparado. Se guarda abajo, una sola vez, con el momento BOOST
     s_moment = M_BOOST; s_boosted = true; s_abortOn = false;
@@ -378,6 +382,7 @@ static void execute(uint8_t op, uint8_t arg) {
         if (s_state == ST_FLY) persistSave();          // cada cambio de momento (seccion 8)
         break;
     case OP_BUZZER:    extActBuzzer(arg != 0, millis()); break;
+    case OP_BOOST_TIERRA: s_boostTierra = arg != 0; s_prefs.putUChar("bsa", arg ? 1 : 0); break;
     case OP_PI_POWER:  if (s_rocket == ROCKET_DEMETER) extActPiPulse(millis()); break;     // en Hermes no hay nada que pulsar
     case OP_CAL_ANALIZAR:  calAnalizar(); break;
     case OP_CAL_APLICAR:   calAplicar(); break;
@@ -390,7 +395,7 @@ static void execute(uint8_t op, uint8_t arg) {
 static void reply(const Cmd &c, uint8_t result, uint32_t reasons, bool store) {
     CmdResp r; memset(&r, 0, sizeof(r));
     r.type = P_CMD_RESP; r.rocket_id = s_rocket; r.op = c.op; r.arg = c.arg;
-    r.result = result; r.state = missionStateByte(); r.flags = s_flags;
+    r.result = result; r.state = missionStateByte(); r.flags = flagsOut();
     r.spare_pct = loggerStats().sparePct;
     r.counter = c.counter; r.reasons = reasons; r.last_counter = s_lastCounter;
     const float dm = s_alt * 10.0f, cms = s_vz * 100.0f;
@@ -428,7 +433,9 @@ static void handleCmd(const Cmd &c) {
     if (confirming) {
         const bool valid = s_pendOn && s_pendOp == op && s_pendArg == c.arg && s_pendMask == c.reasons && millis() - s_pendMs <= CONFIRM_WINDOW_MS;
         if (!valid) { s_pendOn = false; reply(c, CR_ERROR, rz(RZ_CONFIRM), true); logTransition(c.op, c.arg, CR_ERROR, from, c.counter, rz(RZ_CONFIRM)); return; }
-        if (mask != c.reasons && (mask || needsTwoSteps)) {       // la situacion cambio: lo confirmado ya no es lo que hay
+        // Aparecio un motivo que no se confirmo: lo confirmado ya no es lo que hay. Si solo se fueron motivos (un barometro que
+        // oscila, una lectura que se calmo), la situacion no empeoro y vale el "si" (D-063).
+        if (mask & ~c.reasons) {
             s_pendMask = mask; s_pendMs = millis();
             result = mask ? CR_NO_APTO : CR_CONFIRMA;
         } else {
@@ -511,6 +518,7 @@ void missionBegin(uint8_t rocketId) {
     s_jump.configure(s_cfg->jump_m, s_cfg->jump_s, BOOST_BARO_EVAL);
     s_prefs.begin("tbmis", false);
     s_lastCounter = s_prefs.getULong("ctr", 0);
+    s_boostTierra = s_prefs.getUChar("bsa", 1) != 0;       // por defecto activa, como antes de D-063
     s_q = xQueueCreate(4, sizeof(Cmd));
     s_logQ = xQueueCreate(8, sizeof(MissionLog));
     persistRestore();
@@ -520,7 +528,7 @@ void missionBegin(uint8_t rocketId) {
 void missionOnCmd(const Cmd &c) { if (s_q) xQueueSend(s_q, &c, 0); }
 bool missionTakeLog(MissionLog &l) { return s_logQ && xQueueReceive(s_logQ, &l, 0) == pdTRUE; }
 uint8_t missionStateByte() { return (uint8_t)(s_state | (s_moment << 4)); }
-uint8_t missionFlags() { return s_flags; }
+uint8_t missionFlags() { return flagsOut(); }
 uint8_t missionAck() { return s_ack; }
 
 bool missionTakeSleep() {
@@ -539,7 +547,7 @@ bool missionTakeReset() {
 
 MissionStats missionStats() {
     MissionStats s;
-    s.state = s_state; s.moment = s_moment; s.flags = s_flags;
+    s.state = s_state; s.moment = s_moment; s.flags = flagsOut();
     s.altM = s_alt; s.vzMps = s_vz; s.baroSrc = s_src;
     s.cmds = s_cmds; s.lastCounter = s_lastCounter;
     s.lastReasons = s_haveResp ? s_lastResp.reasons : 0;

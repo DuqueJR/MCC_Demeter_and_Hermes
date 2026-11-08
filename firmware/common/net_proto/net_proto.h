@@ -27,7 +27,8 @@ static const int64_t  RX_OPEN_US    = 6000;    // el cohete abre recepcion antes
 static const int64_t  RX_CLOSE_US   = 24000;   // y la cierra aqui: alcanza para un paquete de tierra de hasta 32 B
 
 enum PktType  : uint8_t { P_TELEM = 1, P_BEACON = 2, P_CMD = 3, P_CMD_RESP = 4, P_LOG_INFO = 5, P_AMB = 6, P_CAL_RES = 7 };
-enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8, TF_REANUDADO = 16 };
+// TF_BOOST_TIERRA_OFF: la deteccion de BOOST en TIERRA (BOOST sin armar) esta desactivada por comando (OP_BOOST_TIERRA, D-063); es un ajuste, no un estado
+enum TelemFlags : uint8_t { TF_FLYING = 1, TF_BOOST_SIN_ARMAR = 2, TF_FORZADO = 4, TF_LAUNCH_VENCIDO = 8, TF_REANUDADO = 16, TF_BOOST_TIERRA_OFF = 32 };
 
 // Estados de la LilyGo y momentos del vuelo. En telemetria van juntos: estado en los 4 bits bajos, momento en los 4 altos.
 enum State  : uint8_t { ST_NONE = 0, ST_TIERRA = 1, ST_ARMED = 2, ST_FLY = 3, ST_RECOVERY = 4 };
@@ -36,6 +37,7 @@ enum Moment : uint8_t { M_NONE = 0, M_LAUNCH = 1, M_BOOST = 2, M_COAST = 3, M_AP
 // Comandos. Con OP_CONFIRM en op, es la confirmacion de un comando que el cohete declaro no apto (o de ARM).
 enum Op : uint8_t { OP_PING = 1, OP_ARM = 2, OP_DISARM = 3, OP_LAUNCH = 4, OP_ABORT = 5, OP_SLEEP = 6, OP_SET_STATE = 7, OP_SET_MOMENT = 8, OP_RESET = 9, OP_BUZZER = 10, OP_PI_POWER = 11,
                OP_CAL_ANALIZAR = 12, OP_CAL_APLICAR = 13, OP_CAL_DESCARTAR = 14, OP_CAL_ANTERIOR = 15,   // calibracion a bordo (D-059)
+               OP_BOOST_TIERRA = 16,    // arg 1: detectar BOOST en TIERRA (BOOST sin armar); 0: no. Queda en NVS (D-063)
                OP_CONFIRM = 0x80 };
 // CR_OK: ejecutado. CR_NO_APTO: no ejecutado, con motivos; espera confirmacion. CR_CONFIRMA: apto, pero pide segundo paso (ARM). CR_ERROR: no ejecutado, sin confirmacion posible.
 enum CmdResult : uint8_t { CR_OK = 0, CR_NO_APTO = 1, CR_CONFIRMA = 2, CR_ERROR = 3 };

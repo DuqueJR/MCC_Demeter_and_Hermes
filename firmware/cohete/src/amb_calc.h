@@ -65,6 +65,10 @@ inline Muestra evaluar(const Serie &bmp, const Serie &bme, uint8_t fuente) {
 // Motivos para no armar (bits de abajo; mission los convierte en RZ_TEMP): sin muestra, dudosa, vieja, o el BMP de ahora muy lejos
 // de la muestra o del BME de ahora.
 enum ArmBits : uint8_t { AB_SIN = 1, AB_DUDOSA = 2, AB_VIEJA = 4, AB_DERIVA = 8, AB_BMP_BME = 16 };
+// Solo lo que es de la muestra guardada pide confirmar al armar (RZ_TEMP): no cambia mientras se arma. AB_DERIVA y AB_BMP_BME comparan
+// lecturas de ahora, que suben y bajan con el calentamiento de la electronica y el sol: eran inestables y la confirmacion fallaba
+// porque los motivos cambiaban entre el pedido y el "si" (D-063). Quedan como avisos en tierra.
+static const uint8_t AB_BLOQUEA = AB_SIN | AB_DUDOSA | AB_VIEJA;
 inline uint8_t revisarArmado(bool hay, const Muestra &m, int64_t edad_s, float t_bmp_ahora, float t_bme_ahora) {
     if (!hay) return AB_SIN;
     uint8_t b = 0;

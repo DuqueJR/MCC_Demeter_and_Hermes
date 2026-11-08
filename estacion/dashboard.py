@@ -32,9 +32,10 @@ CAL_AVISOS_MAG = {0: 'sin datos', 1: 'el ajuste fallo (pocas muestras o sin cobe
                   7: 'inclinacion dudosa o cambia mucho entre posiciones'}
 AMB_FUENTE = ['-', 'sueno largo', 'encendido', 'a mano']
 AMB_ARM = {1: 'sin muestra', 2: 'dudosa', 4: 'vieja', 8: 'el BMP se alejo de la muestra', 16: 'BMP y BME discrepan'}
+AMB_ARM_BLOQUEA = 1 | 2 | 4      # solo esto pide confirmar al armar (amb_calc.h AB_BLOQUEA, D-063); 8 y 16 son avisos que oscilan
 STATES = ['-', 'TIERRA', 'ARMED', 'FLY', 'RECOVERY']
 MOMENTS = ['-', 'LAUNCH', 'BOOST', 'COAST', 'APOGEO', 'CAIDA', 'PARACAIDAS', 'ATERRIZAJE']
-TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO = 2, 4, 8, 16   # TF_REANUDADO: T-411, D-052
+TF_BOOST_SIN_ARMAR, TF_FORZADO, TF_LAUNCH_VENCIDO, TF_REANUDADO, TF_BOOST_TIERRA_OFF = 2, 4, 8, 16, 32   # TF_REANUDADO: T-411, D-052; TF_BOOST_TIERRA_OFF: D-063
 ACT_BUZZER, ACT_PI_EN_CURSO, ACT_PI_ENVIADO = 1, 2, 4       # bits de TELEM.actuators (protocolo_paquetes.md seccion 2, T-413)
 PI_MOTIVO = {0: '', 1: 'SD_ESPACIO', 2: 'SD_LENTA', 3: 'RAM', 4: 'CAMARA', 5: 'TELEMETRIA', 6: 'PROCESO', 7: 'ARCHIVOS', 31: 'OTRO'}   # bits 3-7 de TELEM.actuators (demeter_protocol.ErrorCode, D-056)
 PI_STATUS = {0x00: 'BOOT', 0x01: 'PREFLIGHT', 0x02: 'READY', 0x03: 'ARMED', 0x04: 'STARTING', 0x05: 'INGESTING', 0x06: 'PROCESSING', 0x07: 'COMPLETE', 0x08: 'ASCENT', 0x30: 'RECORDING', 0xE0: 'ABORTED', 0xE1: 'SD_FULL', 0xE2: 'RATE_FALLBACK', 0xE3: 'TELEMETRY_LOST', 0xE4: 'ABORT_REQUESTED', 0xE5: 'CLOCK_UNSYNCED', 0xEF: 'PIPELINE_ERROR', 0xFF: 'desconocido'}   # byte alto de TELEM.actuators (ext_pi)
@@ -316,6 +317,11 @@ def note_telem(rid, old, new):
         event(f'{name}: BOOST SIN ARMAR')
     if up & TF_FORZADO:
         event(f'{name}: modo FORZADO')
+    down = old['flags'] & ~new['flags']
+    if up & TF_BOOST_TIERRA_OFF:
+        event(f'{name}: BOOST sin armar DESACTIVADO (no detecta BOOST en TIERRA)')
+    if down & TF_BOOST_TIERRA_OFF:
+        event(f'{name}: BOOST sin armar activado')
     if up & TF_REANUDADO:
         event(f'{name}: REANUDADO tras un reinicio (retomo {STATES[new["state"]] if new["state"] <= 4 else "?"})')
     act_up, act_down = new['actuators'] & ~old['actuators'], old['actuators'] & ~new['actuators']
@@ -380,7 +386,8 @@ def ground_line(line):
             return
         cC = lambda v: None if v == -32768 else v / 100.0
         a = dict(t=time.time(), hay=bool(f[2] & 1), dudosa=bool(f[2] & 2), fuente=AMB_FUENTE[(f[2] >> 2) & 3], tomando=bool(f[2] & 16),
-                 arm=f[3], arm_txt=', '.join(v for k, v in AMB_ARM.items() if f[3] & k), p=None if f[4] != f[4] else round(f[4], 1),
+                 arm=f[3] & AMB_ARM_BLOQUEA, arm_txt=', '.join(v for k, v in AMB_ARM.items() if f[3] & k & AMB_ARM_BLOQUEA),
+                 aviso_txt=', '.join(v for k, v in AMB_ARM.items() if f[3] & k & ~AMB_ARM_BLOQUEA), p=None if f[4] != f[4] else round(f[4], 1),
                  t_bmp=cC(f[5]), t_bme=cC(f[6]), t_suelo=cC(f[7]), edad_min=None if f[8] == 0xFFFF else f[8])
         with lock:
             prev = ambinfo.get(f[1])
@@ -389,7 +396,7 @@ def ground_line(line):
             if a['hay'] and (not prev or not prev['hay'] or prev['t_suelo'] != a['t_suelo']):
                 event(f"{name}: temperatura del suelo {a['t_suelo']:.2f} C ({a['fuente']}, {'dudosa' if a['dudosa'] else 'buena'})")
             if prev and prev['arm'] != a['arm']:
-                event(f"{name}: temperatura para armar: " + (a['arm_txt'] or 'sirve'))
+                event(f"{name}: muestra de temperatura al armar: " + ('pedira confirmar (' + a['arm_txt'] + ')' if a['arm'] else 'lista'))
         return
     if line.startswith('@C '):
         try:
@@ -563,6 +570,9 @@ class DemoLink:
             elif p[1] == 'buzzer':
                 self.act[rid] = self.act[rid] | ACT_BUZZER if p[2] == 'on' else self.act[rid] & ~ACT_BUZZER
                 ground_line(f'[cmd ] {name}: EJECUTADO | buzzer {p[2]}')
+            elif p[1] == 'boosttierra':
+                self.st[rid][2] = self.st[rid][2] & ~TF_BOOST_TIERRA_OFF if p[2] == 'on' else self.st[rid][2] | TF_BOOST_TIERRA_OFF
+                ground_line(f'[cmd ] {name}: EJECUTADO | boosttierra {p[2]}')
             elif p[1] == 'armar':
                 self.pending = (rid, 2)
                 ground_line(f'[cmd ] {name}: APTO | estado=TIERRA')
@@ -652,7 +662,7 @@ def rocket_view(rid):
             modo.append('REANUDADO')
         if t['utc_ms'] == 0:
             modo.append('SIN HORA')
-        view.update(modo=' + '.join(modo) or 'NORMAL', stale=False)
+        view.update(modo=' + '.join(modo) or 'NORMAL', stale=False, boost_tierra=not t['flags'] & TF_BOOST_TIERRA_OFF)
     elif usb and now - usb['t'] < STALE_S:
         kv = dict(usb['kv'])
         view.update(estado=kv.get('estado', '-'), momento=kv.get('momento', '-'), modo='SOLO USB', stale=False)
