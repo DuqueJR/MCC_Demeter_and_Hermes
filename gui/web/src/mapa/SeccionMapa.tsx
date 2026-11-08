@@ -4,6 +4,7 @@
 // página no descarga ni una línea de MapLibre, y sin mapa sigue siendo útil.
 import type { ComponentType } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { TelemetriaMapa } from "../mision/Telemetria";
 import { CoordenadasMapa } from "./CoordenadasMapa";
 import { MAPA_MARGEN_CARGA_PX } from "./constantes";
 import { Leyenda } from "./Leyenda";
@@ -98,6 +99,7 @@ export function SeccionMapa({ coheteMapa }: { coheteMapa?: string }) {
           </p>
         )}
         <CoordenadasMapa />
+        <TelemetriaMapa />
       </div>
       {Mapa && <Leyenda />}
     </section>

@@ -18,6 +18,7 @@ const MEDIDAS = [
   { ancho: 768, alto: 1024 },
   { ancho: 1440, alto: 900 },
 ] as const;
+// T-674: "estado" va dentro de Inicio y "telemetria" dentro del mapa; las dos conservan su ancla.
 const SECCIONES_DE_DATOS = [
   "estado",
   "telemetria",
@@ -99,7 +100,6 @@ test.describe("navegación por anclas", () => {
       await expect(nav).toBeVisible();
       for (const [texto, id] of [
         ["Mapa", "mapa"],
-        ["Datos", "telemetria"],
         ["Equipo", "equipo"],
         ["Estado", "estado"],
       ] as const) {

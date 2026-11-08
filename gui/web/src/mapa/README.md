@@ -20,6 +20,7 @@ La sección "Mapa" de `/demeter/` y `/hermes/` ([03 §3.4](../../../../docs/08_g
 | `relieve.ts`                 | El relieve (T-649): pide `relieve.json` y las curvas de nivel, los valida y arma la URL de las teselas. Si faltan, devuelve `null` y el mapa queda como antes                                                           | Chunk diferido       |
 | `estado_relieve.ts`          | Una `signal` que dice si el mapa tiene relieve; la lee la leyenda (JS inicial) para nombrarlo solo cuando se ve                                                                                                         | JS inicial (mínimo)  |
 | `CoordenadasMapa.tsx`        | La etiqueta compacta de coordenadas sobre el marco (T-671): lat, lon y altura sobre el nivel del mar; ver abajo                                                                                                         | JS inicial (pequeño) |
+| (`../mision/Telemetria.tsx`) | `TelemetriaMapa`: el panel de telemetría superpuesto al marco (T-674); lo pone `SeccionMapa.tsx`; ver abajo                                                                                                             | JS inicial (pequeño) |
 - **MapLibre no está en el JS inicial de la misión.** El worker de MapLibre se emite como un archivo aparte (`maplibre-gl-worker-*.mjs`) y se registra con `setWorkerUrl`: el empaquetado no lo deja junto al chunk, que es donde MapLibre lo busca por defecto.
 - **El mapa solo lee** `meta`, `estado`, `estacion`, `serie`, `estadoPagina` y `edad` de `datos/api.ts`. No escribe nada y no manda nada a ningún cohete (GS-14).
 
@@ -46,6 +47,13 @@ MapLibre pinta en un lienzo WebGL y necesita colores literales, pero [06 §6](..
 - **Qué punto:** la posición del cohete (`pos`); sin señal, el LKP con su "hace X s" en rojo y con la palabra. La altura sobre el nivel del mar solo la trae `pos`: si el LKP es otra posición, dice "sin dato". Sin posición válida: "Sin posición válida".
 - **Dónde vive:** en `SeccionMapa.tsx` (JS inicial), no en el chunk del mapa: se ve aunque MapLibre aún no haya cargado. La lógica pura es `vistaCoordenadasMapa` en `mision/vista_recuperacion.ts`.
 - **Accesibilidad:** sin `aria-live` (cambia varias veces por segundo): el lector la lee al llegar, no en cada cambio.
+
+### Telemetría sobre el mapa (T-674)
+
+- **Qué es:** una franja inferior, compacta y semitransparente, dentro del marco: altitud (con la última conocida en rojo), velocidad vertical con su flecha, velocidad total, apogeo y aceleración X/Y/Z, con las mismas reglas que tenía la sección "Telemetría" (`mision/vista_telemetria.ts`: "sin dato", dato viejo en gris con su antigüedad). Conserva el ancla `#telemetria`.
+- **Dónde vive:** en `SeccionMapa.tsx` (JS inicial), igual que las coordenadas: si el mapa falla o aún no carga, sigue a la vista. Se ve también en pantalla completa, porque está dentro del marco.
+- **Posición:** pegada al borde inferior; en el celular son dos filas de tres columnas (el T+ del apogeo no cabe y queda en el Resumen del vuelo) y desde 600 px una sola fila. `--alto-telemetria` (en `seccion.css`) sube la escala, la atribución y el aviso del mapa (`mapa.css`) sobre ella, para que la atribución, que no se puede tapar, siempre se lea. El fondo semitransparente va en un `::before` y el panel no captura gestos.
+- **El mapa encuadra con 72 px de relleno:** en portátil la franja no sube más de 60 px; en el celular (≈100 px) puede tapar la parte baja del relleno, pero el fondo es semitransparente.
 
 ### Gestos en el celular
 
