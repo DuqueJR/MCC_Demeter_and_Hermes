@@ -270,7 +270,6 @@
 }
 
 .salud-resumen svg,
-.salud-edad svg,
 .salud-causas svg,
 .salud-condiciones svg,
 .salud-estado svg,
@@ -287,12 +286,6 @@
 .salud-resumen[data-nivel="ok"] svg {
   color: var(--estado-ok);
 }
-.salud-resumen[data-nivel="aviso"] {
-  border-left-color: var(--estado-aviso);
-}
-.salud-resumen[data-nivel="aviso"] svg {
-  color: var(--estado-aviso);
-}
 .salud-resumen[data-nivel="falla"] {
   border-left-color: var(--estado-alarma);
 }
@@ -301,15 +294,6 @@
 }
 .salud-resumen[data-nivel="sin_dato"] {
   font-size: 1rem;
-  font-weight: 600;
-}
-
-.salud-edad {
-  display: flex;
-  align-items: center;
-  gap: var(--e-2);
-  margin: 0 0 var(--e-3);
-  color: var(--estado-sin-dato);
   font-weight: 600;
 }
 
@@ -345,12 +329,6 @@
   color: var(--estado-ok);
 }
 
-/* Sin dato (D-050): gris neutro, ni aviso ni falla. */
-.salud-sin-dato,
-.salud-sin-dato svg {
-  color: var(--estado-sin-dato);
-}
-
 /* El chip maestro Go/No-Go (solo en PREFLIGHT y ARMED). */
 .chip-go {
   display: inline-flex;
@@ -375,6 +353,19 @@
 }
 .chip-go-no svg {
   color: var(--estado-alarma);
+}
+/* Antes de armar: el cohete aún no responde, así que ni Go ni No-Go (T-658). Gris neutro. */
+.chip-go-espera {
+  border-color: var(--estado-sin-dato);
+}
+.chip-go-espera svg {
+  color: var(--estado-sin-dato);
+}
+
+.salud-go-nota {
+  margin: 0 0 var(--e-2);
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
 }
 
 /* El detalle desplegable. */
