@@ -19,7 +19,6 @@ const MEDIDAS = [
 
 /** Instantes (ms del escenario `nominal`): ver dev/datos/*_nominal.jsonl. */
 const T_SIN_FIX = 1_000;
-const T_PREFLIGHT_CON_POS = 5_000;
 const T_ARMADO = 10_000;
 const T_DESCENSO = 40_000;
 const BIT_BMP581 = 1;
@@ -54,35 +53,28 @@ const recuperacion = (page: Page) => page.locator("section#recuperacion");
 const salud = (page: Page) => page.locator("section#salud");
 const resumen = (page: Page) => salud(page).locator('[data-salud="resumen"]');
 
-test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
+// T-671 (D-065): el bloque de recuperación (coordenadas grandes, Maps, QR) es solo de LANDED. Antes,
+// las coordenadas van compactas en el mapa (e2e/recuperacion_landed.spec.ts) y la sección solo trae
+// el vector desde la estación.
+test.describe("Recuperación: antes de LANDED, solo el vector (sin QR ni coordenadas grandes)", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("en descenso: el centro de la elipse con la etiqueta 'estimado' y el enlace de Maps", async ({
-    page,
-  }) => {
+  test("en descenso: sin QR, sin Maps, sin Copiar; el vector y su frase sí", async ({ page }) => {
     const errores = vigilarErrores(page);
     await abrir(page, "demeter");
-    const snap = nominalEn("demeter", T_DESCENSO);
-    const elipse = snap.estado?.calc.elipse;
-    if (!elipse) throw new Error("el escenario debe traer elipse en el descenso");
-    await alimentar(page, snap);
+    await alimentar(page, nominalEn("demeter", T_DESCENSO));
 
     const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Punto de impacto");
-    await expect(r.locator(".recup-chip")).toHaveText("estimado");
-    // Coma decimal, 7 decimales (lat/lon del contrato) y el símbolo de grados.
-    await expect(r.locator('[data-coord="lat"]')).toHaveText(
-      `${elipse.lat.toFixed(7).replace(".", ",")}°`,
-    );
-    await expect(r.locator('[data-coord="lon"]')).toHaveText(
-      `${elipse.lon.toFixed(7).replace(".", ",").replace("-", "−")}°`,
-    );
-    const url = `https://www.google.com/maps/search/?api=1&query=${elipse.lat.toFixed(7)},${elipse.lon.toFixed(7)}`;
-    const enlace = r.getByRole("link", { name: "Abrir en Google Maps" });
-    await expect(enlace).toHaveAttribute("href", url);
-    await expect(enlace).toHaveAttribute("target", "_blank");
-    await expect(enlace).toHaveAttribute("rel", /noopener/);
-    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", url);
+    await expect(r).toHaveAttribute("data-aterrizado", "no");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toContainText("cuando el cohete aterrice");
+    await expect(r.locator('[data-recup="coordenadas"]')).toHaveCount(0);
+    await expect(r.locator(".recup-rotulo")).toHaveCount(0);
+    await expect(r.locator("svg.qr")).toHaveCount(0);
+    await expect(r.locator(".recup-qr")).toHaveCount(0);
+    await expect(r.locator("a")).toHaveCount(0);
+    await expect(r.getByRole("button")).toHaveCount(0);
+    // Ni el texto ni el QR quedan en el árbol de accesibilidad.
+    await expect(r.getByText("Abrir en Google Maps")).toHaveCount(0);
     // El vector: distancia, azimut y la brújula, con el norte arriba.
     await expect(r.locator('[data-vector="distancia"]')).toContainText(/\d+ m/);
     await expect(r.locator('[data-vector="azimut"]')).toContainText(/\d+°/);
@@ -91,9 +83,43 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     expect(errores).toEqual([]);
   });
 
+  test("LANDED: coordenadas grandes, enlace de Maps y QR con la posición real", async ({
+    page,
+  }) => {
+    const errores = vigilarErrores(page);
+    await abrir(page, "demeter");
+    const snap = aterrizado("demeter");
+    const pos = snap.estado?.pos;
+    if (!pos) throw new Error("LANDED debe traer pos");
+    await alimentar(page, snap);
+
+    const r = recuperacion(page);
+    await expect(r).toHaveAttribute("data-aterrizado", "si");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toHaveCount(0);
+    await expect(r.locator(".recup-rotulo")).toContainText("Posición del cohete en tierra");
+    await expect(r.locator(".recup-chip")).toHaveCount(0);
+    // Coma decimal, 7 decimales (lat/lon del contrato) y el símbolo de grados.
+    await expect(r.locator('[data-coord="lat"]')).toHaveText(
+      `${pos.lat.toFixed(7).replace(".", ",")}°`,
+    );
+    await expect(r.locator('[data-coord="lon"]')).toHaveText(
+      `${pos.lon.toFixed(7).replace(".", ",").replace("-", "−")}°`,
+    );
+    const url = `https://www.google.com/maps/search/?api=1&query=${pos.lat.toFixed(7)},${pos.lon.toFixed(7)}`;
+    const enlace = r.getByRole("link", { name: "Abrir en Google Maps" });
+    await expect(enlace).toHaveAttribute("href", url);
+    await expect(enlace).toHaveAttribute("target", "_blank");
+    await expect(enlace).toHaveAttribute("rel", /noopener/);
+    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", url);
+    await expect(r.getByRole("button", { name: "Copiar" })).toBeVisible();
+    await expect(r.locator('[data-vector="distancia"]')).toContainText(/\d+ m/);
+    expect(await sinDesborde(page)).toBe(true);
+    expect(errores).toEqual([]);
+  });
+
   test("el QR del celular está detrás de un toque y se abre y se cierra", async ({ page }) => {
     await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_DESCENSO));
+    await alimentar(page, aterrizado("demeter"));
     const r = recuperacion(page);
     const boton = r.getByRole("button", { name: /QR/ });
     await expect(r.locator(".recup-qr")).toBeHidden();
@@ -106,37 +132,37 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     await expect(r.locator(".recup-qr")).toBeHidden();
   });
 
-  test("LANDED: la posición real, sin 'estimado'", async ({ page }) => {
-    await abrir(page, "demeter");
-    const snap = aterrizado("demeter");
-    const pos = snap.estado?.pos;
-    expect(snap.estado?.fase).toBe("LANDED");
-    if (!pos) throw new Error("LANDED debe traer pos");
-    await alimentar(page, snap);
-    const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Posición del cohete en tierra");
-    await expect(r.locator(".recup-chip")).toHaveCount(0);
-    await expect(r.locator('[data-coord="lat"]')).toHaveText(
-      `${pos.lat.toFixed(7).replace(".", ",")}°`,
-    );
-  });
-
-  test("sin señal: el LKP en rojo con su antigüedad, que no desaparece (GS-03)", async ({
+  test("sin señal en tierra (LANDED): el LKP en rojo con su antigüedad, que no desaparece (GS-03)", async ({
     page,
   }) => {
     await abrir(page, "demeter");
-    const snap = nominalEn("demeter", T_DESCENSO);
     // Sin señal: el último paquete llegó hace 38 s (el reloj local avanza; el estado se queda).
-    await alimentar(page, snap, "conectado", 38_000);
+    await alimentar(page, aterrizado("demeter"), "conectado", 38_000);
     const r = recuperacion(page);
     const rotulo = r.locator(".recup-rotulo");
     await expect(rotulo).toContainText("Última posición conocida");
     await expect(rotulo.locator(".recup-edad")).toContainText(/hace \d+ s/);
     expect(await rotulo.evaluate((e) => getComputedStyle(e).color)).toBe("rgb(255, 77, 94)");
     await expect(r.getByRole("link", { name: "Abrir en Google Maps" })).toBeVisible();
+    await expect(r.locator("svg.qr")).toHaveAttribute("data-qr-url", /query=/);
   });
 
-  test("sin posición ni elipse: una frase, sin botón muerto ni QR de null,null", async ({
+  test("LANDED sin posición ni LKP: una frase, sin botón muerto ni QR de null,null", async ({
+    page,
+  }) => {
+    await abrir(page, "demeter");
+    const base = aterrizado("demeter");
+    if (!base.estado) throw new Error("LANDED debe traer estado");
+    await alimentar(page, { ...base, estado: { ...base.estado, pos: null, lkp: null } });
+    const r = recuperacion(page);
+    await expect(r.locator('[data-recup="vacio"]')).toContainText("sin fix");
+    await expect(r.locator("a")).toHaveCount(0);
+    await expect(r.locator("svg.qr")).toHaveCount(0);
+    await expect(r.getByRole("button", { name: /Copiar|QR/ })).toHaveCount(0);
+    expect(await r.innerHTML()).not.toContain("null");
+  });
+
+  test("sin posición antes de LANDED: el vector, sin dato, se dice con palabras", async ({
     page,
   }) => {
     await abrir(page, "demeter");
@@ -145,31 +171,19 @@ test.describe("Recuperación: el punto, el botón, el QR y el vector", () => {
     expect(snap.estado?.pos).toBeNull();
     await alimentar(page, snap);
     const r = recuperacion(page);
-    await expect(r.locator('[data-recup="vacio"]')).toContainText("sin fix");
     await expect(r.locator("a")).toHaveCount(0);
     await expect(r.locator("svg.qr")).toHaveCount(0);
-    await expect(r.getByRole("button", { name: /Copiar|QR/ })).toHaveCount(0);
     expect(await r.innerHTML()).not.toContain("null");
-    // El vector, sin dato, se dice con palabras.
     await expect(r.locator('[data-vector="distancia"]')).toContainText("sin dato");
     await expect(r.locator("[data-brujula] polygon")).toHaveCount(0);
   });
 
-  test("sin ningún dato todavía: estado vacío claro", async ({ page }) => {
+  test("sin ningún dato todavía: la frase de espera, sin enlaces", async ({ page }) => {
     await abrir(page, "demeter");
     const r = recuperacion(page);
-    await expect(r.locator('[data-recup="vacio"]')).toContainText("Todavía no hay posición");
+    await expect(r.locator('[data-recup="en-vuelo"]')).toBeVisible();
     await expect(r.locator("a")).toHaveCount(0);
-  });
-
-  test("antes de la elipse pero con fix: la posición actual, sin hacerla pasar por estimado", async ({
-    page,
-  }) => {
-    await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_PREFLIGHT_CON_POS));
-    const r = recuperacion(page);
-    await expect(r.locator(".recup-rotulo")).toContainText("Posición actual del cohete");
-    await expect(r.locator(".recup-chip")).toContainText("sin estimado");
+    await expect(r.locator("svg.qr")).toHaveCount(0);
   });
 });
 
@@ -343,7 +357,7 @@ test.describe("QR visible al lado en el portátil", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await abrir(page, "demeter");
-    await alimentar(page, nominalEn("demeter", T_DESCENSO));
+    await alimentar(page, aterrizado("demeter"));
     const r = recuperacion(page);
     await expect(r.locator("svg.qr")).toBeVisible();
     await expect(r.getByRole("button", { name: /QR/ })).toBeHidden();
@@ -542,7 +556,6 @@ test.describe("capturas de la bitácora", () => {
         await alimentar(page, nominalEn("demeter", T_DESCENSO));
         await salud(page).locator("summary").click();
         await page.waitForTimeout(300);
-        if (med.ancho < 1024) await recuperacion(page).getByRole("button", { name: /QR/ }).click();
         await recuperacion(page).scrollIntoViewIfNeeded();
         await recuperacion(page).screenshot({
           path: `${CAPTURAS}/recuperacion-nominal-${medida}.png`,

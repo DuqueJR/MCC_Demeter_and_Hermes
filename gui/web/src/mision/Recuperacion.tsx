@@ -2,14 +2,19 @@
 // Google Maps, el QR y el vector desde la estación. Consume SOLO las signals de lectura de
 // `datos/api.ts`; la lógica está en `vista_recuperacion.ts`.
 // Los datos que faltan se dicen con una frase: nunca un botón muerto ni un QR de `null,null`.
-import { computed } from "@preact/signals";
+//
+// T-671 (D-065): el bloque de recuperación (coordenadas grandes, Copiar, Maps y QR) existe SOLO en
+// LANDED. Antes, ni siquiera está en el DOM (no basta con ocultarlo: quedaría en el árbol de
+// accesibilidad) y la sección muestra solo el vector desde la estación. Las coordenadas del vuelo van
+// compactas dentro del mapa (`mapa/CoordenadasMapa.tsx`).
 import { Check, Copy, ExternalLink, MapPin, QrCode, Target, TriangleAlert } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { edad, estado, estadoPagina } from "../datos/api";
+import { estado } from "../datos/api";
 import { copiarTexto, type ResultadoCopia } from "./copiar";
 import { hace, numero } from "./formato";
 import { Qr } from "./Qr";
 import "./recuperacion_salud.css";
+import { edadS, MS_POR_S, principal } from "./senales_recuperacion";
 import {
   DECIMALES_AZIMUT,
   DECIMALES_DISTANCIA,
@@ -21,12 +26,6 @@ import {
 
 /** Cuánto se queda el aviso "copiado" visible. */
 const AVISO_COPIA_MS = 2500;
-const MS_POR_S = 1000;
-
-/** Solo cambia cuando cambia el estado principal: no repinta con cada tic del reloj. */
-const principal = computed(() => estadoPagina.value.principal);
-/** La edad del dato en segundos enteros: se repinta una vez por segundo, no por tic. */
-const edadS = computed(() => (edad.value === null ? null : Math.floor(edad.value / MS_POR_S)));
 
 /** El nombre de cada punto cardinal, para quien usa lector de pantalla. */
 const NOMBRE_CARDINAL: Record<PuntoCardinal, string> = {
@@ -132,11 +131,16 @@ export function Recuperacion() {
       class="seccion recuperacion"
       aria-labelledby="recuperacion-titulo"
       data-aterrizado={v.aterrizado ? "si" : "no"}
-      data-origen={v.punto?.origen ?? "ninguno"}
+      data-origen={v.aterrizado ? (v.punto?.origen ?? "ninguno") : "ninguno"}
     >
       <h2 id="recuperacion-titulo">Recuperación</h2>
 
-      {v.punto === null || !conMapa ? (
+      {!v.aterrizado ? (
+        <p class="recup-nota recup-en-vuelo" data-recup="en-vuelo">
+          El QR y las coordenadas para recuperarlo aparecen aquí cuando el cohete aterrice. Mientras
+          vuela, su posición está en el mapa.
+        </p>
+      ) : v.punto === null || !conMapa ? (
         <p class="recup-vacio" data-recup="vacio">
           <TriangleAlert aria-hidden="true" />
           <span>{v.sinPunto ?? "No hay una posición válida del cohete."}</span>
@@ -228,11 +232,6 @@ export function Recuperacion() {
             </div>
           </dl>
         </div>
-        {v.punto?.origen === "estimado" && (
-          <p class="recup-nota">
-            Distancia y rumbo al cohete en este momento, no al punto estimado de impacto.
-          </p>
-        )}
       </div>
     </section>
   );
