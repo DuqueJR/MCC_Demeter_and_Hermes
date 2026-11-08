@@ -11,6 +11,7 @@ import { demeter } from "../contenido/demeter";
 import { arrancarDatos } from "../mision/arranque";
 import { Hueco } from "../mision/Hueco";
 import { Pagina } from "../mision/Pagina";
+import { SeccionPi } from "../mision/SeccionPi";
 import { descargarGuion } from "../simulacion/guion";
 
 const simulacion = {
@@ -20,11 +21,17 @@ const simulacion = {
 
 const raiz = document.getElementById("app");
 if (raiz) {
-  // Los ojos de Deméter (03 §3.9): sección exclusiva de esta misión. Su lógica llega con T-626.
+  // Secciones exclusivas de esta misión (Hermes no tiene Pi): la Raspberry Pi (T-659, D-065) y
+  // Los ojos de Deméter (03 §3.9), cuya lógica llega con T-626.
   render(
     <Pagina
       contenido={demeter}
-      extra={<Hueco id="ojos" titulo="Los ojos de Deméter" />}
+      extra={
+        <>
+          <SeccionPi />
+          <Hueco id="ojos" titulo="Los ojos de Deméter" />
+        </>
+      }
       simulacion={simulacion}
     />,
     raiz,
