@@ -19,6 +19,8 @@ La sección "Mapa" de `/demeter/` y `/hermes/` ([03 §3.4](../../../../docs/08_g
 | `constantes.ts`              | Zoom, relleno, desvanecido y anchos de línea (de presentación; los `WEB_*` salen de `datos/constantes.ts`)                                                                                                              | Chunk diferido       |
 | `relieve.ts`                 | El relieve (T-649): pide `relieve.json` y las curvas de nivel, los valida y arma la URL de las teselas. Si faltan, devuelve `null` y el mapa queda como antes                                                           | Chunk diferido       |
 | `estado_relieve.ts`          | Una `signal` que dice si el mapa tiene relieve; la lee la leyenda (JS inicial) para nombrarlo solo cuando se ve                                                                                                         | JS inicial (mínimo)  |
+| `CoordenadasMapa.tsx`        | La etiqueta compacta de coordenadas sobre el marco (T-671): lat, lon y altura sobre el nivel del mar; ver abajo                                                                                                         | JS inicial (pequeño) |
+
 - **MapLibre no está en el JS inicial de la misión.** El worker de MapLibre se emite como un archivo aparte (`maplibre-gl-worker-*.mjs`) y se registra con `setWorkerUrl`: el empaquetado no lo deja junto al chunk, que es donde MapLibre lo busca por defecto.
 - **El mapa solo lee** `meta`, `estado`, `estacion`, `serie`, `estadoPagina` y `edad` de `datos/api.ts`. No escribe nada y no manda nada a ningún cohete (GS-14).
 
@@ -37,6 +39,14 @@ MapLibre pinta en un lienzo WebGL y necesita colores literales, pero [06 §6](..
 - **Qué se dibuja:** el punto en vivo se reemplaza por un pin rojo fijo (`--estado-alarma`, ícono `MapPin` de Lucide) en `estado.lkp`. Si el servicio no lo manda, en `estado.pos`; y si tampoco, en el último punto de la `serie`. Lleva la altitud y "hace X s".
 - **Nunca se borra:** no tiene límite de tiempo, se conserva si se cae el servidor del celular (`sin_servidor`) y, si ya no hay de dónde sacar la posición, queda la última que se tuvo. Solo desaparece cuando vuelve a llegar un dato en vivo.
 - **"Hace X s"** no usa el reloj del celular (05 §0): sin señal sale de `edad` (`api.ts`); con señal pero sin posición, de la hora del cohete (`estado.utc_ms − lkp.utc_ms`).
+
+### Coordenadas compactas (T-671, D-065)
+
+- **Qué es:** una etiqueta arriba a la izquierda del marco (a la derecha del zoom, sin llegar a los botones de la derecha) con la latitud, la longitud y la altura sobre el nivel del mar (`estado.pos.alt_msl_m`, "msnm"). No captura gestos y el ajuste del mapa deja 72 px de relleno, así que el cohete no queda debajo.
+- **Cuándo:** durante todo el vuelo, **hasta LANDED**. En LANDED se quita (no se oculta: no se dibuja) y manda el bloque grande de `mision/Recuperacion.tsx`, el único con el QR.
+- **Qué punto:** la posición del cohete (`pos`); sin señal, el LKP con su "hace X s" en rojo y con la palabra. La altura sobre el nivel del mar solo la trae `pos`: si el LKP es otra posición, dice "sin dato". Sin posición válida: "Sin posición válida".
+- **Dónde vive:** en `SeccionMapa.tsx` (JS inicial), no en el chunk del mapa: se ve aunque MapLibre aún no haya cargado. La lógica pura es `vistaCoordenadasMapa` en `mision/vista_recuperacion.ts`.
+- **Accesibilidad:** sin `aria-live` (cambia varias veces por segundo): el lector la lee al llegar, no en cada cambio.
 
 ### Gestos en el celular
 

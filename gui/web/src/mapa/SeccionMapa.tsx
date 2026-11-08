@@ -4,6 +4,7 @@
 // página no descarga ni una línea de MapLibre, y sin mapa sigue siendo útil.
 import type { ComponentType } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CoordenadasMapa } from "./CoordenadasMapa";
 import { MAPA_MARGEN_CARGA_PX } from "./constantes";
 import { Leyenda } from "./Leyenda";
 import type { PropsMapa } from "./Mapa";
@@ -91,6 +92,7 @@ export function SeccionMapa() {
               : "El mapa se carga al llegar a esta sección."}
           </p>
         )}
+        <CoordenadasMapa />
       </div>
       {Mapa && <Leyenda />}
     </section>

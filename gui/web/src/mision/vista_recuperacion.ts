@@ -7,6 +7,10 @@
 //   - aterrizado (`LANDED`): la posición real (`pos`) o, si no hay, el LKP;
 //   - antes del aterrizaje: el centro de la elipse de impacto, con la etiqueta "estimado". Sin elipse se
 //     muestra la posición actual del cohete (aclarando que no es un estimado), o el LKP si no hay `pos`.
+//
+// T-671 (D-065): ese bloque grande, con el botón de Maps y el QR, SOLO se muestra en LANDED
+// (`vista.aterrizado`). Durante el vuelo las coordenadas van compactas dentro del mapa
+// (`vistaCoordenadasMapa`): la posición actual del cohete y su altura sobre el nivel del mar.
 import type { Estado } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/api";
 import { numero } from "./formato";
@@ -14,6 +18,9 @@ import { numero } from "./formato";
 export const DECIMALES_COORDENADA = 7;
 export const DECIMALES_DISTANCIA = 0;
 export const DECIMALES_AZIMUT = 0;
+/** La etiqueta compacta del mapa: 5 decimales son ~1 m, de sobra para verla en el celular. */
+export const DECIMALES_COORDENADA_MAPA = 5;
+export const DECIMALES_ALTURA_MSL = 0;
 
 const LAT_MAX = 90;
 const LON_MAX = 180;
@@ -181,5 +188,84 @@ export function vistaRecuperacion(
     urlMaps: urlGoogleMaps(punto.lat, punto.lon),
     vector,
     aterrizado,
+  };
+}
+
+/** Lo que pinta la etiqueta compacta de coordenadas dentro del mapa (T-671). */
+export interface VistaCoordenadasMapa {
+  /**
+   * `true` en LANDED: ahí manda el bloque grande de Recuperación (arriba de la página) y la etiqueta
+   * se quita, para no tener los mismos datos dos veces ni repetirlos al lector de pantalla.
+   */
+  oculta: boolean;
+  /** `actual` (en vivo) o `lkp` (sin señal o sin fix, con su antigüedad); `null` sin posición válida. */
+  punto: (PuntoRecuperacion & { origen: "actual" | "lkp" }) | null;
+  /** Ya formateadas (coma decimal, 5 decimales). `null` sin punto. */
+  lat: string | null;
+  lon: string | null;
+  /** Altura sobre el nivel del mar (`pos.alt_msl_m`), en metros enteros. `null` si no se conoce. */
+  altMsl: string | null;
+}
+
+/**
+ * La posición del cohete durante el vuelo, para la etiqueta del mapa. Es la del cohete, no la del
+ * impacto estimado (eso lo cuenta la insignia del mapa):
+ *   - sin señal: el LKP (o la última `pos`), con su antigüedad (GS-03);
+ *   - con señal: `pos`, o el LKP si no hay fix.
+ */
+export function puntoEnVuelo(
+  estado: Estado,
+  principal: EstadoPrincipal,
+  edadMs: number | null,
+): (PuntoRecuperacion & { origen: "actual" | "lkp" }) | null {
+  const pos = sirve(estado.pos) ? estado.pos : null;
+  const ultima = sirve(estado.lkp) ? estado.lkp : null;
+  const comoLkp = (c: { lat: number; lon: number }) => ({
+    lat: c.lat,
+    lon: c.lon,
+    origen: "lkp" as const,
+    edadMs: edadDelLkp(estado, edadMs),
+  });
+  const comoActual = (c: { lat: number; lon: number }) => ({
+    lat: c.lat,
+    lon: c.lon,
+    origen: "actual" as const,
+    edadMs: null,
+  });
+  if (principal === "sin_senal") {
+    const c = ultima ?? pos;
+    return c === null ? null : comoLkp(c);
+  }
+  if (pos !== null) return comoActual(pos);
+  return ultima === null ? null : comoLkp(ultima);
+}
+
+/** La etiqueta compacta de coordenadas del mapa (T-671). Sin `estado`, "sin posición". */
+export function vistaCoordenadasMapa(
+  estado: Estado | null,
+  principal: EstadoPrincipal,
+  edadMs: number | null,
+): VistaCoordenadasMapa {
+  const vacia: VistaCoordenadasMapa = {
+    oculta: false,
+    punto: null,
+    lat: null,
+    lon: null,
+    altMsl: null,
+  };
+  if (estado === null) return vacia;
+  if (estado.fase === "LANDED") return { ...vacia, oculta: true };
+  const punto = puntoEnVuelo(estado, principal, edadMs);
+  if (punto === null) return vacia;
+  // La altura sobre el nivel del mar solo la trae `pos`; el LKP no la tiene. Si el LKP es esa misma
+  // posición (lo normal cuando se congela el estado sin señal), se usa; si no, "sin dato".
+  const pos = estado.pos;
+  const alt = pos !== null && pos.lat === punto.lat && pos.lon === punto.lon ? pos.alt_msl_m : null;
+  return {
+    oculta: false,
+    punto,
+    lat: numero(punto.lat, DECIMALES_COORDENADA_MAPA),
+    lon: numero(punto.lon, DECIMALES_COORDENADA_MAPA),
+    altMsl: alt !== null && Number.isFinite(alt) ? numero(alt, DECIMALES_ALTURA_MSL) : null,
   };
 }
