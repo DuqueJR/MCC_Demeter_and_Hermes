@@ -10,12 +10,13 @@
 import { Check, Copy, ExternalLink, MapPin, QrCode, Target, TriangleAlert } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { estado } from "../datos/api";
+import { ActitudEstacion } from "./ActitudEstacion";
 import { copiarTexto, type ResultadoCopia } from "./copiar";
+import { FuerzasG } from "./FuerzasG";
 import { hace, numero } from "./formato";
 import { Qr } from "./Qr";
 import "./recuperacion_salud.css";
 import { edadS, MS_POR_S, principal } from "./senales_recuperacion";
-import { FuerzasG } from "./Telemetria";
 import {
   DECIMALES_AZIMUT,
   DECIMALES_DISTANCIA,
@@ -233,7 +234,10 @@ export function Recuperacion() {
             </div>
           </dl>
         </div>
-        <FuerzasG />
+        <div class="estacion-instrumentos" data-recup="instrumentos">
+          <ActitudEstacion />
+          <FuerzasG />
+        </div>
       </div>
     </section>
   );

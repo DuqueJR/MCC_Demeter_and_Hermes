@@ -9,7 +9,6 @@ import { calcularObjetivos } from "../src/mision/objetivos";
 import {
   datoViejo,
   magnitudG,
-  posicionBarra,
   sentidoVertical,
   textoONulo,
   vistaTelemetria,
@@ -374,21 +373,5 @@ describe("fuerzas g (T-674)", () => {
 
   it("la escala es el rango del LSM6DSO32 (±32 g)", () => {
     expect(ACC_ESCALA_G).toBe(32);
-  });
-
-  it("la barra va de −1 a 1, con el 0 en el centro", () => {
-    expect(posicionBarra(0)).toEqual({ fraccion: 0, saturado: false });
-    expect(posicionBarra(16)).toEqual({ fraccion: 0.5, saturado: false });
-    expect(posicionBarra(-8)).toEqual({ fraccion: -0.25, saturado: false });
-    expect(posicionBarra(ACC_ESCALA_G)).toEqual({ fraccion: 1, saturado: false });
-  });
-
-  it("fuera de la escala satura al borde y lo dice", () => {
-    expect(posicionBarra(40)).toEqual({ fraccion: 1, saturado: true });
-    expect(posicionBarra(-33)).toEqual({ fraccion: -1, saturado: true });
-  });
-
-  it("acepta otra escala", () => {
-    expect(posicionBarra(5, 10)).toEqual({ fraccion: 0.5, saturado: false });
   });
 });
