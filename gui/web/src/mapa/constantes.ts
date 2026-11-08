@@ -138,18 +138,43 @@ export const ESTILO_RELIEVE = {
 // ---- Vista 3D opcional (T-656, D-W23): terreno con relieve y trayectoria en el aire
 
 /**
- * Exageración del terreno en 3D. 1 = la real: es la única con la que la altura de la cortina de la
- * trayectoria (metros sobre el suelo) y el relieve están a la misma escala.
+ * Exageración del terreno en 3D. 1 = la real: es la única con la que la altura de la trayectoria
+ * (metros sobre el suelo) y el relieve están a la misma escala.
  */
 export const MAPA_3D_EXAGERACION = 1;
 /** Inclinación con la que se entra en 3D, en grados. */
 export const MAPA_3D_PITCH = 60;
 /** Inclinación máxima permitida en 3D: con más se ve mucho horizonte, fuera del área con teselas. */
 export const MAPA_3D_PITCH_MAX = 70;
-/** Ancho de la cortina de la trayectoria (cada segmento es un polígono de este ancho), en metros. */
-export const MAPA_3D_ANCHO_CORTINA_M = 12;
-/** Segmentos máximos de la cortina: con más puntos se diezma (se conserva uno de cada k y el último). */
-export const MAPA_3D_CORTINA_MAX_SEGMENTOS = 500;
+/**
+ * Tamaños de lo que se levanta en el aire, EN PÍXELES: los prismas se arman en metros con los metros por
+ * píxel del zoom de dibujo (`MAPA_3D_ZOOM_PASO`), así que se ven del mismo tamaño a cualquier zoom.
+ */
+/** Radio del tubo de la trayectoria (el tubo mide el doble de ancho). */
+export const MAPA_3D_TUBO_PX = 3;
+/** Largo del cohete en 3D (cuerpo y ojiva). */
+export const MAPA_3D_COHETE_PX = 40;
+/** Radio de la plomada: la columna delgada del suelo al cohete. */
+export const MAPA_3D_PLOMADA_PX = 1;
+/** Alto de la estaca del impacto estimado. */
+export const MAPA_3D_ESTACA_PX = 64;
+/** Radio de la columna de la estaca y de su cabeza. */
+export const MAPA_3D_ESTACA_RADIO_PX = 1.5;
+export const MAPA_3D_ESTACA_CABEZA_PX = 7;
+/** Lados de los polígonos circulares (cuerpo, ojiva y cabeza) y de los finos (plomada y estaca). */
+export const MAPA_3D_LADOS = 12;
+export const MAPA_3D_LADOS_FINOS = 6;
+/**
+ * Los prismas se rearman cuando el zoom pasa a otro múltiplo de esto (al terminar el zoom), no en cada
+ * cuadro. Con 0,5 niveles miden entre 0,8 y 1,2 veces lo pedido.
+ */
+export const MAPA_3D_ZOOM_PASO = 0.5;
+/** Tramos máximos del tubo: con más puntos se diezma (uno de cada k, y siempre el último). */
+export const MAPA_3D_TUBO_MAX_SEGMENTOS = 400;
+/** Un tramo largo o inclinado se parte en hasta esta cantidad de prismas para que siga la pendiente. */
+export const MAPA_3D_TUBO_SUBDIV_MAX = 4;
+/** Dos puntos a la misma posición y a menos de esta diferencia de altura (m) son el mismo punto. */
+export const MAPA_3D_EPSILON_ALT_M = 0.5;
 /**
  * Cuánto se aleja el zoom al "Ver todo" en 3D, respecto al que calcula MapLibre para un plano: con la
  * inclinación, lo que está cerca de la cámara se ve más grande y se saldría de los bordes.
@@ -160,8 +185,23 @@ export const MAPA_MARCADOR_OPACIDAD_TAPADO = 1;
 
 /** Dibujo de la vista 3D (los colores salen de los tokens del tema). */
 export const ESTILO_3D = {
-  /** Opacidad de la cortina de la trayectoria (`fill-extrusion-opacity`: no admite datos por punto). */
-  opacidadCortina: 0.55,
+  /** Opacidad del tubo, el cohete y la estaca: 1, porque los prismas se solapan (con menos se verían sus costuras). */
+  opacidadSolidos: 1,
+  /** Borde y relleno de la elipse de impacto en 3D, más marcados que en 2D (`ESTILO_MAPA`). */
+  anchoElipse: 4,
+  opacidadElipse: 0.3,
+  /** La cabeza de la estaca mide esto (veces su radio) de alto. */
+  estacaCabezaAlto: 0.8,
+  /**
+   * Las piezas del cohete: `[parte, radio, desde, hasta]`, con radio, desde y hasta en fracciones de su
+   * largo, medidos desde su altura (el centro). La primera es el cuerpo y las demás, la ojiva.
+   */
+  cohete: [
+    ["cuerpo", 0.16, -0.5, 0.15],
+    ["ojiva", 0.12, 0.15, 0.28],
+    ["ojiva", 0.08, 0.28, 0.4],
+    ["ojiva", 0.04, 0.4, 0.5],
+  ] as readonly (readonly [string, number, number, number])[],
   /** Cielo y neblina (0 a 1) con que el horizonte se funde con el fondo y no deja ver el borde del DEM. */
   cieloHorizonte: 0.2,
   neblinaHorizonte: 0.6,

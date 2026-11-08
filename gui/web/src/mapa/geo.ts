@@ -5,11 +5,22 @@ import type { Estacion, Estado, Meta, Serie } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/estado_pagina";
 import { hace, numero } from "../mision/formato";
 import {
-  MAPA_3D_ANCHO_CORTINA_M,
-  MAPA_3D_CORTINA_MAX_SEGMENTOS,
+  ESTILO_3D,
+  MAPA_3D_COHETE_PX,
+  MAPA_3D_EPSILON_ALT_M,
+  MAPA_3D_ESTACA_CABEZA_PX,
+  MAPA_3D_ESTACA_PX,
+  MAPA_3D_ESTACA_RADIO_PX,
+  MAPA_3D_LADOS,
+  MAPA_3D_LADOS_FINOS,
+  MAPA_3D_PLOMADA_PX,
+  MAPA_3D_TUBO_MAX_SEGMENTOS,
+  MAPA_3D_TUBO_SUBDIV_MAX,
+  MAPA_3D_ZOOM_PASO,
   MAPA_CUADRICULA_PASO_GRADOS,
   MAPA_CUADRICULA_RADIO_GRADOS,
   MAPA_EPSILON_GRADOS,
+  MAPA_MUNDO_PX,
   MAPA_OPACIDAD_RASTRO_MIN,
   MAPA_PASOS_ELIPSE,
   MAPA_RASTRO_MAX_PUNTOS,
@@ -269,21 +280,31 @@ export function tramosDesvanecidos(
   return coleccion(features);
 }
 
-// ---- Trayectoria en el aire (vista 3D, T-656)
+// ---- Trayectoria, cohete y estaca en el aire (vista 3D, T-656)
 
-/** Un punto de la trayectoria con su altura sobre el suelo (la de la capa del suelo, más `alt_agl_m`). */
+/** Un punto de la trayectoria con su altura sobre el suelo (`alt_agl_m`). */
 export interface PuntoAlt {
   lon: number;
   lat: number;
   alt_agl_m: number | null;
 }
 
-/** Propiedades de cada polígono de la cortina: `fill-extrusion-height` y `-base`, en metros. */
-export interface PropsCortina {
-  height: number;
+/**
+ * Propiedades de cada prisma (`fill-extrusion-base` y `-height`, en metros sobre el suelo). `f` va de 0
+ * (lo más viejo) a 1 (lo más nuevo), para desvanecer la trayectoria; `parte` nombra la pieza.
+ */
+export interface PropsTubo {
   base: number;
+  height: number;
+  f: number;
 }
-export type ColeccionCortina = Coleccion<Poligono, PropsCortina>;
+export interface PropsPieza {
+  base: number;
+  height: number;
+  parte: string;
+}
+export type ColeccionTubo = Coleccion<Poligono, PropsTubo>;
+export type ColeccionPiezas = Coleccion<Poligono, PropsPieza>;
 
 /** Los puntos de la `serie` que tienen posición (los mismos de `puntosDeSerie`), con su altura. */
 export function puntosAltDeSerie(serie: Serie): PuntoAlt[] {
@@ -297,9 +318,20 @@ export function puntosAltDeSerie(serie: Serie): PuntoAlt[] {
   return puntos;
 }
 
+/** ¿Los dos puntos coinciden (en el plano y en altura)? Un ascenso vertical NO es repetir el punto. */
+function mismoPunto(a: PuntoAlt, b: PuntoAlt): boolean {
+  return (
+    Math.abs(a.lon - b.lon) < MAPA_EPSILON_GRADOS &&
+    Math.abs(a.lat - b.lat) < MAPA_EPSILON_GRADOS &&
+    Math.abs((a.alt_agl_m ?? 0) - (b.alt_agl_m ?? 0)) < MAPA_3D_EPSILON_ALT_M
+  );
+}
+
 /**
- * Lo mismo que `agregarPunto` pero con la altura: misma regla para repetir el último punto y para
- * diezmar, así que el rastro con altura y el de la línea del suelo tienen siempre los mismos puntos.
+ * Agrega un punto al rastro con altura (los `estado` que llegan entre dos snapshots). A diferencia de
+ * `agregarPunto`, un punto en la misma posición pero a otra altura SÍ cuenta: en el ascenso casi
+ * vertical la posición casi no cambia y la trayectoria en el aire es justamente la altura. Si se pasa
+ * del máximo, conserva uno de cada dos.
  */
 export function agregarPuntoAlt(
   rastro: PuntoAlt[],
@@ -307,88 +339,210 @@ export function agregarPuntoAlt(
   max: number = MAPA_RASTRO_MAX_PUNTOS,
 ): PuntoAlt[] {
   const ultimo = rastro[rastro.length - 1];
-  if (
-    ultimo &&
-    Math.abs(ultimo.lon - punto.lon) < MAPA_EPSILON_GRADOS &&
-    Math.abs(ultimo.lat - punto.lat) < MAPA_EPSILON_GRADOS
-  ) {
-    return rastro;
-  }
+  if (ultimo && mismoPunto(ultimo, punto)) return rastro;
   const nuevo = [...rastro, punto];
   if (nuevo.length <= max) return nuevo;
   return nuevo.filter((_, i) => i % 2 === 0 || i === nuevo.length - 1);
 }
 
-/** Los puntos con altura, sin los de `alt_agl_m` nulo ni los repetidos (misma posición que el anterior). */
-function puntosUtilesDeCortina(puntos: readonly PuntoAlt[]): (PuntoAlt & { alt_agl_m: number })[] {
-  const utiles: (PuntoAlt & { alt_agl_m: number })[] = [];
+/** Metros que mide un píxel a `zoom` (teselas de 512 px) en la latitud `latGrados`. */
+export function metrosPorPixel(zoom: number, latGrados: number): number {
+  const circunferencia = 2 * Math.PI * RADIO_TIERRA_M * Math.cos(aRadianes(latGrados));
+  return circunferencia / (MAPA_MUNDO_PX * 2 ** zoom);
+}
+
+/**
+ * El zoom "de dibujo" del 3D: el zoom real redondeado a `paso` niveles. Los prismas se arman con los
+ * metros por píxel de este zoom, así que se rearman cuando cambia (al terminar el zoom), no en cada
+ * cuadro; entre dos pasos miden entre 0,8 y 1,2 veces lo pedido.
+ */
+export function zoomDeDibujo(zoom: number, paso: number = MAPA_3D_ZOOM_PASO): number {
+  return Math.round(zoom / paso) * paso;
+}
+
+type PuntoConAlt = PuntoAlt & { alt_agl_m: number };
+
+/** Los puntos con altura, sin los de `alt_agl_m` nulo ni los repetidos (misma posición y altura). */
+function puntosUtilesDelTubo(puntos: readonly PuntoAlt[]): PuntoConAlt[] {
+  const utiles: PuntoConAlt[] = [];
   for (const p of puntos) {
     if (p.alt_agl_m === null || !Number.isFinite(p.alt_agl_m)) continue;
     const ultimo = utiles[utiles.length - 1];
-    if (
-      ultimo &&
-      Math.abs(ultimo.lon - p.lon) < MAPA_EPSILON_GRADOS &&
-      Math.abs(ultimo.lat - p.lat) < MAPA_EPSILON_GRADOS
-    ) {
-      continue;
-    }
-    utiles.push(p as PuntoAlt & { alt_agl_m: number });
+    if (ultimo && mismoPunto(ultimo, p)) continue;
+    utiles.push(p as PuntoConAlt);
   }
   return utiles;
 }
 
 /** Conserva uno de cada `k` puntos y siempre el último, para que haya a lo sumo `maxSegmentos` segmentos. */
-function diezmarParaCortina<T>(puntos: T[], maxSegmentos: number): T[] {
+function diezmarSegmentos<T>(puntos: T[], maxSegmentos: number): T[] {
   const segmentos = puntos.length - 1;
   if (segmentos <= maxSegmentos) return puntos;
   const k = Math.ceil(segmentos / maxSegmentos);
   return puntos.filter((_, i) => i % k === 0 || i === puntos.length - 1);
 }
 
+/** Un polígono regular de `lados` lados y `radioM` metros de radio alrededor de `centro`. */
+export function circuloPoligono(
+  centro: Coord,
+  radioM: number,
+  lados: number = MAPA_3D_LADOS,
+): Poligono {
+  const anillo: Coord[] = [];
+  for (let i = 0; i < lados; i++) {
+    const t = (2 * Math.PI * i) / lados;
+    anillo.push(desplazar(centro, radioM * Math.sin(t), radioM * Math.cos(t)));
+  }
+  anillo.push([...(anillo[0] as Coord)]);
+  return { type: "Polygon", coordinates: [anillo] };
+}
+
+/** El rectángulo de `a` a `b` engrosado `radioM` a cada lado y alargado `radioM` en cada extremo. */
+function rectanguloEngrosado(
+  a: Coord,
+  b: Coord,
+  dirEste: number,
+  dirNorte: number,
+  radioM: number,
+): Poligono {
+  const [e, n] = [dirEste * radioM, dirNorte * radioM];
+  const pa = desplazar(a, -e, -n);
+  const pb = desplazar(b, e, n);
+  const esquinas: Coord[] = [
+    desplazar(pa, -n, e),
+    desplazar(pb, -n, e),
+    desplazar(pb, n, -e),
+    desplazar(pa, n, -e),
+  ];
+  esquinas.push([...(esquinas[0] as Coord)]);
+  return { type: "Polygon", coordinates: [esquinas] };
+}
+
+/** El cuadrado de lado `2 * radioM` centrado en `c` (para un tramo casi vertical). */
+function cuadradoEn(c: Coord, radioM: number): Poligono {
+  const esquinas: Coord[] = [
+    desplazar(c, -radioM, -radioM),
+    desplazar(c, radioM, -radioM),
+    desplazar(c, radioM, radioM),
+    desplazar(c, -radioM, radioM),
+  ];
+  esquinas.push([...(esquinas[0] as Coord)]);
+  return { type: "Polygon", coordinates: [esquinas] };
+}
+
 /**
- * La trayectoria como una "cortina" que va del suelo a la altura del cohete: un polígono angosto
- * por segmento (de `anchoM` metros), con `height` = la altura media de sus dos extremos y `base` = 0,
- * para una capa `fill-extrusion` (MapLibre la apoya sobre el terreno). Los puntos con `alt_agl_m`
- * nulo y los repetidos se saltan; si hay más de `maxSegmentos` se diezma. `factorAltura` escala la
- * altura cuando el terreno está exagerado (la altura sobre el suelo no se exagera sola).
+ * La trayectoria como un TUBO en el aire: prismas flotantes (`fill-extrusion` con `base` > 0) de
+ * `radioM` metros de radio, uno por tramo (los largos o muy inclinados se parten en hasta
+ * `MAPA_3D_TUBO_SUBDIV_MAX` para que sigan la pendiente).
+ * - Tramo con desplazamiento horizontal: su huella es el tramo engrosado `radioM` a cada lado y
+ *   alargado `radioM` en los extremos (así la deriva del descenso queda continua).
+ * - Tramo casi vertical (el ascenso): un cuadrado de `2 * radioM` de lado en su punto medio.
+ * - `base` = la altura menor menos `radioM`, `height` = la mayor más `radioM` (la base nunca baja de
+ *   0): los prismas vecinos se solapan y la columna es continua.
+ * Los puntos con `alt_agl_m` nulo y los repetidos se saltan; con más de `maxSegmentos` se diezma.
+ * `factorAltura` escala las alturas con el terreno exagerado. `f` (0 a 1) crece de lo viejo a lo nuevo.
  */
-export function cortinaTrayectoria(
+export function tuboTrayectoria(
   puntos: readonly PuntoAlt[],
-  anchoM: number = MAPA_3D_ANCHO_CORTINA_M,
-  maxSegmentos: number = MAPA_3D_CORTINA_MAX_SEGMENTOS,
+  radioM: number,
+  maxSegmentos: number = MAPA_3D_TUBO_MAX_SEGMENTOS,
   factorAltura = 1,
-): ColeccionCortina {
-  const utiles = diezmarParaCortina(puntosUtilesDeCortina(puntos), maxSegmentos);
-  const features: Caracteristica<Poligono, PropsCortina>[] = [];
+): ColeccionTubo {
+  const utiles = diezmarSegmentos(puntosUtilesDelTubo(puntos), maxSegmentos);
+  const segmentos = utiles.length - 1;
+  const features: Caracteristica<Poligono, PropsTubo>[] = [];
   for (let i = 1; i < utiles.length; i++) {
-    const a = utiles[i - 1] as PuntoAlt & { alt_agl_m: number };
-    const b = utiles[i] as PuntoAlt & { alt_agl_m: number };
+    const a = utiles[i - 1] as PuntoConAlt;
+    const b = utiles[i] as PuntoConAlt;
     const este = (b.lon - a.lon) * Math.cos(aRadianes(a.lat)) * M_POR_GRADO;
     const norte = (b.lat - a.lat) * M_POR_GRADO;
     const largo = Math.hypot(este, norte);
-    if (largo === 0) continue;
-    // Perpendicular al segmento, de medio ancho a cada lado.
-    const nE = (-norte / largo) * (anchoM / 2);
-    const nN = (este / largo) * (anchoM / 2);
-    const pa: Coord = [a.lon, a.lat];
-    const pb: Coord = [b.lon, b.lat];
-    const anillo: Coord[] = [
-      desplazar(pa, nE, nN),
-      desplazar(pb, nE, nN),
-      desplazar(pb, -nE, -nN),
-      desplazar(pa, -nE, -nN),
-    ];
-    anillo.push([...(anillo[0] as Coord)]);
+    const dz = b.alt_agl_m - a.alt_agl_m;
+    const partes = Math.min(
+      MAPA_3D_TUBO_SUBDIV_MAX,
+      Math.max(1, Math.ceil(Math.max(largo, Math.abs(dz)) / (2 * radioM))),
+    );
+    for (let k = 0; k < partes; k++) {
+      const [t0, t1] = [k / partes, (k + 1) / partes];
+      const p0: Coord = [a.lon + (b.lon - a.lon) * t0, a.lat + (b.lat - a.lat) * t0];
+      const p1: Coord = [a.lon + (b.lon - a.lon) * t1, a.lat + (b.lat - a.lat) * t1];
+      const [z0, z1] = [a.alt_agl_m + dz * t0, a.alt_agl_m + dz * t1];
+      const huella =
+        largo < radioM
+          ? cuadradoEn([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], radioM)
+          : rectanguloEngrosado(p0, p1, este / largo, norte / largo, radioM);
+      features.push({
+        type: "Feature",
+        properties: {
+          base: Math.max(0, Math.min(z0, z1) * factorAltura - radioM),
+          height: Math.max(0, Math.max(z0, z1) * factorAltura + radioM),
+          f: segmentos > 1 ? (i - 1 + (k + 0.5) / partes) / segmentos : 1,
+        },
+        geometry: huella,
+      });
+    }
+  }
+  return coleccion(features);
+}
+
+/**
+ * El cohete en 3D, a su altura real: un cuerpo cilíndrico y una ojiva de discos escalonados cada vez
+ * más angostos (`fill-extrusion`), centrado en `pos` a `altM` metros sobre el suelo, más una
+ * "plomada" delgada del suelo al cohete para que se lea dónde está sobre el terreno. Mide
+ * `MAPA_3D_COHETE_PX` píxeles de largo con `mPorPx` metros por píxel.
+ */
+export function cohete3d(
+  pos: Coord,
+  altM: number,
+  mPorPx: number,
+  factorAltura = 1,
+): ColeccionPiezas {
+  const largo = MAPA_3D_COHETE_PX * mPorPx;
+  const alt = altM * factorAltura;
+  const features: Caracteristica<Poligono, PropsPieza>[] = [];
+  for (const [parte, radioRel, desdeRel, hastaRel] of ESTILO_3D.cohete) {
     features.push({
       type: "Feature",
       properties: {
-        height: Math.max(0, ((a.alt_agl_m + b.alt_agl_m) / 2) * factorAltura),
-        base: 0,
+        parte,
+        base: Math.max(0, alt + desdeRel * largo),
+        height: Math.max(0, alt + hastaRel * largo),
       },
-      geometry: { type: "Polygon", coordinates: [anillo] },
+      geometry: circuloPoligono(pos, radioRel * largo),
+    });
+  }
+  const [, , cuerpoDesde] = ESTILO_3D.cohete[0] ?? ["cuerpo", 0, 0, 0];
+  const bajoElCuerpo = Math.max(0, alt + cuerpoDesde * largo);
+  if (bajoElCuerpo > 0) {
+    features.push({
+      type: "Feature",
+      properties: { parte: "plomada", base: 0, height: bajoElCuerpo },
+      geometry: circuloPoligono(pos, MAPA_3D_PLOMADA_PX * mPorPx, MAPA_3D_LADOS_FINOS),
     });
   }
   return coleccion(features);
+}
+
+/**
+ * La estaca del impacto estimado: una columna delgada de `MAPA_3D_ESTACA_PX` píxeles de alto con una
+ * cabeza más ancha, para que se vea de lejos y con la vista inclinada.
+ */
+export function estaca3d(pos: Coord, mPorPx: number): ColeccionPiezas {
+  const alto = MAPA_3D_ESTACA_PX * mPorPx;
+  const radioCabeza = MAPA_3D_ESTACA_CABEZA_PX * mPorPx;
+  const altoCabeza = radioCabeza * ESTILO_3D.estacaCabezaAlto;
+  return coleccion<Poligono, PropsPieza>([
+    {
+      type: "Feature",
+      properties: { parte: "estaca", base: 0, height: alto - altoCabeza },
+      geometry: circuloPoligono(pos, MAPA_3D_ESTACA_RADIO_PX * mPorPx, MAPA_3D_LADOS_FINOS),
+    },
+    {
+      type: "Feature",
+      properties: { parte: "cabeza", base: alto - altoCabeza, height: alto },
+      geometry: circuloPoligono(pos, radioCabeza),
+    },
+  ]);
 }
 
 /**

@@ -63,7 +63,12 @@ export function ChipDistancia({ texto }: { texto: ReadonlySignal<string> }) {
   return <div class="mapa-chip">{texto.value}</div>;
 }
 
-/** El cohete en vivo: un punto con halo y una flecha hacia donde va. */
+/**
+ * El cohete en vivo: un punto con halo y una flecha hacia donde va. La flecha apunta hacia arriba y
+ * es el marcador entero el que gira: el controlador lo crea con `rotationAlignment: "map"` y le pone
+ * el rumbo con `setRotation`, así que la flecha sigue apuntando al rumbo (un azimut sobre el mapa)
+ * aunque el mapa esté girado (T-656; antes giraba con un `rotate()` de CSS respecto a la pantalla).
+ */
 export function MarcadorCohete({ datos }: { datos: ReadonlySignal<DatosCohete> }) {
   const { rumbo, atenuado } = datos.value;
   return (
@@ -71,7 +76,7 @@ export function MarcadorCohete({ datos }: { datos: ReadonlySignal<DatosCohete> }
       <span class="cohete-halo" />
       <span class="cohete-punto" />
       {rumbo !== null && (
-        <span class="cohete-rumbo" style={{ transform: `rotate(${rumbo}deg)` }}>
+        <span class="cohete-rumbo">
           <Navigation2 aria-hidden="true" />
         </span>
       )}

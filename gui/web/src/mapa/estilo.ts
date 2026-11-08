@@ -295,9 +295,14 @@ export interface RelieveEstilo {
 export const ID_3D = {
   /** Fuente `raster-dem` del terreno, aparte de la del sombreado (MapLibre lo recomienda). */
   fuenteTerreno: "relieve-terreno",
-  fuenteCortina: "trayectoria-cortina",
-  capaCortina: "trayectoria-cortina",
+  /** El tubo de la trayectoria, el cohete (con su plomada) y la estaca del impacto: cada uno es una fuente y una capa del mismo id. */
+  tubo: "trayectoria-tubo",
+  cohete: "cohete-3d",
+  estaca: "estaca-3d",
 } as const;
+
+/** Las capas de prismas del 3D, de abajo hacia arriba. */
+export const CAPAS_3D = [ID_3D.tubo, ID_3D.cohete, ID_3D.estaca] as const;
 
 /**
  * La fuente del terreno: las mismas teselas del sombreado (`relieve`), pero como fuente propia. El
@@ -317,25 +322,56 @@ export function fuenteTerreno(relieve: Relieve): SourceSpecification {
   };
 }
 
-/** La fuente de la cortina de la trayectoria, vacía hasta que llegan los puntos. */
-export function fuenteCortina(): GeoJSONSourceSpecification {
+/** Una fuente GeoJSON vacía para los prismas del 3D (se llena con `setData`). */
+export function fuente3dVacia(): GeoJSONSourceSpecification {
   return { type: "geojson", data: vacia };
 }
 
-/** La cortina: `fill-extrusion` con el color del rastro (`--acento`), apoyada sobre el terreno. */
-export function capaCortina(t: Tokens): LayerSpecification {
+/** Una capa `fill-extrusion` sólida de las del 3D; `color` es el color (o la expresión de colores) de sus tokens. */
+function capaPrismas(id: string, color: ExpressionSpecification | string): LayerSpecification {
   return {
-    id: ID_3D.capaCortina,
+    id,
     type: "fill-extrusion",
-    source: ID_3D.fuenteCortina,
+    source: id,
     paint: {
-      "fill-extrusion-color": t.acento,
-      "fill-extrusion-opacity": E3.opacidadCortina,
+      "fill-extrusion-color": color,
+      "fill-extrusion-opacity": E3.opacidadSolidos,
       "fill-extrusion-height": ["get", "height"],
       "fill-extrusion-base": ["get", "base"],
       "fill-extrusion-vertical-gradient": false,
     },
   };
+}
+
+/** El tubo: de `--linea` (lo más viejo) a `--acento` (lo más nuevo), el mismo color del rastro del suelo. */
+export function capaTubo(t: Tokens): LayerSpecification {
+  return capaPrismas(ID_3D.tubo, [
+    "interpolate",
+    ["linear"],
+    ["get", "f"],
+    0,
+    t.linea,
+    1,
+    t.acento,
+  ]);
+}
+
+/** El cohete: cuerpo `--texto`, ojiva `--acento` y plomada `--texto-2`. */
+export function capaCohete(t: Tokens): LayerSpecification {
+  return capaPrismas(ID_3D.cohete, [
+    "match",
+    ["get", "parte"],
+    "ojiva",
+    t.acento,
+    "plomada",
+    t.texto2,
+    t.texto,
+  ]);
+}
+
+/** La estaca del impacto: columna `--texto-2` y cabeza `--texto` (el color de la elipse). */
+export function capaEstaca(t: Tokens): LayerSpecification {
+  return capaPrismas(ID_3D.estaca, ["match", ["get", "parte"], "cabeza", t.texto, t.texto2]);
 }
 
 /**
