@@ -11,6 +11,14 @@ const CAPTURAS = resolve(import.meta.dirname, "../../../docs/07_bitacora/captura
 mkdirSync(CAPTURAS, { recursive: true });
 
 const MISIONES = ["demeter", "hermes"] as const;
+
+// T-673: el mapa arranca en 3D cuando hay relieve. Estas pruebas son del mapa en 2D (capas, LKP, controles,
+// gestos y capturas del plano), así que, como `mapa_limites.spec.ts`, bloquean los archivos del relieve:
+// sin ellos el mapa es el de siempre. El 3D se prueba en `mapa_3d.spec.ts` y `mapa_relieve.spec.ts`.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/mapas/relieve/**", (ruta) => ruta.abort());
+});
+
 const MEDIDAS = [
   { ancho: 390, alto: 844 },
   { ancho: 1440, alto: 900 },
