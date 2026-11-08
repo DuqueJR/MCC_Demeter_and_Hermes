@@ -7,5 +7,5 @@ e2e/capturas/
 
 # PMTiles del mapa (T-632): los que genera un humano (src/mapa/README.md) no van al repo...
 public/mapas/*.pmtiles
-# ...salvo el de Santa Fe de Antioquia: pesa menos de 1 MB y Workers Builds lo necesita para publicar el sitio con mapa (T-649, D-062).
+# ...salvo el de Santa Fe de Antioquia: pesa menos de 1 MB y Workers Builds lo necesita para publicar el sitio con mapa (T-655, D-062).
 !public/mapas/santa_fe.pmtiles

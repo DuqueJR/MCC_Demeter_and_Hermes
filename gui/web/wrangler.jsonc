@@ -1,4 +1,4 @@
-// Worker de solo assets estáticos que sirve eiaspice.space (T-649).
+// Worker de solo assets estáticos que sirve eiaspice.space (T-655).
 // Lo publica Cloudflare Workers Builds desde la rama `develop` (root gui/web, `npm run build`, `npx wrangler deploy`).
 // VITE_API_BASE NO va aquí ni en ningún archivo del repo: es una variable de build del panel
 // (Settings → Build → Variables del Worker).

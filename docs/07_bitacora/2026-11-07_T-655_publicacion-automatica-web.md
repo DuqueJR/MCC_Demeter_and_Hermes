@@ -1,11 +1,11 @@
 ---
 fecha: 2026-11-07
 tipo: tarea
-ids: [T-649, T-642, D-062]
+ids: [T-655, T-642, D-062]
 autor: agente desarrollador (Claude Sonnet 5.5)
 rama: feature/T-649-publicacion-automatica-web
 ---
-# T-649: publicación automática de la web con Workers Builds, mapa versionado y relay en iad
+# T-655: publicación automática de la web con Workers Builds, mapa versionado y relay en iad
 
 ## Contexto
 `https://eiaspice.space` no está en Cloudflare Pages: la sirve un Worker de solo assets, `hermes-demeter`, que se ha subido a mano desde el panel. Se deja el repo listo para que Workers Builds lo publique solo desde `develop`, y se fija la región real del relay en Fly (ya no existen `bog` ni `mia`; la app y su volumen están en `iad`).
@@ -34,7 +34,8 @@ Node v24.19.0 en el equipo (el proyecto pide `>=22`; Workers Builds usará 22).
 - `package.json` fija `wrangler` como `^4.158.0` (lo que escribe npm con `^4`), no `^4` literal; ambos admiten cualquier 4.x y el lock deja la versión exacta.
 
 ## Problemas y cómo se resolvieron
-- **Colisión del identificador T-649:** existe en el remoto la rama `origin/feature/T-649-mapa-topografico` (relieve y curvas de nivel del mapa), con otro contenido. T-649 tampoco aparece aún en `backlog.md` de `develop`. Se siguió el encargo (rama y bitácora con T-649) y se avisa para que el documentador renumere una de las dos.
+- **Colisión del identificador T-649, resuelta con la renumeración a T-655:** la rama `origin/feature/T-649-mapa-topografico` (relieve y curvas de nivel del mapa, PR #91, de DuqueJR) ya usaba T-649. Esta tarea se renumeró a T-655; la rama conserva el nombre `feature/T-649-publicacion-automatica-web` porque el PR #92 ya estaba abierto, y los commits anteriores llevan `[T-649]` en su título.
+- **Conflicto previsto de dependencias:** este PR y el #91 tocan ambos `gui/web/package.json` y `gui/web/package-lock.json`. El que se integre segundo debe resolver el lockfile con `npm install`.
 - `npm` avisa que los scripts de instalación de `esbuild` y `workerd` (dependencias de wrangler) no están cubiertos por `allowScripts`; no impidió ni el build ni el dry-run.
 
 ## Pendiente / siguiente paso
