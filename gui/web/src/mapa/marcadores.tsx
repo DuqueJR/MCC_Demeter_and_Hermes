@@ -58,12 +58,32 @@ export function MarcadorImpacto() {
   );
 }
 
+/**
+ * El impacto estimado en 3D (ronda 3): un pin de mapa limpio, de pie y de frente a la pantalla, en forma de
+ * gota, con el ícono de impacto y apoyado en el punto estimado (el marcador se ancla por abajo). Los
+ * colores y la sombra salen de los tokens por CSS (`mapa.css`).
+ */
+export function MarcadorPin() {
+  return (
+    <div class="mapa-pin" role="img" aria-label="Impacto estimado" title="Impacto estimado">
+      <span class="pin-gota">
+        <Target aria-hidden="true" />
+      </span>
+    </div>
+  );
+}
+
 /** Distancia y azimut desde la estación, en la mitad de la línea (`calc`). */
 export function ChipDistancia({ texto }: { texto: ReadonlySignal<string> }) {
   return <div class="mapa-chip">{texto.value}</div>;
 }
 
-/** El cohete en vivo: un punto con halo y una flecha hacia donde va. */
+/**
+ * El cohete en vivo: un punto con halo y una flecha hacia donde va. La flecha apunta hacia arriba y
+ * es el marcador entero el que gira: el controlador lo crea con `rotationAlignment: "map"` y le pone
+ * el rumbo con `setRotation`, así que la flecha sigue apuntando al rumbo (un azimut sobre el mapa)
+ * aunque el mapa esté girado (T-656; antes giraba con un `rotate()` de CSS respecto a la pantalla).
+ */
 export function MarcadorCohete({ datos }: { datos: ReadonlySignal<DatosCohete> }) {
   const { rumbo, atenuado } = datos.value;
   return (
@@ -71,7 +91,7 @@ export function MarcadorCohete({ datos }: { datos: ReadonlySignal<DatosCohete> }
       <span class="cohete-halo" />
       <span class="cohete-punto" />
       {rumbo !== null && (
-        <span class="cohete-rumbo" style={{ transform: `rotate(${rumbo}deg)` }}>
+        <span class="cohete-rumbo">
           <Navigation2 aria-hidden="true" />
         </span>
       )}

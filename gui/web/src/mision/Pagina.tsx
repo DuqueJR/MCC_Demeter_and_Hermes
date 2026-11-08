@@ -42,7 +42,7 @@ export function Pagina({ contenido, extra, simulacion }: Props) {
         <Inicio contenido={contenido} />
         <EstadoMision mision={contenido.mision} simulacion={simulacion} />
         <Telemetria />
-        <SeccionMapa />
+        <SeccionMapa coheteMapa={contenido.coheteMapa} />
         {!enTierra && <Recuperacion />}
         <Actitud />
         <Graficas />

@@ -2,7 +2,7 @@
 // de forma diferida (`SeccionMapa.tsx` lo pide con `import()` al acercarse la sección).
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./mapa.css";
-import { Expand, LocateFixed, Scan, Shrink } from "lucide-preact";
+import { Box, Expand, LocateFixed, Scan, Shrink, Square } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { estado } from "../datos/api";
 import { numero } from "../mision/formato";
@@ -11,6 +11,8 @@ import { type ControlMapa, crearMapa } from "./controlador";
 const DECIMALES_COORDENADA = 5;
 
 export interface PropsMapa {
+  /** La miniatura del cohete de la misión, para la vista 3D (viene de su contenido). */
+  coheteMapa?: string;
   /** Pantalla completa (la maneja la sección, que es quien cambia de tamaño). */
   completa: boolean;
   alAlternarCompleta: () => void;
@@ -30,7 +32,7 @@ function PosicionEnTexto() {
   );
 }
 
-export default function Mapa({ completa, alAlternarCompleta }: PropsMapa) {
+export default function Mapa({ completa, alAlternarCompleta, coheteMapa }: PropsMapa) {
   const lienzo = useRef<HTMLElement>(null);
   const [control, setControl] = useState<ControlMapa | null>(null);
   const [fallo, setFallo] = useState(false);
@@ -40,7 +42,7 @@ export default function Mapa({ completa, alAlternarCompleta }: PropsMapa) {
     if (!contenedor) return;
     let vivo = true;
     let creado: ControlMapa | null = null;
-    crearMapa(contenedor)
+    crearMapa(contenedor, { coheteMapa })
       .then((c) => {
         if (!vivo) return c.destruir();
         creado = c;
@@ -92,6 +94,19 @@ export default function Mapa({ completa, alAlternarCompleta }: PropsMapa) {
           >
             <Scan aria-hidden="true" />
           </button>
+          {control.con3d && (
+            <button
+              type="button"
+              class="mapa-boton"
+              data-mapa-boton="3d"
+              aria-label={control.modo3d.value ? "Vista 2D" : "Vista 3D"}
+              title={control.modo3d.value ? "Vista 2D" : "Vista 3D"}
+              aria-pressed={control.modo3d.value}
+              onClick={() => control.alternar3d()}
+            >
+              {control.modo3d.value ? <Square aria-hidden="true" /> : <Box aria-hidden="true" />}
+            </button>
+          )}
           <button
             type="button"
             class="mapa-boton"

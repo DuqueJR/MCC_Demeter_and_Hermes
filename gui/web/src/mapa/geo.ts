@@ -5,9 +5,15 @@ import type { Estacion, Estado, Meta, Serie } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/estado_pagina";
 import { hace, numero } from "../mision/formato";
 import {
+  MAPA_3D_COHETE_ANGULO_DIBUJO,
+  MAPA_3D_COHETE_MIN_PX,
+  MAPA_3D_EPSILON_ALT_M,
+  MAPA_3D_LINEA_MAX_SEGMENTOS,
+  MAPA_3D_VEL_MIN_MS,
   MAPA_CUADRICULA_PASO_GRADOS,
   MAPA_CUADRICULA_RADIO_GRADOS,
   MAPA_EPSILON_GRADOS,
+  MAPA_MUNDO_PX,
   MAPA_OPACIDAD_RASTRO_MIN,
   MAPA_PASOS_ELIPSE,
   MAPA_RASTRO_MAX_PUNTOS,
@@ -267,6 +273,423 @@ export function tramosDesvanecidos(
   return coleccion(features);
 }
 
+// ---- Trayectoria y cohete en el aire (vista 3D, T-656)
+// Lo dibuja la capa personalizada de `capa3d.ts`; aquí está lo que se puede probar sin WebGL: los
+// puntos con altura, las coordenadas de Mercator, la altura de dibujo, el armado del búfer de la línea,
+// la proyección a píxeles y el ángulo de la imagen del cohete.
+
+/** Un punto de la trayectoria con su altura sobre el suelo (`alt_agl_m`). */
+export interface PuntoAlt {
+  lon: number;
+  lat: number;
+  alt_agl_m: number | null;
+}
+
+/** Los puntos de la `serie` que tienen posición (los mismos de `puntosDeSerie`), con su altura. */
+export function puntosAltDeSerie(serie: Serie): PuntoAlt[] {
+  const puntos: PuntoAlt[] = [];
+  for (let i = 0; i < serie.lat.length; i++) {
+    const lat = serie.lat[i];
+    const lon = serie.lon[i];
+    if (lat != null && lon != null)
+      puntos.push({ lon, lat, alt_agl_m: serie.alt_agl_m[i] ?? null });
+  }
+  return puntos;
+}
+
+/** ¿Los dos puntos coinciden (en el plano y en altura)? Un ascenso vertical NO es repetir el punto. */
+function mismoPunto(a: PuntoAlt, b: PuntoAlt): boolean {
+  return (
+    Math.abs(a.lon - b.lon) < MAPA_EPSILON_GRADOS &&
+    Math.abs(a.lat - b.lat) < MAPA_EPSILON_GRADOS &&
+    Math.abs((a.alt_agl_m ?? 0) - (b.alt_agl_m ?? 0)) < MAPA_3D_EPSILON_ALT_M
+  );
+}
+
+/**
+ * Agrega un punto al rastro con altura (los `estado` que llegan entre dos snapshots). A diferencia de
+ * `agregarPunto`, un punto en la misma posición pero a otra altura SÍ cuenta: en el ascenso casi
+ * vertical la posición casi no cambia y la trayectoria en el aire es justamente la altura. Si se pasa
+ * del máximo, conserva uno de cada dos.
+ */
+export function agregarPuntoAlt(
+  rastro: PuntoAlt[],
+  punto: PuntoAlt,
+  max: number = MAPA_RASTRO_MAX_PUNTOS,
+): PuntoAlt[] {
+  const ultimo = rastro[rastro.length - 1];
+  if (ultimo && mismoPunto(ultimo, punto)) return rastro;
+  const nuevo = [...rastro, punto];
+  if (nuevo.length <= max) return nuevo;
+  return nuevo.filter((_, i) => i % 2 === 0 || i === nuevo.length - 1);
+}
+
+/** Metros que mide un píxel a `zoom` (teselas de 512 px) en la latitud `latGrados`. */
+export function metrosPorPixel(zoom: number, latGrados: number): number {
+  const circunferencia = 2 * Math.PI * RADIO_TIERRA_M * Math.cos(aRadianes(latGrados));
+  return circunferencia / (MAPA_MUNDO_PX * 2 ** zoom);
+}
+
+// ---- Coordenadas de Mercator (las de MapLibre: [0, 1] en x e y, con el norte hacia y = 0)
+
+/** `[lon, lat]` a Mercator (`MercatorCoordinate.fromLngLat` de MapLibre, sin la altura). */
+export function aMercator(lon: number, lat: number): { x: number; y: number } {
+  const lat_rad = aRadianes(lat);
+  return {
+    x: (lon + GRADOS_MEDIA_VUELTA) / GRADOS_VUELTA,
+    y: 0.5 - Math.log(Math.tan(Math.PI / 4 + lat_rad / 2)) / (2 * Math.PI),
+  };
+}
+
+/** Lo que mide un metro en unidades de Mercator a esa latitud (`meterInMercatorCoordinateUnits`). */
+export function metroEnMercator(latGrados: number): number {
+  return 1 / (2 * Math.PI * RADIO_TIERRA_M * Math.cos(aRadianes(latGrados)));
+}
+
+/**
+ * La altura (m sobre el nivel del mar, la que usa el terreno de MapLibre) a la que se dibuja un punto del
+ * aire: la elevación del terreno en la rampa MÁS la altura sobre la rampa (`alt_agl_m`) por la
+ * exageración. `alt_agl_m` se mide desde la rampa, así que se suma a la elevación de la rampa y no a la
+ * del suelo que haya debajo de cada punto. `elevacionBaseM` ya viene multiplicada por la exageración
+ * (`queryTerrainElevation` la incluye).
+ */
+export function alturaDeDibujo(
+  elevacionBaseM: number,
+  altAglM: number,
+  exageracion: number,
+): number {
+  return elevacionBaseM + altAglM * exageracion;
+}
+
+type PuntoConAlt = PuntoAlt & { alt_agl_m: number };
+
+/** Los puntos con altura, sin los de `alt_agl_m` nulo ni los repetidos (misma posición y altura). */
+function puntosUtilesConAltura(puntos: readonly PuntoAlt[]): PuntoConAlt[] {
+  const utiles: PuntoConAlt[] = [];
+  for (const p of puntos) {
+    if (p.alt_agl_m === null || !Number.isFinite(p.alt_agl_m)) continue;
+    const ultimo = utiles[utiles.length - 1];
+    if (ultimo && mismoPunto(ultimo, p)) continue;
+    utiles.push(p as PuntoConAlt);
+  }
+  return utiles;
+}
+
+/** Conserva uno de cada `k` puntos y siempre el último, para que haya a lo sumo `maxSegmentos` segmentos. */
+function diezmarSegmentos<T>(puntos: T[], maxSegmentos: number): T[] {
+  const segmentos = puntos.length - 1;
+  if (segmentos <= maxSegmentos) return puntos;
+  const k = Math.ceil(segmentos / maxSegmentos);
+  return puntos.filter((_, i) => i % k === 0 || i === puntos.length - 1);
+}
+
+/** Cuántos números lleva cada vértice del búfer de la línea: posición (3), el otro extremo (3) y 4 atributos. */
+export const FLOATS_POR_VERTICE = 10;
+/** Vértices por segmento: dos triángulos. */
+export const VERTICES_POR_SEGMENTO = 6;
+
+/** Lo que necesita el armado del búfer. Las posiciones salen RELATIVAS al origen, en unidades de Mercator. */
+export interface ContextoLinea {
+  /** El origen (la rampa) en Mercator: se resta a todo, para que `float32` no pierda precisión. */
+  origen: { x: number; y: number };
+  /** Lo que mide un metro en Mercator en el origen (`metroEnMercator`). */
+  metroMercator: number;
+  exageracion: number;
+}
+
+export interface BufferLinea {
+  /** Vértices intercalados: `FLOATS_POR_VERTICE` números por vértice. */
+  datos: Float32Array;
+  segmentos: number;
+}
+
+/** Un vértice de un segmento: `pos` es el extremo de este vértice y `otro`, el opuesto. */
+function escribirVertice(
+  d: Float32Array,
+  i: number,
+  pos: readonly [number, number, number],
+  otro: readonly [number, number, number],
+  lado: number,
+  f: number,
+  s: number,
+  extremo: number,
+): void {
+  d.set(pos, i);
+  d.set(otro, i + 3);
+  d[i + 6] = lado;
+  d[i + 7] = f;
+  d[i + 8] = s;
+  d[i + 9] = extremo;
+}
+
+/** Los seis vértices de un segmento de `a` a `b` (un rectángulo de dos triángulos que el shader engrosa). */
+function escribirSegmento(
+  d: Float32Array,
+  desde: number,
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+  f: number,
+  sA: number,
+  sB: number,
+): void {
+  const n = FLOATS_POR_VERTICE;
+  escribirVertice(d, desde, a, b, -1, f, sA, 0);
+  escribirVertice(d, desde + n, a, b, 1, f, sA, 0);
+  escribirVertice(d, desde + 2 * n, b, a, -1, f, sB, 1);
+  escribirVertice(d, desde + 3 * n, b, a, -1, f, sB, 1);
+  escribirVertice(d, desde + 4 * n, a, b, 1, f, sA, 0);
+  escribirVertice(d, desde + 5 * n, b, a, 1, f, sB, 1);
+}
+
+/** Un punto del aire en Mercator relativo al origen: x, y y la altura sobre la elevación base (z). */
+function relativoAlOrigen(
+  lon: number,
+  lat: number,
+  altM: number,
+  c: ContextoLinea,
+): [number, number, number] {
+  const m = aMercator(lon, lat);
+  return [m.x - c.origen.x, m.y - c.origen.y, altM * c.exageracion * c.metroMercator];
+}
+
+/**
+ * El búfer de la línea de la trayectoria en el aire: un rectángulo (dos triángulos) por segmento, que el
+ * *shader* engrosa a un ancho constante en pantalla. Salta los puntos con `alt_agl_m` nulo y los repetidos
+ * (misma posición Y altura: el ascenso vertical se conserva) y diezma por encima de `maxSegmentos`.
+ * Cada segmento lleva `f` (0 lo más viejo, 1 lo más nuevo) para el degradado.
+ */
+export function construirBufferLinea(
+  puntos: readonly PuntoAlt[],
+  c: ContextoLinea,
+  maxSegmentos: number = MAPA_3D_LINEA_MAX_SEGMENTOS,
+): BufferLinea {
+  const utiles = diezmarSegmentos(puntosUtilesConAltura(puntos), maxSegmentos);
+  const segmentos = Math.max(0, utiles.length - 1);
+  const datos = new Float32Array(segmentos * VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE);
+  for (let i = 0; i < segmentos; i++) {
+    const [a, b] = [utiles[i], utiles[i + 1]] as [PuntoConAlt, PuntoConAlt];
+    escribirSegmento(
+      datos,
+      i * VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE,
+      relativoAlOrigen(a.lon, a.lat, a.alt_agl_m, c),
+      relativoAlOrigen(b.lon, b.lat, b.alt_agl_m, c),
+      segmentos > 1 ? i / (segmentos - 1) : 1,
+      0,
+      0,
+    );
+  }
+  return { datos, segmentos };
+}
+
+/**
+ * La plomada: un segmento vertical del cohete (a `altM` sobre la rampa) al suelo que tiene debajo, a
+ * `zSueloM` metros sobre la elevación base (negativo si el suelo queda más bajo que la rampa). Lleva en
+ * `s` la distancia en metros a lo largo, para punteado. `null` si no mide casi nada.
+ */
+export function construirBufferPlomada(
+  pos: Coord,
+  altM: number,
+  zSueloM: number,
+  c: ContextoLinea,
+): BufferLinea | null {
+  const largo = altM * c.exageracion - zSueloM;
+  if (!(largo > MAPA_3D_EPSILON_ALT_M)) return null;
+  const m = aMercator(pos[0], pos[1]);
+  const [x, y] = [m.x - c.origen.x, m.y - c.origen.y];
+  const datos = new Float32Array(VERTICES_POR_SEGMENTO * FLOATS_POR_VERTICE);
+  escribirSegmento(
+    datos,
+    0,
+    [x, y, altM * c.exageracion * c.metroMercator],
+    [x, y, zSueloM * c.metroMercator],
+    1,
+    0,
+    largo,
+  );
+  return { datos, segmentos: 1 };
+}
+
+/**
+ * Una matriz de 4 × 4 (por columnas) que pasa de Mercator RELATIVO a `origen` a espacio de recorte:
+ * es la de MapLibre (Mercator a recorte) por la traslación al origen. Se calcula en doble precisión.
+ */
+export function matrizRelativa(
+  m: ArrayLike<number>,
+  origen: readonly [number, number, number],
+): Float64Array {
+  const r = new Float64Array(16);
+  for (let i = 0; i < 12; i++) r[i] = m[i] as number;
+  for (let fila = 0; fila < 4; fila++) {
+    r[12 + fila] =
+      (m[fila] as number) * origen[0] +
+      (m[4 + fila] as number) * origen[1] +
+      (m[8 + fila] as number) * origen[2] +
+      (m[12 + fila] as number);
+  }
+  return r;
+}
+
+/** Un punto proyectado a píxeles de pantalla (CSS, con el origen arriba a la izquierda). */
+export interface PuntoPantalla {
+  x: number;
+  y: number;
+  /** Cae dentro del lienzo. */
+  dentro: boolean;
+}
+
+/** Proyecta `p` con la matriz (por columnas) a píxeles; `null` si queda detrás de la cámara (`w` <= 0). */
+export function proyectarAPixeles(
+  m: ArrayLike<number>,
+  p: readonly [number, number, number],
+  ancho: number,
+  alto: number,
+): PuntoPantalla | null {
+  const [x, y, z] = p;
+  const w = (m[3] as number) * x + (m[7] as number) * y + (m[11] as number) * z + (m[15] as number);
+  if (!(w > 0)) return null;
+  const nx =
+    ((m[0] as number) * x + (m[4] as number) * y + (m[8] as number) * z + (m[12] as number)) / w;
+  const ny =
+    ((m[1] as number) * x + (m[5] as number) * y + (m[9] as number) * z + (m[13] as number)) / w;
+  return {
+    x: ((nx + 1) / 2) * ancho,
+    y: ((1 - ny) / 2) * alto,
+    dentro: Math.abs(nx) <= 1 && Math.abs(ny) <= 1,
+  };
+}
+
+/** Lleva un ángulo a (-180, 180]. */
+function normalizarAngulo(grados: number): number {
+  const g =
+    (((grados % GRADOS_VUELTA) + GRADOS_VUELTA + GRADOS_MEDIA_VUELTA) % GRADOS_VUELTA) -
+    GRADOS_MEDIA_VUELTA;
+  return g === -GRADOS_MEDIA_VUELTA ? GRADOS_MEDIA_VUELTA : g;
+}
+
+/**
+ * El giro (grados, sentido de las agujas del reloj, el `rotate()` de CSS) de la imagen del cohete para que
+ * su nariz apunte hacia donde se mueve EN PANTALLA: de `p0` (el cohete) a `p1` (un punto un poco adelante,
+ * ya proyectados). La imagen trae la nariz a `anguloDibujo` grados de la vertical, así que se le resta. Sin
+ * los dos puntos o con un vector muy corto (`minPx`) no hay rumbo fiable y queda vertical (nariz arriba).
+ */
+export function anguloDeImagen(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): number {
+  return anguloFiable(p0, p1, minPx, anguloDibujo) ?? normalizarAngulo(-anguloDibujo);
+}
+
+/** Como `anguloDeImagen`, pero `null` si no hay rumbo fiable (faltan puntos o el vector es muy corto). */
+export function anguloFiable(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): number | null {
+  if (!p0 || !p1) return null;
+  const [dx, dy] = [p1.x - p0.x, p1.y - p0.y];
+  if (Math.hypot(dx, dy) < minPx) return null;
+  // La pantalla crece hacia abajo: "arriba" es -y, y el ángulo desde arriba crece hacia la derecha.
+  return normalizarAngulo((Math.atan2(dx, -dy) * GRADOS_MEDIA_VUELTA) / Math.PI - anguloDibujo);
+}
+
+/**
+ * El ángulo de la imagen del cohete con memoria: si hay rumbo fiable, ese; si no (sin velocidad fiable o
+ * un vector muy corto, como justo en el apogeo), el último ángulo válido (`ultimo`), para que la imagen
+ * no salte a vertical y vuelva; y si nunca hubo uno, vertical con la nariz arriba.
+ */
+export function anguloConMemoria(
+  p0: { x: number; y: number } | null,
+  p1: { x: number; y: number } | null,
+  ultimo: number | null,
+  minPx: number = MAPA_3D_COHETE_MIN_PX,
+  anguloDibujo: number = MAPA_3D_COHETE_ANGULO_DIBUJO,
+): { angulo: number; fiable: boolean } {
+  const nuevo = anguloFiable(p0, p1, minPx, anguloDibujo);
+  if (nuevo !== null) return { angulo: nuevo, fiable: true };
+  return { angulo: ultimo ?? normalizarAngulo(-anguloDibujo), fiable: false };
+}
+
+/**
+ * Acerca `actual` a `objetivo` por el camino corto (nunca da la vuelta larga) con una suavización
+ * exponencial de constante `tauMs`, tras `dtMs` ms. Con `tauMs` <= 0 salta directo. Devuelve el ángulo en
+ * (-180, 180]; si ya está a menos de 0,1°, el objetivo exacto.
+ */
+export function suavizarAngulo(
+  actual: number,
+  objetivo: number,
+  dtMs: number,
+  tauMs: number,
+): number {
+  const dif = normalizarAngulo(objetivo - actual);
+  if (!(tauMs > 0) || Math.abs(dif) < 0.1) return objetivo;
+  const factor = 1 - Math.exp(-Math.max(0, dtMs) / tauMs);
+  return normalizarAngulo(actual + dif * factor);
+}
+
+/**
+ * La dirección del movimiento en 3D, `[este, norte, arriba]` unitario, para orientar la imagen del cohete
+ * en TODAS las fases de vuelo (también en la bajada, con la nariz hacia abajo); `null` si no hay
+ * velocidad o la rapidez no es fiable (`MAPA_3D_VEL_MIN_MS`).
+ */
+export function direccionDeVelocidad(
+  vel: { e_ms: number; n_ms: number; u_ms: number } | null,
+): [number, number, number] | null {
+  if (!vel) return null;
+  const rapidez = Math.hypot(vel.e_ms, vel.n_ms, vel.u_ms);
+  if (!(rapidez >= MAPA_3D_VEL_MIN_MS)) return null;
+  return [vel.e_ms / rapidez, vel.n_ms / rapidez, vel.u_ms / rapidez];
+}
+
+/**
+ * Un color CSS de un token (en hexadecimal corto o largo, o con la función de rojo, verde y azul) a `[r, g, b]` en 0 a 1 para WebGL;
+ * `null` si no se entiende (no se inventa un color).
+ */
+export function colorARgb(css: string): [number, number, number] | null {
+  const t = css.trim();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(t);
+  if (hex) {
+    const h =
+      (hex[1] as string).length === 3
+        ? (hex[1] as string).replace(/./g, "$&$&")
+        : (hex[1] as string);
+    return [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255) as [
+      number,
+      number,
+      number,
+    ];
+  }
+  const rgb = /^rgba?\(\s*(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)/i.exec(t);
+  if (rgb)
+    return [1, 2, 3].map((i) => Number.parseFloat(rgb[i] as string) / 255) as [
+      number,
+      number,
+      number,
+    ];
+  return null;
+}
+
+/**
+ * La caja que contiene la trayectoria vista desde `pitchDeg` grados de inclinación y con el norte
+ * arriba: además de los puntos del suelo, cada punto con altura `h` se corre `h * tan(pitch)` al
+ * norte, que es donde la cortina asoma por arriba en la pantalla. Es lo que "Ver todo" y el área
+ * navegable deben abarcar en 3D para que la parte alta de la trayectoria no quede fuera (GS-03).
+ * `null` si no hay puntos.
+ */
+export function limitesConAltura(puntos: readonly PuntoAlt[], pitchDeg: number): Limites | null {
+  const tangente = Math.tan(aRadianes(pitchDeg));
+  const coords: Coord[] = [];
+  for (const p of puntos) {
+    coords.push([p.lon, p.lat]);
+    if (p.alt_agl_m !== null && Number.isFinite(p.alt_agl_m) && p.alt_agl_m > 0) {
+      coords.push(desplazar([p.lon, p.lat], 0, p.alt_agl_m * tangente));
+    }
+  }
+  return limitesDe(coords);
+}
+
 // ---- Etiquetas
 
 /** `271` -> `"O"`. */
@@ -367,6 +790,13 @@ export function limitesDe(coords: Coord[]): Limites | null {
     norte = Math.max(norte, lat);
   }
   return [oeste, sur, este, norte];
+}
+
+/** La caja más pequeña que contiene a las dos (una puede faltar). */
+export function unirLimites(a: Limites | null, b: Limites | null): Limites | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 }
 
 /** ¿Está la coordenada fuera de la caja visible? */

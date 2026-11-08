@@ -157,7 +157,8 @@ La misma estructura para los dos (cambia el tema) y una sección extra en Demét
   - la **elipse de impacto**;
   - la **línea estación → cohete** con su chip de distancia y azimut.
 - **En LKP:** el punto pasa a 📍 rojo fijo, con la altitud y "hace X s". **Nunca se borra** (GS-03).
-- **Controles:** centrar en el cohete, ver todo y pantalla completa. **En el celular, el mapa no captura el desplazamiento de la página:** hay que tocarlo para activarlo o usar dos dedos. Si no, la gente queda "atrapada" en el mapa.
+- **Vista 3D opcional** (D-W23, T-656): un botón "Vista 3D" / "Vista 2D" (solo si hay relieve; el mapa **arranca siempre en 2D**). En 3D el terreno se levanta con la misma DEM del relieve, la trayectoria es una línea fina en el aire (la traza en el suelo se conserva como sombra) con una plomada punteada al suelo, el cohete es la imagen de la misión a su altura real (con la nariz hacia donde va: arriba al subir y abajo al bajar) con su flecha de rumbo tendida sobre el terreno, y la caída estimada es un pin de pie con un anillo suave y la elipse sobre el terreno. No hay bloques. Se puede girar e inclinar; "Ver todo" y "Centrar en el cohete" siguen sirviendo.
+- **Controles:** centrar en el cohete, ver todo, la vista 3D (si hay relieve) y pantalla completa. **En el celular, el mapa no captura el desplazamiento de la página:** hay que tocarlo para activarlo o usar dos dedos. Si no, la gente queda "atrapada" en el mapa.
 - **Alto:** 60 % del alto de la pantalla en el celular, y el centro del panel en el portátil.
 
 ### 3.5 Recuperación (*Objetivos* 7.G)
