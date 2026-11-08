@@ -26,6 +26,11 @@
   --marca-1: #1b364a;
   --marca-2: #d9a93a;
   --marca-3: #2e9e62;
+  /* Relieve del mapa (T-649, D-W22): discreto, para que la trayectoria (--acento) siga siendo lo más visible. */
+  --relieve-sombra: #04090d;
+  --relieve-luz: #7ba3be;
+  --relieve-curva: #3f647d;
+  --relieve-curva-indice: #6b93ad;
   --fuente-display: "Marcellus";
   --radio: 10px;
   --radio-tarjeta: 14px;

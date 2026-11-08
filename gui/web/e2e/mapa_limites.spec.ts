@@ -25,6 +25,14 @@ const MEDIDAS = [
 const EPS_GRADOS = 1e-4;
 const EPS_ZOOM = 0.01;
 
+// T-649: estas pruebas son de los límites del área, no del relieve. Arrastran y acercan decenas de
+// veces con Chromium sin GPU (WebGL por software), donde el sombreado de pantalla completa hace cada
+// cuadro tan lento que dos de ellas (1440x900) pasan de los 30 s del tiempo máximo. Sin relieve
+// miden lo mismo que antes; el relieve se prueba en `mapa_relieve.spec.ts`.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/mapas/relieve/**", (ruta) => ruta.abort());
+});
+
 interface EstadoMapa {
   limites: [number, number, number, number];
   vista: [number, number, number, number];

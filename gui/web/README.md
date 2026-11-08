@@ -24,6 +24,7 @@ Solo `npm` y Node (Windows y macOS), sin bash.
 | `npm run build`                        | `tsc`, `vite build` y la prueba de aislamiento sobre `dist/`                                                        |
 | `npm run colores`                      | Regla contra colores sueltos: falla si hay colores literales fuera de `src/tema/` (T-613)                           |
 | `npm run aislamiento`                  | Solo la prueba de aislamiento (D-W01) sobre `dist/`                                                                 |
+| `npm run relieve`                      | Baja los *Terrain Tiles* de AWS del recorte del mapa y calcula las curvas de nivel en `public/mapas/relieve/` (versionado, ≤ 3 MB); `-- --comprobar` solo verifica ([src/mapa/README.md](src/mapa/README.md), T-649) |
 | `npm test`                             | Vitest (incluye la prueba de aislamiento con un caso falso y sobre un build real)                                   |
 | `npm run e2e:instalar`                 | Una vez: descarga Chromium para Playwright                                                                          |
 | `npm run e2e`                          | Construye y corre el humo de Playwright (390×844 y 1440×900, 3 páginas); capturas en `e2e/capturas/`                |

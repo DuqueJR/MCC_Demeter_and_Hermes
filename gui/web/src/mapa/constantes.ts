@@ -105,3 +105,32 @@ export const ESTILO_MAPA = {
   anchoRastro: [10, 2, 18, 5] as RampaZoom,
   anchoCuadricula: 1,
 } as const;
+
+// ---- Relieve (T-649, D-W22): sombreado del terreno y curvas de nivel
+
+/** Ruta de los metadatos del relieve, relativa a `BASE_URL`. Las teselas y las curvas cuelgan de su carpeta. */
+export const MAPA_RELIEVE_RUTA = "mapas/relieve/relieve.json";
+/** Tiempo máximo de cada petición del relieve, en ms. Si no llega, el mapa sigue sin él. */
+export const MAPA_RELIEVE_TIMEOUT_MS = 20_000;
+/**
+ * Separación entre curvas de nivel, en metros. Es la que usa `scripts/generar-relieve.mjs`
+ * (`INTERVALO_CURVAS_M`): una prueba comprueba que `relieve.json` coincida con estos valores.
+ */
+export const RELIEVE_CURVA_INTERVALO_M = 50;
+/** Cada cuántos metros hay una curva índice (la más visible). Ídem `INDICE_CADA_M` del script. */
+export const RELIEVE_CURVA_INDICE_M = 250;
+
+export const ESTILO_RELIEVE = {
+  /** Intensidad del sombreado (0 a 1): discreta, para que la trayectoria siga siendo lo más visible. */
+  exageracion: 0.35,
+  /** De dónde viene la luz, en grados desde el norte (315 = el noroeste, como en los mapas impresos). */
+  direccionLuz: 315,
+  /** Opacidad de las curvas intermedias y de las índice. */
+  opacidadCurva: 0.55,
+  opacidadCurvaIndice: 0.9,
+  /** Ancho por zoom de las curvas intermedias y de las índice. */
+  anchoCurva: [11, 0.3, 17, 0.9] as RampaZoom,
+  anchoCurvaIndice: [11, 0.7, 17, 1.6] as RampaZoom,
+  /** Las curvas intermedias aparecen desde este zoom; con menos, solo las índice (si no, se empastan). */
+  zoomCurvaIntermedia: 13,
+} as const;

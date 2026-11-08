@@ -35,7 +35,16 @@ import {
   MAPA_ZOOM_CENTRAR,
   MAPA_ZOOM_INICIAL,
 } from "./constantes";
-import { construirEstilo, FUENTE, leerTokensDelDocumento, type Tokens } from "./estilo";
+import { relieveActivo } from "./estado_relieve";
+import {
+  CAPAS_RELIEVE,
+  construirEstilo,
+  FUENTE,
+  leerTokensDelDocumento,
+  leerTokensRelieveDelDocumento,
+  type RelieveEstilo,
+  type Tokens,
+} from "./estilo";
 import {
   agregarPunto,
   type Capas,
@@ -58,6 +67,7 @@ import {
   MarcadorLkp,
   MarcadorRampa,
 } from "./marcadores";
+import { cargarRelieve } from "./relieve";
 
 /** Diferencia de zoom que no vale la pena aplicar a MapLibre. */
 const ZOOM_EPSILON = 1e-6;
@@ -146,9 +156,17 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
   const tokens = leerTokensDelDocumento();
   const protocolo = new Protocol();
   addProtocol("pmtiles", protocolo.tile);
-  const detectada = await detectarBase(protocolo);
+  // La base y el relieve se piden a la vez (ninguno retrasa al otro); los dos son opcionales.
+  const [detectada, datosRelieve] = await Promise.all([detectarBase(protocolo), cargarRelieve()]);
   const base = detectada?.base ?? null;
   const cobertura = detectada?.cobertura ?? null;
+  // Sin los datos o sin los tokens del tema, no hay relieve y el estilo es el de siempre.
+  const tokensRelieve = datosRelieve ? leerTokensRelieveDelDocumento() : null;
+  const relieve: RelieveEstilo | null =
+    datosRelieve && tokensRelieve ? { relieve: datosRelieve, tokens: tokensRelieve } : null;
+  if (datosRelieve && !tokensRelieve) {
+    console.warn("Sin relieve en el mapa: el tema no define los tokens --relieve-*");
+  }
 
   const centro = meta.peek()?.sitio ?? MAPA_CENTRO_POR_DEFECTO;
   // El área navegable (T-634): con PMTiles, el recuadro de su cabecera metido un poco hacia
@@ -164,7 +182,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     Math.min(zoomMinimo(l, contenedor.clientWidth, contenedor.clientHeight), zoomMax);
   const mapa = new MapaGL({
     container: contenedor,
-    style: construirEstilo(tokens, base),
+    style: construirEstilo(tokens, base, relieve),
     center: [centro.lon, centro.lat],
     zoom: MAPA_ZOOM_INICIAL,
     maxZoom: zoomMax,
@@ -353,7 +371,33 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     contenedor.dataset.mapaBaseDibujada = String(
       capasBase.length > 0 ? mapa.queryRenderedFeatures({ layers: capasBase }).length : 0,
     );
+    // Ídem para el relieve (T-649): cuántas capas `relieve-*` hay, si sus teselas ya se cargaron y
+    // cuántas curvas de nivel salieron dibujadas.
+    const capasRelieve = mapa
+      .getStyle()
+      .layers.map((l) => l.id)
+      .filter((id) => id.startsWith("relieve-"));
+    const capasCurvas = capasRelieve.filter((id) => id !== CAPAS_RELIEVE.sombreado);
+    contenedor.dataset.mapaCapasRelieve = String(capasRelieve.length);
+    contenedor.dataset.mapaRelieveCargado =
+      relieve && mapa.isSourceLoaded(FUENTE.relieve) ? "1" : "0";
+    contenedor.dataset.mapaCurvasDibujadas = String(
+      capasCurvas.length > 0 ? mapa.queryRenderedFeatures({ layers: capasCurvas }).length : 0,
+    );
   });
+  if (relieve) {
+    // Que una tesela del relieve no llegue es un aviso, no un error del mapa: el resto sigue igual.
+    // MapLibre, sin ningún oyente, escribe todos los errores con `console.error`: aquí se conserva
+    // para los que no son del relieve.
+    let relieveAvisado = false;
+    mapa.on("error", (e) => {
+      const fuenteId = (e as { sourceId?: string }).sourceId;
+      if (fuenteId !== FUENTE.relieve && fuenteId !== FUENTE.curvas) return console.error(e.error);
+      if (relieveAvisado) return;
+      relieveAvisado = true;
+      console.warn("Relieve del mapa:", e.error?.message ?? e.error);
+    });
+  }
 
   let detener: (() => void) | null = null;
   // Se conecta en cuanto el estilo está listo, NO al evento `load`: ese espera a que lleguen las
@@ -372,6 +416,8 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     contenedor.dataset.mapaListo = "1";
   });
   contenedor.dataset.mapaBase = base ? "vectorial" : "sin-base";
+  contenedor.dataset.mapaRelieve = relieve ? "activo" : "sin-relieve";
+  relieveActivo.value = relieve !== null;
 
   return {
     hayCohete,
@@ -398,6 +444,7 @@ export async function crearMapa(contenedor: HTMLElement): Promise<ControlMapa> {
     redimensionar: () => mapa.resize(),
     destruir() {
       detener?.();
+      relieveActivo.value = false;
       for (const m of [rampa, estacionMarca, impacto, chip, cohete, lkpMarca]) m.quitar();
       mapa.remove();
       removeProtocol("pmtiles");

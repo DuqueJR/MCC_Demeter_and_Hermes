@@ -8,6 +8,7 @@
       "!node_modules",
       "!test-results",
       "!playwright-report",
+      "!public/mapas/relieve",
       "!src/assets/demeter/simulacion_nominal.json",
       "!src/assets/hermes/simulacion_nominal.json"
     ]

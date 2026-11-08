@@ -5,6 +5,7 @@
 import type {
   ExpressionSpecification,
   FilterSpecification,
+  GeoJSONSourceSpecification,
   LayerSpecification,
   StyleSpecification,
 } from "maplibre-gl";
@@ -12,9 +13,11 @@ import {
   ESTILO_MAPA as E,
   MAPA_CENTRO_POR_DEFECTO,
   MAPA_DUR_RESPALDO_MS,
+  ESTILO_RELIEVE as R,
   type RampaZoom,
 } from "./constantes";
 import { cuadricula } from "./geo";
+import type { Relieve } from "./relieve";
 
 const MS_POR_S = 1000;
 
@@ -73,6 +76,43 @@ export function leerTokens(leer: (variable: string) => string): Tokens {
   return { ...colores, duracionMs: duracionEnMs(leer(VARIABLE_DURACION)) };
 }
 
+/** Los tokens del relieve (T-649). Opcionales: sin ellos el mapa no dibuja relieve, pero sí lo demás. */
+export interface TokensRelieve {
+  /** Sombra del terreno (el lado opuesto a la luz). */
+  sombra: string;
+  /** Luz sobre el terreno. */
+  luz: string;
+  /** Curvas de nivel intermedias. */
+  curva: string;
+  /** Curvas de nivel índice (las más marcadas). */
+  curvaIndice: string;
+}
+
+/** Nombre de la variable CSS de cada token del relieve (cada tema los define en `src/tema/`). */
+export const VARIABLES_RELIEVE: Record<keyof TokensRelieve, string> = {
+  sombra: "--relieve-sombra",
+  luz: "--relieve-luz",
+  curva: "--relieve-curva",
+  curvaIndice: "--relieve-curva-indice",
+};
+
+/** Lee los tokens del relieve, o `null` si falta alguno (no se inventa un color: no hay relieve). */
+export function leerTokensRelieve(leer: (variable: string) => string): TokensRelieve | null {
+  const tokens = {} as TokensRelieve;
+  for (const [clave, variable] of Object.entries(VARIABLES_RELIEVE)) {
+    const valor = leer(variable).trim();
+    if (valor === "") return null;
+    tokens[clave as keyof TokensRelieve] = valor;
+  }
+  return tokens;
+}
+
+/** Tokens del relieve del documento actual (el tema de la misión está en `<html data-mision>`). */
+export function leerTokensRelieveDelDocumento(): TokensRelieve | null {
+  const estilo = getComputedStyle(document.documentElement);
+  return leerTokensRelieve((variable) => estilo.getPropertyValue(variable));
+}
+
 /** Tokens del documento actual (el tema de la misión está en `<html data-mision>`). */
 export function leerTokensDelDocumento(): Tokens {
   const estilo = getComputedStyle(document.documentElement);
@@ -81,6 +121,8 @@ export function leerTokensDelDocumento(): Tokens {
 
 /** Ids de las fuentes del estilo, para actualizarlas desde el componente. */
 export const FUENTE = {
+  relieve: "relieve",
+  curvas: "curvas",
   trayectoria: "trayectoria",
   elipse: "elipse",
   linea: "linea-estacion",
@@ -102,8 +144,8 @@ const tipos = (...kinds: string[]): FilterSpecification => [
   ["literal", kinds],
 ];
 
-/** Las capas del mapa base de Protomaps (agua, tierra, vías y lugares), a mano y con tokens. */
-function capasBase(t: Tokens): LayerSpecification[] {
+/** El suelo del mapa base de Protomaps (tierra y uso del suelo): el relieve va encima. */
+function capasBaseSuelo(t: Tokens): LayerSpecification[] {
   const fuente = FUENTE.base;
   return [
     {
@@ -120,6 +162,13 @@ function capasBase(t: Tokens): LayerSpecification[] {
       "source-layer": "landuse",
       paint: { "fill-color": t.superficie2, "fill-opacity": E.opacidadUso },
     },
+  ];
+}
+
+/** Lo que va sobre el suelo y el relieve del mapa base: agua, vías y lugares, a mano y con tokens. */
+function capasBaseSuperficie(t: Tokens): LayerSpecification[] {
+  const fuente = FUENTE.base;
+  return [
     {
       id: "base-agua",
       type: "fill",
@@ -172,6 +221,68 @@ function capasBase(t: Tokens): LayerSpecification[] {
       },
     },
   ];
+}
+
+/** Ids de las capas del relieve (para las pruebas y el controlador). */
+export const CAPAS_RELIEVE = {
+  sombreado: "relieve-sombreado",
+  curvas: "relieve-curvas",
+  curvasIndice: "relieve-curvas-indice",
+} as const;
+
+/** El relieve (D-W22): sombreado y curvas de nivel, sin etiquetas (no hay servidor de glifos). */
+function capasRelieve(t: TokensRelieve, conCurvas: boolean): LayerSpecification[] {
+  const capas: LayerSpecification[] = [
+    {
+      id: CAPAS_RELIEVE.sombreado,
+      type: "hillshade",
+      source: FUENTE.relieve,
+      paint: {
+        "hillshade-exaggeration": R.exageracion,
+        "hillshade-shadow-color": t.sombra,
+        "hillshade-highlight-color": t.luz,
+        "hillshade-accent-color": t.sombra,
+        "hillshade-illumination-direction": R.direccionLuz,
+        "hillshade-illumination-anchor": "map",
+      },
+    },
+  ];
+  if (conCurvas) {
+    capas.push(
+      {
+        id: CAPAS_RELIEVE.curvas,
+        type: "line",
+        source: FUENTE.curvas,
+        minzoom: R.zoomCurvaIntermedia,
+        filter: ["==", ["get", "tipo"], "intermedia"],
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": t.curva,
+          "line-opacity": R.opacidadCurva,
+          "line-width": porZoom(R.anchoCurva),
+        },
+      },
+      {
+        id: CAPAS_RELIEVE.curvasIndice,
+        type: "line",
+        source: FUENTE.curvas,
+        filter: ["==", ["get", "tipo"], "indice"],
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": t.curvaIndice,
+          "line-opacity": R.opacidadCurvaIndice,
+          "line-width": porZoom(R.anchoCurvaIndice),
+        },
+      },
+    );
+  }
+  return capas;
+}
+
+/** El relieve que se dibuja: los datos que llegaron y los tokens del tema. */
+export interface RelieveEstilo {
+  relieve: Relieve;
+  tokens: TokensRelieve;
 }
 
 /** La cuadrícula de referencia, que reemplaza al mapa base cuando no hay PMTiles. */
@@ -233,8 +344,18 @@ export interface BaseVectorial {
   atribucion: string;
 }
 
-/** El estilo completo. Sin `base`, el mapa es solo el fondo del tema y las capas de la misión. */
-export function construirEstilo(t: Tokens, base: BaseVectorial | null): StyleSpecification {
+/**
+ * El estilo completo. Sin `base`, el mapa es solo el fondo del tema y las capas de la misión. Sin
+ * `relieve` (los archivos no están), el estilo es el de antes de T-649: ni una capa ni una fuente más.
+ *
+ * Orden de las capas: fondo, tierra y uso del suelo (o la cuadrícula, sin base), RELIEVE, agua, vías
+ * y lugares, y la misión encima de todo.
+ */
+export function construirEstilo(
+  t: Tokens,
+  base: BaseVectorial | null,
+  relieve: RelieveEstilo | null = null,
+): StyleSpecification {
   return {
     version: 8,
     sources: {
@@ -255,13 +376,38 @@ export function construirEstilo(t: Tokens, base: BaseVectorial | null): StyleSpe
               data: cuadricula(MAPA_CENTRO_POR_DEFECTO),
             },
           }),
+      ...(relieve
+        ? {
+            [FUENTE.relieve]: {
+              type: "raster-dem" as const,
+              tiles: [relieve.relieve.urlTeselas],
+              encoding: "terrarium" as const,
+              tileSize: relieve.relieve.meta.tamanoTesela,
+              minzoom: relieve.relieve.meta.minzoom,
+              maxzoom: relieve.relieve.meta.maxzoom,
+              // Fuera de lo que cubren las teselas no se piden (darían 404): MapLibre sobrezoomea.
+              bounds: [...relieve.relieve.meta.bounds],
+              attribution: relieve.relieve.atribucion,
+            },
+          }
+        : {}),
+      ...(relieve?.relieve.curvas
+        ? {
+            [FUENTE.curvas]: {
+              type: "geojson" as const,
+              data: relieve.relieve.curvas as unknown as GeoJSONSourceSpecification["data"],
+            },
+          }
+        : {}),
       [FUENTE.trayectoria]: { type: "geojson", data: vacia },
       [FUENTE.elipse]: { type: "geojson", data: vacia },
       [FUENTE.linea]: { type: "geojson", data: vacia },
     },
     layers: [
       { id: "fondo", type: "background", paint: { "background-color": t.fondo } },
-      ...(base ? capasBase(t) : [capaCuadricula(t)]),
+      ...(base ? capasBaseSuelo(t) : [capaCuadricula(t)]),
+      ...(relieve ? capasRelieve(relieve.tokens, relieve.relieve.curvas !== null) : []),
+      ...(base ? capasBaseSuperficie(t) : []),
       ...capasMision(t),
     ],
   };

@@ -1,0 +1,35 @@
+{
+  "formato": "relieve-1",
+  "fuente": "AWS Terrain Tiles, formato terrarium (Mapzen/Tilezen; SRTM del USGS en la zona del mapa)",
+  "url_origen": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+  "atribucion": "Relieve: Mapzen/Tilezen · SRTM y GMTED2010, cortesía del Servicio Geológico de EE. UU. (USGS)",
+  "url_atribucion": "https://github.com/tilezen/joerd/blob/master/docs/attribution.md",
+  "fecha": "2026-11-07",
+  "bbox": [
+    -75.873,
+    6.532,
+    -75.773,
+    6.632
+  ],
+  "bounds": [
+    -76.025390625,
+    6.402648405963892,
+    -75.673828125,
+    6.751896464843376
+  ],
+  "minzoom": 10,
+  "maxzoom": 12,
+  "codificacion": "terrarium",
+  "tamano_tesela": 256,
+  "teselas": 34,
+  "curvas": {
+    "archivo": "curvas.geojson",
+    "intervalo_m": 50,
+    "indice_cada_m": 250,
+    "z_dem": 12,
+    "suavizado_pasadas": 2,
+    "elevacion_min_m": 427,
+    "elevacion_max_m": 2141,
+    "niveles": 34
+  }
+}
