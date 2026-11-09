@@ -20,3 +20,7 @@ Datos de entrada del proyecto: simulaciones, y más adelante los logs de prueba 
 ## Exportar la simulación de Hermes
 
 Ese archivo es el que falta, así que conviene exportarlo **igual**: en OpenRocket, "Export data" con todas las variables y los comentarios de eventos, con el sitio en Santa Fe de Antioquia y el motor real. Se guarda como `simulaciones/openrocket/hermes_<motor>_santa-fe-antioquia_simN.csv`.
+
+## Vuelos reales
+
+- [`vuelos/2026-11-08/`](vuelos/2026-11-08/README.md): los registros de Hermes y Demeter del 8 de noviembre de 2026 (`.BIN` completos comprimidos y partidos, CSV de la ventana de vuelo, sesión y comandos de la estación de tierra, y lo que mostraba la web). Análisis: [`2026-11-08_analisis_forense-vuelos.md`](../docs/07_bitacora/2026-11-08_analisis_forense-vuelos.md).
