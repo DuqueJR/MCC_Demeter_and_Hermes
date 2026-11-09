@@ -1,0 +1,149 @@
+# 20261108_092801_tierra.txt
+09:28:03 [cmd ] reset (esta placa) | <d|h> ping | armar | desarmar | launch | abortar | dormir | reiniciar | buzzer <on|off> | boosttierra <on|off> | pi encender (solo Demeter) | estado <tierra|armed|fly|recovery> | momento <launch|boost|coast|apogeo|caida|paracaidas|aterrizaje>
+10:15:58 [cmd ] Hermes: NO APTO | estado=TIERRA momento=- alt=-0.9 m vz=0.0 m/s reserva=100% vbat=4072 mV
+10:15:58 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+10:15:58 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+10:16:02 [cmd ] Hermes: EJECUTADO | estado=ARMED momento=- alt=-0.9 m vz=0.0 m/s reserva=100% vbat=4073 mV
+10:16:02 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+10:22:57 [cmd ] Hermes: EJECUTADO | estado=FLY momento=LAUNCH alt=-0.1 m vz=-0.0 m/s reserva=0% vbat=4071 mV
+10:25:03 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:26:56 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:27:41 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:27:53 [cmd ] Hermes: EJECUTADO | estado=FLY momento=ATERRIZAJE alt=-12.5 m vz=0.0 m/s reserva=0% vbat=4070 mV
+10:30:26 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:30:59 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:31:11 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:31:21 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:33:02 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:33:11 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:33:32 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:34:16 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:34:26 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:35:12 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:35:21 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:35:41 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:35:54 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:36:01 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:36:27 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:41:01 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:41:16 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:42:09 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:42:51 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:43:45 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:43:57 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:44:08 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:44:25 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:44:34 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:44:49 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:47:36 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:47:49 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+10:56:11 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+11:02:27 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+11:02:39 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+11:04:27 [cmd ] Hermes: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+11:19:56 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4065 mV
+11:19:56 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:19:56 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:19:58 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4064 mV
+11:19:58 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:20:03 [cmd ] Hermes: NO APTO | estado=FLY momento=ATERRIZAJE alt=-0.2 m vz=-0.1 m/s reserva=0% vbat=4038 mV
+11:20:03 [cmd ]   - en vuelo: ya hubo BOOST
+11:20:03 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:20:05 [cmd ] Hermes: EJECUTADO | estado=TIERRA momento=- alt=-0.5 m vz=-0.1 m/s reserva=0% vbat=4037 mV
+11:20:05 [cmd ]   - en vuelo: ya hubo BOOST
+11:20:56 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4064 mV
+11:20:59 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4064 mV
+11:20:59 [cmd ]   - la Pi no esta lista (READY): no grabaria el vuelo
+11:20:59 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:20:59 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:21:01 [cmd ] cancelado
+11:21:05 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4063 mV
+11:21:05 [cmd ]   - la Pi no esta lista (READY): no grabaria el vuelo
+11:21:05 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:21:05 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:21:07 [cmd ] cancelado
+11:21:14 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4063 mV
+11:21:14 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:21:14 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:21:16 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4064 mV
+11:21:16 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:22:19 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4064 mV
+11:23:11 [cmd ] Hermes: EJECUTADO | estado=TIERRA momento=- alt=-1.3 m vz=0.0 m/s reserva=100% vbat=4060 mV
+11:31:15 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=0% vbat=4063 mV
+11:31:54 [cmd ] Demeter: EJECUTADO | estado=FLY momento=BOOST alt=1.0 m vz=0.0 m/s reserva=0% vbat=4060 mV
+11:31:55 [cmd ] Demeter: NO APTO | estado=FLY momento=BOOST alt=1.0 m vz=0.0 m/s reserva=0% vbat=4061 mV
+11:31:55 [cmd ]   - en vuelo: ya hubo BOOST
+11:31:55 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:31:58 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4060 mV
+11:31:58 [cmd ]   - en vuelo: ya hubo BOOST
+11:32:13 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4063 mV
+11:33:30 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4063 mV
+11:33:30 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:33:30 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:33:32 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4063 mV
+11:33:32 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:33:43 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=0% vbat=4062 mV
+11:39:52 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4057 mV
+11:39:54 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4059 mV
+11:57:12 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4061 mV
+11:57:12 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+11:57:12 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+11:57:15 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4062 mV
+11:57:15 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:02:20 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4061 mV
+12:02:37 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=25% vbat=4055 mV
+12:02:37 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:02:37 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+12:02:41 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=31% vbat=4054 mV
+12:02:41 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:04:11 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=31% vbat=4030 mV
+12:05:07 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4030 mV
+12:05:07 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:05:07 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+12:05:10 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4031 mV
+12:05:10 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:06:40 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=100% vbat=4060 mV
+12:09:22 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4060 mV
+12:14:43 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4061 mV
+12:25:10 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4058 mV
+12:25:10 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:25:10 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+12:25:13 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4059 mV
+12:25:13 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:25:15 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=0% vbat=4058 mV
+12:27:21 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=0% vbat=4036 mV
+12:27:26 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=6% vbat=4051 mV
+12:27:26 [cmd ]   - reserva incompleta
+12:27:26 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:27:26 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+12:27:28 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=9% vbat=4052 mV
+12:27:28 [cmd ]   - reserva incompleta
+12:27:28 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:28:31 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=9% vbat=4058 mV
+12:28:57 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=9% vbat=4034 mV
+12:30:12 [cmd ] Demeter: NO APTO | estado=TIERRA momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4057 mV
+12:30:12 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:30:12 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+12:30:14 [cmd ] Demeter: EJECUTADO | estado=ARMED momento=- alt=1.0 m vz=0.0 m/s reserva=100% vbat=4058 mV
+12:30:14 [cmd ]   - temperatura del suelo sin muestra, dudosa, vieja o lejos de la de ahora: la altura barometrica tendria error
+12:30:16 [cmd ] Demeter: EJECUTADO | estado=FLY momento=LAUNCH alt=1.0 m vz=0.0 m/s reserva=0% vbat=4058 mV
+12:30:34 [cmd ] Demeter: EJECUTADO | estado=FLY momento=BOOST alt=1.0 m vz=0.0 m/s reserva=0% vbat=4047 mV
+12:32:01 [cmd ] Demeter: EJECUTADO | estado=FLY momento=ATERRIZAJE alt=1.0 m vz=0.0 m/s reserva=0% vbat=4021 mV
+12:37:39 [cmd ] Demeter: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+12:37:49 [cmd ] Demeter: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+12:38:40 [cmd ] Demeter: sin respuesta tras 4 intentos. Pudo ejecutarse o no: revisa el estado en la telemetria
+# 20261108_184334_tierra.txt
+18:43:35 [cmd ] reset (esta placa) | <d|h> ping | armar | desarmar | launch | abortar | dormir | reiniciar | buzzer <on|off> | boosttierra <on|off> | pi encender (solo Demeter) | estado <tierra|armed|fly|recovery> | momento <launch|boost|coast|apogeo|caida|paracaidas|aterrizaje>
+18:43:37 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:43:39 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:43:43 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:43:46 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:44:12 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:44:19 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:44:19 [cmd ] tierra sin hora: no puede transmitir en ranuras
+18:44:50 [cmd ] Demeter: NO APTO | estado=FLY momento=ATERRIZAJE alt=69.1 m vz=0.0 m/s reserva=0% vbat=4210 mV
+18:44:50 [cmd ]   - en vuelo: ya hubo BOOST
+18:44:50 [cmd ] Seguro que quieres forzar? (10 s): escribe si o no
+18:44:52 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=69.1 m vz=0.0 m/s reserva=0% vbat=4211 mV
+18:44:52 [cmd ]   - en vuelo: ya hubo BOOST
+18:44:53 [cmd ] Demeter: EJECUTADO | estado=TIERRA momento=- alt=68.2 m vz=-0.9 m/s reserva=0% vbat=4210 mV

@@ -1,0 +1,129 @@
+archivo: ./DEM_M00_20261108_123013_0011.BIN  tamano=248344672 B  registros=2105326  bytes_saltados=0  resync=0
+por tipo: PVT=47284, PPS=4725, LINK=47386, HEARTBEAT=4726, FILEHDR=1, IMU=126264, MAG=466470, BAR=189135, BARCAL=157, EXT_LSM=508587, EXT_MMC=489134, MISSION=5, PI=17, AMB=1, CAL=1, EKF=221349, EVENT=84
+duracion (reloj local): 4728.1 s
+cabecera: TBLG v3 rocket_id=1 mission_id=0 arranque=111 archivo=11 fw=Nov  8 2026 entorno=demeter_campo commit=ea4faff+ LoRa=22 dBm
+ultimo latido: t=18763 s  descartes anillos=[0, 0, 0, 0]  escritura_max=106.2 ms  flush_max=76.6 ms  bytes=286757941  time_flags=0x04
+
+PVT: 47284 en 4728.1 s -> 10.00 Hz   ultimo: fix=3 sv=18 hAcc=1.13 m tAcc=23 ns
+huecos: 2 (0.0 % de las epocas)  tamanos: {99: 1, 101: 1}
+fase (x100 ms dentro del segundo) de la epoca perdida: 0:1, 9:1
+
+PPS: 4725 registros, 4722 anclados
+error del reloj local (negativo = va lento): media por segundo=-48.27 ppm  sd=3.26 ppm  (ventana completa: -48.27 ppm)
+  (la sd por segundo refleja el jitter del PPS: ~3.3 us)
+
+retraso de entrega del PVT (ms desde el inicio de su epoca, por fase de 100 ms):
+  fase 0: n=4722  mediana=  48.9  p95=  53.9  max=  59.2
+  fase 1: n=4722  mediana=  34.7  p95=  38.5  max=  43.7
+  fase 2: n=4722  mediana=  42.2  p95=  42.4  max=  47.1
+  fase 3: n=4722  mediana=  34.7  p95=  38.1  max=  44.2
+  fase 4: n=4722  mediana=  42.2  p95=  42.4  max=  43.2
+  fase 5: n=4722  mediana=  34.7  p95=  38.0  max=  43.2
+  fase 6: n=4722  mediana=  42.2  p95=  42.4  max=  42.8
+  fase 7: n=4722  mediana=  34.5  p95=  37.9  max=  42.2
+  fase 8: n=4722  mediana=  42.2  p95=  42.3  max=  42.7
+  fase 9: n=4720  mediana=  34.4  p95=  37.8  max=  42.2
+
+IMU: 126264 registros, 2098341 muestras  (rango +-16 g, +-1024 dps)
+  muestras por registro: 1:52, 2:68, 3:73, 4:75, 5:64, 6:41, 7:48, 8:27, 9:20, 10:15, 11:13, 12:8, 13:12, 14:7, 15:2, 16:103036, 17:5206, 18:5489, 19:4239, 20:2373, 21:1283, 22:864, 23:710, 24:633, 25:441, 26:267, 27:182, 28:117, 29:122, 30:94, 31:62, 32:621
+  banderas: est_ok=126264, hueco=4892, continuacion=550
+  lotes: 125714  marca de agua deducida: 16 muestras
+  periodo por indice = 2248.044 us -> 444.831 Hz (reloj local)   residuo de la interrupcion: sd=9560.2 us  (122861/125713 lotes usados)
+  corregido con el PPS (reloj local -48.27 ppm): 444.810 Hz por segundo real   (nominal del chip 448.4)
+  lotes/s=26.59  muestras/lote=16.69  recibidas/s=443.8
+  huecos en los indices: 4892 lotes, 4892 muestras (0.23 %)  tamanos: {1: 4892}
+  flancos contra el reloj del chip: coherencia 0.843 en el ODR por indice; pico 300-600 Hz en 444.884 Hz (0.941)
+  tiempo de lectura del FIFO: mediana=481.0 us  p95=567 us  max=1414 us
+  |a| = 22.1593 g (sd 3.2127)
+  giro medio: x=+3.050 y=-0.551 z=-0.156 dps   ruido sd: 16.968 33.727 15.654 dps
+  escribi imu.csv
+
+LSM: 508587 registros, 7611170 acel, 7611170 giro  (rango +-32 g, +-2000 dps)
+  palabras: giro=7611170, acel=7611170, marca=951400, hub=336621, hub_nack=139098
+  banderas: est_ok=508587, hueco=344
+  huecos en los indices: 344, 344 muestras (0.005 %)
+  marcas: 951400  ticks por ranura: mediana=24.000  min=21.333  max=27.429  (se espera 24: si no, revisar TS_TICKS_PER_SLOT)
+  periodo estimado: 621.180 us -> 1609.839 Hz (reloj local)  marca real=25.882 us (nominal 25: comparte oscilador con el ODR)
+  tiempo de lectura del FIFO: mediana=701 us  p95=870 us  max=2728 us
+  |a| = 1.0148 g (sd 0.1968)   medio: x=-0.4375 y=+0.2266 z=+0.2047 g
+  giro medio: x=+0.458 y=+0.178 z=-0.176 dps   ruido sd: 14.681 34.344 15.594 dps
+
+BMP581: 336621 en 4728.1 s -> 71.20 Hz   palabras malas=4345 (1.29 %)   sin ellas: P = 95710.5 Pa (sd 0.00, min 95710.5, max 95710.5)   T = 32.10 C (sd 0.000)
+  escribi lsm.csv y bmp.csv
+
+RADIO: 47283 TX en 4728.0 s -> 10.00 Hz   balizas=0
+  ranuras: {1: 4728, 3: 4728, 6: 4728, 8: 4728, 11: 4728, 13: 4729, 16: 4729, 18: 4729, 21: 4728, 23: 4728}
+  inicio respecto al previsto: mediana=-5 us  p95=100  max=385   aire: mediana=29733 us  max=29752
+  comandos recibidos: 2
+  balizas de tierra: 101   residuo: mediana=191 us  sd=12.6  min=130  max=205   RSSI mediana=-71.0 dBm
+
+MAG: 466470 en 4728.1 s -> 98.66 Hz  (rango +-8 G)   intervalo: mediana=9.99 ms  p95=17.15  max=31.54  pausas >25 ms: 356
+  saturadas=0   medio: x=-0.1143 y=+0.7012 z=+0.0946 G   ruido sd: 182.81 119.23 239.01 mG
+  |B| = 0.7770 G (sd 121.45 mG, min 0.1662, max 1.0835)
+  escribi mag.csv
+
+MMC5983MA: 489134 en 4728.1 s -> 103.45 Hz  (rango +-8 G)   intervalo: mediana=9.15 ms  p95=16.70  max=23.45  pausas >25 ms: 0
+  saturadas=0   medio: x=-0.3640 y=+0.7358 z=+3.2467 G   ruido sd: 99.31 94.88 301.44 mG
+  |B| = 3.3529 G (sd 286.84 mG, min 2.4525, max 3.7704)
+  escribi mmc.csv
+
+BAR: 189135 en 4728.1 s -> 40.00 Hz   intervalo: mediana=24.28 ms  p95=30.36  max=35.42   medicion: mediana=23.69 ms  max=34.92
+  P = 95146.6 Pa (sd 497.67, min 88934.2, max 95848.7)   T = 41.17 C (sd 1.167)   H = 80.7 %
+  calibraciones registradas: 157
+  escribi bar.csv
+
+POSICION: bytes contados - posicion real: rango 4088 B  (normal: menos de 4096)
+
+MISION: 5 registros
+  t=14030.92 s  armar arg=0 contador=475: NO APTO motivos=0x00800000  TIERRA -> TIERRA  momento=-  flags=0x00
+  t=14032.92 s  armar confirmado arg=0 contador=476: EJECUTADO motivos=0x00800000  TIERRA -> ARMED  momento=-  flags=0x04
+  t=14034.94 s  launch arg=0 contador=477: EJECUTADO motivos=0x00000000  ARMED -> FLY  momento=LAUNCH  flags=0x04
+  t=14052.75 s  momento arg=2 contador=478: EJECUTADO motivos=0x00000000  FLY -> FLY  momento=BOOST  flags=0x04
+  t=14140.15 s  momento arg=7 contador=479: EJECUTADO motivos=0x00000000  FLY -> FLY  momento=ATERRIZAJE  flags=0x04
+
+PI: 17 registros
+  t=14034.94 s  comando ABORT (intento 1) con la Pi en ARMED
+  t=14034.96 s  estado: ARMED -> ABORTED  tramas=4936 crc_mal=0 pose=701256
+  t=14034.96 s  comando PREFLIGHT (intento 1) con la Pi en ABORTED
+  t=14034.98 s  estado: ABORTED -> PREFLIGHT  tramas=4937 crc_mal=0 pose=701257
+  t=14041.42 s  estado: PREFLIGHT -> READY  tramas=4943 crc_mal=0 pose=701579
+  t=14052.74 s  comando ARM (intento 1) con la Pi en READY
+  t=14052.76 s  estado: READY -> ARMED  tramas=4955 crc_mal=0 pose=702146
+  t=14052.76 s  comando START_ASCENT (intento 1) con la Pi en ARMED
+  t=14052.78 s  estado: ARMED -> ASCENT  tramas=4956 crc_mal=0 pose=702147
+  t=14068.38 s  estado: ASCENT -> STARTING  tramas=4971 crc_mal=0 pose=702927
+  t=14068.38 s  estado: STARTING -> RECORDING  tramas=4972 crc_mal=0 pose=702927
+  t=14140.14 s  comando TOUCHDOWN (intento 1) con la Pi en RECORDING
+  t=14141.02 s  estado: RECORDING -> INGESTING  tramas=5045 crc_mal=0 pose=706559
+  t=14159.68 s  estado: INGESTING -> PROCESSING  tramas=5064 crc_mal=0 pose=707492
+  t=14428.70 s  estado: PROCESSING -> COMPLETE  tramas=5333 crc_mal=0 pose=720943
+  t=14431.72 s  latido perdido: COMPLETE -> desconocido  tramas=5333 crc_mal=0 pose=721094
+  t=14431.88 s  estado: desconocido -> BOOT  tramas=5334 crc_mal=0 pose=721102
+
+TEMPERATURA DEL SUELO: 1 registros
+  t=14034.94 s  copia al registrar: usada 26.85 C (dudosa, encendido, muestra de las 13:17:49 UTC); BMP 26.85 C (+0.323 C/min), BME 27.40 C (+0.335 C/min); ahora BMP 32.10, BME 37.62 C; armar: dudosa, BMP y BME discrepan
+
+CALIBRACION A BORDO: 1 registros
+  t=14034.94 s  calibracion en uso al registrar: activa 93A2DE8F
+
+EKF A BORDO: 221349 estados en 4728.1 s (46.8 Hz), calibrado, con origen GNSS
+  final: q=[-0.7092, 0.6476, -0.2772, 0.0285] p=[-40.07, 102.22, 0.09] m v=[0.1, -0.023, 0.055] m/s altura=-0.08 m fase=aterrizaje
+  sesgo giro [0.075, 0.044, -0.044] dps, acel [-2.4, 4.1, -0.7] mg, escala giro [0.032, 0.936, 2.375] %, BMP 0.00 m
+  1 sigma: actitud [3.03, 7.91, 0.19] grados (z = guinada), posicion [0.22, 0.22, 0.13] m, velocidad [0.095, 0.095, 0.049] m/s
+  medidas aceptadas: gnss 28912, baro 825, mag 520, gravedad 63784; rechazos 301 (contadores de 16 bits)
+
+SD: 84 incidentes
+  (archivo, tipo, errno): ('activo', 'escritura', 5): 34, ('activo', 'reabierto', 0): 34, ('reserva', 'escritura', 5): 1, ('reserva', 'escritura', 9): 14, ('reserva', 'reabierto', 0): 1
+  ACTIVO t=23.82 s  escritura errno=5 pos=1247169 duracion=19.8 ms
+  ACTIVO t=23.85 s  reabierto errno=0 pos=1247169 duracion=34.1 ms
+  ACTIVO t=229.49 s  escritura errno=5 pos=12044901 duracion=20.7 ms
+  ACTIVO t=229.53 s  reabierto errno=0 pos=12044901 duracion=40.4 ms
+  ACTIVO t=238.81 s  escritura errno=5 pos=12534396 duracion=20.9 ms
+  ACTIVO t=238.85 s  reabierto errno=0 pos=12534396 duracion=39.2 ms
+  ACTIVO t=722.54 s  escritura errno=5 pos=37928739 duracion=18.5 ms
+  ACTIVO t=722.60 s  reabierto errno=0 pos=37928739 duracion=54.5 ms
+  ACTIVO t=917.38 s  escritura errno=5 pos=48167957 duracion=23.9 ms
+  ACTIVO t=917.43 s  reabierto errno=0 pos=48167957 duracion=51.6 ms
+  silencios de mas de 100 ms en todos los sensores: 0
+
+CSV en /Users/valeriacespedes/Documents/MCC_Demeter_and_Hermes/estacion/DEM_M00_20261108_123013_0011_csv
