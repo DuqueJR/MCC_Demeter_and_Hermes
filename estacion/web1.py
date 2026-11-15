@@ -884,7 +884,7 @@ def main(argv=None):
     ap.add_argument('sesion', help="archivo de sesion de tierra (sesiones/AAAAMMDD_HHMMSS_tierra.txt)")
     ap.add_argument('--salida', default='web1.jsonl', help="JSONL de mensajes {tipo, mision, datos} (por defecto web1.jsonl)")
     ap.add_argument('--snapshot', help="ademas, el snapshot final de cada mision en este archivo JSON")
-    ap.add_argument('--modo', default='vivo', choices=('vivo', 'simulacion', 'sintetico'), help="meta.modo")
+    ap.add_argument('--modo', default='vivo', choices=('vivo', 'simulacion', 'sintetico', 'reconstruccion'), help="meta.modo")
     a = ap.parse_args(argv)
     tr = Traductor(modo=a.modo)
     cuenta = collections.Counter()

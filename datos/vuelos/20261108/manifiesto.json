@@ -1,0 +1,57 @@
+{
+  "fecha": "2026-11-08",
+  "vuelos": {
+    "hermes": {
+      "original": {
+        "archivo": "HER_M00_20261108_101601_0036.BIN",
+        "bytes": 177609890,
+        "sha256": "6fab3fa87333a15865fa5aa1047b34c523fa5703ad432887a864d2d6e7765b5f"
+      },
+      "recorte": {
+        "archivo": "HER_vuelo_20261108.BIN",
+        "t_ini_us": 7371690776,
+        "t_launch_us": 7376690776,
+        "t_fin_us": 7449000000,
+        "utc_menos_reloj_s": 1794144001.0019088,
+        "registros_filehdr": 1,
+        "bytes": 3748545,
+        "sha256": "06b9c00c9ce4cf58ae8221c8760df4fce2ef30bfd8f2c7459fb4d67fe9e6cfba"
+      },
+      "sesion_tierra": {
+        "original": "20261108_092801_tierra.txt",
+        "sha256_original": "6602f9dabb58a6c1fdb687cca0ac1493ee3e0bd8db62bc2a2c4cc067a3bdc292",
+        "archivo": "tierra_hermes_20261108.txt",
+        "utc_ini_s": 1794151372.693,
+        "utc_fin_s": 1794151450.002,
+        "lineas": 1412,
+        "sha256": "7be5d79a2b96f9cf0bc45dd9d9e7c402d433094718c52ea2ffb9dc5d92f8a531"
+      }
+    },
+    "demeter": {
+      "original": {
+        "archivo": "DEM_M00_20261108_123013_0011.BIN",
+        "bytes": 248344672,
+        "sha256": "6579a796e08ae03e80cf49a900c9738559a0ab2a647ce5f4502e5846c5476f70"
+      },
+      "recorte": {
+        "archivo": "DEM_vuelo_20261108.BIN",
+        "t_ini_us": 14029940233,
+        "t_launch_us": 14034940233,
+        "t_fin_us": 14152000000,
+        "utc_menos_reloj_s": 1794144981.579154,
+        "registros_filehdr": 1,
+        "bytes": 6152452,
+        "sha256": "dd24a5153dc08a75f587cfb17805f38b4534d0153a2cd791a70838d74a759e90"
+      },
+      "sesion_tierra": {
+        "original": "20261108_092801_tierra.txt",
+        "sha256_original": "6602f9dabb58a6c1fdb687cca0ac1493ee3e0bd8db62bc2a2c4cc067a3bdc292",
+        "archivo": "tierra_demeter_20261108.txt",
+        "utc_ini_s": 1794159011.519,
+        "utc_fin_s": 1794159133.579,
+        "lineas": 2017,
+        "sha256": "2ea129a81e62bd6a20fb91ab7b013e0c271570d0d313b9390504235aa8c7ce05"
+      }
+    }
+  }
+}

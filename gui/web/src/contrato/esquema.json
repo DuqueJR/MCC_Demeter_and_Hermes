@@ -31,7 +31,7 @@
           "enum": [1, 2]
         },
         "modo": {
-          "enum": ["vivo", "simulacion", "sintetico"]
+          "enum": ["vivo", "simulacion", "sintetico", "reconstruccion"]
         },
         "mission_id": {
           "anyOf": [

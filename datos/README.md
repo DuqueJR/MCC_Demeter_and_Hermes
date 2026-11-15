@@ -8,6 +8,7 @@ Datos de entrada del proyecto: simulaciones, y más adelante los logs de prueba 
 | --- | --- | --- | --- | --- | --- | --- |
 | [`simulaciones/openrocket/demeter_H135W-8_santa-fe-antioquia_sim2.csv`](simulaciones/openrocket/demeter_H135W-8_santa-fe-antioquia_sim2.csv) | Demeter | H135W-8 (el retardo de 8 s se deduce de BURNOUT a 2,07 s y EJECTION_CHARGE a 10,07 s) | Santa Fe de Antioquia (6,582° N, −75,823° E, 510 m s.n.m.) | OpenRocket, "Simulation 2", exportación completa (58 variables, 454 puntos), entregada por el usuario | 2026-10-24 | [perfiles_vuelo.md](../docs/02_requisitos/perfiles_vuelo.md) |
 | [`simulaciones/openrocket/hermes_G80-7T_santa-fe-antioquia_pablo.csv`](simulaciones/openrocket/hermes_G80-7T_santa-fe-antioquia_pablo.csv) | Hermes | G80-7T | Santa Fe de Antioquia | OpenRocket, entregada por Pablo Tilano en ptilanom/DEMETER@17139b2 (masa 1,157 kg) | 2026-11-03 | pendiente |
+| [`vuelos/20261108/`](vuelos/20261108/manifiesto.json) | Hermes y Deméter | G80-7T y H135W-8 | Santa Fe de Antioquia (CCCD 2026) | **Vuelos reales:** recortes byte a byte de `HER_M00_20261108_101601_0036.BIN` y `DEM_M00_20261108_123013_0011.BIN` (5 s antes de LAUNCH a 10 s tras el aterrizaje) y de la sesión de tierra del día; SHA-256 de los originales en `manifiesto.json`. Los originales se guardan fuera del repo | 2026-11-08 | [`tools/vuelo_real`](../tools/vuelo_real/README.md), bitácora 2026-11-14 |
 
 ## Formato de las exportaciones de OpenRocket
 

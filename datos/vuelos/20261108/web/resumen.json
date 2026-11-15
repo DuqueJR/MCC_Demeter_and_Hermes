@@ -1,0 +1,160 @@
+{
+  "hermes": {
+    "mision": "hermes",
+    "motor": "G80-7T",
+    "despegue_utc_ms": 1794151382993,
+    "apogeo_m": {
+      "oficial_ester": 393.0,
+      "referencia_publicada": 393.0,
+      "ester_con_temperatura_bahia": 392.1,
+      "fisica_aire_suelo": 381.9,
+      "ekf_pc": 383.2,
+      "gnss": 379.9
+    },
+    "temperaturas_c": {
+      "efectiva_ester": 34.07,
+      "bahia_en_rampa": 33.28,
+      "aire_suelo": 26.62
+    },
+    "barometro": "BMP581",
+    "velocidad_max_mps": 95.6,
+    "momentos": {
+      "BOOST": {
+        "t_mas_s": 0.0,
+        "dv_mps": 5.02
+      },
+      "COAST": {
+        "t_mas_s": 1.071
+      },
+      "APOGEO": {
+        "t_mas_s": 8.778,
+        "altura_fisica_m": 381.89
+      },
+      "PARACAIDAS": {
+        "t_mas_s": 9.561,
+        "pico_g": 10.23
+      },
+      "ATERRIZAJE": {
+        "t_mas_s": 57.596
+      }
+    },
+    "anuncios": [
+      {
+        "momento": "BOOST",
+        "t_mas_s": 0.012
+      },
+      {
+        "momento": "COAST",
+        "t_mas_s": 1.132
+      },
+      {
+        "momento": "APOGEO",
+        "t_mas_s": 10.012
+      },
+      {
+        "momento": "PARACAIDAS",
+        "t_mas_s": 10.032
+      },
+      {
+        "momento": "ATERRIZAJE",
+        "t_mas_s": 59.612
+      }
+    ],
+    "avisos_respaldo": [],
+    "parametros_detector": {
+      "boost_dv_mps": 5.0,
+      "coast_g": 4.0,
+      "coast_s": 0.05,
+      "t_burn_max": 2.7,
+      "t_apogeo_min": 5.5,
+      "apo_caida_m": 3.0,
+      "apo_s": 0.3,
+      "t_apogeo_max": 13.0,
+      "t_para_min": 6.0,
+      "para_g": 6.0,
+      "para_n": 3,
+      "t_para_max": 12.0,
+      "aterrizaje_s": 2.0,
+      "t_vuelo_max": 140.0
+    }
+  },
+  "demeter": {
+    "mision": "demeter",
+    "motor": "H135W-8",
+    "despegue_utc_ms": 1794159042789,
+    "apogeo_m": {
+      "oficial_ester": 598.0,
+      "referencia_publicada": 598.0,
+      "ester_con_temperatura_bahia": null,
+      "fisica_aire_suelo": 586.7,
+      "ekf_pc": 586.6,
+      "gnss": 534.3
+    },
+    "temperaturas_c": {
+      "efectiva_ester": 30.7,
+      "bahia_en_rampa": null,
+      "aire_suelo": 26.85
+    },
+    "barometro": "BME280 (BMP581 congelado)",
+    "velocidad_max_mps": 117.4,
+    "momentos": {
+      "BOOST": {
+        "t_mas_s": 0.0,
+        "dv_mps": 5.04
+      },
+      "COAST": {
+        "t_mas_s": 1.288
+      },
+      "PARACAIDAS": {
+        "t_mas_s": 9.4,
+        "pico_g": 9.71
+      },
+      "APOGEO": {
+        "t_mas_s": 10.32,
+        "altura_fisica_m": 586.68
+      },
+      "ATERRIZAJE": {
+        "t_mas_s": 81.597
+      }
+    },
+    "anuncios": [
+      {
+        "momento": "BOOST",
+        "t_mas_s": 0.014
+      },
+      {
+        "momento": "COAST",
+        "t_mas_s": 1.354
+      },
+      {
+        "momento": "APOGEO",
+        "t_mas_s": 11.714
+      },
+      {
+        "momento": "PARACAIDAS",
+        "t_mas_s": 11.734
+      },
+      {
+        "momento": "ATERRIZAJE",
+        "t_mas_s": 83.614
+      }
+    ],
+    "avisos_respaldo": [],
+    "parametros_detector": {
+      "boost_dv_mps": 5.0,
+      "coast_g": 3.0,
+      "coast_s": 0.05,
+      "t_burn_max": 3.0,
+      "t_apogeo_min": 7.0,
+      "apo_caida_m": 3.0,
+      "apo_s": 0.3,
+      "t_apogeo_max": 16.0,
+      "t_para_min": 7.0,
+      "para_g": 6.0,
+      "para_n": 3,
+      "t_para_max": 13.0,
+      "aterrizaje_s": 2.0,
+      "t_vuelo_max": 210.0
+    }
+  }
+}
