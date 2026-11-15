@@ -85,7 +85,8 @@ La primera reconstrucción de Deméter tenía la velocidad mal: 13 m/s a los 2,5
 - El reproductor de la simulación del público (T-635) ya hacía lo necesario: descarga un guion `web-1` al pulsar un botón y lo reproduce en el navegador, sin servidor. Se reutiliza con un formato nuevo, `reconstruccion-1`, cuyo `meta` debe venir en modo `reconstruccion`: `esGuion` rechaza cualquier otro modo, así que nunca pasa por un vuelo en vivo.
 - `tools/vuelo_real/guion_web.py` genera `gui/web/src/assets/<mision>/vuelo_real.json` con el vuelo completo a 10 Hz y la espera en tierra a 1 Hz, como el relay: 681 y 974 KB, 58 y 84 KB comprimidos (como los sirve la web). El tope de 400 KB del guion de la simulación (T-635) no aplica: es el vuelo real y no se diezma (Pablo).
 - En `/hermes/` y `/demeter/`, el botón pasa a ser «Ver el vuelo real», con su aviso (apogeo oficial de 393 y 598 m); durante la repetición el indicador dice REPETICIÓN, la marca REAL y el banner «Repetición: vuelo real del 8 de noviembre de 2026». Sin transmisión, la página dice que el lanzamiento fue el 8 de noviembre.
-- Prueba nueva: `gui/web/pruebas/vuelo_real.test.ts`.
+- Prueba nueva: `gui/web/pruebas/vuelo_real.test.ts`. Las 670 pruebas de la web pasan, `tsc` y el build también; se revisaron los dos vuelos en el navegador (`vite preview`): momentos, apogeo oficial, alarma de descenso, estado de la Pi y aterrizaje.
+- **Trayectoria escalonada (Pablo, al verla):** `ekf.py` escribía su CSV con 6 cifras significativas, y la longitud (−75,8241) quedaba en pasos de 0,0001° (~11 m) y la latitud de ~1,1 m. Ahora escribe 10. Afectaba también a cualquier uso de ese CSV (el dashboard).
 
 ## Cambios fuera de la herramienta
 - Contrato `web-1`: `meta.modo` admite `"reconstruccion"` (05 §2.1, `esquema.json`, `tipos.ts`, `tools/web_datos/validacion.py`, `web1.py --modo`).
