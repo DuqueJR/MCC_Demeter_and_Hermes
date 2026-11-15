@@ -379,7 +379,8 @@ function capasMision(t: Tokens): LayerSpecification[] {
       source: FUENTE.trayectoria,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": t.acento,
+        // Rojo (el de alarma del tema) para que la trayectoria contraste con el fondo del mapa (Pablo, 2026-11-14)
+        "line-color": t.alarma,
         "line-opacity": ["get", "op"],
         "line-width": porZoom(E.anchoRastro),
       },
