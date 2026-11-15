@@ -43,7 +43,8 @@ def _igual(a, b, ruta, difs):
 def comparar(nuevas, carpeta):
     total = []
     for nombre, texto in sorted(nuevas.items()):
-        ruta = os.path.join(carpeta, nombre)
+        from .__main__ import ruta_salida
+        ruta = ruta_salida(carpeta, nombre)
         if not os.path.exists(ruta):
             total.append(f'{nombre}: no esta versionado')
             continue

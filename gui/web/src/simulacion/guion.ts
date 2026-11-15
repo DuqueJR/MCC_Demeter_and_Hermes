@@ -6,9 +6,20 @@ import { type LineaJsonl, TIPOS_MENSAJE } from "../contrato/tipos";
 
 /** Debe decir lo mismo que `FORMATO_SIMULACION` de `scripts/generar-simulacion.mjs`. */
 export const FORMATO_SIMULACION = "simulacion-1";
+/**
+ * El vuelo real reconstruido (T-681, D-W24): lo genera `tools/vuelo_real` desde el registro a bordo.
+ * Todo su `meta` lleva `modo = "reconstruccion"`: tampoco puede pasar por un vuelo en vivo.
+ */
+export const FORMATO_RECONSTRUCCION = "reconstruccion-1";
+
+/** El `meta.modo` que exige cada formato de guion. */
+const MODO_DE_FORMATO: Record<string, "simulacion" | "reconstruccion"> = {
+  [FORMATO_SIMULACION]: "simulacion",
+  [FORMATO_RECONSTRUCCION]: "reconstruccion",
+};
 
 export interface Guion {
-  formato: typeof FORMATO_SIMULACION;
+  formato: typeof FORMATO_SIMULACION | typeof FORMATO_RECONSTRUCCION;
   mision: string;
   escenario: string;
   /** El `t_rel_ms` del último mensaje. */
@@ -22,16 +33,21 @@ export interface Simulacion {
   nota: string;
   /** Descarga y valida el guion. Se llama solo al pulsar el botón. */
   cargar: () => Promise<Guion>;
+  /** `true` si es el vuelo real reconstruido (T-681): cambian los textos del botón. */
+  reconstruccion?: boolean;
 }
 
 const esObjeto = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null;
 
 /**
  * Comprobación del guion que llega por la red. Lo importante es que NUNCA pueda pasar por real:
- * cada `meta` debe traer `modo = "simulacion"`, y los tiempos deben ir en orden.
+ * cada `meta` debe traer el modo de su formato (`"simulacion"` o `"reconstruccion"`, nunca `"vivo"`),
+ * y los tiempos deben ir en orden.
  */
 export function esGuion(x: unknown): x is Guion {
-  if (!esObjeto(x) || x.formato !== FORMATO_SIMULACION) return false;
+  if (!esObjeto(x) || typeof x.formato !== "string") return false;
+  if (!Object.prototype.hasOwnProperty.call(MODO_DE_FORMATO, x.formato)) return false;
+  const modo = MODO_DE_FORMATO[x.formato];
   if (typeof x.duracion_ms !== "number" || !Array.isArray(x.lineas) || x.lineas.length === 0) {
     return false;
   }
@@ -45,7 +61,7 @@ export function esGuion(x: unknown): x is Guion {
     if (!(TIPOS_MENSAJE as readonly string[]).includes(l.evento as string)) return false;
     if (!esObjeto(l.datos)) return false;
     if (l.evento === "meta") {
-      if (l.datos.modo !== "simulacion") return false;
+      if (l.datos.modo !== modo) return false;
       hayMeta = true;
     }
   }

@@ -656,11 +656,14 @@ class Traductor:
         ref = self._referencia(c, t, alt_msl, ekf_ok, t_local)
         # Sin referencia aun (en TIERRA y sin muestra valida: sin fix 3D ni EKF) el cohete esta en su rampa: 0 m, no la altitud MSL.
         alt_agl = alt_msl - ref if ref is not None else 0.0
-        if t['fix'] >= 2:
+        # Con el EKF listo hay posicion y velocidad aunque el GNSS pierda el fix (05 §0: `null` es "sin fix ni EKF"). Demeter, 8 nov:
+        # el M10S perdio el fix en el quemado y la web se quedo sin altura 2,6 s del costeo.
+        ekf_pos = ekf_ok and (t['lat_e7'] != 0 or t['lon_e7'] != 0)
+        if t['fix'] >= 2 or ekf_pos:
             pos = {"lat": redondear(t['lat_e7'] / 1e7, 7), "lon": redondear(t['lon_e7'] / 1e7, 7), "alt_agl_m": redondear(alt_agl, 1),
                    "alt_msl_m": redondear(alt_msl, 1), "fuente": "ekf" if ekf_ok else "gnss"}
         vz = None
-        if t['fix'] >= 3:
+        if t['fix'] >= 3 or ekf_pos:
             vn, ve, vu = t['vn'] / 100.0, t['ve'] / 100.0, -t['vd'] / 100.0
             vz = vu
             vel = {"n_ms": redondear(vn, 2), "e_ms": redondear(ve, 2), "u_ms": redondear(vu, 2),

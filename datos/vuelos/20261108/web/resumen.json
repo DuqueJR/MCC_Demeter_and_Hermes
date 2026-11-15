@@ -8,7 +8,7 @@
       "referencia_publicada": 393.0,
       "ester_con_temperatura_bahia": 392.1,
       "fisica_aire_suelo": 381.9,
-      "ekf_pc": 383.2,
+      "ekf_pc": 381.2,
       "gnss": 379.9
     },
     "temperaturas_c": {
@@ -17,7 +17,7 @@
       "aire_suelo": 26.62
     },
     "barometro": "BMP581",
-    "velocidad_max_mps": 95.6,
+    "velocidad_max_mps": 96.0,
     "momentos": {
       "BOOST": {
         "t_mas_s": 0.0,
@@ -87,7 +87,7 @@
       "referencia_publicada": 598.0,
       "ester_con_temperatura_bahia": null,
       "fisica_aire_suelo": 586.7,
-      "ekf_pc": 586.6,
+      "ekf_pc": 586.5,
       "gnss": 534.3
     },
     "temperaturas_c": {
@@ -96,7 +96,7 @@
       "aire_suelo": 26.85
     },
     "barometro": "BME280 (BMP581 congelado)",
-    "velocidad_max_mps": 117.4,
+    "velocidad_max_mps": 117.7,
     "momentos": {
       "BOOST": {
         "t_mas_s": 0.0,

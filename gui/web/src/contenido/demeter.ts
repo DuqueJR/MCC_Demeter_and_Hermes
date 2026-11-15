@@ -35,6 +35,10 @@ export const demeter: Contenido = {
     nota: "Mira cómo se verá esta página durante el vuelo, con un vuelo simulado de OpenRocket. No son datos reales.",
     banner: "Simulación: así será el vuelo",
   },
+  reconstruccion: {
+    nota: "Mira el vuelo real de Deméter del 8 de noviembre de 2026, reconstruido con lo que registró el cohete a bordo: cada momento aparece cuando sucedió. La altura es la del altímetro oficial de la competencia (apogeo de 598 m).",
+    banner: "Repetición: vuelo real del 8 de noviembre de 2026",
+  },
   coheteMapa,
   parcheChico,
   parcheGrande,

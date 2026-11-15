@@ -18,19 +18,28 @@ def escribir(ruta, texto):
         f.write(texto)
 
 
+def ruta_salida(carpeta, nombre):
+    """Los guiones de la web van a gui/web/src/assets/<mision>/ (solo al generar en la carpeta de siempre)."""
+    from . import guion_web
+    if nombre.startswith('guion_') and os.path.abspath(carpeta) == os.path.abspath(V.SALIDA):
+        return guion_web.ruta(nombre[len('guion_'):-len('.json')])
+    return os.path.join(carpeta, nombre)
+
+
 def generar_todo(carpeta):
-    from . import reconstruir, resumen
+    from . import guion_web, reconstruir, resumen
     res = {}
     salidas = {}
     for mision in V.VUELOS:
         r, mensajes, snap, ofs = reconstruir.generar(mision)
         salidas[f'{mision}.jsonl'] = ''.join(json.dumps(m, ensure_ascii=False, separators=(',', ':')) + '\n' for m in mensajes)
+        salidas[f'guion_{mision}.json'] = guion_web.generar(mision, mensajes)
         salidas[f'{mision}_snapshot.json'] = json.dumps(snap, ensure_ascii=False, separators=(',', ':')) + '\n'
         res[mision] = resumen.de_vuelo(mision, r, ofs)
         print(f"{mision}: {len(mensajes)} mensajes; apogeo publicado {res[mision]['apogeo_m']['referencia_publicada']} m")
     salidas['resumen.json'] = json.dumps(res, ensure_ascii=False, indent=2) + '\n'
     for nombre, texto in salidas.items():
-        escribir(os.path.join(carpeta, nombre), texto)
+        escribir(ruta_salida(carpeta, nombre), texto)
     return salidas
 
 

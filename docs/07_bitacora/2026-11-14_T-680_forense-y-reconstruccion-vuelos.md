@@ -1,7 +1,7 @@
 ---
 fecha: 2026-11-14
 tipo: tarea
-ids: [T-680, T-681, T-430, T-431, T-432, T-433, T-434, T-435, T-436, T-437, T-438, D-066, D-W24]
+ids: [T-680, T-681, D-067, T-430, T-431, T-432, T-433, T-434, T-435, T-436, T-437, T-438, D-066, D-W24]
 autor: Claude (Opus 5.5) con Pablo Tilano
 rama: feature/T-680-reconstruccion-vuelo
 ---
@@ -58,10 +58,34 @@ Con la misma presión, la altura depende de la temperatura que se suponga:
 | ATERRIZAJE | 57,6 (anuncio 59,6) | 81,6 (83,6) |
 
   `coast_g` queda por motor (Hermes 4 g, Deméter 3 g): con el «\|a\| < 2 g» original Hermes pasaría a COAST casi 1 s tarde. El apogeo barométrico (3 m bajo el máximo, sostenido 0,3 s) llega 1,2–1,4 s después del máximo: mejorable con la IMU (T-430).
-- **EKF en PC** (`estacion/ekf.py`) con la calibración versionada y los momentos del detector; Deméter sin BMP. Apogeo físico 383 y 587 m; velocidad máxima 95,6 y 117,4 m/s (sim. 94 y 129).
+- **EKF en PC** (`estacion/ekf.py`) con la calibración versionada y los momentos del detector; Deméter sin BMP. Apogeo físico 381 y 587 m; velocidad máxima 96,0 y 117,7 m/s (sim. 94 y 129). Ver «Correcciones del EKF».
 - **Altura publicada: solo la referencia ESTER** (isotérmica con la temperatura efectiva que da el apogeo oficial: 34,1 y 30,7 °C).
 - **Telemetría a 10 Hz** desde LAUNCH, en la ranura de cada cohete, y antes de LAUNCH los paquetes reales; todo por el `Traductor` de `web1.py` con `modo = "reconstruccion"` (D-W24). Un momento por paquete: si no, APOGEO (a 20 ms de PARACAIDAS) se perdía. La sesión se corrió 34 ms: el reloj del portátil iba atrasado y algunos paquetes figuraban recibidos antes de transmitirse.
 - Salida: `datos/vuelos/20261108/web/` (JSONL, snapshot y `resumen.json`). Eventos: fase ARMED, despegue, fin de combustión, apogeo (393 / 598 m), eyección, alarma de descenso (real: >10 m/s antes de abrir el paracaídas) y aterrizaje.
+
+## El giro de los cohetes es real
+Hermes llegó al tope del LSM6DSO32 (2294 dps) en el costeo. Se verificó con tres medidas independientes:
+- el QMI8658 coincide (en Hermes satura en su tope de 1024 dps; en Deméter, 801 frente a 812 dps del LSM);
+- los magnetómetros, ya calibrados, cuentan las mismas vueltas que la integral del giro (Hermes 3–4 s: 4,0 frente a 4,3; Deméter con el QMC: 2,18, 1,68 y 0,87 frente a 2,37, 1,77 y 0,89). Sin calibrar, el offset del montaje engaña: la frecuencia dominante salía ~2,4 veces mayor;
+- el giro es proporcional a la velocidad en todo el costeo de Hermes (22–26 dps por m/s): es el alabeo por aletas desalineadas (Pablo: las de Hermes no eran las más derechas).
+El MMC de Deméter no sirve con su calibración actual (el campo calibrado da 0,55 G en vez de ~0,28).
+
+## Correcciones del EKF (D-067)
+La primera reconstrucción de Deméter tenía la velocidad mal: 13 m/s a los 2,5 s y 72 m/s a los 8 s, subiendo hacia el apogeo, cuando el barómetro da 81 y 27 m/s. Causas y cambios, en `estacion/ekf.py` y en `ekf_core.cpp` por igual:
+1. **El GNSS entraba en lo vertical** por su `vD`. En el quemado de Deméter el M10S dio fix 3D con hAcc 2 m pero a −3 m con el cohete a 300 m, y su velocidad vertical arrastró la del filtro. Ahora lo vertical sale solo de los barómetros, como estaba decidido, y una solución con la altura a más de 30 m del barómetro se descarta entera.
+2. **La puerta descartaba el barómetro contra la inercial.** Cuando la inercial se desviaba con su covarianza pequeña, el barómetro parecía el equivocado (Pablo: los sensores absolutos son el ancla). Se sube el ruido de proceso en el quemado (×20 acel., ×3 giro) y en el costeo (×10 y ×4); el barómetro lleva más ruido en el quemado (presión dinámica) y en la eyección (antes se apagaba 2 s) y nunca se apaga. Al reabrir una posición se abre también su velocidad.
+3. Resultado: Deméter con velocidad vertical igual a la del barómetro (75, 49, 32 y 15 m/s a 3, 5, 7 y 9 s frente a 74, 53, 35 y 17), horizontal de 2–10 m/s, cabeceo de 90 a 12° hasta el apogeo y 0 rechazos del GNSS; el BME pasó de 8,3 m de innovación rms (1607 rechazos en una variante) a 1,6 m. Hermes queda igual de bien.
+4. El filtro a bordo y el de PC siguen iguales (`test/host/comparar_ekf.py`, mediana de 0,003 m en altura y 0,003 m/s en velocidad vertical) y las pruebas de PC del firmware siguen en verde.
+- **Limitación que queda:** con el giro a 800–2000 dps y casi 0 g, la actitud en el costeo depende mucho de la alineación del eje de giro; en Hermes, además, el LSM satura (T-437).
+
+## `web1.py`: lo que manda es el cohete
+`web1.py` solo publicaba posición y velocidad con fix GNSS, aunque el EKF las tuviera: en el quemado de Deméter la web se quedaba 2,6 s sin altura. Ahora, con el EKF listo, las publica (05 §0: `null` es «sin fix ni EKF»). Sus 118 pruebas siguen en verde.
+
+## La carga en la web (T-681)
+- El reproductor de la simulación del público (T-635) ya hacía lo necesario: descarga un guion `web-1` al pulsar un botón y lo reproduce en el navegador, sin servidor. Se reutiliza con un formato nuevo, `reconstruccion-1`, cuyo `meta` debe venir en modo `reconstruccion`: `esGuion` rechaza cualquier otro modo, así que nunca pasa por un vuelo en vivo.
+- `tools/vuelo_real/guion_web.py` genera `gui/web/src/assets/<mision>/vuelo_real.json` (261 y 384 KB, bajo el presupuesto de 400 KB): estados en vuelo a ~3 Hz y en tierra a 1 Hz, como el relay.
+- En `/hermes/` y `/demeter/`, el botón pasa a ser «Ver el vuelo real», con su aviso (apogeo oficial de 393 y 598 m); durante la repetición el indicador dice REPETICIÓN, la marca REAL y el banner «Repetición: vuelo real del 8 de noviembre de 2026». Sin transmisión, la página dice que el lanzamiento fue el 8 de noviembre.
+- Prueba nueva: `gui/web/pruebas/vuelo_real.test.ts`.
 
 ## Cambios fuera de la herramienta
 - Contrato `web-1`: `meta.modo` admite `"reconstruccion"` (05 §2.1, `esquema.json`, `tipos.ts`, `tools/web_datos/validacion.py`, `web1.py --modo`).

@@ -36,7 +36,7 @@ export interface Integrante {
 export interface TextoSimulacion {
   /** Aviso junto al botón "Ver la simulación del vuelo": de dónde salen los datos y que no son reales. */
   nota: string;
-  /** Texto del banner fijo mientras corre la simulación (siempre empieza con "Simulación:"). */
+  /** Texto del banner fijo mientras corre (la simulación empieza con "Simulación:"; la reconstrucción, con "Repetición:"). */
   banner: string;
 }
 
@@ -50,6 +50,11 @@ export interface Contenido {
   motor: string;
   /** Los textos de la simulación para el público (botón y banner). */
   simulacion: TextoSimulacion;
+  /**
+   * El vuelo real reconstruido (T-681, D-W24), después del lanzamiento: aviso junto al botón "Ver el
+   * vuelo real" y banner mientras se reproduce. Si existe, la página ofrece esto en vez de la simulación.
+   */
+  reconstruccion?: TextoSimulacion;
   /** Parche pequeño (barra de misión) y grande (Equipo). */
   /** La miniatura del cohete (128 px, con transparencia) para la vista 3D del mapa (T-656). */
   coheteMapa?: string;
