@@ -622,7 +622,7 @@ export async function crearMapa(
     mapa.addSource(ID_3D.fuenteTerreno, fuenteTerreno(relieve.relieve));
     // La línea de la trayectoria y la plomada, en una capa personalizada; y la imagen del cohete encima.
     capa3d = new Capa3d({
-      colores: { viejo: tokens.linea, nuevo: tokens.acento, plomada: tokens.texto2 },
+      colores: { viejo: tokens.linea, nuevo: tokens.alarma, plomada: tokens.texto2 }, // trayectoria en rojo: contraste
       exageracion: MAPA_3D_EXAGERACION,
       alFotograma,
       suavizado: () => !sinMovimiento(),
