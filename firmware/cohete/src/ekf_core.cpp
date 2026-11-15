@@ -28,6 +28,7 @@ static const double GNSS_MAX_HACC_M = 50.0, GNSS_MAX_SACC_MPS = 3.0, GNSS_ORIGEN
 // con 15 g en el quemado el M10S dio fix 3D con hAcc 2 m a -3 m cuando el cohete iba por 300 m. Solo filtra: la altura no se usa.
 static const double GNSS_BARO_MAX_M = 30.0;
 static const double GYR_SF = 0.005;
+static const double R_REPOSO_MPS = 0.02;                     // quieto: velocidad cero (como ekf.py)
 static const double STILL_G = 0.03, STILL_DPS = 5.0; static const int STILL_N = 200;
 static const double R_GRAV_RAD = 0.03;
 static const double EYECCION_US = 2.0e6;
@@ -535,6 +536,10 @@ void Navegador::gravedad(const Real f[3]) {
         Real H[NX] = {0};
         for (int i = 0; i < 3; i++) H[TH + i] = eje == 0 ? -C[1][i] : C[0][i];
         actualizar(M_GRAV, H, (Real)(eje == 0 ? -fn[0] : -fn[1]), (Real)R_GRAV_RAD, GR_MAG);
+    }
+    for (int i = 0; i < 3; i++) {                           // y quieto, la velocidad es cero (8 nov: Hermes hasta 6,5 m/s en el suelo)
+        Real H[NX] = {0}; H[V + i] = 1;
+        actualizar(M_REPOSO, H, -e_.v[i], (Real)R_REPOSO_MPS, GR_MAG);
     }
 }
 

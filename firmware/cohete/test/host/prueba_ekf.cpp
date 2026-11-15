@@ -219,7 +219,7 @@ int main(int argc, char **argv) {
     const ekf::Estado &e = nav->filtro();
     printf("{\"listo\": %s, \"arranque\": %u, \"pasos\": %u, \"h_escala\": %.3f, \"presente_max_ms\": %.1f, \"stats\": {", e.listo ? "true" : "false",
            (unsigned)nav->arranque(), nav->pasos(), nav->h_escala(), presMax);
-    const char *nom[] = {"gnss_pN", "gnss_pE", "gnss_vN", "gnss_vE", "gnss_vD", "bmp", "bme", "mmc", "qmc", "gravedad"};
+    const char *nom[] = {"gnss_pN", "gnss_pE", "gnss_vN", "gnss_vE", "gnss_vD", "bmp", "bme", "mmc", "qmc", "gravedad", "reposo"};
     for (int m = 0; m < ekf::M_COUNT; m++) { const ekf::Stat &s = nav->stat(m);
         printf("%s\"%s\": [%u, %u, %u, %u]", m ? ", " : "", nom[m], s.ok, s.rej, s.reabre, s.no_terrestre); }
     printf("}}\n");
