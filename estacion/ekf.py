@@ -56,6 +56,7 @@ STILL_G = 0.03               # quieto: |a| a menos de esto de 1 g
 STILL_DPS = 5.0              # y girando menos que esto
 STILL_N = 200                # durante 0.5 s
 R_GRAV_RAD = 0.03
+R_REPOSO_MPS = 0.02           # quieto (la misma deteccion que la gravedad): velocidad cero
 
 # Pesos por fase del vuelo (2026-11-05): multiplicadores del ruido de proceso (acel, giro) y del ruido de medida (GNSS, barometro,
 # magnetometro); None = esa medida no se usa en la fase. La fase sale del momento que detecta la mision (T_MISSION en los logs; la
@@ -372,6 +373,10 @@ class Ekf:
         H = np.zeros(NX)
         H[TH:TH + 3] = C[0, :]
         self.update('gravedad', H, -fn[1], R_GRAV_RAD, 'mag')
+        for i in range(3):                                   # y quieto, la velocidad es cero: sin esto la residual de la inercial
+            H = np.zeros(NX)                                 # quedaba en tierra (8 nov: Hermes hasta 6,5 m/s en el suelo)
+            H[V + i] = 1.0
+            self.update('reposo', H, -self.v[i], R_REPOSO_MPS, 'mag')
 
 
 def latlon_to_ned(lat, lon, h, o):
@@ -617,7 +622,7 @@ def navigate(d, x, c, base, path, a, salida=None):
     print('medidas (aceptadas, rechazadas, reaperturas, rms de la innovacion):')
     for name, s in sorted(e.stats.items()):
         rms = float(np.sqrt(np.mean(np.square(s['e2'])))) if s['e2'] else 0.0
-        unit = 'grados' if name in ('mmc', 'qmc', 'gravedad') else ('m/s' if name.startswith('gnss_v') else 'm')
+        unit = 'grados' if name in ('mmc', 'qmc', 'gravedad') else ('m/s' if name.startswith('gnss_v') or name == 'reposo' else 'm')
         extra = f'   campo no terrestre: {s["no_terrestre"]}' if s.get('no_terrestre') else ''
         print(f'  {name:9s} {s["ok"]:6d} {s["rej"]:6d} {s["reabre"]:5d}   {np.degrees(rms) if unit == "grados" else rms:.3f} {unit}{extra}')
     if pose_checks:

@@ -44,7 +44,7 @@ struct Gnss {                        // una epoca: instante de medicion en el re
 };
 
 // Estadisticas por medida (como e.stats de ekf.py)
-enum Medida : uint8_t { M_GNSS_PN = 0, M_GNSS_PE, M_GNSS_VN, M_GNSS_VE, M_GNSS_VD, M_BMP, M_BME, M_MMC, M_QMC, M_GRAV, M_COUNT };
+enum Medida : uint8_t { M_GNSS_PN = 0, M_GNSS_PE, M_GNSS_VN, M_GNSS_VE, M_GNSS_VD, M_BMP, M_BME, M_MMC, M_QMC, M_GRAV, M_REPOSO, M_COUNT };
 struct Stat { uint32_t ok, rej, run, reabre, no_terrestre; double e2; };
 
 enum Fase : uint8_t { F_REPOSO = 0, F_BOOST, F_COAST, F_EYECCION, F_PARACAIDAS, F_ATERRIZAJE, F_COUNT };
