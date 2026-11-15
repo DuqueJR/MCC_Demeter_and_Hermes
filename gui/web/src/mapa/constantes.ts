@@ -163,6 +163,8 @@ export const MAPA_3D_PLOMADA_RAYA_PX = 5;
  * un 40 % más de largo que esto y es delgado). 44 px se veía muy chico junto a un mapa de 650 px (y 60, aún delgado).
  */
 export const MAPA_3D_COHETE_PX = 72;
+/** (P) Perspectiva (px) con la que se ve el alabeo de la imagen del cohete: el giro sobre su eje parece de volumen. */
+export const MAPA_3D_COHETE_PERSPECTIVA_PX = 240;
 /**
  * Ángulo (grados, en el sentido de las agujas del reloj desde "arriba") hacia el que apunta la nariz en
  * la imagen del cohete de cada misión (`assets/<misión>/cohete.png`): en diagonal, hacia arriba y a la derecha.
