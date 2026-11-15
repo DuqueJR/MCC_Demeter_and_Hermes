@@ -17,6 +17,7 @@ import {
 import urlTrabajador from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { Protocol } from "pmtiles";
 import { type ComponentChild, render } from "preact";
+import { angulosDeCuaternion } from "../actitud/angulos";
 import { edad, estacion, estado, estadoPagina, meta, serie } from "../datos/api";
 import {
   ampliarParaIncluir,
@@ -32,6 +33,7 @@ import { Capa3d, type CoheteVivo, type Fotograma } from "./capa3d";
 import {
   ESTILO_3D,
   ESTILO_MAPA,
+  MAPA_3D_COHETE_PERSPECTIVA_PX,
   MAPA_3D_COHETE_PX,
   MAPA_3D_EXAGERACION,
   MAPA_3D_PITCH,
@@ -579,8 +581,13 @@ export async function crearMapa(
       return;
     }
     if (img.hidden) img.hidden = false;
-    img.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translate(-50%, -50%) rotate(${c.angulo.toFixed(1)}deg)`;
+    // El alabeo (roll) del EKF gira la imagen alrededor de su propio eje, el de la nariz: la imagen es plana, así que el
+    // giro se ve como el cohete que rota sobre sí mismo (Pablo, 2026-11-14). Sin actitud, de frente.
+    const q = estado.peek()?.q;
+    const alabeo = (q && estado.peek()?.flags.ekf_ok ? angulosDeCuaternion(q)?.alabeo : null) ?? 0;
+    img.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translate(-50%, -50%) rotate(${c.angulo.toFixed(1)}deg) perspective(${MAPA_3D_COHETE_PERSPECTIVA_PX}px) rotateY(${alabeo.toFixed(1)}deg)`;
     img.dataset.angulo = c.angulo.toFixed(1);
+    img.dataset.alabeo = alabeo.toFixed(1);
     img.dataset.x = c.x.toFixed(1);
     img.dataset.y = c.y.toFixed(1);
   };
