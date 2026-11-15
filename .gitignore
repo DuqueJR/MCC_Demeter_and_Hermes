@@ -60,6 +60,7 @@ estacion/mision.json
 estacion/web1_referencia.json*
 estacion/vuelos_replay/
 *.BIN
+!datos/vuelos/**/*.BIN
 *.BIN.part
 *_csv/
 *_ekf.csv

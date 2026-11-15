@@ -45,7 +45,9 @@ export function EstadoInicio({ mision, simulacion }: Props) {
 
       {sinTransmision && (
         <p class="estado-aviso" data-aviso="sin-transmision">
-          La transmisión en vivo empieza el día del lanzamiento
+          {simulacion?.reconstruccion
+            ? "El lanzamiento fue el 8 de noviembre de 2026"
+            : "La transmisión en vivo empieza el día del lanzamiento"}
         </p>
       )}
       {ofrecerSimulacion && simulacion !== undefined && <BotonSimulacion simulacion={simulacion} />}

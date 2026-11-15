@@ -7,6 +7,10 @@ import { render } from "preact";
 // pulsar "Ver la simulación del vuelo"; no entra al paquete inicial de la página. Cada misión
 // importa solo el suyo (D-W01); el de Hermes es otro archivo y otra entrada (T-637).
 import guionDeSimulacion from "../assets/demeter/simulacion_nominal.json?url";
+// El vuelo real del 8 de noviembre, reconstruido desde el registro a bordo (T-681, D-W24): lo genera
+// `python -m tools.vuelo_real` y se descarga solo al pulsar "Ver el vuelo real". Desde el lanzamiento
+// se ofrece esto en lugar de la simulación.
+import guionDelVuelo from "../assets/demeter/vuelo_real.json?url";
 import { demeter } from "../contenido/demeter";
 import { arrancarDatos } from "../mision/arranque";
 import { Hueco } from "../mision/Hueco";
@@ -14,10 +18,16 @@ import { Pagina } from "../mision/Pagina";
 import { SeccionPi } from "../mision/SeccionPi";
 import { descargarGuion } from "../simulacion/guion";
 
-const simulacion = {
-  nota: demeter.simulacion.nota,
-  cargar: () => descargarGuion(guionDeSimulacion),
-};
+const simulacion = demeter.reconstruccion
+  ? {
+      nota: demeter.reconstruccion.nota,
+      cargar: () => descargarGuion(guionDelVuelo),
+      reconstruccion: true,
+    }
+  : {
+      nota: demeter.simulacion.nota,
+      cargar: () => descargarGuion(guionDeSimulacion),
+    };
 
 const raiz = document.getElementById("app");
 if (raiz) {

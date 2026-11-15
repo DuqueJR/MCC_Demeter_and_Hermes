@@ -9,7 +9,7 @@ export const CONTRATO_VERSION = "web-1" as const;
 export type Mision = "demeter" | "hermes";
 /** Demeter es el nodo 1 y Hermes el nodo 2 (05 §0). */
 export type Nodo = 1 | 2;
-export type Modo = "vivo" | "simulacion" | "sintetico";
+export type Modo = "vivo" | "simulacion" | "sintetico" | "reconstruccion";
 
 /** Nombres de maquina_estados §1, con su código (`fase_cod`) igual al índice. */
 export const FASES = [

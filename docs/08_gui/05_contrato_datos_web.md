@@ -68,11 +68,13 @@ Es el JSON que el **servicio de tierra** produce (decodificado y calculado), que
 
 ```json
 { "contrato_version": "web-1", "mision": "demeter", "nodo": 1,
-  "modo": "vivo",                       // "vivo" | "simulacion" | "sintetico"
+  "modo": "vivo",                       // "vivo" | "simulacion" | "sintetico" | "reconstruccion" (D-W24)
   "mission_id": 1793980800,             // STATUS.mission_id; null antes de ARM
   "proto_version": 3,                   // 2, 3 o 4 (PA-15; v3 = STATUS con fw_version, DP-07; 4 = net_proto, D-047)
   "sitio": { "lat": 6.582, "lon": -75.823, "alt_msl_m": 510.0 } }
 ```
+
+- `"reconstruccion"` (D-W24): un vuelo real rehecho desde el registro a bordo (`tools/vuelo_real/`), no transmitido en vivo. La altura (`pos.alt_agl_m`, `salud.apogeo_m`, el `valor` del evento `apogeo`) es la de referencia del altímetro oficial (ESTER).
 
 ### 2.2 `estado`: con cada NAV recibido (en vuelo, unos 9 Hz; en tierra, el relay lo baja a 1 Hz)
 

@@ -45,8 +45,12 @@ BARO_RATE_HZ = 20.0
 T_ESTANDAR_C = 15.0          # sin temperatura del suelo, la atmosfera estandar; a 31 C eso infla la altura ~5.5 % (37 m a 670 m)
 GATE = 5.0                   # sigmas para aceptar una medida
 GATE_RUN = {'gnss': 20, 'baro': 40, 'mag': 40}    # tras tantos rechazos seguidos se abre la covarianza: mejor recuperar que quedar ciego
+GATE_REABRE_S = 2.0          # al reabrir una posicion, la velocidad de ese eje se abre como si el error se hubiera juntado en este tiempo
 GNSS_MAX_HACC_M = 50.0       # peor que esto no es referencia: pasa con la antena tapada o girando
 GNSS_MAX_SACC_MPS = 3.0
+GNSS_BARO_MAX_M = 30.0       # la altura del GNSS lejos de la del barometro: la solucion no sirve, aunque diga fix 3D y buena precision.
+                             # Demeter, 8 nov: con 15 g en el quemado el M10S siguio dando fix 3D con hAcc 2 m, a -3 m cuando el cohete
+                             # iba por 300 m, y su velocidad vertical hundia la del EKF hasta el apogeo
 GYR_SF = 0.005               # error de escala del giro que queda despues de estimarlo (los estados SG); 0.02 con --sin-escala
 STILL_G = 0.03               # quieto: |a| a menos de esto de 1 g
 STILL_DPS = 5.0              # y girando menos que esto
@@ -56,12 +60,14 @@ R_GRAV_RAD = 0.03
 # Pesos por fase del vuelo (2026-11-05): multiplicadores del ruido de proceso (acel, giro) y del ruido de medida (GNSS, barometro,
 # magnetometro); None = esa medida no se usa en la fase. La fase sale del momento que detecta la mision (T_MISSION en los logs; la
 # verdad con sus retardos en el vuelo sintetico): el EKF lee la mision, la mision nunca lee el EKF. --sin-fases deja todo en 'reposo'.
-# Valores iniciales, a ajustar con el vuelo sintetico y despues con el vuelo real.
+# Ajustados con los vuelos reales del 8 nov (2026-11-14): las medidas absolutas son el ancla. Donde la inercial pierde confianza (quemado,
+# costeo girando) se le sube el ruido de proceso en vez de dejar que la puerta descarte el barometro; el barometro solo lleva mas ruido
+# donde se sabe que falla (presion dinamica en el quemado, pulso de la eyeccion), nunca se apaga.
 FASES = {
     'reposo':     (1.0, 1.0, 1.0, 1.0, 1.0),
-    'boost':      (10.0, 1.5, 5.0, 2.0, None),     # vibracion y empuje; el M10S (aereo, <4 g) se atrasa o pierde la solucion
-    'coast':      (1.5, 1.0, 1.0, 1.0, 2.0),
-    'eyeccion':   (10.0, 4.0, 2.0, None, None),    # 2 s tras la carga: pulso de presion y choque
+    'boost':      (20.0, 3.0, 5.0, 4.0, None),     # vibracion y empuje; el M10S (aereo, <4 g) se atrasa o pierde la solucion
+    'coast':      (10.0, 4.0, 1.0, 1.0, 2.0),      # 8 nov: con el giro (800-2000 dps) y casi 0 g la inercial se cree mas de lo que sabe
+    'eyeccion':   (10.0, 4.0, 2.0, 10.0, None),    # 2 s tras la carga: el barometro sigue siendo el ancla, con ruido por el pulso
     'paracaidas': (4.0, 3.0, 1.0, 1.5, 2.0),       # balanceo bajo el paracaidas
     'aterrizaje': (1.0, 1.0, 1.0, 1.0, 1.0),
 }
@@ -291,6 +297,8 @@ class Ekf:
                 return
             i = int(np.argmax(np.abs(H)))                    # la referencia lleva tiempo diciendo otra cosa: se le vuelve a creer
             self.Pm[i, i] += y * y / (H[i] * H[i])
+            if P <= i < P + 3:                                # tambien la velocidad de ese eje: si no, la posicion vuelve a irse
+                self.Pm[i + 3, i + 3] += (y / GATE_REABRE_S) ** 2
             s['reabre'] += 1
             PH = self.Pm @ H
             S = H @ PH + r * r
@@ -503,6 +511,7 @@ def navigate(d, x, c, base, path, a, salida=None):
     origin = None
     gnss_res = []
     gnss_bad = 0
+    gnss_baro = 0
     still_n, f_lp, last_grav = 0, None, -1
     out = []
     poses = calib.find_poses(d['lsm_t'], d['lsm_a'])
@@ -535,10 +544,13 @@ def navigate(d, x, c, base, path, a, salida=None):
                         continue
                     origin = (r[3], r[4], r[5])
                 ned = latlon_to_ned(r[3], r[4], r[5], origin)
+                if not a.sin_baro and abs(ned[2] - e.p[2]) > GNSS_BARO_MAX_M:      # la altura del EKF la dan los barometros
+                    gnss_baro += 1
+                    continue
                 inn = []
-                for i, (idx, val, sd) in enumerate(((P, ned[0], r[6]), (P + 1, ned[1], r[6]), (P + 2, 0.0, None), (V, r[8], r[11]), (V + 1, r[9], r[11]), (V + 2, r[10], r[11]))):
+                for i, (idx, val, sd) in enumerate(((P, ned[0], r[6]), (P + 1, ned[1], r[6]), (P + 2, 0.0, None), (V, r[8], r[11]), (V + 1, r[9], r[11]), (V + 2, r[10], None))):
                     if sd is None:
-                        continue                     # la altura del GNSS no se usa: la dan los barometros, como el altimetro oficial
+                        continue                     # ni la altura ni la velocidad vertical del GNSS: lo vertical lo dan los barometros
                     pred = e.p[i] if idx < V else e.v[i - 3]
                     inn.append(val - pred)
                     e.scalar(('gnss_p' if idx < V else 'gnss_v') + 'NED'[i % 3], idx, val - pred, max(sd, 0.3 if idx < V else 0.05))
@@ -601,7 +613,7 @@ def navigate(d, x, c, base, path, a, salida=None):
           + ('   [sin estimar: --sin-escala]' if a.sin_escala else ''))
     print(f'BME280 de respaldo (BMP581 sin datos > {BME_RESPALDO_S} s): {bme_respaldo} medidas' + ('   [--con-bme: el BME280 entra siempre]' if a.con_bme else ''))
     print(f'incertidumbre de actitud 1 sigma: {np.round(np.degrees(np.sqrt(np.diag(e.Pm)[TH:TH + 3])), 2).tolist()} grados')
-    print(f'epocas GNSS descartadas por mala precision: {gnss_bad} de {len(pvt)}')
+    print(f'epocas GNSS descartadas por mala precision: {gnss_bad} de {len(pvt)}; por altura a mas de {GNSS_BARO_MAX_M:.0f} m del barometro: {gnss_baro}')
     print('medidas (aceptadas, rechazadas, reaperturas, rms de la innovacion):')
     for name, s in sorted(e.stats.items()):
         rms = float(np.sqrt(np.mean(np.square(s['e2'])))) if s['e2'] else 0.0
@@ -623,7 +635,7 @@ def navigate(d, x, c, base, path, a, salida=None):
                 'gnss_ok,gnss_rej,baro_ok,baro_rej,mag_ok,mag_rej,gnss_fix,gnss_nsv,gnss_hacc_m,rssi_dbm,snr_db,sd_mb,'
                 'sgx_pct,sgy_pct,sgz_pct,sig_sgx_pct,sig_sgy_pct,sig_sgz_pct\n')
         for r in out:
-            f.write(','.join(f'{v:.6g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
+            f.write(','.join(f'{v:.10g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
     print(f'escribi {salida}')
     e.out = out
     return e, pose_checks

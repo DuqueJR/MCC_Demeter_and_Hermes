@@ -83,7 +83,7 @@ ESPECIFICACION: dict[str, dict[str, Campo]] = {
         "contrato_version": S(opciones=(C.CONTRATO_VERSION,)),
         "mision": S(opciones=C.MISIONES),
         "nodo": I(opciones=(C.NODO_DEMETER, C.NODO_HERMES)),
-        "modo": S(opciones=("vivo", "simulacion", "sintetico")),
+        "modo": S(opciones=("vivo", "simulacion", "sintetico", "reconstruccion")),
         "mission_id": I(nulo=True, minimo=1),
         "proto_version": I(opciones=(2, 3, 4)),
         "sitio": O({**_LATLON, "alt_msl_m": N(C.DECIMALES_M)}),
@@ -316,8 +316,9 @@ def validar_mensaje(tipo: str, datos: Any) -> list[str]:
         if q["w"] < 0:
             errores.append("estado: el cuaternión debe salir con w >= 0 (protocolo §2)")
         # `lkp` con `pos = null` es justo el caso para el que existe el LKP (PA-22): no es error.
-        if datos["pos"] is not None and datos["flags"]["gnss_fix"] is False:
-            errores.append("estado: hay pos pero gnss_fix es falso")
+        # Con EKF hay posicion aunque el GNSS pierda el fix (Demeter lo perdio en el quemado del 8 nov): solo la del GNSS lo exige.
+        if datos["pos"] is not None and datos["pos"]["fuente"] == "gnss" and datos["flags"]["gnss_fix"] is False:
+            errores.append("estado: hay pos del GNSS pero gnss_fix es falso")
         if datos["pos"] is not None:
             esperado = "ekf" if datos["flags"]["ekf_ok"] else "gnss"
             if datos["pos"]["fuente"] != esperado:

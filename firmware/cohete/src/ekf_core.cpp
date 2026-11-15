@@ -22,7 +22,11 @@ static const double MAG_NORM_TOL = 0.05, MAG_DIP_DEG = 32.0, MAG_DIP_TOL_DEG = 8
 static const double T_ESTANDAR_C = 15.0;
 static const double GATE = 5.0;
 static const uint32_t GATE_RUN[3] = {20, 40, 40};           // gnss, baro, mag
+static const double GATE_REABRE_S = 2.0;                     // al reabrir una posicion, su velocidad se abre como si el error se juntara en este tiempo
 static const double GNSS_MAX_HACC_M = 50.0, GNSS_MAX_SACC_MPS = 3.0, GNSS_ORIGEN_HACC_M = 20.0;
+// La altura del GNSS lejos de la del barometro (que define la del EKF): la solucion no sirve aunque diga fix 3D. Demeter, 8 nov:
+// con 15 g en el quemado el M10S dio fix 3D con hAcc 2 m a -3 m cuando el cohete iba por 300 m. Solo filtra: la altura no se usa.
+static const double GNSS_BARO_MAX_M = 30.0;
 static const double GYR_SF = 0.005;
 static const double STILL_G = 0.03, STILL_DPS = 5.0; static const int STILL_N = 200;
 static const double R_GRAV_RAD = 0.03;
@@ -30,9 +34,9 @@ static const double EYECCION_US = 2.0e6;
 // FASES de ekf.py: (acel, giro, gnss, baro, mag); negativo = esa medida no se usa en la fase
 static const double FASES[F_COUNT][5] = {
     {1.0, 1.0, 1.0, 1.0, 1.0},       // reposo
-    {10.0, 1.5, 5.0, 2.0, -1},       // boost
-    {1.5, 1.0, 1.0, 1.0, 2.0},       // coast
-    {10.0, 4.0, 2.0, -1, -1},        // eyeccion
+    {20.0, 3.0, 5.0, 4.0, -1},       // boost: el barometro sigue siendo el ancla, con mas ruido por la presion dinamica
+    {10.0, 4.0, 1.0, 1.0, 2.0},      // coast: con el giro (800-2000 dps) y casi 0 g la inercial no es confiable (8 nov)
+    {10.0, 4.0, 2.0, 10.0, -1},      // eyeccion: el barometro no se suelta; el pulso de la carga lo absorbe su ruido
     {4.0, 3.0, 1.0, 1.5, 2.0},       // paracaidas
     {1.0, 1.0, 1.0, 1.0, 1.0},       // aterrizaje
 };
@@ -485,6 +489,7 @@ void Navegador::actualizar(int m, const Real H[NX], Real y, Real r, int grupo) {
         if (s.run < GATE_RUN[grupo]) return;
         int im = 0; for (int j = 1; j < NX; j++) if (fabs(H[j]) > fabs(H[im])) im = j;   // la referencia lleva tiempo diciendo otra cosa
         Pm_[im][im] += y * y / (H[im] * H[im]);
+        if (im >= P && im < P + 3) Pm_[im + 3][im + 3] += (y / (Real)GATE_REABRE_S) * (y / (Real)GATE_REABRE_S);   // y la velocidad de ese eje
         s.reabre++;
         for (int i = 0; i < NX; i++) { Real a = 0; for (int j = 0; j < NX; j++) if (H[j] != 0) a += Pm_[i][j] * H[j]; PH[i] = a; }
         S = r * r; for (int j = 0; j < NX; j++) S += H[j] * PH[j];
@@ -544,14 +549,15 @@ void Navegador::evento(const Ev &e, int64_t tk) {
         }
         const double k = FASES[fase_][2];
         if (k < 0) return;
+        if (fabs((e_.h0 - r.h_m) - e_.p[2]) > GNSS_BARO_MAX_M) return;
         const double rad = M_PI / 180.0, Rn = 6378137.0 + e_.h0;
         const double ned[2] = {(r.lat_deg - e_.lat0) * rad * Rn, (r.lon_deg - e_.lon0) * rad * Rn * cos(e_.lat0 * rad)};
-        const float vel[3] = {r.vn, r.ve, r.vd};
+        const float vel[2] = {r.vn, r.ve};                   // lo vertical lo dan los barometros: ni altura ni velocidad vertical del GNSS
         for (int i = 0; i < 2; i++) {
             Real H[NX] = {0}; H[P + i] = 1;
             actualizar(M_GNSS_PN + i, H, (Real)(ned[i] - e_.p[i]), (Real)(fmax(r.hacc_m, 0.3) * k), GR_GNSS);
         }
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             Real H[NX] = {0}; H[V + i] = 1;
             actualizar(M_GNSS_VN + i, H, (Real)(vel[i] - e_.v[i]), (Real)(fmax(r.sacc_mps, 0.05) * k), GR_GNSS);
         }

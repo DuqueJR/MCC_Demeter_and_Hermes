@@ -12,7 +12,7 @@ import type { ComponentChildren } from "preact";
 import type { Contenido } from "../contenido/tipos";
 import type { Estado, Evento } from "../contrato/tipos";
 import type { EstadoPrincipal } from "../datos/api";
-import { edad, estado, estadoPagina, eventos } from "../datos/api";
+import { edad, estado, estadoPagina, eventos, meta } from "../datos/api";
 import { simulacionLocal } from "../datos/compuerta";
 import { BotonSalirSimulacion } from "../simulacion/BotonSimulacion";
 import { TITULO_FASE } from "./fases";
@@ -31,11 +31,17 @@ interface Indicador {
  * Con `simulacion` y datos al día (T-636) dice "SIMULACIÓN", con el color de información: un
  * "EN VIVO" verde sobre datos simulados se leería como real. Los demás estados no cambian.
  */
-export function indicadorDe(principal: EstadoPrincipal, simulacion = false): Indicador {
+export function indicadorDe(
+  principal: EstadoPrincipal,
+  simulacion = false,
+  reconstruccion = false,
+): Indicador {
   switch (principal) {
     case "en_vivo":
       if (simulacion) {
-        return { clase: "info", texto: "SIMULACIÓN", icono: <Info aria-hidden="true" /> };
+        // El vuelo real reconstruido (T-681) tampoco es "EN VIVO": es la repetición de un vuelo pasado.
+        const texto = reconstruccion ? "REPETICIÓN" : "SIMULACIÓN";
+        return { clase: "info", texto, icono: <Info aria-hidden="true" /> };
       }
       return { clase: "ok", texto: "EN VIVO", icono: <CircleCheck aria-hidden="true" /> };
     case "senal_debil":
@@ -70,8 +76,12 @@ export function tMasSegundos(est: Estado | null, evs: Evento[]): number | null {
   return t < 0 ? null : t;
 }
 
-function textoFase(principal: EstadoPrincipal, est: Estado | null): string {
-  if (principal === "sin_transmision") return "La transmisión empieza el día del lanzamiento";
+function textoFase(principal: EstadoPrincipal, est: Estado | null, yaVolo = false): string {
+  if (principal === "sin_transmision") {
+    return yaVolo
+      ? "Voló el 8 de noviembre de 2026"
+      : "La transmisión empieza el día del lanzamiento";
+  }
   if (est === null) return "Esperando datos";
   return TITULO_FASE[est.fase];
 }
@@ -80,7 +90,8 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
   const pagina = estadoPagina.value;
   const est = estado.value;
   const principal = pagina.principal;
-  const ind = indicadorDe(principal, pagina.simulacion);
+  const reconstruccion = meta.value?.modo === "reconstruccion";
+  const ind = indicadorDe(principal, pagina.simulacion, reconstruccion);
   const edadMs = edad.value;
 
   // Sin posición válida (o sin señal) la altitud es la última conocida: roja, con 📍 y su antigüedad (GS-03).
@@ -98,13 +109,13 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
             {ind.icono}
             <span>{ind.texto}</span>
           </span>
-          {pagina.simulacion && <span class="marca-sim">SIM</span>}
+          {pagina.simulacion && <span class="marca-sim">{reconstruccion ? "REAL" : "SIM"}</span>}
         </span>
         <span class={`barra-t${atenuado ? " atenuado" : ""}`}>
           {tMas(tMasSegundos(est, eventos.value))}
         </span>
         <span class="barra-fase" aria-live="polite">
-          {textoFase(principal, est)}
+          {textoFase(principal, est, contenido.reconstruccion !== undefined)}
         </span>
         <span class={`barra-alt${esLkp ? " lkp" : ""}${atenuado ? " atenuado" : ""}`}>
           {esLkp && altura !== null && <MapPin aria-hidden="true" />}
@@ -122,7 +133,11 @@ export function BarraMision({ contenido }: { contenido: Contenido }) {
       {pagina.simulacion && (
         <div class="banner banner-info" role="status">
           <Info aria-hidden="true" />
-          <span>{contenido.simulacion.banner}</span>
+          <span>
+            {reconstruccion && contenido.reconstruccion
+              ? contenido.reconstruccion.banner
+              : contenido.simulacion.banner}
+          </span>
           {simulacionLocal.value && <BotonSalirSimulacion />}
         </div>
       )}
