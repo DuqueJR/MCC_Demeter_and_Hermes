@@ -78,7 +78,9 @@ export function tMasSegundos(est: Estado | null, evs: Evento[]): number | null {
 
 function textoFase(principal: EstadoPrincipal, est: Estado | null, yaVolo = false): string {
   if (principal === "sin_transmision") {
-    return yaVolo ? "Voló el 8 de noviembre de 2026" : "La transmisión empieza el día del lanzamiento";
+    return yaVolo
+      ? "Voló el 8 de noviembre de 2026"
+      : "La transmisión empieza el día del lanzamiento";
   }
   if (est === null) return "Esperando datos";
   return TITULO_FASE[est.fase];

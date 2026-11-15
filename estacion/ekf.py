@@ -635,7 +635,7 @@ def navigate(d, x, c, base, path, a, salida=None):
                 'gnss_ok,gnss_rej,baro_ok,baro_rej,mag_ok,mag_rej,gnss_fix,gnss_nsv,gnss_hacc_m,rssi_dbm,snr_db,sd_mb,'
                 'sgx_pct,sgy_pct,sgz_pct,sig_sgx_pct,sig_sgy_pct,sig_sgz_pct\n')
         for r in out:
-            f.write(','.join(f'{v:.6g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
+            f.write(','.join(f'{v:.10g}' if i else f'{v:.0f}' for i, v in enumerate(r)) + '\n')
     print(f'escribi {salida}')
     e.out = out
     return e, pose_checks

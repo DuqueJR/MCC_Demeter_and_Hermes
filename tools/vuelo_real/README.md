@@ -30,7 +30,7 @@ El recorte verifica el tamaño y el SHA-256 de cada original contra `vuelos.py` 
 | `datos/vuelos/20261108/web/<mision>.jsonl` | Los mensajes de `web-1`, con el formato de `gui/web/dev/datos/`: `{"t_rel_ms", "evento", "datos"}`, empezando por `meta` |
 | `datos/vuelos/20261108/web/<mision>_snapshot.json` | El snapshot al final (§3 del contrato), con la `serie` completa |
 | `datos/vuelos/20261108/web/resumen.json` | Apogeos por método, momentos (hecho y anuncio), velocidad máxima, temperaturas y parámetros del detector |
-| `gui/web/src/assets/<mision>/vuelo_real.json` | El guion que reproduce la página (T-681): el JSONL recortado a 10 s tras el aterrizaje y diezmado como la simulación (en vuelo ~3 Hz, en tierra 1 Hz), con `formato = "reconstruccion-1"`. La página lo descarga solo al pulsar "Ver el vuelo real" |
+| `gui/web/src/assets/<mision>/vuelo_real.json` | El guion que reproduce la página (T-681): el JSONL recortado a 10 s tras el aterrizaje y con todo el vuelo a 10 Hz y la espera en tierra a 1 Hz, como el relay (681 y 974 KB; comprimidos, 58 y 84 KB), con `formato = "reconstruccion-1"`. La página lo descarga solo al pulsar "Ver el vuelo real" |
 
 ## Cómo se arma
 

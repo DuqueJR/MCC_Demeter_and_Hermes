@@ -83,7 +83,7 @@ La primera reconstrucción de Deméter tenía la velocidad mal: 13 m/s a los 2,5
 
 ## La carga en la web (T-681)
 - El reproductor de la simulación del público (T-635) ya hacía lo necesario: descarga un guion `web-1` al pulsar un botón y lo reproduce en el navegador, sin servidor. Se reutiliza con un formato nuevo, `reconstruccion-1`, cuyo `meta` debe venir en modo `reconstruccion`: `esGuion` rechaza cualquier otro modo, así que nunca pasa por un vuelo en vivo.
-- `tools/vuelo_real/guion_web.py` genera `gui/web/src/assets/<mision>/vuelo_real.json` (261 y 384 KB, bajo el presupuesto de 400 KB): estados en vuelo a ~3 Hz y en tierra a 1 Hz, como el relay.
+- `tools/vuelo_real/guion_web.py` genera `gui/web/src/assets/<mision>/vuelo_real.json` con el vuelo completo a 10 Hz y la espera en tierra a 1 Hz, como el relay: 681 y 974 KB, 58 y 84 KB comprimidos (como los sirve la web). El tope de 400 KB del guion de la simulación (T-635) no aplica: es el vuelo real y no se diezma (Pablo).
 - En `/hermes/` y `/demeter/`, el botón pasa a ser «Ver el vuelo real», con su aviso (apogeo oficial de 393 y 598 m); durante la repetición el indicador dice REPETICIÓN, la marca REAL y el banner «Repetición: vuelo real del 8 de noviembre de 2026». Sin transmisión, la página dice que el lanzamiento fue el 8 de noviembre.
 - Prueba nueva: `gui/web/pruebas/vuelo_real.test.ts`.
 

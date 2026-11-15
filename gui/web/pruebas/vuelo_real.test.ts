@@ -3,17 +3,21 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { indicadorDe } from "../src/mision/BarraMision";
 import { demeter } from "../src/contenido/demeter";
 import { hermes } from "../src/contenido/hermes";
+import { indicadorDe } from "../src/mision/BarraMision";
 import { esGuion, FORMATO_RECONSTRUCCION, type Guion } from "../src/simulacion/guion";
 
 const leer = (mision: string): Guion =>
   JSON.parse(
-    readFileSync(fileURLToPath(new URL(`../src/assets/${mision}/vuelo_real.json`, import.meta.url)), "utf8"),
+    readFileSync(
+      fileURLToPath(new URL(`../src/assets/${mision}/vuelo_real.json`, import.meta.url)),
+      "utf8",
+    ),
   ) as Guion;
 const sinPlano = <T>(x: T): T => JSON.parse(JSON.stringify(x));
-const PRESUPUESTO_BYTES = 400 * 1024;
+/** El vuelo real no se diezma (`tools/vuelo_real/guion_web.py`): ~1 MB sin comprimir, ~85 KB comprimido. */
+const PRESUPUESTO_BYTES = 1536 * 1024;
 
 describe.each([
   ["hermes", 393],
@@ -30,13 +34,16 @@ describe.each([
     for (const m of metas) if (m.evento === "meta") expect(m.datos.modo).toBe("reconstruccion");
   });
 
-  it("pesa unos cientos de KB como máximo", () => {
+  it("no pasa de 1,5 MB sin comprimir", () => {
     expect(JSON.stringify(g).length).toBeLessThanOrEqual(PRESUPUESTO_BYTES);
   });
 
   it("trae los momentos en orden y el apogeo oficial", () => {
     const tipos = g.lineas
-      .filter((l) => l.evento === "evento" && l.datos.tipo !== "fase" && l.datos.tipo !== "alarma_descenso")
+      .filter(
+        (l) =>
+          l.evento === "evento" && l.datos.tipo !== "fase" && l.datos.tipo !== "alarma_descenso",
+      )
       .map((l) => (l.evento === "evento" ? l.datos.tipo : ""));
     expect(tipos).toEqual(["despegue", "fin_combustion", "apogeo", "eyeccion", "aterrizaje"]);
     const ev = g.lineas.find((l) => l.evento === "evento" && l.datos.tipo === "apogeo");
@@ -71,7 +78,10 @@ describe("los textos del vuelo real", () => {
   });
 
   it("el indicador no dice EN VIVO durante la repetición", () => {
-    expect(indicadorDe("en_vivo", true, true)).toMatchObject({ clase: "info", texto: "REPETICIÓN" });
+    expect(indicadorDe("en_vivo", true, true)).toMatchObject({
+      clase: "info",
+      texto: "REPETICIÓN",
+    });
     expect(indicadorDe("en_vivo", true)).toMatchObject({ texto: "SIMULACIÓN" });
   });
 });

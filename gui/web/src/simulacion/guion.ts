@@ -46,7 +46,7 @@ const esObjeto = (x: unknown): x is Record<string, unknown> => typeof x === "obj
  */
 export function esGuion(x: unknown): x is Guion {
   if (!esObjeto(x) || typeof x.formato !== "string") return false;
-  if (!Object.prototype.hasOwnProperty.call(MODO_DE_FORMATO, x.formato)) return false;
+  if (!Object.hasOwn(MODO_DE_FORMATO, x.formato)) return false;
   const modo = MODO_DE_FORMATO[x.formato];
   if (typeof x.duracion_ms !== "number" || !Array.isArray(x.lineas) || x.lineas.length === 0) {
     return false;

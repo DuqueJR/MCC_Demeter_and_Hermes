@@ -13,10 +13,10 @@ FORMATO = 'reconstruccion-1'
 ESCENARIO = 'vuelo_real_20261108'
 MODO = 'reconstruccion'
 FASES_DE_TIERRA = {'BOOT', 'PREFLIGHT', 'ARMED', 'LANDED', 'ERROR'}
-ESTADO_EN_VUELO_CADA = 3            # la reconstruccion va a 10 Hz: uno de cada tres (~3 Hz, como la simulacion); la web interpola
+ESTADO_EN_VUELO_CADA = 1            # en vuelo, todo lo que el cohete transmitio (10 Hz): es el vuelo real, no se diezma
 SALUD_CADA = 10
 COLA_TRAS_ATERRIZAJE_MS = 10_000
-PRESUPUESTO_BYTES = 400 * 1024      # igual que la simulacion: "unos pocos cientos de KB como maximo"
+PRESUPUESTO_BYTES = 1536 * 1024     # sin comprimir; comprimido (como lo sirve la web) pesa ~60-85 KB. El de la simulacion es 400 KB
 
 
 def ruta(mision):

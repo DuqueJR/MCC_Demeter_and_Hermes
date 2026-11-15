@@ -17,7 +17,11 @@ export function BotonSimulacion({ simulacion }: { simulacion: Simulacion }) {
   // El vuelo real reconstruido (T-681) usa el mismo reproductor, con sus propios textos.
   const real = simulacion.reconstruccion === true;
   const texto = real
-    ? { boton: "Ver el vuelo real", cargando: "Cargando el vuelo…", error: "No pudimos cargar el vuelo." }
+    ? {
+        boton: "Ver el vuelo real",
+        cargando: "Cargando el vuelo…",
+        error: "No pudimos cargar el vuelo.",
+      }
     : {
         boton: "Ver la simulación del vuelo",
         cargando: "Cargando la simulación…",
