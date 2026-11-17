@@ -4,6 +4,8 @@ estado: vivo
 actualizado: 2026-10-24
 depende_de: [backlog, plan_pruebas, riesgos, pendientes]
 ---
+
+> **⚠️ 2026-11-03 (D-037):** el firmware es el de Pablo. **El mínimo para volar y el calendario vigentes** están en [cambios_por_firmware_pablo](cambios_por_firmware_pablo.md) §4–§5. Las fases e hitos de abajo quedan como historia.
 # Plan maestro: del 24 de octubre al 8 de noviembre de 2026
 
 - **Tiempo útil de desarrollo:** del 25 de octubre al 5 de noviembre (12 días). El 6 y el 7 de noviembre se va en el viaje, la inspección y el ensayo en el sitio. **El 8 de noviembre es el vuelo de la Categoría 3.**

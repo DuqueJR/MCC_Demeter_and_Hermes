@@ -9,6 +9,7 @@ Herramientas de PC en Python:
 | Decodificador del log de la SD y exportación a CSV y Parquet | T-203 |
 | Vectores de prueba del protocolo v2 (compartidos con el firmware) | T-502 |
 | Análisis del motor: empuje, impulso y retardo | T-802 |
+| [`web_datos/`](web_datos/README.md): datos de ejemplo de la web, de OpenRocket a JSONL `web-1` (6 escenarios por misión, salida en `gui/web/dev/datos/`). **Hecho.** | T-612 |
 
 **Leer primero:**
 - [plan_pruebas](../docs/05_plan/plan_pruebas.md)

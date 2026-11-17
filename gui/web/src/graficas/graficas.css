@@ -1,0 +1,155 @@
+/*
+ * La sección Gráficas (03 §3.7) [T-633]: pestañas, estado vacío, resumen y marcas.
+ * SOLO tokens de src/tema/ (06 §6): nada de colores sueltos, así Hermes y Deméter se ven con su paleta.
+ * El lienzo (uPlot) pinta con los mismos tokens, leídos en tiempo de ejecución (Lienzo.tsx).
+ */
+
+/* ---- Pestañas */
+
+.graficas-pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin-bottom: var(--e-3);
+}
+
+.graficas-pestanas [role="tab"] {
+  min-height: var(--toque-min);
+  padding: 0 var(--e-4);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.graficas-pestanas [role="tab"]:hover {
+  color: var(--texto);
+}
+
+/* La pestaña activa no se distingue solo por el color: lleva un subrayado grueso. */
+.graficas-pestanas [role="tab"][aria-selected="true"] {
+  border-color: var(--acento);
+  border-bottom-width: 4px;
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+/* ---- Panel */
+
+/* Alto reservado: pasar del estado vacío a la gráfica no mueve el resto de la página. */
+.graficas-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--e-3);
+  min-height: calc(var(--e-8) * 3);
+  min-width: 0;
+}
+
+.graficas-vacio,
+.graficas-nota,
+.graficas-estado {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.graficas-vacio {
+  align-self: center;
+  padding: var(--e-5) var(--e-3);
+  border: 1px dashed var(--linea);
+  border-radius: var(--radio);
+  text-align: center;
+}
+
+.graficas-estado {
+  margin-top: var(--e-3);
+  font-size: var(--t-etiqueta);
+}
+
+.graficas-reintentar {
+  min-height: var(--toque-min);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--acento);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ---- Lienzo (uPlot) */
+
+.grafica {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.grafica-lienzo {
+  width: 100%;
+}
+
+/* uPlot fija el ancho al de su contenido: aquí manda el contenedor. */
+.grafica .uplot {
+  width: auto;
+  font-family: inherit;
+}
+
+/* El dedo que se desliza sobre la gráfica desplaza la página, no la gráfica. */
+.grafica .u-over {
+  touch-action: pan-y;
+}
+
+.grafica .u-cursor-x,
+.grafica .u-cursor-y {
+  border-color: var(--texto-2);
+}
+
+.graficas-lectura {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  min-height: calc(var(--t-etiqueta) * 1.5);
+}
+
+.graficas-resumen {
+  margin: 0;
+  font-weight: 600;
+}
+
+.graficas-marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-1) var(--e-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+/* ---- Estados de la página (vista.ts): la gráfica nunca parece viva si no lo está */
+
+.graficas[data-vista="debil"] .grafica,
+.graficas[data-vista="sin-servidor"] .grafica {
+  opacity: 0.65;
+}
+
+.graficas[data-vista="sin-senal"] .grafica {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.graficas[data-vista="debil"] .graficas-estado {
+  color: var(--estado-aviso);
+}
+
+.graficas[data-vista="sin-senal"] .graficas-estado {
+  color: var(--estado-alarma);
+  font-weight: 700;
+}
+
+.graficas[data-vista="sin-servidor"] .graficas-estado {
+  color: var(--estado-sin-dato);
+}

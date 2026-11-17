@@ -1,0 +1,43 @@
+{
+  "profile": "vuelo_infinito",
+  "camera": 0,
+  "created_utc": "2026-10-09T18:15:30.983726Z",
+  "white_balance": {
+    "gains": [
+      2.290968,
+      1.51912
+    ],
+    "colour_temperature": 6492,
+    "gain_spread": 0.0001
+  },
+  "reference": {
+    "exposure_time_us": 289,
+    "analogue_gain": 1.1228070259094238,
+    "lux": 36987.45703125
+  },
+  "runs": [
+    {
+      "colour_gains": [
+        2.291041374206543,
+        1.5190820693969727
+      ],
+      "colour_temperature": 6493,
+      "exposure_time_us": 289,
+      "analogue_gain": 1.1228070259094238,
+      "lux": 36938.234375,
+      "lens_position": 0.0
+    },
+    {
+      "colour_gains": [
+        2.290893793106079,
+        1.5191582441329956
+      ],
+      "colour_temperature": 6492,
+      "exposure_time_us": 289,
+      "analogue_gain": 1.1228070259094238,
+      "lux": 36987.45703125,
+      "lens_position": 0.0
+    }
+  ],
+  "source_dir": "calibration/vuelo_infinito_cam0_20261009_131525"
+}

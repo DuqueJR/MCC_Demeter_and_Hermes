@@ -1,0 +1,49 @@
+/* Página de desarrollo (T-614). Solo usa tokens de src/tema/: sin colores sueltos. */
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--e-4);
+}
+
+h1,
+h2 {
+  margin: var(--e-4) 0 var(--e-2);
+}
+
+.nota {
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--superficie-2);
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2) var(--e-4);
+  padding: var(--e-2) 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+a {
+  min-height: var(--toque-min);
+  display: inline-flex;
+  align-items: center;
+  color: var(--acento);
+}
+
+.que {
+  flex: 1 1 18rem;
+  color: var(--texto);
+}

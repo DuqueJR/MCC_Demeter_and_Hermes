@@ -1,0 +1,9 @@
+# .dockerignore de la RAIZ del repo (T-642): el contexto del build del relay es la raiz (gui/relay/Dockerfile
+# copia gui/web/src/contrato/esquema.json). Lista blanca: nada entra si no esta aqui, asi ni .git, ni .env,
+# ni node_modules, ni firmware/, ni datos/ viajan al constructor de Fly y ningun secreto llega a la imagen.
+*
+
+!gui/relay/requirements.txt
+!gui/relay/entrypoint.sh
+!gui/relay/*.py
+!gui/web/src/contrato/esquema.json

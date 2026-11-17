@@ -43,3 +43,31 @@ secretos.*
 # Logs de vuelo y de pruebas (se guardan fuera de git o en un release)
 *.bin.log
 logs/
+
+# Imágenes generadas con IA (MCP de Hugging Face): borradores locales. Las elegidas se copian a gui/ o a docs/.
+generated_images/
+
+# Worktrees de los agentes de Claude Code (cada uno vive en su rama)
+.claude/worktrees/
+
+# Grafo de graphify: generado y local, cada persona lo construye (D-036)
+graphify-out/
+
+# Firmware de Pablo (T-007): la clave de red y las salidas locales de las herramientas
+firmware/common/net_proto/secrets.h
+estacion/sesiones/
+estacion/mision.json
+estacion/web1_referencia.json*
+estacion/vuelos_replay/
+*.BIN
+!datos/vuelos/**/*.BIN
+*.BIN.part
+*_csv/
+*_ekf.csv
+pio_cache/
+
+# Reenviador de la estacion (T-605a): la cola en disco (sqlite, con sus -wal y -shm)
+estacion/cola_web.db*
+
+# Sesiones del relay (T-672): lo que guardan iniciar_sesion.sh y detener_sesion.sh (snapshots, JSONL, resumen)
+estacion/sesiones_relay/

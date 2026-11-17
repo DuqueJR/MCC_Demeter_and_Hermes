@@ -1,0 +1,38 @@
+== Deriva de imagen respecto a la primera captura de cada cámara (px en el plano verde 2304x1296) ==
+ cam0: |dx| máx=2.35  |dy| máx=2.31  rms=1.49  duración total=140 s
+ cam1: |dx| máx=1.64  |dy| máx=2.77  rms=1.06  duración total=140 s
+
+== Posición real del lente informada por libcamera frente a la pedida ==
+ error máximo |informada - pedida| = 0.0000 dioptrías
+
+=== Cámara 0: 115 de 720 zonas usadas (descartadas: 13 saturadas/oscuras, 402 inestables) ===
+ pos       0.0   0.05    0.1   0.15    0.2   0.25    0.3    0.4    0.5    0.6    0.8    1.0   1.25    1.5    2.0
+ todas                   (n=115)  1.00  0.99  0.98  0.97  0.94  0.91  0.91  0.87  0.80  0.74  0.64  0.55  0.46  0.40  0.31
+   -> óptimo = 0.000 dpt
+ lejana (tercio sup.)    (n= 29)  1.00  0.99  0.98  0.97  0.96  0.95  0.94  0.89  0.84  0.80  0.72  0.65  0.57  0.50  0.39
+   -> óptimo = 0.000 dpt
+ media (tercio central)  (n= 80)  1.00  0.99  0.98  0.97  0.94  0.91  0.91  0.87  0.79  0.72  0.60  0.51  0.41  0.34  0.23
+   -> óptimo = 0.000 dpt
+ Histograma del mejor punto por zona (pos:n) -> 0.0:57, 0.05:31, 0.1:10, 0.15:5, 0.2:2, 0.25:7, 0.3:2, 0.4:1, 0.5:0, 0.6:0, 0.8:0, 1.0:0, 1.25:0, 1.5:0, 2.0:0
+ Óptimo por zona: mediana=0.029 P10=0.000 P90=0.183
+ Óptimo por repetición (r0 asc, r1 desc, r2 asc): [0.0, 0.0, 0.0]
+ Óptimo global = 0.000 dpt  IC95% (zonas) = [0.000, 0.000]
+ Nitidez relativa en lens=0.0: 0.999 ; en el mejor muestreado (0.0): 0.999
+ Posiciones con >=90 % de la nitidez máxima: [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+
+=== Cámara 1: 152 de 720 zonas usadas (descartadas: 36 saturadas/oscuras, 301 inestables) ===
+ pos       0.0   0.05    0.1   0.15    0.2   0.25    0.3    0.4    0.5    0.6    0.8    1.0   1.25    1.5    2.0
+ todas                   (n=152)  1.00  0.97  0.94  0.93  0.89  0.84  0.82  0.77  0.68  0.63  0.54  0.44  0.36  0.29  0.19
+   -> óptimo = 0.000 dpt
+ lejana (tercio sup.)    (n= 45)  1.00  0.98  0.96  0.95  0.92  0.91  0.88  0.85  0.81  0.76  0.70  0.61  0.54  0.48  0.40
+   -> óptimo = 0.000 dpt
+ media (tercio central)  (n= 88)  1.00  0.97  0.93  0.92  0.88  0.81  0.78  0.72  0.61  0.58  0.46  0.35  0.27  0.22  0.13
+   -> óptimo = 0.000 dpt
+ cercana (tercio inf.)   (n= 19)  1.00  0.96  0.93  0.90  0.86  0.82  0.82  0.72  0.65  0.58  0.46  0.35  0.28  0.24  0.17
+   -> óptimo = 0.000 dpt
+ Histograma del mejor punto por zona (pos:n) -> 0.0:128, 0.05:21, 0.1:1, 0.15:0, 0.2:0, 0.25:0, 0.3:0, 0.4:2, 0.5:0, 0.6:0, 0.8:0, 1.0:0, 1.25:0, 1.5:0, 2.0:0
+ Óptimo por zona: mediana=0.000 P10=0.000 P90=0.035
+ Óptimo por repetición (r0 asc, r1 desc, r2 asc): [0.0, 0.0, 0.0]
+ Óptimo global = 0.000 dpt  IC95% (zonas) = [0.000, 0.000]
+ Nitidez relativa en lens=0.0: 1.000 ; en el mejor muestreado (0.0): 1.000
+ Posiciones con >=90 % de la nitidez máxima: [0.0, 0.05, 0.1, 0.15]

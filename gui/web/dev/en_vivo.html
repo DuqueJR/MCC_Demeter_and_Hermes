@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es" data-mision="demeter">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>En vivo (desarrollo) · Hermes y Deméter</title>
+    <!-- Solo desarrollo (T-631): no entra al dist/. Necesita el repetidor: `npm run repetidor -- demeter nominal`. -->
+    <link rel="stylesheet" href="/src/tema/comun.css" />
+    <link rel="stylesheet" href="/src/tema/demeter.css" />
+    <link rel="stylesheet" href="/dev/index.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Visor en vivo</h1>
+      <p class="nota">
+        El cliente de datos (<code>src/datos/cliente.ts</code>) conectado a <code>/api</code>. Con
+        <code>?mision=hermes</code> cambia de misión. Las signals de <code>api.ts</code>, tal como las verían las secciones.
+      </p>
+      <dl>
+        <dt>Misión</dt><dd id="mision">-</dd>
+        <dt>Conexión con el servidor</dt><dd id="conexion">-</dd>
+        <dt>Estado de la página</dt><dd id="principal">-</dd>
+        <dt>Avisos</dt><dd id="avisos">-</dd>
+        <dt>Edad del dato (ms)</dt><dd id="edad">-</dd>
+        <dt>Fase</dt><dd id="fase">-</dd>
+        <dt>t_ms del cohete</dt><dd id="t_ms">-</dd>
+        <dt>Altitud AGL (m)</dt><dd id="alt">-</dd>
+        <dt>Eventos</dt><dd id="eventos">-</dd>
+        <dt>Puntos de la serie</dt><dd id="serie_n">-</dd>
+        <dt>Backfill</dt><dd id="backfill">-</dd>
+        <dt>Interpolado (lat lon alt)</dt><dd id="interp">-</dd>
+        <dt>Cliente</dt><dd id="stats">-</dd>
+      </dl>
+    </main>
+    <script type="module" src="/src/datos/visor_dev.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "vuelo_infinito",
+  "description": "Vuelo: WB calibrado y fijo, exposicion automatica, foco fijo al infinito.",
+  "cameras": [
+    0,
+    1
+  ],
+  "capture": {
+    "width": 4608,
+    "height": 2592,
+    "settle_frames": 30
+  },
+  "exposure": {
+    "mode": "auto",
+    "exposure_mode": "short",
+    "metering": "centre-weighted",
+    "constraint": "highlight",
+    "ev": 0.0
+  },
+  "white_balance": {
+    "mode": "auto"
+  },
+  "focus": {
+    "mode": "infinity"
+  },
+  "develop": {
+    "black_level": "tune",
+    "white_level": null
+  },
+  "camera": 0
+}

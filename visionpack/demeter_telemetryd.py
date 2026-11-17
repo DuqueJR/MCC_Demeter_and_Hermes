@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""LilyGO UART receiver, telemetry logger, and guarded clock synchronization."""
+"""Demonio de telemetría UART para la integración con LilyGO.
+
+Decodifica tramas binarias protegidas con CRC-16, registra la pose de la LilyGo (0x21), la pasa en hora de mision a chronyd (refclock SOCK) y reenvía
+comandos por IPC. Calcula el objetivo de pares RAW que se guardan según altitud;
+el sensor sigue solicitado a 10 FPS y el recorder diezma los pares para reducir
+el caudal hacia tmpfs/SD. No garantiza evitar saturación del bus ni ENOSPC.
+"""
 
 from __future__ import annotations
 
@@ -22,21 +28,35 @@ from typing import Any
 from demeter_protocol import (
     CMD_ABORT,
     CMD_ARM,
+    CMD_PREFLIGHT,
+    CMD_START_ASCENT,
     CMD_START_REC,
     CMD_TOUCHDOWN,
     PAYLOAD_STATUS,
     PREFLIGHT_SYNC,
+    POSE_UPDATE,
     STATUS_STRUCT,
-    TELEMETRY_STRUCT,
-    TELEMETRY_UPDATE,
+    STATUS_REASON_STRUCT,
     StatusCode,
     StreamDecoder,
     encode_frame,
 )
 
+from demeter_pose import F_ALT, F_TIME, ChronyFeeder, clock_offset_s, decode_pose
+
 LOG = logging.getLogger("demeter_telemetryd")
+EVENT_EVERY_S = 1.0          # la pose completa queda en telemetry.jsonl (RAM); a missiond va una por segundo
+_last_event = [0.0]
 STOP = False
-COMMANDS = {"ARM": CMD_ARM, "START_REC": CMD_START_REC, "TOUCHDOWN": CMD_TOUCHDOWN, "ABORT": CMD_ABORT}
+UNAVAILABLE_EVENT_SOCKETS: set[str] = set()
+COMMANDS = {
+    "PREFLIGHT": CMD_PREFLIGHT,
+    "ARM": CMD_ARM,
+    "START_ASCENT": CMD_START_ASCENT,
+    "START_REC": CMD_START_REC,
+    "TOUCHDOWN": CMD_TOUCHDOWN,
+    "ABORT": CMD_ABORT,
+}
 COMMAND_NAMES = {value: key for key, value in COMMANDS.items()}
 
 
@@ -63,12 +83,59 @@ def write_snapshot(path: Path, row: dict[str, Any]) -> None:
         Path(temporary_name).unlink(missing_ok=True)
 
 
+def target_fps_for_altitude(altitude_m: float) -> int:
+    if not math.isfinite(altitude_m):
+        raise ValueError("altitud debe ser finita")
+    if altitude_m > 200:
+        return 2
+    if altitude_m > 100:
+        return 4
+    if altitude_m > 30:
+        return 6
+    return 8
+
+
+def write_target_fps(path: Path, fps: int) -> bool:
+    try:
+        changed = path.read_text(encoding="ascii").strip() != str(fps)
+    except FileNotFoundError:
+        changed = True
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as output:
+            output.write(f"{fps}\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary_name, path)
+    finally:
+        Path(temporary_name).unlink(missing_ok=True)
+    return changed
+
+
 def emit_event(event_socket: Path, message: dict[str, Any]) -> None:
+    destination = str(event_socket)
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as channel:
-            channel.sendto(json.dumps(message, separators=(",", ":")).encode(), str(event_socket))
-    except (FileNotFoundError, ConnectionRefusedError):
-        LOG.debug("mission daemon no disponible para evento %s", message.get("kind"))
+            channel.sendto(json.dumps(message, separators=(",", ":")).encode(), destination)
+    except (FileNotFoundError, ConnectionRefusedError) as exc:
+        if destination not in UNAVAILABLE_EVENT_SOCKETS:
+            LOG.warning(
+                "missiond IPC no disponible destino=%s evento=%s (%s): %s",
+                destination, message.get("kind"), type(exc).__name__, exc,
+            )
+        UNAVAILABLE_EVENT_SOCKETS.add(destination)
+    except OSError as exc:
+        if destination not in UNAVAILABLE_EVENT_SOCKETS:
+            LOG.error(
+                "falló IPC kind=%s destino=%s (%s): %s",
+                message.get("kind"), destination, type(exc).__name__, exc,
+            )
+        UNAVAILABLE_EVENT_SOCKETS.add(destination)
+    else:
+        if destination in UNAVAILABLE_EVENT_SOCKETS:
+            LOG.info("missiond IPC restablecido destino=%s", destination)
+            UNAVAILABLE_EVENT_SOCKETS.discard(destination)
 
 
 def _sync_clock(lilygo_ms: int) -> None:
@@ -88,6 +155,9 @@ def handle_frame(
     preflight: bool,
     synced: bool,
     sync_deadline: float | None = None,
+    target_fps_path: Path = Path("/mnt/ramcam/target_fps.txt"),
+    baud: int = 115200,
+    chrony: ChronyFeeder | None = None,
 ) -> bool:
     received = time.time()
     if message_type == PREFLIGHT_SYNC:
@@ -111,27 +181,24 @@ def handle_frame(
         LOG.info("reloj sincronizado desde LilyGO: %s", utc_iso(lilygo_ms / 1000.0))
         return True
 
-    if message_type == TELEMETRY_UPDATE:
-        if len(payload) != TELEMETRY_STRUCT.size:
-            raise ValueError(f"payload 0x20 debe tener {TELEMETRY_STRUCT.size} bytes")
-        lilygo_ms, altitude, roll, pitch, yaw = TELEMETRY_STRUCT.unpack(payload)
-        values = (altitude, roll, pitch, yaw)
-        if not all(math.isfinite(value) for value in values):
-            raise ValueError("telemetría contiene NaN/Inf")
-        row = {
-            "pi_ts": received,
-            "lilygo_ts": lilygo_ms / 1000.0,
-            "alt": altitude,
-            "roll": roll,
-            "pitch": pitch,
-            "yaw": yaw,
-        }
+    if message_type == POSE_UPDATE:
+        pose = decode_pose(payload)
+        offset = clock_offset_s(pose["utc_us"], received, baud)
+        row = {"pi_ts": received, "ofs_reloj_ms": round(offset * 1e3, 3), **pose}
+        if chrony is not None and pose["flags"] & F_TIME:
+            chrony.add(offset, received)
+        if pose["flags"] & F_ALT:
+            target_fps = target_fps_for_altitude(pose["alt_agl"])
+            if write_target_fps(target_fps_path, target_fps):
+                LOG.info("FPS objetivo adaptativo: %d (altitud %.1f m)", target_fps, pose["alt_agl"])
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as output:
             output.write(json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n")
             output.flush()
         write_snapshot(snapshot_path, row)
-        emit_event(event_socket, {"kind": "telemetry", **row})
+        if received - _last_event[0] >= EVENT_EVERY_S:      # missiond guarda cada evento en la SD
+            _last_event[0] = received
+            emit_event(event_socket, {"kind": "telemetry", **row})
         return synced
 
     if message_type == PAYLOAD_STATUS:
@@ -168,16 +235,20 @@ def run(args: argparse.Namespace) -> int:
     command_socket.bind(str(args.command_socket))
     command_socket.setblocking(False)
     decoder = StreamDecoder()
+    chrony = ChronyFeeder(args.chrony_socket)    # hora de mision para chronyd (refclock SOCK)
     synced = False
     sync_deadline = time.monotonic() + args.sync_window_s if args.preflight else None
     preflight_open = args.preflight
+    last_status_sent: tuple[int, int] | None = None
     backoff = 1.0
+    reconnect_attempt = 0
     try:
         while not STOP:
             try:
                 with serial.Serial(args.device, args.baud, timeout=0, write_timeout=2) as port:
                     LOG.info("UART abierto: %s a %d baud", args.device, args.baud)
                     backoff = 1.0
+                    reconnect_attempt = 0
                     while not STOP:
                         ready, _, _ = select.select([port.fileno(), command_socket], [], [], 0.5)
                         if command_socket in ready:
@@ -188,11 +259,19 @@ def run(args: argparse.Namespace) -> int:
                                     args.log.parent.mkdir(parents=True, exist_ok=True)
                                     args.log.write_text("", encoding="utf-8")
                                     args.snapshot.unlink(missing_ok=True)
+                                    args.target_fps.unlink(missing_ok=True)
                                     LOG.info("telemetría reiniciada para nueva misión")
                                     emit_event(event_socket=args.event_socket, message={
                                         "kind": "telemetry_reset",
                                         "request_id": command.get("request_id"),
                                         "ok": True,
+                                    })
+                                elif command.get("health_check") is True:
+                                    emit_event(event_socket=args.event_socket, message={
+                                        "kind": "telemetry_health",
+                                        "request_id": command.get("request_id"),
+                                        "serial_connected": port.is_open,
+                                        "ok": port.is_open,
                                     })
                                 elif command.get("preflight_complete") is True:
                                     preflight_open = False
@@ -204,14 +283,20 @@ def run(args: argparse.Namespace) -> int:
                                     LOG.info("preflight cerrado; no se aceptarán más ajustes de reloj")
                                 elif "status" in command:
                                     status = int(command["status"])
-                                    port.write(encode_frame(PAYLOAD_STATUS, STATUS_STRUCT.pack(status)))
-                                    LOG.info("estado UART enviado: %d", status)
+                                    reason = int(command.get("motivo", 0))
+                                    port.write(encode_frame(PAYLOAD_STATUS, STATUS_REASON_STRUCT.pack(status, reason)))
+                                    if (status, reason) != last_status_sent:      # missiond lo repite cada segundo (latido): solo se anotan los cambios
+                                        LOG.info("estado UART enviado: %d motivo=%d", status, reason)
+                                        last_status_sent = (status, reason)
                                 else:
                                     frame_type = COMMANDS[command["command"]]
                                     port.write(encode_frame(frame_type))
                                     LOG.info("comando UART enviado: %s", command["command"])
-                            except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
-                                LOG.warning("comando IPC inválido: %s", exc)
+                            except (ValueError, KeyError, TypeError, struct.error, OSError, json.JSONDecodeError) as exc:
+                                LOG.warning(
+                                    "comando IPC rechazado desde %s (%s): %s",
+                                    args.command_socket, type(exc).__name__, exc,
+                                )
                         if port.fileno() in ready:
                             for frame in decoder.feed(port.read(512)):
                                 try:
@@ -220,14 +305,26 @@ def run(args: argparse.Namespace) -> int:
                                         snapshot_path=args.snapshot, event_socket=args.event_socket,
                                         allow_clock_set=args.allow_clock_set, preflight=preflight_open,
                                         synced=synced, sync_deadline=sync_deadline,
+                                        target_fps_path=args.target_fps,
+                                        baud=args.baud, chrony=chrony,
                                     )
                                 except (ValueError, OSError, OverflowError) as exc:
-                                    LOG.warning("trama 0x%02x rechazada: %s", frame.message_type, exc)
+                                    LOG.warning(
+                                        "trama type=0x%02x rechazada (%s): %s",
+                                        frame.message_type, type(exc).__name__, exc,
+                                    )
             except (OSError, serial.SerialException) as exc:
-                LOG.error("UART no disponible (%s); reconexión en %.1fs", exc, backoff)
+                reconnect_attempt += 1
+                LOG.error(
+                    "UART no disponible device=%s intento=%d (%s): %s; "
+                    "reconexión en %.1fs",
+                    args.device, reconnect_attempt, type(exc).__name__, exc, backoff,
+                )
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
     finally:
+        LOG.info("chrony: %d muestras enviadas, %d fallidas", chrony.sent, chrony.errors)
+        chrony.close()
         command_socket.close()
         args.command_socket.unlink(missing_ok=True)
     return 0
@@ -235,23 +332,57 @@ def run(args: argparse.Namespace) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", "--port", dest="device", default="/dev/serial0")
+    parser.add_argument("--device", "--port", dest="device", default="/dev/ttyAMA0")   # GPIO14/15; en la Pi 5 serial0 es el conector de depuracion
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--log", type=Path, default=Path("/mnt/ramcam/telemetry.jsonl"))
     parser.add_argument("--snapshot", type=Path, default=Path("/mnt/ramcam/current_telemetry.json"))
+    parser.add_argument("--target-fps", type=Path, default=Path("/mnt/ramcam/target_fps.txt"))
     parser.add_argument("--event-socket", type=Path, default=Path("/tmp/demeter/mission.sock"))
     parser.add_argument("--command-socket", type=Path, default=Path("/tmp/demeter/telemetry.sock"))
+    parser.add_argument(
+        "--diagnostic-log", type=Path,
+        default=Path("/home/admin/demeter_recording/missiond/telemetryd.log"),
+    )
     parser.add_argument("--preflight", action="store_true", help="permite sincronización solo con --allow-clock-set")
     parser.add_argument("--allow-clock-set", action="store_true", help="requiere CAP_SYS_TIME y solo sincroniza una vez")
     parser.add_argument("--sync-window-s", type=float, default=120.0)
+    parser.add_argument("--chrony-socket", type=Path, default=Path("/run/chrony.demeter.sock"),
+                        help="refclock SOCK de chronyd")
     return parser.parse_args()
 
 
+def configure_logging(path: Path) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(path, encoding="utf-8"))
+    except OSError as exc:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(name)s pid=%(process)d %(message)s",
+            handlers=handlers,
+            force=True,
+        )
+        LOG.error("no se pudo abrir diagnostic-log=%s (%s): %s; queda stderr", path, type(exc).__name__, exc)
+        return
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s pid=%(process)d %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+
+
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
-    return run(parse_args())
+    try:
+        args = parse_args()
+        configure_logging(args.diagnostic_log)
+        return run(args)
+    except Exception:
+        LOG.exception("fallo fatal en telemetryd")
+        return 1
 
 
 if __name__ == "__main__":

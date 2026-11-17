@@ -1,0 +1,107 @@
+Estructura de archivos resultante:
+/home/admin/demeter_recording/
+
+missiond:
+    flight.log //Eventos importantes registrados en el proceso de la rasberry
+    mission.jsonl //{"pi_ts":TIMESTAMP,"state":"OPERATIONAL STATE","kind":"EVENTO","from":"ESTADO_PREVIO","to":"ESTADO_SIGUIENTE","reason":"Qué lo desencadeno?"}
+    state.json //Archivo reporte de estado instanteneo de la rasberry
+
+normal_rec:
+    clip_despegue.mp4 //Independiente del pipeline personalizado
+
+scientific_rec:
+    jpeg: //Frames revelados en jpeg 95%
+        _fecha_:
+            cam#_frame_######.jpeg
+            cam#_frame_######.json
+                {
+                "camera_index": 0,
+                "frame_id": 2,
+                "frame_wallclock_ns": #,
+                "frame_timestamp_utc": "#",
+                "flight_telemetry": {
+                    "valid": true, // Indica si la telemetría de vuelo se está escribiendo en el telemetry.jsonl por demeter_telemetry y el proceso de captura puede accederlo. FALSE causa que la camara trabaje en modo failsafe
+                    "method": "linear", // Método de interpolación utilizado para la telemetría de vuelo
+                    "pi_ts_before": #,
+                    "pi_ts_after": #,
+                    "bracket_gap_s": #,
+                    "alt": #,
+                    "roll": #,
+                    "pitch": #,
+                    "yaw": #
+                }
+                }
+    png: // Imagenes reveladas
+        _fecha_:
+            cam#_frame_######.png
+
+    raw: // Imganes en RGGB_PIPSP_COMP1, bayer del sensor comprimido 1:1 por PISP
+        _fecha_:
+            chunk_####: //Segmento de grabacion consecutiva
+                cam#_frames.raw //Grabacion consecutiva
+                cam#_metadata.jsonl //
+                    {"analogue_gain":1.1228070259094238,"camera_index":0,"exposure_time_us":867,
+                    "frame_sequence":3,"frame_wallclock_ns":1791676288943666260,"height":2592,"pair_index":2,
+                    "pair_sensor_skew_ns":18826000,"raw_bytes":11943936,"raw_format":"BGGR_PISP_COMP1",
+                    "raw_offset":0,"sensor_timestamp_ns":11996835210000,"stats_bytes":23200,"stats_offset":0,
+                    "sync_ready":false,"sync_timer_us":9598291,"target_fps":4,"width":4608}
+                cam#_stats.bin //Estadiscticas al momento de la captura para calcular el revelado offline
+                chunk_telemetry.json //Telemtria general del chunk
+                    {
+                    "chunk": 1,
+                    "fin_monotonic": 12004.303303099,
+                    "flight_telemetry": {
+                        "alt": 465.6899108886719,
+                        "lilygo_ts": 1791676296.408,
+                        "pi_ts": 1791676296.408886,
+                        "pitch": 7.987468242645264,
+                        "roll": 7.460946083068848,
+                        "yaw": 97.01253509521484
+                    },
+                    "fps_objetivo": 4,
+                    "fps_sensor": 10,
+                    "frames_guardados": 60,
+                    "frames_guardados_por_camara": [
+                        30,
+                        30
+                    ],
+                    "frames_guardados_sync_ready_por_camara": [
+                        0,
+                        0
+                    ],
+                    "frames_huerfanos_descartados_por_camara": [
+                        1,
+                        1
+                    ],
+                    "frames_recibidos": 155,
+                    "frames_recibidos_fallidos": 0,
+                    "height": 2592,
+                    "inicio_monotonic": 11996.290901217,
+                    "max_sensor_skew_ns": 18827000,
+                    "pares_guardados": 30,
+                    "pares_recibidos": 76,
+                    "raw_format": "BGGR_PISP_COMP1",
+                    "requests_cancelados": 0,
+                    "stats_bytes_per_frame": 23200,
+                    "width": 4608
+                    }
+                
+            demeter_rec.log //
+                Recording dual 4608x2592 BGGR_PISP_COMP1 at 10 sensor fps; chunk time 8 s; output "/mnt/ramcam"
+                target_fps=4
+                Committed "/mnt/ramcam/chunk_0001": 60 frames, 30 pairs, target 4 fps
+                [3:20:06.502709265] [7788]  INFO RPiSync sync.cpp:281 *** Sync achieved! Difference -25us
+                [3:20:06.502705154] [7789]  INFO RPiSync sync.cpp:232 *** Sync achieved! Difference 0us
+                Committed "/mnt/ramcam/chunk_0002": 64 frames, 32 pairs, target 4 fps
+
+            postprocess.log //
+                chunk_#### cam#: ## frames revelados
+                Revelado terminado: ### imágenes, # errores. JPEG: directory; PNG: directory
+
+            postprocess.pid
+
+            telemetry.jsonl //Continuo durante el chunk
+            {"pi_ts":1791676285.0089808,"lilygo_ts":1791676285.008,
+            "alt":215.6033477783203,"roll":4.068356513977051,"pitch":12.262466430664062,
+            "yaw":92.73753356933594} 
+

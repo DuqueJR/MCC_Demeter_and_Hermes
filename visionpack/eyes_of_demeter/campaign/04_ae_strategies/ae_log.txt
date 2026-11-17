@@ -1,0 +1,60 @@
+cam0 r0 short_centre-weighted_normal_ev0           exp=   525 g=1.12 mean=0.175 q98=0.718 clip= 0.15% dark=26.03%
+cam0 r0 short_matrix_normal_ev0                    exp=   525 g=1.12 mean=0.176 q98=0.719 clip= 0.15% dark=26.04%
+cam0 r0 short_spot_normal_ev0                      exp=  1156 g=1.12 mean=0.348 q98=1.000 clip=12.40% dark=12.11%
+cam0 r0 short_centre-weighted_highlight_ev0        exp=   525 g=1.12 mean=0.175 q98=0.720 clip= 0.15% dark=26.29%
+cam0 r0 short_matrix_highlight_ev0                 exp=   525 g=1.12 mean=0.175 q98=0.719 clip= 0.15% dark=26.46%
+cam0 r0 short_spot_highlight_ev0                   exp=  1183 g=1.12 mean=0.349 q98=1.000 clip=13.43% dark=12.12%
+cam0 r0 short_centre-weighted_shadows_ev0          exp=  3785 g=1.12 mean=0.538 q98=1.000 clip=37.36% dark= 1.33%
+cam0 r0 short_matrix_shadows_ev0                   exp=  4443 g=1.12 mean=0.564 q98=1.000 clip=40.20% dark= 0.71%
+cam0 r0 short_spot_shadows_ev0                     exp=  2129 g=1.12 mean=0.447 q98=1.000 clip=30.20% dark= 5.26%
+cam0 r0 normal_centre-weighted_highlight_ev0       exp=   525 g=1.12 mean=0.173 q98=0.717 clip= 0.15% dark=27.24%
+cam0 r0 long_centre-weighted_highlight_ev0         exp=   525 g=1.12 mean=0.173 q98=0.716 clip= 0.15% dark=27.39%
+cam0 r0 short_centre-weighted_highlight_ev-1.0     exp=   262 g=1.12 mean=0.087 q98=0.359 clip= 0.00% dark=42.33%
+cam0 r0 short_centre-weighted_highlight_ev-0.5     exp=   368 g=1.12 mean=0.121 q98=0.500 clip= 0.00% dark=37.12%
+cam0 r0 short_centre-weighted_highlight_ev+0.5     exp=   604 g=1.12 mean=0.197 q98=0.818 clip= 0.52% dark=24.84%
+cam0 r0 short_centre-weighted_highlight_ev+1.0     exp=   604 g=1.12 mean=0.196 q98=0.818 clip= 0.51% dark=24.94%
+cam1 r0 short_centre-weighted_normal_ev0           exp=   867 g=1.12 mean=0.197 q98=1.000 clip= 4.30% dark=24.97%
+cam1 r0 short_matrix_normal_ev0                    exp=   788 g=1.12 mean=0.182 q98=1.000 clip= 3.19% dark=26.97%
+cam1 r0 short_spot_normal_ev0                      exp=  1892 g=1.12 mean=0.319 q98=1.000 clip=15.98% dark=10.63%
+cam1 r0 short_centre-weighted_highlight_ev0        exp=   525 g=1.12 mean=0.125 q98=0.722 clip= 0.25% dark=37.39%
+cam1 r0 short_matrix_highlight_ev0                 exp=   525 g=1.12 mean=0.125 q98=0.721 clip= 0.24% dark=37.61%
+cam1 r0 short_spot_highlight_ev0                   exp=  1919 g=1.12 mean=0.320 q98=1.000 clip=16.11% dark=10.75%
+cam1 r0 short_centre-weighted_shadows_ev0          exp=  4995 g=1.44 mean=0.521 q98=1.000 clip=33.37% dark= 0.00%
+cam1 r0 short_matrix_shadows_ev0                   exp=  5442 g=1.50 mean=0.544 q98=1.000 clip=35.07% dark= 0.00%
+cam1 r0 short_spot_shadows_ev0                     exp=  4101 g=1.12 mean=0.442 q98=1.000 clip=28.22% dark= 1.03%
+cam1 r0 normal_centre-weighted_highlight_ev0       exp=   525 g=1.12 mean=0.124 q98=0.717 clip= 0.23% dark=38.50%
+cam1 r0 long_centre-weighted_highlight_ev0         exp=   525 g=1.12 mean=0.124 q98=0.717 clip= 0.23% dark=38.69%
+cam1 r0 short_centre-weighted_highlight_ev-1.0     exp=   262 g=1.12 mean=0.062 q98=0.360 clip= 0.00% dark=54.59%
+cam1 r0 short_centre-weighted_highlight_ev-0.5     exp=   368 g=1.12 mean=0.087 q98=0.502 clip= 0.00% dark=48.73%
+cam1 r0 short_centre-weighted_highlight_ev+0.5     exp=   604 g=1.12 mean=0.141 q98=0.822 clip= 0.69% dark=35.13%
+cam1 r0 short_centre-weighted_highlight_ev+1.0     exp=   604 g=1.12 mean=0.141 q98=0.822 clip= 0.69% dark=35.22%
+cam0 r1 short_centre-weighted_normal_ev0           exp=   578 g=1.12 mean=0.182 q98=0.759 clip= 0.27% dark=28.20%
+cam0 r1 short_matrix_normal_ev0                    exp=   578 g=1.12 mean=0.182 q98=0.759 clip= 0.27% dark=28.18%
+cam0 r1 short_spot_normal_ev0                      exp=  1261 g=1.12 mean=0.349 q98=1.000 clip=15.59% dark=13.88%
+cam0 r1 short_centre-weighted_highlight_ev0        exp=   525 g=1.12 mean=0.165 q98=0.690 clip= 0.12% dark=30.82%
+cam0 r1 short_matrix_highlight_ev0                 exp=   578 g=1.12 mean=0.181 q98=0.757 clip= 0.26% dark=28.56%
+cam0 r1 short_spot_highlight_ev0                   exp=  1261 g=1.12 mean=0.347 q98=1.000 clip=15.31% dark=14.23%
+cam0 r1 short_centre-weighted_shadows_ev0          exp=  4390 g=1.12 mean=0.542 q98=1.000 clip=38.63% dark= 1.28%
+cam0 r1 short_matrix_shadows_ev0                   exp=  4995 g=1.16 mean=0.568 q98=1.000 clip=40.94% dark= 0.56%
+cam0 r1 short_spot_shadows_ev0                     exp=  2339 g=1.12 mean=0.446 q98=1.000 clip=30.10% dark= 6.08%
+cam0 r1 normal_centre-weighted_highlight_ev0       exp=   525 g=1.12 mean=0.162 q98=0.682 clip= 0.11% dark=31.68%
+cam0 r1 long_centre-weighted_highlight_ev0         exp=   525 g=1.12 mean=0.162 q98=0.682 clip= 0.11% dark=31.79%
+cam0 r1 short_centre-weighted_highlight_ev-1.0     exp=   262 g=1.12 mean=0.082 q98=0.343 clip= 0.00% dark=44.76%
+cam0 r1 short_centre-weighted_highlight_ev-0.5     exp=   394 g=1.12 mean=0.122 q98=0.512 clip= 0.00% dark=38.31%
+cam0 r1 short_centre-weighted_highlight_ev+0.5     exp=   630 g=1.12 mean=0.193 q98=0.815 clip= 0.55% dark=27.63%
+cam0 r1 short_centre-weighted_highlight_ev+1.0     exp=   630 g=1.12 mean=0.192 q98=0.812 clip= 0.53% dark=27.84%
+cam1 r1 short_centre-weighted_normal_ev0           exp=   920 g=1.12 mean=0.195 q98=1.000 clip= 4.55% dark=27.55%
+cam1 r1 short_matrix_normal_ev0                    exp=   841 g=1.12 mean=0.182 q98=1.000 clip= 3.41% dark=29.57%
+cam1 r1 short_spot_normal_ev0                      exp=  2182 g=1.12 mean=0.329 q98=1.000 clip=16.92% dark=11.30%
+cam1 r1 short_centre-weighted_highlight_ev0        exp=   525 g=1.12 mean=0.117 q98=0.714 clip= 0.16% dark=42.52%
+cam1 r1 short_matrix_highlight_ev0                 exp=   525 g=1.12 mean=0.117 q98=0.715 clip= 0.16% dark=42.57%
+cam1 r1 short_spot_highlight_ev0                   exp=  2234 g=1.12 mean=0.324 q98=1.000 clip=16.52% dark=11.37%
+cam1 r1 short_centre-weighted_shadows_ev0          exp=  5652 g=1.50 mean=0.528 q98=1.000 clip=34.38% dark= 0.00%
+cam1 r1 short_matrix_shadows_ev0                   exp=  6414 g=1.50 mean=0.550 q98=1.000 clip=36.65% dark= 0.00%
+cam1 r1 short_spot_shadows_ev0                     exp=  4784 g=1.12 mean=0.449 q98=1.000 clip=29.42% dark= 0.94%
+cam1 r1 normal_centre-weighted_highlight_ev0       exp=   525 g=1.12 mean=0.117 q98=0.716 clip= 0.15% dark=43.19%
+cam1 r1 long_centre-weighted_highlight_ev0         exp=   525 g=1.12 mean=0.116 q98=0.716 clip= 0.15% dark=43.39%
+cam1 r1 short_centre-weighted_highlight_ev-1.0     exp=   262 g=1.12 mean=0.060 q98=0.363 clip= 0.00% dark=55.61%
+cam1 r1 short_centre-weighted_highlight_ev-0.5     exp=   368 g=1.12 mean=0.083 q98=0.505 clip= 0.00% dark=51.32%
+cam1 r1 short_centre-weighted_highlight_ev+0.5     exp=   604 g=1.12 mean=0.136 q98=0.826 clip= 0.72% dark=39.48%
+cam1 r1 short_centre-weighted_highlight_ev+1.0     exp=   604 g=1.12 mean=0.136 q98=0.825 clip= 0.72% dark=39.61%

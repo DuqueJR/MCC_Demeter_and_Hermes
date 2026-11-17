@@ -1,0 +1,27 @@
+.build/
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+
+# Captures and rendered images are retained locally, not stored in Git.
+results/**
+!results/.gitkeep
+campaign/**/runs/
+campaign/**/latest_run.txt
+*.raw
+*.bin
+*.npy
+*.npz
+*.h264
+*.mp4
+*.mkv
+*.pisp
+*.jpg
+*.jpeg
+*.png
+*.deb
+
+# Local editor and operating-system state.
+.DS_Store
+.vscode/

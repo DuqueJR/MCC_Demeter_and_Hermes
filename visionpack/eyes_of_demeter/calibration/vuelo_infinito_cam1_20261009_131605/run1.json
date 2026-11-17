@@ -1,0 +1,55 @@
+{
+  "ae_state": 2,
+  "af_state": 0,
+  "analogue_gain": 1.1228070259094238,
+  "camera_index": 1,
+  "cfe_compression_offset": 2048,
+  "colour_gains": [
+    2.1355881690979004,
+    1.6083719730377197
+  ],
+  "colour_temperature": 5707,
+  "digital_gain": 1.0305999517440796,
+  "exposure_time_us": 368,
+  "focus_fom": 5290,
+  "frame_sequence": 45,
+  "height": 2592,
+  "lens_position": 0.0,
+  "lux": 32733.962890625,
+  "pisp_statistics_bytes": 23200,
+  "pixel_format": "BGGR_PISP_COMP1",
+  "profile_applied": {
+    "camera": 1,
+    "cameras": [
+      0,
+      1
+    ],
+    "capture": {
+      "height": 2592,
+      "settle_frames": 30,
+      "width": 4608
+    },
+    "description": "Vuelo: WB calibrado y fijo, exposicion automatica, foco fijo al infinito.",
+    "develop": {
+      "black_level": "tune",
+      "white_level": null
+    },
+    "exposure": {
+      "constraint": "highlight",
+      "ev": 0.0,
+      "exposure_mode": "short",
+      "metering": "centre-weighted",
+      "mode": "auto"
+    },
+    "focus": {
+      "mode": "infinity"
+    },
+    "name": "vuelo_infinito",
+    "white_balance": {
+      "mode": "auto"
+    }
+  },
+  "settle_frames": 45,
+  "stride": 4608,
+  "width": 4608
+}

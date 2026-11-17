@@ -1,0 +1,20 @@
+cam0: LSC green gain min/center/max=1.001/1.030/2.633
+  center       raw=100.0% pred=100.0% replayY=100.0% LSCg=1.027
+  top          raw= 77.2% pred= 80.0% replayY= 92.9% LSCg=1.064
+  bottom       raw= 78.2% pred= 86.4% replayY= 95.8% LSCg=1.135
+  left         raw= 75.3% pred= 81.4% replayY= 93.8% LSCg=1.111
+  right        raw= 52.2% pred= 65.9% replayY= 86.9% LSCg=1.301
+  top_left     raw= 55.8% pred= 62.5% replayY= 83.6% LSCg=1.151
+  top_right    raw= 43.7% pred= 57.5% replayY= 82.0% LSCg=1.355
+  bottom_left  raw= 59.1% pred= 70.7% replayY= 89.6% LSCg=1.228
+  bottom_right raw= 42.8% pred= 59.7% replayY= 83.8% LSCg=1.433
+cam1: LSC green gain min/center/max=1.001/1.030/2.633
+  center       raw=100.0% pred=100.0% replayY=100.0% LSCg=1.019
+  top          raw= 76.5% pred= 79.2% replayY= 92.7% LSCg=1.055
+  bottom       raw= 77.8% pred= 84.8% replayY= 95.3% LSCg=1.112
+  left         raw= 62.2% pred= 72.2% replayY= 90.0% LSCg=1.185
+  right        raw= 62.6% pred= 73.6% replayY= 90.5% LSCg=1.199
+  top_left     raw= 44.3% pred= 53.3% replayY= 77.4% LSCg=1.230
+  top_right    raw= 52.7% pred= 64.2% replayY= 85.9% LSCg=1.246
+  bottom_left  raw= 49.1% pred= 62.0% replayY= 85.2% LSCg=1.289
+  bottom_right raw= 47.6% pred= 60.8% replayY= 82.8% LSCg=1.306

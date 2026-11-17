@@ -1,0 +1,188 @@
+/*
+ * La sección Actitud (03 §3.6) [T-634]: horizonte artificial, brújula y los tres ángulos.
+ * SOLO tokens de src/tema/ (06 §6): el cielo y la tierra salen de --acento y --marca-1, los trazos
+ * de --texto y --texto-2, y el estado de los colores de estado (el color nunca va solo: 02 §4).
+ */
+
+.actitud-instrumentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--e-8) * 2), 1fr));
+  gap: var(--e-3);
+  justify-items: center;
+}
+
+.actitud-figura {
+  display: grid;
+  justify-items: center;
+  gap: var(--e-1);
+  width: 100%;
+  margin: 0;
+}
+
+.actitud-figura figcaption {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.dial {
+  width: 100%;
+  max-width: calc(var(--e-8) * 3);
+  height: auto;
+}
+
+.dial-fondo {
+  fill: var(--fondo);
+}
+
+.dial-aro {
+  fill: none;
+  stroke: var(--linea);
+  stroke-width: 3;
+}
+
+/* ---- Horizonte */
+
+.cielo {
+  fill: var(--acento);
+  fill-opacity: 0.45;
+}
+
+.tierra {
+  fill: var(--marca-1);
+}
+
+.linea-horizonte {
+  stroke: var(--texto);
+  stroke-width: 1.5;
+}
+
+.marca-cabeceo {
+  stroke: var(--texto);
+  stroke-width: 1;
+}
+
+.numero-cabeceo {
+  fill: var(--texto);
+  font-size: 8px;
+}
+
+/* El símbolo fijo del cohete (en los dos instrumentos). */
+.simbolo-cohete {
+  fill: none;
+  stroke: var(--acento);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.centro-cohete {
+  fill: var(--acento);
+}
+
+/* ---- Brújula */
+
+.marca-rosa {
+  stroke: var(--texto-2);
+  stroke-width: 1;
+}
+
+.marca-rosa.grande {
+  stroke: var(--texto);
+  stroke-width: 2;
+}
+
+.letra-rosa {
+  fill: var(--texto);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.letra-rosa.norte {
+  fill: var(--acento);
+}
+
+.puntero {
+  fill: var(--acento);
+}
+
+/* ---- Los tres ángulos */
+
+.actitud-angulos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-2);
+  margin: var(--e-3) 0 0;
+}
+
+.actitud-angulos dt {
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+  text-transform: uppercase;
+}
+
+.actitud-angulos dd {
+  margin: 0;
+  font-size: var(--t-num-sec);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.actitud-estado,
+.actitud-cardan {
+  margin: var(--e-3) 0 0;
+  color: var(--texto-2);
+  font-size: var(--t-etiqueta);
+}
+
+.actitud-cardan[hidden] {
+  display: none;
+}
+
+/* ---- Estados de la página (vista.ts): el instrumento nunca parece vivo si no lo está */
+
+/* Sin actitud que mostrar: el aro vacío y los guiones, sin horizonte ni rosa. */
+.actitud[data-vista="sin-dato"] .dial-contenido,
+.actitud[data-vista="no-disponible"] .dial-contenido,
+.actitud[data-vista="sin-dato"] .simbolo-cohete,
+.actitud[data-vista="no-disponible"] .simbolo-cohete,
+.actitud[data-vista="sin-dato"] .centro-cohete,
+.actitud[data-vista="no-disponible"] .centro-cohete,
+.actitud[data-vista="sin-dato"] .puntero,
+.actitud[data-vista="no-disponible"] .puntero {
+  display: none;
+}
+
+.actitud[data-vista="sin-dato"] .actitud-angulos,
+.actitud[data-vista="no-disponible"] .actitud-angulos {
+  color: var(--estado-sin-dato);
+}
+
+.actitud[data-vista="debil"] .actitud-instrumentos,
+.actitud[data-vista="debil"] .actitud-angulos,
+.actitud[data-vista="sin-servidor"] .actitud-instrumentos,
+.actitud[data-vista="sin-servidor"] .actitud-angulos {
+  opacity: 0.65;
+}
+
+.actitud[data-vista="sin-senal"] .actitud-instrumentos,
+.actitud[data-vista="sin-senal"] .actitud-angulos {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.actitud[data-vista="debil"] .actitud-estado {
+  color: var(--estado-aviso);
+}
+
+.actitud[data-vista="sin-senal"] .actitud-estado {
+  color: var(--estado-alarma);
+  font-weight: 700;
+}
+
+.actitud[data-vista="sin-servidor"] .actitud-estado,
+.actitud[data-vista="sin-dato"] .actitud-estado,
+.actitud[data-vista="no-disponible"] .actitud-estado {
+  color: var(--estado-sin-dato);
+}

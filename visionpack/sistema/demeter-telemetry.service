@@ -1,0 +1,16 @@
+[Unit]
+Description=Demeter Telemetry Daemon: UART con la LilyGo (pines 8/10, ttyAMA0)
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=@VP@
+# La LilyGo va por GPIO14/15 = /dev/ttyAMA0 (dtparam=uart0=on). /dev/serial0 en la Pi 5 es el conector de depuracion.
+# Para el emulador: sudo systemctl edit demeter-telemetry y poner otra ExecStart con --port /tmp/ttyPI
+ExecStart=/usr/bin/python3 @VP@/demeter_telemetryd.py --port /dev/ttyAMA0 --baud 115200
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

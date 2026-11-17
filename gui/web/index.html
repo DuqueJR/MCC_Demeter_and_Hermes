@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hermes y Deméter · Universidad EIA</title>
+    <meta name="description" content="Sigue en vivo el vuelo de los cohetes Hermes y Deméter de la Universidad EIA en el CCCD 2026." />
+    <!-- Íconos y vista previa (T-648). El dominio y el color de tema los resuelve scripts/sitio-html.mjs. -->
+    <meta name="theme-color" content="%COLOR:portada%" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Universidad EIA · CCCD 2026" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:title" content="Hermes y Deméter · Universidad EIA" />
+    <meta property="og:description" content="Sigue en vivo el vuelo de los cohetes Hermes y Deméter de la Universidad EIA en el CCCD 2026." />
+    <meta property="og:url" content="%URL_SITIO%/" />
+    <meta property="og:image" content="%URL_SITIO%/og.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Los parches de los cohetes Hermes y Deméter de la Universidad EIA." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%URL_SITIO%/og.jpg" />
+    <link rel="stylesheet" href="/src/portada/portada.css" />
+    <!-- Las fuentes se piden en paralelo con el CSS, no después de leerlo: el primer pintado baja de 1,5 s a 0,75 s (Lighthouse móvil, T-621). -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/inter-latin-wght-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/marcellus-latin-400-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/tema/fuentes/montserrat-latin-800-normal.woff2" />
+  </head>
+  <body>
+    <!-- Portada (T-620, 03 §1): sin JavaScript. Toda la mitad es el enlace (D-W10). -->
+    <header class="cabecera">
+      <img
+        src="/src/assets/comun/eia_blanco.png?w=256&format=webp"
+        srcset="/src/assets/comun/eia_blanco.png?w=256&format=webp 256w, /src/assets/comun/eia_blanco.png?w=512&format=webp 512w"
+        sizes="64px"
+        alt="Universidad EIA"
+        width="256"
+        height="144"
+      />
+      <span class="lugar">CCCD 2026 · Santa Fe de Antioquia · 8 de noviembre</span>
+    </header>
+
+    <main>
+      <h1 class="solo-lectores">Hermes y Deméter</h1>
+      <div class="mitades">
+        <!--
+          Fondos pintados (T-621, 07 §2): la imagen es el elemento más grande de la portada, o sea, el LCP.
+          - Van bajo un velo del tema (portada.css), así que la calidad es baja a propósito (quality=).
+          - sizes dice 70vw en el celular, no 100vw: el celular baja 576 px (unos 7 KB en Deméter) y el LCP queda en
+            < 2 s; en el portátil, cada mitad es 50vw y baja 768 px (o 1152 px con pantalla densa).
+          - Con 576 px a calidad 24 (7,4 KB) o más, el LCP simulado sube a 2,03 s: no subir la calidad de ese tamaño sin medir.
+        -->
+        <a class="mitad" data-mision="demeter" href="/demeter/" aria-label="Entrar a la misión Deméter">
+          <span class="fondo" aria-hidden="true">
+            <picture>
+              <source type="image/avif" srcset="/src/assets/demeter/fondo_portada.webp?w=576&format=avif&quality=20 576w, /src/assets/demeter/fondo_portada.webp?w=768&format=avif&quality=34 768w, /src/assets/demeter/fondo_portada.webp?w=1152&format=avif&quality=40 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <source type="image/webp" srcset="/src/assets/demeter/fondo_portada.webp?w=576&format=webp&quality=60 576w, /src/assets/demeter/fondo_portada.webp?w=768&format=webp&quality=60 768w, /src/assets/demeter/fondo_portada.webp?w=1152&format=webp&quality=60 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <img src="/src/assets/demeter/fondo_portada.webp?w=768&format=webp&quality=60" alt="" width="1152" height="1280" fetchpriority="high" />
+            </picture>
+          </span>
+          <span class="parche">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="/src/assets/demeter/parche.png?w=256&format=avif 256w, /src/assets/demeter/parche.png?w=512&format=avif 512w, /src/assets/demeter/parche.png?w=1024&format=avif 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <source
+                type="image/webp"
+                srcset="/src/assets/demeter/parche.png?w=256&format=webp 256w, /src/assets/demeter/parche.png?w=512&format=webp 512w, /src/assets/demeter/parche.png?w=1024&format=webp 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <img src="/src/assets/demeter/parche.png?w=512&format=webp" alt="" width="512" height="512" fetchpriority="high" />
+            </picture>
+          </span>
+          <h2 class="nombre">Deméter</h2>
+          <span class="lema">La tierra que mira</span>
+          <span class="entrar"><span class="clic">Entrar →</span><span class="toca">Toca para entrar</span></span>
+        </a>
+
+        <a class="mitad" data-mision="hermes" href="/hermes/" aria-label="Entrar a la misión Hermes">
+          <span class="fondo" aria-hidden="true">
+            <picture>
+              <source type="image/avif" srcset="/src/assets/hermes/fondo_portada.webp?w=576&format=avif&quality=20 576w, /src/assets/hermes/fondo_portada.webp?w=768&format=avif&quality=34 768w, /src/assets/hermes/fondo_portada.webp?w=1152&format=avif&quality=40 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <source type="image/webp" srcset="/src/assets/hermes/fondo_portada.webp?w=576&format=webp&quality=60 576w, /src/assets/hermes/fondo_portada.webp?w=768&format=webp&quality=60 768w, /src/assets/hermes/fondo_portada.webp?w=1152&format=webp&quality=60 1152w" sizes="(min-width: 768px) and (orientation: landscape) 50vw, 70vw" />
+              <img src="/src/assets/hermes/fondo_portada.webp?w=768&format=webp&quality=60" alt="" width="1152" height="1280" fetchpriority="high" />
+            </picture>
+          </span>
+          <span class="parche">
+            <picture>
+              <source
+                type="image/avif"
+                srcset="/src/assets/hermes/parche.png?w=256&format=avif 256w, /src/assets/hermes/parche.png?w=512&format=avif 512w, /src/assets/hermes/parche.png?w=1024&format=avif 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <source
+                type="image/webp"
+                srcset="/src/assets/hermes/parche.png?w=256&format=webp 256w, /src/assets/hermes/parche.png?w=512&format=webp 512w, /src/assets/hermes/parche.png?w=1024&format=webp 1024w"
+                sizes="(min-width: 768px) 34vw, 68vw"
+              />
+              <img src="/src/assets/hermes/parche.png?w=512&format=webp" alt="" width="512" height="512" fetchpriority="high" />
+            </picture>
+          </span>
+          <h2 class="nombre">Hermes</h2>
+          <span class="lema">El mensajero</span>
+          <span class="entrar"><span class="clic">Entrar →</span><span class="toca">Toca para entrar</span></span>
+        </a>
+      </div>
+    </main>
+  </body>
+</html>

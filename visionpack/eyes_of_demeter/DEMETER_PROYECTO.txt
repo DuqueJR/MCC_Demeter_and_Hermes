@@ -1,0 +1,157 @@
+EYES OF DEMETER - RESUMEN DEL PROYECTO
+======================================
+
+OBJETIVO
+--------
+Capturar RAW PiSP comprimido de dos sensores IMX708 en Raspberry Pi 5,
+conservar los datos durante el vuelo en RAM temporal y almacenamiento SD, y
+revelar cada frame en tierra mediante el Controller original de libcamera y
+el PiSP Back End. El foco de este documento es explicar los componentes,
+dependencias, operacion y limites del sistema.
+
+PLATAFORMA VALIDADA
+-------------------
+- Raspberry Pi 5, BCM2712 D0, Debian/Raspberry Pi OS 13 arm64.
+- Dos sensores IMX708, sensores libcamera 0 y 1.
+- libcamera runtime 0.7.2+rpt20260817-1, source commit
+  6c1dd9d55573010f710c9e190a73e7e76f0d9432.
+- libpisp 1.7.0-1, source commit f8a5eb2af4c5dea76442785ef42b2fb1aa9e62f9.
+- Captura: 4608x2592 BGGR_PISP_COMP1 mas PISP_FE_STATS.
+- El archivo COMP1 medido es de unos 11.94 MB/frame/camara; el bloque FE stats
+  es de 23,200 bytes/frame.
+
+MAPA DE COMPONENTES
+-------------------
+- src/capture_pisp_stats.cpp: captura monoframe para calibracion y pruebas.
+  Emite el RAW, las estadisticas y metadata sidecar.
+- src/demeter_rec.cpp: captura simultanea de las dos camaras, solicita 10 fps,
+  empareja por llegada, registra SensorTimestamp/skew y guarda chunks cerrados.
+  El sync por software de libcamera usa camara 0 como server y camara 1 como
+  client del algoritmo rpi.sync.
+- src/controller_replay.cpp: convierte el bloque PISP_FE_STATS al formato del
+  Controller, repite el Controller para convergencia AWB/ALSC, prepara el BE y
+  escribe una salida RGB888 junto con status/config JSON.
+- vendor/libpisp-patch/praw2rgb.cpp: ejemplo libpisp extendido para leer
+  PISP_COMP1 y producir Bayer16. examples-meson.build registra el ejecutable.
+  El overlay conserva su licencia upstream BSD-2-Clause.
+- demeter_isp.py: comandos de calibracion, congelacion de mision, captura de
+  prueba y comparacion contra rpicam-still.
+- demeter_flight.sh: valida dependencias y tmpfs, limpia /mnt/ramcam, escribe el
+  fallback target_fps=4, ejecuta demeter_rec, ingiere chunks completos a SD,
+  detiene el recorder con SIGINT y dispara el postproceso sin bloquear.
+- demeter_postprocess.py: recorre chunks y filas JSONL; extrae el frame y sus
+  stats por offset, ejecuta praw2rgb y controller_replay, y escribe JPEG calidad
+  95 y PNG en scientific_rec/jpeg/<mision>/ y scientific_rec/png/<mision>/.
+  Los temporales por frame se eliminan incluso cuando el procesamiento falla.
+- build.sh: prepara fuentes fijadas dentro de .build/, superpone el ejemplo
+  mantenido por Demeter y compila todos los ejecutables.
+- dependencies.lock: pins de fuentes, paquetes y subproyectos relevantes.
+- profiles/: configuraciones editables de exposicion, balance de blancos, foco
+  y desarrollo.
+- calibration/: calibracion por perfil y camara.
+- missions/: configuracion congelada y flags derivados para una mision.
+- campaign/: scripts, protocolos y analisis de experimentos.
+- results/: salidas locales de capturas y comparaciones.
+
+DEPENDENCIAS Y RECONSTRUCCION
+-----------------------------
+La reconstruccion fijada funciona en Raspberry Pi OS/Debian 13 arm64 y necesita
+conexion de red para obtener los commits listados en dependencies.lock y los
+subproyectos Meson incluidos por el commit libpisp. No es un build offline ni
+bit-a-bit reproducible: los paquetes del sistema y el compilador los proporciona
+el repositorio apt configurado en el dispositivo.
+
+Paquetes del sistema usados o requeridos:
+  build-essential git meson ninja-build pkg-config python3 python3-pip
+  python3-numpy python3-opencv libcamera0.7 libpisp1 libudev-dev
+
+build.sh descarga libcamera-dev version 0.7.2+rpt20260817-1 sin instalarlo y
+extrae sus headers en .build/. Instala ply==3.11 en un directorio Python local
+para configurar libcamera. cxxopts 3.2.0 y nlohmann_json 3.12.0 se obtienen de
+los subproyectos declarados por el commit libpisp fijado.
+
+Pasos desde un clon limpio:
+  1. Instalar los paquetes de sistema indicados arriba.
+  2. Ejecutar ./build.sh en Raspberry Pi OS arm64.
+  3. Confirmar que aparecen .build/bin/demeter_rec,
+     .build/bin/controller_replay y .build/libpisp-build/src/examples/praw2rgb.
+  4. Ejecutar ./demeter_isp.py --help para calibracion/captura de banco.
+
+DEMETER_BUILD_DIR puede apuntar a otra carpeta para fuentes y binarios. El
+valor por defecto es <raiz-del-proyecto>/.build. PRAW2RGB y DEMETER_TUNE permiten
+reemplazar las rutas de conversor y tune oficial.
+
+OPERACION DE VUELO
+------------------
+- Configurar /mnt/ramcam como tmpfs en /etc/fstab. En el dispositivo validado
+  hay una reserva de 3 GiB, propiedad de admin. Verificar tras el montaje con:
+      findmnt -T /mnt/ramcam -o TARGET,FSTYPE,SIZE,OPTIONS
+  El tipo debe ser tmpfs y el usuario del recorder debe poder escribir.
+- Confirmar la ruta multicast del sync software:
+      ip route get 239.255.255.250
+  Debe indicar dev lo. La configuracion permanente de ruta y multicast pertenece
+  al host y no la instala este repositorio.
+- Asegurarse de que no existe un flag de touchdown de una mision anterior:
+      test ! -e /tmp/touchdown_event.flag
+  El operador/servicio de telemetria crea ese archivo al tocar tierra.
+- Iniciar la captura:
+      ./demeter_flight.sh
+- La mision se guarda en
+  /home/admin/demeter_recording/scientific_rec/raw/<YYYYMMDD_HHMMSS> por
+  defecto. DEMETER_RECORDINGS_DIR permite cambiar la carpeta destino.
+- El orquestador termina por touchdown o al llegar a 160 segundos. Solo mueve
+  nombres chunk_NNNN cerrados; excluye directorios temporales. Copia mediante
+  rsync a una carpeta staging en SD y publica por rename antes de liberar RAM.
+  Al final envia SIGINT, espera al recorder, ingiere los chunks restantes y
+  lanza el postproceso con log y PID dentro de la mision.
+- Si el recorder se interrumpe o falla, revisar demeter_rec.log y postprocess.log
+  dentro de la carpeta de mision. Un error de ingesta conserva el chunk en RAM
+  y lo informa; revisar espacio y permisos antes de reiniciar.
+
+REVELADO
+--------
+El revelado automatico empieza al cerrar una mision. Tambien se puede repetir
+manualmente:
+  python3 ./demeter_postprocess.py \
+    /home/admin/demeter_recording/scientific_rec/raw/<mision>
+
+Por cada camara y fila JSONL, el revelador valida dimensiones, offsets y longitudes,
+extrae COMP1/stats a temporales unicos bajo /tmp, escribe la metadata de frame,
+y ejecuta:
+  praw2rgb: PISP_COMP1 -> BAYER16
+  controller_replay: stats + metadata + tune IMX708 + Bayer16 -> RGB888
+OpenCV convierte RGB a BGR y escribe camX_frame_YYYYYY.jpg/.png en los
+directorios hermanos scientific_rec/jpeg/<mision>/ y scientific_rec/png/<mision>/.
+Una fila defectuosa se registra y no impide intentar las siguientes. Exit status
+cero significa que todas las filas fueron procesadas sin errores.
+
+DATOS Y GIT
+-----------
+El directorio de trabajo puede contener varios GB de datos experimentales. Estos
+se conservan localmente; .gitignore excluye streams RAW/BIN, videos, imagenes
+renderizadas, resultados y ejecuciones de campaign. Los fuentes C++, scripts,
+perfiles, misiones, documentacion, informes de texto y el parche libpisp se
+versionan. No se borran los resultados locales al preparar el repositorio.
+
+RESULTADOS VERIFICADOS Y LIMITES
+--------------------------------
+- Una prueba previa de recorder genero 62 pares; offsets RAW y stats coincidieron
+  con los bytes escritos, sin discontinuidades.
+- Con la ruta multicast forzada por loopback, SyncReady aparecio en la segunda
+  parte de la captura. En los pares listos, skew mediano de 19 us y maximo de
+  23 us. La prueba mantuvo WLAN activa; no demuestra por si sola comportamiento
+  con la radio deshabilitada o en el montaje final de vuelo.
+- Un frame real por camara recorrio extraction, praw2rgb, controller_replay y
+  escritura JPEG/PNG sin error.
+- La sesion de vuelo completa y su cualificacion sostenida (FPS, CPU, temperatura,
+  caudal y fallos de almacenamiento) siguen requiriendo validacion en el montaje
+  final. La sincronizacion por software no es una garantia de sincronizacion
+  electrica de XVS. Confirmar cableado/configuracion de hardware por separado.
+- El Controller y las interfaces internas de libcamera deben reconstruirse con
+  los commits fijados. La salida actual es RGB888 y no es un master RAW de 16 bit.
+
+DOCUMENTACION
+-------------
+README.md: mapa y comandos rapidos de operacion.
+Este archivo: arquitectura, dependencias, reconstruccion, vuelo, revelado,
+datos versionados y limites conocidos.

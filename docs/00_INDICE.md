@@ -1,6 +1,6 @@
 ---
 id: indice
-actualizado: 2026-10-24
+actualizado: 2026-11-03
 ---
 # Índice de la documentación: software Hermes + Demeter (CCCD 2026)
 
@@ -10,6 +10,8 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 
 | Si vas a… | Lee primero |
 | --- | --- |
+| **Qué cambió con el firmware de Pablo (2026-11-03)** | [05_plan/cambios_por_firmware_pablo.md](05_plan/cambios_por_firmware_pablo.md), [06_revisiones/revision_firmware_pablo.md](06_revisiones/revision_firmware_pablo.md) y [05_plan/sincronizacion_firmware_pablo.md](05_plan/sincronizacion_firmware_pablo.md) |
+| **Qué falta para los objetivos finales, y con qué tarea** | [05_plan/brechas_objetivos.md](05_plan/brechas_objetivos.md) |
 | Entender el proyecto | [01_contexto/proyecto.md](01_contexto/proyecto.md) |
 | Saber qué hay que construir | [02_requisitos/requisitos.md](02_requisitos/requisitos.md) |
 | Saber cómo vuela cada cohete (simulación) | [02_requisitos/perfiles_vuelo.md](02_requisitos/perfiles_vuelo.md) y [../datos/README.md](../datos/README.md) |
@@ -18,9 +20,12 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 | Radio, TDMA o sincronización | [04_diseno/enlace_lora_tdma.md](04_diseno/enlace_lora_tdma.md) |
 | El formato de los paquetes y los comandos | [04_diseno/protocolo_paquetes.md](04_diseno/protocolo_paquetes.md) |
 | Las fases de vuelo | [04_diseno/maquina_estados.md](04_diseno/maquina_estados.md) |
-| La arquitectura del firmware, el log o la caracterización del motor | [04_diseno/firmware_vuelo.md](04_diseno/firmware_vuelo.md) |
+| La arquitectura del firmware (la de Pablo) o el log | [04_diseno/firmware_vuelo.md](04_diseno/firmware_vuelo.md) y [04_diseno/formato_log.md](04_diseno/formato_log.md) |
 | La estación, el dashboard o la web | [04_diseno/estacion_terrena.md](04_diseno/estacion_terrena.md) |
+| **La web pública o el dashboard de operación** (diseño, contrato `web-1`, plan y tareas T-6xx) | [08_gui/00_README.md](08_gui/00_README.md) |
+| **El plan de dos sesiones del back** (Jerónimo y Juan Pablo: contratos C-01 a C-05, hitos H0–H4) | [05_plan/dos_sesiones/00_LEEME.md](05_plan/dos_sesiones/00_LEEME.md) |
 | La Pi de Demeter | [04_diseno/visionpack_integracion.md](04_diseno/visionpack_integracion.md) y [06_revisiones/revision_codigo_pi_demeter.md](06_revisiones/revision_codigo_pi_demeter.md) |
+| Pose y cámaras para visión artificial (marcos, cuaterniones, sidecars) | [04_diseno/vision_pose_camaras.md](04_diseno/vision_pose_camaras.md) |
 | Por qué se decidió algo | [04_diseno/decisiones.md](04_diseno/decisiones.md) |
 | Qué hacer hoy | [05_plan/plan_maestro.md](05_plan/plan_maestro.md) → [05_plan/backlog.md](05_plan/backlog.md) |
 | Probar algo | [05_plan/plan_pruebas.md](05_plan/plan_pruebas.md) |
@@ -37,9 +42,10 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 02_requisitos/          requisitos con ID y constantes (la fuente única de los números)
 03_hardware/            directorio de componentes, fichas, buses y pines, y datasheets (PDF y algunos .md)
 04_diseno/              contratos y diseño: enlace, protocolo, estados, firmware, estación, VisionPack y decisiones
-05_plan/                plan maestro, backlog, pruebas, riesgos y pendientes
+05_plan/                plan maestro, backlog, pruebas, riesgos y pendientes; dos_sesiones/ (el plan del back en paralelo)
 06_revisiones/          revisiones de código
 07_bitacora/            un archivo por paso: sesiones, tareas, pruebas y reuniones (D-029)
+08_gui/                 web pública y dashboard de operación: identidad, pantallas, contrato web-1, plan (D-034)
 99_archivo/             histórico: rondas de preguntas y notas originales. No es la fuente vigente.
 ```
 
@@ -50,4 +56,5 @@ Esta carpeta es una bóveda de Obsidian. **Los enlaces son de Markdown estándar
 3. **Cada documento tiene un frontmatter** con `id`, `estado` (borrador, propuesta, aprobado o vivo), `actualizado` y `depende_de`.
 4. **Hechos frente a suposiciones.** Lo que no está verificado se marca: `(P)` provisional, `(V)` por verificar, ⚠️ o ❓. Las fichas de hardware tienen su sección de *Incertidumbres*.
 5. **IDs estables:** REQ (`REG-`, `HW-`, `DAT-`, `NAV-`, `GS-`), decisiones (`D-`), tareas (`T-`), pruebas (`P-`), riesgos (`R-`) y pendientes (`PEN-`). Se citan por ID.
+   - Los planes en paralelo tienen IDs propios mientras no se consolidan: el back usa `T-S`, `DP-`, `RP-`, `PA-` y `C-`; la web usa `T-6xx`, `D-W`, `R-W` y `PEN-W`.
 6. **`99_archivo/` no se lee para tomar decisiones**: solo sirve de historia.

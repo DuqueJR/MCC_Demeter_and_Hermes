@@ -1,0 +1,15 @@
+{
+  "name": "Deméter · Universidad EIA",
+  "short_name": "Deméter",
+  "lang": "es",
+  "id": "/demeter/",
+  "start_url": "/demeter/",
+  "scope": "/demeter/",
+  "display": "browser",
+  "theme_color": "#0b1a24",
+  "background_color": "#0b1a24",
+  "icons": [
+    { "src": "/demeter/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/demeter/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

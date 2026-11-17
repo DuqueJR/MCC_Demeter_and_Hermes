@@ -1,0 +1,4 @@
+# Optional pip environment for demeter_isp.py and demeter_postprocess.py.
+# Raspberry Pi OS packages python3-numpy and python3-opencv are also supported.
+numpy==2.2.4
+opencv-python==4.10.0.84

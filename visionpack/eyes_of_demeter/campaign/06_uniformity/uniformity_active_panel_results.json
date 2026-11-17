@@ -1,0 +1,704 @@
+[
+  {
+    "level": "level25_reframed",
+    "camera": 0,
+    "active_panel_bbox_green_px": [
+      730,
+      339,
+      1072,
+      723
+    ],
+    "active_panel_coverage_of_frame_pct": 25.198460540980797,
+    "panel_aspect": 1.4827109266943292,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 66645,
+    "analogue_gain": 7.366906642913818,
+    "digital_gain": 1.0023620128631592,
+    "zones": {
+      "center": {
+        "green_dn": 31959.82421875,
+        "green_norm_exp_gain": 0.06509560135914093,
+        "channels_dn": {
+          "B": 19834.880859375,
+          "Gb": 31955.443359375,
+          "Gr": 31964.205078125,
+          "R": 14116.81640625
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 26938.87109375,
+        "green_norm_exp_gain": 0.05486895052305206,
+        "channels_dn": {
+          "B": 16527.46484375,
+          "Gb": 26909.23046875,
+          "Gr": 26968.51171875,
+          "R": 11797.802734375
+        },
+        "relative_to_center_pct": 84.2897974324454
+      },
+      "bottom": {
+        "green_dn": 28047.9228515625,
+        "green_norm_exp_gain": 0.05712786129236919,
+        "channels_dn": {
+          "B": 16813.12109375,
+          "Gb": 28041.603515625,
+          "Gr": 28054.2421875,
+          "R": 12503.8349609375
+        },
+        "relative_to_center_pct": 87.75994091703268
+      },
+      "left": {
+        "green_dn": 26541.4970703125,
+        "green_norm_exp_gain": 0.054059581208530307,
+        "channels_dn": {
+          "B": 16304.8662109375,
+          "Gb": 26553.546875,
+          "Gr": 26529.447265625,
+          "R": 11569.0908203125
+        },
+        "relative_to_center_pct": 83.0464425856926
+      },
+      "right": {
+        "green_dn": 18410.41796875,
+        "green_norm_exp_gain": 0.037498242191389246,
+        "channels_dn": {
+          "B": 11509.0263671875,
+          "Gb": 18399.984375,
+          "Gr": 18420.8515625,
+          "R": 7801.69384765625
+        },
+        "relative_to_center_pct": 57.60487868374784
+      },
+      "top_left": {
+        "green_dn": 20020.4365234375,
+        "green_norm_exp_gain": 0.04077751948964395,
+        "channels_dn": {
+          "B": 11950.701171875,
+          "Gb": 19962.50390625,
+          "Gr": 20078.369140625,
+          "R": 8805.130859375
+        },
+        "relative_to_center_pct": 62.64251138056019
+      },
+      "top_right": {
+        "green_dn": 15517.52392578125,
+        "green_norm_exp_gain": 0.03160601086663596,
+        "channels_dn": {
+          "B": 9449.8955078125,
+          "Gb": 15497.05078125,
+          "Gr": 15537.9970703125,
+          "R": 6575.49658203125
+        },
+        "relative_to_center_pct": 48.55322050450303
+      },
+      "bottom_left": {
+        "green_dn": 21616.9208984375,
+        "green_norm_exp_gain": 0.04402923044211307,
+        "channels_dn": {
+          "B": 12794.0576171875,
+          "Gb": 21620.748046875,
+          "Gr": 21613.09375,
+          "R": 9567.9833984375
+        },
+        "relative_to_center_pct": 67.63779659887933
+      },
+      "bottom_right": {
+        "green_dn": 15964.416015625,
+        "green_norm_exp_gain": 0.0325162383175728,
+        "channels_dn": {
+          "B": 9575.9794921875,
+          "Gb": 15959.9794921875,
+          "Gr": 15968.8525390625,
+          "R": 6789.04931640625
+        },
+        "relative_to_center_pct": 49.951513832980005
+      }
+    }
+  },
+  {
+    "level": "level25_reframed",
+    "camera": 1,
+    "active_panel_bbox_green_px": [
+      624,
+      320,
+      1073,
+      728
+    ],
+    "active_panel_coverage_of_frame_pct": 25.079236861282578,
+    "panel_aspect": 1.473901098901099,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 66645,
+    "analogue_gain": 7.5851850509643555,
+    "digital_gain": 1.0049525499343872,
+    "zones": {
+      "center": {
+        "green_dn": 32565.2255859375,
+        "green_norm_exp_gain": 0.06441994329643592,
+        "channels_dn": {
+          "B": 20209.912109375,
+          "Gb": 32565.126953125,
+          "Gr": 32565.32421875,
+          "R": 14389.740234375
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 27229.375,
+        "green_norm_exp_gain": 0.05386465967718835,
+        "channels_dn": {
+          "B": 16713.7578125,
+          "Gb": 27201.169921875,
+          "Gr": 27257.580078125,
+          "R": 11962.5712890625
+        },
+        "relative_to_center_pct": 83.61488216362407
+      },
+      "bottom": {
+        "green_dn": 28610.767578125,
+        "green_norm_exp_gain": 0.05659730561934813,
+        "channels_dn": {
+          "B": 17062.0234375,
+          "Gb": 28633.69921875,
+          "Gr": 28587.8359375,
+          "R": 12708.02734375
+        },
+        "relative_to_center_pct": 87.85680757107933
+      },
+      "left": {
+        "green_dn": 22528.083984375,
+        "green_norm_exp_gain": 0.044564650382077325,
+        "channels_dn": {
+          "B": 13738.4072265625,
+          "Gb": 22542.470703125,
+          "Gr": 22513.697265625,
+          "R": 9734.0400390625
+        },
+        "relative_to_center_pct": 69.17834462692377
+      },
+      "right": {
+        "green_dn": 22406.65625,
+        "green_norm_exp_gain": 0.04432444422282903,
+        "channels_dn": {
+          "B": 13862.7783203125,
+          "Gb": 22396.416015625,
+          "Gr": 22416.896484375,
+          "R": 9685.666015625
+        },
+        "relative_to_center_pct": 68.80546916793283
+      },
+      "top_left": {
+        "green_dn": 16380.03662109375,
+        "green_norm_exp_gain": 0.03240269371203331,
+        "channels_dn": {
+          "B": 9722.0576171875,
+          "Gb": 16333.5634765625,
+          "Gr": 16426.509765625,
+          "R": 7128.62548828125
+        },
+        "relative_to_center_pct": 50.29916521802652
+      },
+      "top_right": {
+        "green_dn": 18902.056640625,
+        "green_norm_exp_gain": 0.03739170833506842,
+        "channels_dn": {
+          "B": 11458.798828125,
+          "Gb": 18884.056640625,
+          "Gr": 18920.056640625,
+          "R": 8156.9794921875
+        },
+        "relative_to_center_pct": 58.04368402344921
+      },
+      "bottom_left": {
+        "green_dn": 18464.69140625,
+        "green_norm_exp_gain": 0.036526520298095735,
+        "channels_dn": {
+          "B": 10806.501953125,
+          "Gb": 18475.408203125,
+          "Gr": 18453.974609375,
+          "R": 8080.765625
+        },
+        "relative_to_center_pct": 56.70064025051166
+      },
+      "bottom_right": {
+        "green_dn": 18041.2763671875,
+        "green_norm_exp_gain": 0.035688928286479425,
+        "channels_dn": {
+          "B": 10703.2919921875,
+          "Gb": 18095.13671875,
+          "Gr": 17987.416015625,
+          "R": 7862.51025390625
+        },
+        "relative_to_center_pct": 55.400434182707414
+      }
+    }
+  },
+  {
+    "level": "level50",
+    "camera": 0,
+    "active_panel_bbox_green_px": [
+      730,
+      338,
+      1072,
+      723
+    ],
+    "active_panel_coverage_of_frame_pct": 25.183658050411523,
+    "panel_aspect": 1.4827109266943292,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 39961,
+    "analogue_gain": 2.0,
+    "digital_gain": 1.0000526905059814,
+    "zones": {
+      "center": {
+        "green_dn": 32217.716796875,
+        "green_norm_exp_gain": 0.4031144965951177,
+        "channels_dn": {
+          "B": 19880.107421875,
+          "Gb": 32213.20703125,
+          "Gr": 32222.2265625,
+          "R": 14187.4453125
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 26548.580078125,
+        "green_norm_exp_gain": 0.33218112757594903,
+        "channels_dn": {
+          "B": 16197.7890625,
+          "Gb": 26518.171875,
+          "Gr": 26578.98828125,
+          "R": 11559.7470703125
+        },
+        "relative_to_center_pct": 82.40366704291135
+      },
+      "bottom": {
+        "green_dn": 27107.2548828125,
+        "green_norm_exp_gain": 0.33917137812883186,
+        "channels_dn": {
+          "B": 16153.494140625,
+          "Gb": 27108.677734375,
+          "Gr": 27105.83203125,
+          "R": 12024.654296875
+        },
+        "relative_to_center_pct": 84.13772786481817
+      },
+      "left": {
+        "green_dn": 25987.3212890625,
+        "green_norm_exp_gain": 0.3251585456953342,
+        "channels_dn": {
+          "B": 15824.3759765625,
+          "Gb": 26001.30859375,
+          "Gr": 25973.333984375,
+          "R": 11259.884765625
+        },
+        "relative_to_center_pct": 80.66158583771266
+      },
+      "right": {
+        "green_dn": 18039.15625,
+        "green_norm_exp_gain": 0.22570951990690924,
+        "channels_dn": {
+          "B": 11131.0302734375,
+          "Gb": 18026.455078125,
+          "Gr": 18051.857421875,
+          "R": 7595.8720703125
+        },
+        "relative_to_center_pct": 55.991417280537185
+      },
+      "top_left": {
+        "green_dn": 19663.7763671875,
+        "green_norm_exp_gain": 0.24603709075332825,
+        "channels_dn": {
+          "B": 11643.6728515625,
+          "Gb": 19604.220703125,
+          "Gr": 19723.33203125,
+          "R": 8565.9990234375
+        },
+        "relative_to_center_pct": 61.03404686049886
+      },
+      "top_right": {
+        "green_dn": 15198.1044921875,
+        "green_norm_exp_gain": 0.19016171382332148,
+        "channels_dn": {
+          "B": 9176.7587890625,
+          "Gb": 15177.5947265625,
+          "Gr": 15218.6142578125,
+          "R": 6386.45947265625
+        },
+        "relative_to_center_pct": 47.173127096522435
+      },
+      "bottom_left": {
+        "green_dn": 20779.8681640625,
+        "green_norm_exp_gain": 0.2600018538582931,
+        "channels_dn": {
+          "B": 12218.8369140625,
+          "Gb": 20787.873046875,
+          "Gr": 20771.86328125,
+          "R": 9130.3662109375
+        },
+        "relative_to_center_pct": 64.49826440239264
+      },
+      "bottom_right": {
+        "green_dn": 15212.7001953125,
+        "green_norm_exp_gain": 0.1903443381711231,
+        "channels_dn": {
+          "B": 9097.04296875,
+          "Gb": 15216.251953125,
+          "Gr": 15209.1484375,
+          "R": 6418.38671875
+        },
+        "relative_to_center_pct": 47.2184304406949
+      }
+    }
+  },
+  {
+    "level": "level50",
+    "camera": 1,
+    "active_panel_bbox_green_px": [
+      624,
+      318,
+      1073,
+      729
+    ],
+    "active_panel_coverage_of_frame_pct": 25.067984289266118,
+    "panel_aspect": 1.4718792866941015,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 41065,
+    "analogue_gain": 2.0,
+    "digital_gain": 1.0002280473709106,
+    "zones": {
+      "center": {
+        "green_dn": 32769.669921875,
+        "green_norm_exp_gain": 0.3989975638849994,
+        "channels_dn": {
+          "B": 20234.4296875,
+          "Gb": 32770.4296875,
+          "Gr": 32768.91015625,
+          "R": 14414.3662109375
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 26606.185546875,
+        "green_norm_exp_gain": 0.3239520948115792,
+        "channels_dn": {
+          "B": 16223.822265625,
+          "Gb": 26568.376953125,
+          "Gr": 26643.994140625,
+          "R": 11645.767578125
+        },
+        "relative_to_center_pct": 81.19149692476567
+      },
+      "bottom": {
+        "green_dn": 27458.8564453125,
+        "green_norm_exp_gain": 0.33433406118729453,
+        "channels_dn": {
+          "B": 16293.134765625,
+          "Gb": 27497.029296875,
+          "Gr": 27420.68359375,
+          "R": 12139.439453125
+        },
+        "relative_to_center_pct": 83.79350939687882
+      },
+      "left": {
+        "green_dn": 21961.53515625,
+        "green_norm_exp_gain": 0.26739967315536345,
+        "channels_dn": {
+          "B": 13241.1875,
+          "Gb": 21978.9453125,
+          "Gr": 21944.125,
+          "R": 9425.6630859375
+        },
+        "relative_to_center_pct": 67.01787112475564
+      },
+      "right": {
+        "green_dn": 21960.7900390625,
+        "green_norm_exp_gain": 0.2673906007434859,
+        "channels_dn": {
+          "B": 13447.25,
+          "Gb": 21949.232421875,
+          "Gr": 21972.34765625,
+          "R": 9447.912109375
+        },
+        "relative_to_center_pct": 67.01559732343486
+      },
+      "top_left": {
+        "green_dn": 15755.80615234375,
+        "green_norm_exp_gain": 0.19183984113410144,
+        "channels_dn": {
+          "B": 9288.353515625,
+          "Gb": 15705.3740234375,
+          "Gr": 15806.23828125,
+          "R": 6791.30029296875
+        },
+        "relative_to_center_pct": 48.08045424292221
+      },
+      "top_right": {
+        "green_dn": 18489.4443359375,
+        "green_norm_exp_gain": 0.22512412438740412,
+        "channels_dn": {
+          "B": 11137.7041015625,
+          "Gb": 18468.453125,
+          "Gr": 18510.435546875,
+          "R": 7922.38671875
+        },
+        "relative_to_center_pct": 56.42243080268286
+      },
+      "bottom_left": {
+        "green_dn": 17642.3369140625,
+        "green_norm_exp_gain": 0.21480989789434432,
+        "channels_dn": {
+          "B": 10239.5556640625,
+          "Gb": 17651.859375,
+          "Gr": 17632.814453125,
+          "R": 7656.7900390625
+        },
+        "relative_to_center_pct": 53.8373958484262
+      },
+      "bottom_right": {
+        "green_dn": 17051.7822265625,
+        "green_norm_exp_gain": 0.2076194110137891,
+        "channels_dn": {
+          "B": 10060.5107421875,
+          "Gb": 17104.83203125,
+          "Gr": 16998.732421875,
+          "R": 7381.2265625
+        },
+        "relative_to_center_pct": 52.03525780764666
+      }
+    }
+  },
+  {
+    "level": "level75",
+    "camera": 0,
+    "active_panel_bbox_green_px": [
+      730,
+      337,
+      1072,
+      723
+    ],
+    "active_panel_coverage_of_frame_pct": 25.18198356052812,
+    "panel_aspect": 1.4827109266943292,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 19454,
+    "analogue_gain": 1.4992679357528687,
+    "digital_gain": 1.0010476112365723,
+    "zones": {
+      "center": {
+        "green_dn": 32398.2236328125,
+        "green_norm_exp_gain": 1.1107927443943737,
+        "channels_dn": {
+          "B": 19926.646484375,
+          "Gb": 32392.40625,
+          "Gr": 32404.041015625,
+          "R": 14163.298828125
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 25759.45703125,
+        "green_norm_exp_gain": 0.8831786055353922,
+        "channels_dn": {
+          "B": 15669.6640625,
+          "Gb": 25721.005859375,
+          "Gr": 25797.908203125,
+          "R": 11141.4365234375
+        },
+        "relative_to_center_pct": 79.50885617432789
+      },
+      "bottom": {
+        "green_dn": 26159.69921875,
+        "green_norm_exp_gain": 0.8969011516513238,
+        "channels_dn": {
+          "B": 15573.623046875,
+          "Gb": 26164.73828125,
+          "Gr": 26154.66015625,
+          "R": 11523.9248046875
+        },
+        "relative_to_center_pct": 80.74423929914416
+      },
+      "left": {
+        "green_dn": 25248.2490234375,
+        "green_norm_exp_gain": 0.8656515289774256,
+        "channels_dn": {
+          "B": 15298.2685546875,
+          "Gb": 25262.994140625,
+          "Gr": 25233.50390625,
+          "R": 10879.7421875
+        },
+        "relative_to_center_pct": 77.93096717150381
+      },
+      "right": {
+        "green_dn": 17482.5888671875,
+        "green_norm_exp_gain": 0.5994011612177983,
+        "channels_dn": {
+          "B": 10720.408203125,
+          "Gb": 17468.4609375,
+          "Gr": 17496.716796875,
+          "R": 7302.93115234375
+        },
+        "relative_to_center_pct": 53.961566119573796
+      },
+      "top_left": {
+        "green_dn": 18849.6923828125,
+        "green_norm_exp_gain": 0.6462731342988873,
+        "channels_dn": {
+          "B": 11113.513671875,
+          "Gb": 18790.712890625,
+          "Gr": 18908.671875,
+          "R": 8144.93359375
+        },
+        "relative_to_center_pct": 58.18125276387615
+      },
+      "top_right": {
+        "green_dn": 14704.08154296875,
+        "green_norm_exp_gain": 0.5041383526463122,
+        "channels_dn": {
+          "B": 8819.693359375,
+          "Gb": 14683.31640625,
+          "Gr": 14724.8466796875,
+          "R": 6119.38720703125
+        },
+        "relative_to_center_pct": 45.385456034931025
+      },
+      "bottom_left": {
+        "green_dn": 19937.5908203125,
+        "green_norm_exp_gain": 0.6835723919590849,
+        "channels_dn": {
+          "B": 11682.240234375,
+          "Gb": 19944.669921875,
+          "Gr": 19930.51171875,
+          "R": 8687.5859375
+        },
+        "relative_to_center_pct": 61.53914809119339
+      },
+      "bottom_right": {
+        "green_dn": 14536.62548828125,
+        "green_norm_exp_gain": 0.49839702026155164,
+        "channels_dn": {
+          "B": 8649.4326171875,
+          "Gb": 14538.1962890625,
+          "Gr": 14535.0546875,
+          "R": 6079.431640625
+        },
+        "relative_to_center_pct": 44.86858802208756
+      }
+    }
+  },
+  {
+    "level": "level75",
+    "camera": 1,
+    "active_panel_bbox_green_px": [
+      624,
+      318,
+      1073,
+      728
+    ],
+    "active_panel_coverage_of_frame_pct": 25.067013085133745,
+    "panel_aspect": 1.473901098901099,
+    "threshold_fraction_of_center": 0.05,
+    "exposure_us": 19849,
+    "analogue_gain": 1.4992679357528687,
+    "digital_gain": 1.0012681484222412,
+    "zones": {
+      "center": {
+        "green_dn": 32756.203125,
+        "green_norm_exp_gain": 1.1007169919892503,
+        "channels_dn": {
+          "B": 20155.931640625,
+          "Gb": 32754.673828125,
+          "Gr": 32757.732421875,
+          "R": 14322.912109375
+        },
+        "relative_to_center_pct": 100.0
+      },
+      "top": {
+        "green_dn": 25814.2451171875,
+        "green_norm_exp_gain": 0.867444194537239,
+        "channels_dn": {
+          "B": 15717.556640625,
+          "Gb": 25779.369140625,
+          "Gr": 25849.12109375,
+          "R": 11215.8095703125
+        },
+        "relative_to_center_pct": 78.80719575061403
+      },
+      "bottom": {
+        "green_dn": 26339.466796875,
+        "green_norm_exp_gain": 0.8850933837667422,
+        "channels_dn": {
+          "B": 15618.5380859375,
+          "Gb": 26375.5703125,
+          "Gr": 26303.36328125,
+          "R": 11560.984375
+        },
+        "relative_to_center_pct": 80.41062236780533
+      },
+      "left": {
+        "green_dn": 21139.42578125,
+        "green_norm_exp_gain": 0.7103547706528489,
+        "channels_dn": {
+          "B": 12670.5263671875,
+          "Gb": 21156.9765625,
+          "Gr": 21121.875,
+          "R": 9027.8154296875
+        },
+        "relative_to_center_pct": 64.53564138853471
+      },
+      "right": {
+        "green_dn": 21175.2021484375,
+        "green_norm_exp_gain": 0.7115569751673542,
+        "channels_dn": {
+          "B": 12889.2177734375,
+          "Gb": 21161.984375,
+          "Gr": 21188.419921875,
+          "R": 9062.708984375
+        },
+        "relative_to_center_pct": 64.64486151716493
+      },
+      "top_left": {
+        "green_dn": 15203.5556640625,
+        "green_norm_exp_gain": 0.510889860898309,
+        "channels_dn": {
+          "B": 8916.8974609375,
+          "Gb": 15153.7041015625,
+          "Gr": 15253.4072265625,
+          "R": 6497.3662109375
+        },
+        "relative_to_center_pct": 46.41427947569091
+      },
+      "top_right": {
+        "green_dn": 17860.5185546875,
+        "green_norm_exp_gain": 0.600172620247293,
+        "channels_dn": {
+          "B": 10705.546875,
+          "Gb": 17838.23828125,
+          "Gr": 17882.798828125,
+          "R": 7588.7900390625
+        },
+        "relative_to_center_pct": 54.52560691033235
+      },
+      "bottom_left": {
+        "green_dn": 16793.494140625,
+        "green_norm_exp_gain": 0.5643170633946253,
+        "channels_dn": {
+          "B": 9701.61328125,
+          "Gb": 16804.68359375,
+          "Gr": 16782.3046875,
+          "R": 7226.732421875
+        },
+        "relative_to_center_pct": 51.26813408910621
+      },
+      "bottom_right": {
+        "green_dn": 16288.8310546875,
+        "green_norm_exp_gain": 0.5473587110544184,
+        "channels_dn": {
+          "B": 9587.958984375,
+          "Gb": 16341.5390625,
+          "Gr": 16236.123046875,
+          "R": 6994.14013671875
+        },
+        "relative_to_center_pct": 49.72746991624201
+      }
+    }
+  }
+]

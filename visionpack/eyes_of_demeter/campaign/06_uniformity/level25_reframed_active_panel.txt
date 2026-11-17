@@ -1,0 +1,20 @@
+level25_reframed cam0 bbox=730,339 1072x723 aspect=1.483 coverage=25.2% exp=66645 gain=7.367
+  center       G= 31959.8 norm=0.06510 rel= 100.0%
+  top          G= 26938.9 norm=0.05487 rel=  84.3%
+  bottom       G= 28047.9 norm=0.05713 rel=  87.8%
+  left         G= 26541.5 norm=0.05406 rel=  83.0%
+  right        G= 18410.4 norm=0.03750 rel=  57.6%
+  top_left     G= 20020.4 norm=0.04078 rel=  62.6%
+  top_right    G= 15517.5 norm=0.03161 rel=  48.6%
+  bottom_left  G= 21616.9 norm=0.04403 rel=  67.6%
+  bottom_right G= 15964.4 norm=0.03252 rel=  50.0%
+level25_reframed cam1 bbox=624,320 1073x728 aspect=1.474 coverage=25.1% exp=66645 gain=7.585
+  center       G= 32565.2 norm=0.06442 rel= 100.0%
+  top          G= 27229.4 norm=0.05386 rel=  83.6%
+  bottom       G= 28610.8 norm=0.05660 rel=  87.9%
+  left         G= 22528.1 norm=0.04456 rel=  69.2%
+  right        G= 22406.7 norm=0.04432 rel=  68.8%
+  top_left     G= 16380.0 norm=0.03240 rel=  50.3%
+  top_right    G= 18902.1 norm=0.03739 rel=  58.0%
+  bottom_left  G= 18464.7 norm=0.03653 rel=  56.7%
+  bottom_right G= 18041.3 norm=0.03569 rel=  55.4%

@@ -1,0 +1,79 @@
+archivo: .\DEM_M00_20261102_181248_0089.BIN  tamano=5685248 B  registros=50686  bytes_saltados=0  resync=0
+por tipo: PVT=1265, PPS=127, LINK=1399, HEARTBEAT=128, FILEHDR=1, IMU=3442, MAG=12421, BAR=5106, BARCAL=4, EXT_LSM=13684, EXT_MMC=13105, MISSION=4
+duracion (reloj local): 127.2 s
+cabecera: TBLG v1 rocket_id=1 mission_id=0 arranque=85 archivo=89 fw=Nov  2 2026
+ultimo latido: t=239 s  descartes anillos=[0, 0, 0, 0]  escritura_max=26.5 ms  flush_max=18.0 ms  bytes=5682175  time_flags=0x04
+
+PVT: 1265 en 127.1 s -> 9.95 Hz   ultimo: fix=3 sv=14 hAcc=0.87 m tAcc=22 ns
+huecos: 7 (0.6 % de las epocas)  tamanos: {200: 7}
+fase (x100 ms dentro del segundo) de la epoca perdida: 1:7
+
+PPS: 127 registros, 127 anclados
+error del reloj local (negativo = va lento): media por segundo=-53.13 ppm  sd=3.10 ppm  (ventana completa: -53.13 ppm)
+  (la sd por segundo refleja el jitter del PPS: ~3.1 us)
+
+retraso de entrega del PVT (ms desde el inicio de su epoca, por fase de 100 ms):
+  fase 0: n= 127  mediana=  83.1  p95= 122.2  max= 126.2
+  fase 1: n= 120  mediana=  45.7  p95=  55.8  max=  60.2
+  fase 2: n= 127  mediana=  45.7  p95=  56.6  max=  65.9
+  fase 3: n= 127  mediana=  46.1  p95=  57.4  max=  69.3
+  fase 4: n= 127  mediana=  46.3  p95=  57.0  max=  65.9
+  fase 5: n= 127  mediana=  46.7  p95=  56.2  max=  61.1
+  fase 6: n= 126  mediana=  45.9  p95=  54.6  max=  64.1
+  fase 7: n= 126  mediana=  45.7  p95=  55.1  max=  61.8
+  fase 8: n= 126  mediana=  46.2  p95=  59.0  max=  63.2
+  fase 9: n= 126  mediana=  45.7  p95=  58.1  max=  69.5
+
+IMU: 3442 registros, 56530 muestras  (rango +-16 g, +-1024 dps)
+  muestras por registro: 16:3033, 17:56, 18:83, 19:85, 20:78, 21:33, 22:35, 23:26, 24:8, 25:2, 26:3
+  banderas: est_ok=3442, hueco=78
+  lotes: 3442  marca de agua deducida: 16 muestras
+  periodo por indice = 2247.134 us -> 445.011 Hz (reloj local)   residuo de la interrupcion: sd=69.1 us  (3442/3442 lotes usados)
+  corregido con el PPS (reloj local -53.13 ppm): 444.988 Hz por segundo real   (nominal del chip 448.4)
+  lotes/s=27.06  muestras/lote=16.42  recibidas/s=444.5
+  huecos en los indices: 78 lotes, 78 muestras (0.14 %)  tamanos: {1: 78}
+  flancos contra el reloj del chip: coherencia 0.969 en el ODR por indice; pico 300-600 Hz en 445.012 Hz (0.969)
+  tiempo de lectura del FIFO: mediana=469.0 us  p95=525 us  max=810 us
+  |a| = 1.0833 g (sd 0.0004)
+  giro medio: x=+3.516 y=-4.867 z=-0.087 dps   ruido sd: 0.056 0.073 0.055 dps
+
+LSM: 13684 registros, 204857 acel, 204857 giro  (rango +-32 g, +-2000 dps)
+  palabras: giro=204857, acel=204857, marca=25607, hub=12804
+  banderas: est_ok=13684, hueco=7
+  huecos en los indices: 7, 7 muestras (0.003 %)
+  marcas: 25607  ticks por ranura: mediana=24.000  min=24.000  max=24.000  (se espera 24: si no, revisar TS_TICKS_PER_SLOT)
+  periodo estimado: 620.903 us -> 1610.557 Hz (reloj local)  marca real=25.871 us (nominal 25: comparte oscilador con el ODR)
+  tiempo de lectura del FIFO: mediana=685.0 us  p95=862 us  max=1615 us
+  |a| = 0.9955 g (sd 0.0063)   medio: x=-0.0137 y=+0.9934 z=+0.0629 g
+  giro medio: x=+0.410 y=-0.409 z=+0.285 dps   ruido sd: 0.187 0.229 0.155 dps
+
+BMP581: 12804 en 127.2 s -> 100.67 Hz   palabras malas=0 (0.00 %)   sin ellas: P = 84195.3 Pa (sd 2.44, min 84189.4, max 84198.8)   T = 26.83 C (sd 0.090)
+
+RADIO: 1271 TX en 127.0 s -> 10.01 Hz   balizas=0
+  ranuras: {1: 127, 3: 127, 6: 127, 8: 127, 11: 127, 13: 128, 16: 127, 18: 127, 21: 127, 23: 127}
+  inicio respecto al previsto: mediana=-5 us  p95=59  max=95   aire: mediana=29747 us  max=29756
+  comandos recibidos: 1
+  balizas de tierra: 127   residuo: mediana=189 us  sd=8.0  min=137  max=201   RSSI mediana=-23.0 dBm
+
+MAG: 12421 en 127.2 s -> 97.66 Hz  (rango +-8 G)   intervalo: mediana=10.00 ms  p95=16.96  max=53.91  pausas >25 ms: 47
+  saturadas=0   medio: x=-0.3303 y=+0.8966 z=+0.1207 G   ruido sd: 2.79 3.70 2.60 mG
+  |B| = 0.9631 G (sd 3.81 mG, min 0.9529, max 0.9742)
+
+MMC5983MA: 13105 en 127.2 s -> 103.04 Hz  (rango +-8 G)   intervalo: mediana=9.16 ms  p95=16.91  max=22.46  pausas >25 ms: 0
+  saturadas=0   medio: x=-0.6056 y=+1.8103 z=+2.7164 G   ruido sd: 0.61 2.82 2.84 mG
+  |B| = 3.3200 G (sd 3.41 mG, min 3.3112, max 3.3268)
+
+BAR: 5106 en 127.2 s -> 40.15 Hz   intervalo: mediana=23.86 ms  p95=31.43  max=35.30   medicion: mediana=23.27 ms  max=34.81
+  P = 84130.3 Pa (sd 3.84, min 84119.0, max 84139.5)   T = 27.58 C (sd 0.173)   H = 68.1 %
+  calibraciones registradas: 4
+
+POSICION: bytes contados - posicion real: rango 2777 B  (normal: menos de 4096)
+
+MISION: 4 registros
+  t=95.35 s  armar arg=0 contador=33: APTO motivos=0x00000000  TIERRA -> TIERRA  momento=-  flags=0x00
+  t=98.35 s  armar confirmado arg=0 contador=34: EJECUTADO motivos=0x00000000  TIERRA -> ARMED  momento=-  flags=0x00
+  t=111.55 s  launch arg=0 contador=38: EJECUTADO motivos=0x00000000  ARMED -> FLY  momento=LAUNCH  flags=0x00
+  t=231.57 s  automatico arg=0 contador=0: EJECUTADO motivos=0x00001000  FLY -> FLY  momento=LAUNCH  flags=0x08
+
+SD: 0 incidentes
+  silencios de mas de 100 ms en todos los sensores: 0

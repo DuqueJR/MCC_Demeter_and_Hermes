@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es" data-mision="demeter">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Tokens · página de desarrollo</title>
+    <!-- Solo desarrollo (T-613): no entra al dist/ ni es una entrada pública. Se ve con `npm run dev` en /dev/tokens.html. -->
+    <link rel="stylesheet" href="/src/tema/comun.css" />
+    <link rel="stylesheet" href="/src/tema/demeter.css" />
+    <link rel="stylesheet" href="/src/tema/hermes.css" />
+    <link rel="stylesheet" href="/dev/tokens.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <h1>Tokens</h1>
+      <div class="selector">
+        <button type="button" data-elegir="demeter">Deméter</button>
+        <button type="button" data-elegir="hermes">Hermes</button>
+      </div>
+    </header>
+
+    <main>
+      <p class="nota">
+        Página de desarrollo (T-613). Todo lo que se ve sale de los tokens de 02 §6; los valores se leen del CSS
+        calculado, no están escritos aquí. Cambia el tema arriba o con <code>?mision=hermes</code>.
+      </p>
+
+      <section aria-labelledby="t-colores">
+        <h2 id="t-colores">Colores del tema</h2>
+        <div class="rejilla" id="colores"></div>
+      </section>
+
+      <section aria-labelledby="t-contraste">
+        <h2 id="t-contraste">Contraste sobre el fondo</h2>
+        <table id="contraste">
+          <thead>
+            <tr><th>Token</th><th>Valor</th><th>Sobre fondo</th><th>Sobre superficie</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="t-estados">
+        <h2 id="t-estados">Colores de estado (iguales en los dos temas)</h2>
+        <div class="rejilla">
+          <div class="estado" style="--c: var(--estado-ok)"><span class="icono" aria-hidden="true">✓</span> Listo<small>--estado-ok</small></div>
+          <div class="estado" style="--c: var(--estado-aviso)"><span class="icono" aria-hidden="true">⚠</span> Aviso<small>--estado-aviso</small></div>
+          <div class="estado" style="--c: var(--estado-alarma)"><span class="icono" aria-hidden="true">⛔</span> Alarma<small>--estado-alarma</small></div>
+          <div class="estado" style="--c: var(--estado-sin-dato)"><span class="icono" aria-hidden="true">–</span> Sin dato<small>--estado-sin-dato</small></div>
+          <div class="estado" style="--c: var(--estado-info)"><span class="icono" aria-hidden="true">ⓘ</span> Simulación<small>--estado-info</small></div>
+        </div>
+        <div class="rejilla">
+          <div class="muestra institucional" style="--c: var(--eia-teal)">--eia-teal <small id="v-eia-teal"></small></div>
+          <div class="muestra institucional" style="--c: var(--eia-cian)">--eia-cian <small id="v-eia-cian"></small></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="t-tipografia">
+        <h2 id="t-tipografia">Tipografía</h2>
+        <h3>Título de la misión</h3>
+        <p class="etiqueta">Texto · 16 px · Inter</p>
+        <p>Subiendo con el motor encendido. La señal llega cada segundo.</p>
+        <p class="etiqueta">Etiqueta · 13 px</p>
+        <p class="numero-grande"><span id="num-ejemplo">669</span><span class="unidad">m</span></p>
+        <p class="numero-medio">9,2<span class="unidad">m/s</span> · 1.234,5<span class="unidad">m</span></p>
+        <p class="nota">Fuente de títulos: <code id="fuente-display"></code> · de texto: <code id="fuente-texto"></code></p>
+      </section>
+
+      <section aria-labelledby="t-forma">
+        <h2 id="t-forma">Formas y movimiento</h2>
+        <div class="rejilla">
+          <div class="forma radio">--radio <small id="v-radio"></small></div>
+          <div class="forma tarjeta">--radio-tarjeta <small id="v-radio-tarjeta"></small></div>
+        </div>
+        <div class="pista" aria-hidden="true"><div class="bola rapida"></div><small>--dur-rapida · <span id="v-dur-rapida"></span></small></div>
+        <div class="pista" aria-hidden="true"><div class="bola media"></div><small>--dur-media · <span id="v-dur-media"></span></small></div>
+        <p class="nota">--curva: <code id="v-curva"></code></p>
+        <button type="button" class="toque" id="mover">Probar movimiento</button>
+      </section>
+
+      <section aria-labelledby="t-espacios">
+        <h2 id="t-espacios">Espacios y objetivo táctil</h2>
+        <div class="espacios" id="espacios"></div>
+        <p class="nota">--toque-min: <code id="v-toque"></code> (el botón de arriba lo usa como alto mínimo).</p>
+      </section>
+    </main>
+
+    <script type="module" src="/dev/tokens.js"></script>
+  </body>
+</html>
